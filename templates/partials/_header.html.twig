@@ -1,0 +1,65 @@
+<header class="main-header">
+    <div class="d-flex align-items-center logo-box justify-content-start">
+        <a href="{{ path('app_home') }}" class="logo">
+            <!-- logo-->
+            <div class="logo-mini w-70 p-2">
+                <img src="{{ asset('assets/images/logo_2_mini.png') }}" alt="logo">
+            </div>
+            <div class="logo-lg p-2">
+                <img src="{{ asset('assets/images/logo_3.png') }}" alt="logo">
+            </div>
+        </a>
+    </div>
+
+    <nav class="navbar navbar-static-top">
+        <div class="app-menu">
+            <ul class="header-megamenu nav">
+                <li class="btn-group nav-item">
+                    <a href="#" class="waves-effect waves-light nav-link push-btn btn-outline no-border" data-toggle="push-menu" role="button">
+                        <img src="{{ asset('assets/images/svg-icon/collapse.svg') }}" class="img-fluid svg-icon" alt="">
+                    </a>
+                </li>
+                <!-- Ajoute les autres boutons et champs de recherche ici si tu veux tout le header -->
+            </ul>
+        </div>
+
+        <div class="navbar-custom-menu r-side">
+            <ul class="nav navbar-nav">
+
+                <li class="nav-item dropdown d-flex align-items-center me-3">
+                    <form id="language-switcher">
+                        <select name="locale" class="form-select form-select-sm" style="width: auto;">
+                            <option value="fr" {% if app.request.locale == 'fr' %}selected{% endif %}>FR</option>
+                            <option value="en" {% if app.request.locale == 'en' %}selected{% endif %}>EN</option>
+                        </select>
+                    </form>
+                </li>
+
+                <li class="btn-group nav-item d-lg-inline-flex d-none">
+                    <a href="#" data-provide="fullscreen" class="waves-effect waves-light nav-link btn-outline no-border full-screen" title="Full Screen">
+                        <img src="{{ asset('assets/images/svg-icon/fullscreen.svg') }}" class="img-fluid svg-icon" alt="">
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+</header>
+{% block javascripts %}
+    <script>
+        document.querySelector('#language-switcher select').addEventListener('change', function () {
+            const selectedLocale = this.value;
+            const currentPath = window.location.pathname;
+            const pathParts = currentPath.split('/').filter(p => p);
+
+            // remplace le premier segment si c’est une locale, sinon ajoute
+            if (['fr', 'en', 'de'].includes(pathParts[0])) {
+                pathParts[0] = selectedLocale;
+            } else {
+                pathParts.unshift(selectedLocale);
+            }
+
+            const newPath = '/' + pathParts.join('/');
+            window.location.href = newPath;
+        });
+    </script>
+{% endblock %}

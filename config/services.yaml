@@ -5,6 +5,28 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
 
+    app.supported_locales: '%env(APP_SUPPORTED_LOCALES)%'
+
+    admin.email: '%env(resolve:ADMIN_EMAIL)%'
+
+    mssql.dsn: '%env(resolve:MSSQL_URL)%'
+    mssql.user: '%env(resolve:MSSQL_USER)%'
+    mssql.password: '%env(resolve:MSSQL_PASS)%'
+
+    graph.token_endpoint: '%env(resolve:GRAPH_TOKEN_ENDPOINT)%'
+    graph.client_id: '%env(resolve:GRAPH_CLIENT_ID)%'
+    graph.client_secret: '%env(resolve:GRAPH_CLIENT_SECRET)%'
+    graph.scope: '%env(resolve:GRAPH_SCOPE)%'
+    graph.sender_email: '%env(resolve:GRAPH_SENDER_EMAIL)%'
+
+    azure_client_id: '%env(AZURE_CLIENT_ID)%'
+    azure_client_secret: '%env(AZURE_CLIENT_SECRET)%'
+    azure_redirect_uri: '%env(AZURE_REDIRECT_URI)%'
+    azure_url_authorize: '%env(AZURE_URL_AUTHORIZE)%'
+    azure_url_access_token: '%env(AZURE_URL_ACCESS_TOKEN)%'
+    azure_url_resource_owner_details: '%env(AZURE_URL_RESOURCE_OWNER_DETAILS)%'
+    azure_tenant: '%env(AZURE_TENANT)%'
+
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -15,6 +37,41 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    App\Service\Tools\MssqlManager:
+        arguments:
+            $dsn: '%mssql.dsn%'
+            $user: '%mssql.user%'
+            $password: '%mssql.password%'
+
+    App\Service\Tools\GraphAccessTokenService:
+        arguments:
+            $tokenEndpoint: '%graph.token_endpoint%'
+            $clientId: '%graph.client_id%'
+            $clientSecret: '%graph.client_secret%'
+            $scope: '%graph.scope%'
+
+    App\Service\Tools\GraphMailer:
+        arguments:
+            $senderEmail: '%graph.sender_email%'
+            $adminEmail: '%admin.email%'
+
+    App\Service\Tools\UserManagerAzure:
+        arguments:
+            $codeSite: '%env(CODE_SITE)%'
+            $azureClientId: '%env(AZURE_CLIENT_ID)%'
+            $azureClientSecret: '%env(AZURE_CLIENT_SECRET)%'
+            $azureRedirectUri: '%env(AZURE_REDIRECT_URI)%'
+            $azureUrlAuthorize: '%env(AZURE_URL_AUTHORIZE)%'
+            $azureUrlAccessToken: '%env(AZURE_URL_ACCESS_TOKEN)%'
+            $azureUrlResourceOwnerDetails: '%env(AZURE_URL_RESOURCE_OWNER_DETAILS)%'
+            $tenant: '%env(AZURE_TENANT)%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    App\Service\Tools\Helpers: ~

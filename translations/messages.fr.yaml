@@ -1,0 +1,36 @@
+site:
+  title: Mon Application
+dashboard:
+  title: Tableau de bord
+  conversion:
+    title: TAUX DE CONVERSION
+  ventes:
+    title: VENTES
+  variation_text_month: " par rapport au M-1"
+  variation_text_year: " par rapport au N-1"
+  ventes_par_pays:
+    title: "VENTES PAR PAYS"
+    pays: "Pays"
+    commandes: "Commande"
+    ca: "CA"
+  ca_par_magasin: "CA PAR MAGASIN"
+  meilleur_ventes: "MEILLEURES VENTES"
+  evolution_ca: "Évolution CA 3 ans"
+sidebar:
+  hello: Bonjour
+  accueil: "Accueil"
+  important_link: "LIENS IMPORTANT"
+  menu:
+    management: "Management"
+    sales: "Ventes"
+    purchasing: "Achat"
+    products: "Produits"
+    products_details: "Détails du produit"
+    products_orders: "Commandes de produits"
+    products_edit: "Modification du produit"
+  stat:
+      sales:
+          sales_by_year: "Ventes annuelles"
+      management:
+          ca_marges: "CA Marges"
+

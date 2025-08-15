@@ -1,0 +1,35 @@
+site:
+  title: My Application
+dashboard:
+  title: Dashboard
+  conversion:
+    title: CONVERSION RATE
+  ventes:
+    title: SALES
+  variation_text_month: " compared to au M-1"
+  variation_text_year: " compared to au N-1"
+  ventes_par_pays:
+    title: "SALES BY COUNTRY"
+    pays: "Country"
+    commandes: "Orders"
+    ca: "CA"
+  ca_par_magasin: "SALES BY STORE"
+  meilleur_ventes: "TOP SALES"
+  evolution_ca: "3-year evolution"
+sidebar:
+  hello: Hello
+  accueil: "Home"
+  important_link: "LIENS IMPORTANT"
+  menu:
+    management: "Management"
+    sales: "Sales"
+    purchasing: "Purchasing"
+    products: "Produits"
+    products_details: "Product Details"
+    products_orders: "Product Orders"
+    products_edit: "Product Edit"
+  stat:
+    sales:
+        sales_by_year: "Annual Sales"
+    management:
+        ca_marges: "Sales and Margins"

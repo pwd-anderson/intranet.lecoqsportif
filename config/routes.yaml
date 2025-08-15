@@ -1,5 +1,23 @@
+# config/routes.yaml
 controllers:
-    resource:
-        path: ../src/Controller/
-        namespace: App\Controller
+    resource: ../src/Controller/
     type: attribute
+    prefix: /{_locale}
+    defaults:
+        _locale: fr
+    requirements:
+        _locale: fr|en
+
+home_redirect:
+    path: /
+    controller: Symfony\Bundle\FrameworkBundle\Controller\RedirectController::urlRedirectAction
+    defaults:
+        path: /fr/
+        permanent: false
+
+callback_redirect:
+    path: /callback
+    controller: Symfony\Bundle\FrameworkBundle\Controller\RedirectController::urlRedirectAction
+    defaults:
+        path: /fr/callback
+        permanent: false

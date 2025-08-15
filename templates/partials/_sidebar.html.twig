@@ -1,0 +1,73 @@
+<aside class="main-sidebar mt-2">
+    <section class="sidebar position-relative">
+        <div class="user-profile px-30 py-15">
+            <div class="d-flex align-items-center">
+                <div class="image">
+                    <img src="{{ asset('assets/images/avatar/1.jpg') }}" class="avatar avatar-lg" alt="User Image">
+                </div>
+                <div class="info ms-10">
+                    <p class="mb-0">{{ 'sidebar.hello'|trans }}</p>
+                    <h5 class="mb-0">{{ app.user.firstname }} {{ app.user.lastname }}</h5>
+                </div>
+            </div>
+        </div>
+
+        <div class="multinav">
+            <div class="multinav-scroll" style="height: 100%;">
+                <ul class="sidebar-menu" data-widget="tree">
+                    <li class="active"><a href="#"><img src="{{ asset('assets/images/svg-icon/dashboard.svg') }}" class="svg-icon" alt=""><span>{{ 'sidebar.accueil'|trans }}</span></a></li>
+
+                    {# Block Menu #}
+                    <li class="header">Menus</li>
+                    <li class="treeview">
+                        <a href="#">
+                            <img src="{{ asset('assets/images/svg-icon/management.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.menu.management'|trans }}</span>
+                            <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+                        </a>
+                        <ul class="treeview-menu">
+                            <li><a href="{{ path('app_ca_marges_year') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.management.ca_marges'|trans }}</a></li>
+                        </ul>
+                    </li>
+                    <li class="treeview">
+                        <a href="#">
+                            <img src="{{ asset('assets/images/svg-icon/ecommerce.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.menu.sales'|trans }}</span>
+                            <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+                        </a>
+                        <ul class="treeview-menu">
+                            <li><a href="#"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.sales_by_year'|trans }}</a></li>
+                            <li><a href="#"><i class="icon-Commit"></i>Ventes par produits</a></li>
+                            <li><a href="#"><i class="icon-Commit"></i>Backlog</a></li>
+                            <li><a href="#"><i class="icon-Commit"></i>Ventes par client</a></li>
+                            <li><a href="#"><i class="icon-Commit"></i>Détails factures</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="treeview">
+                        <a href="#">
+                            <img src="{{ asset('assets/images/svg-icon/authentication.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.menu.purchasing'|trans }}</span>
+                            <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+                        </a>
+                        <ul class="treeview-menu">
+                            <li><a href="#"><i class="icon-Commit"></i>Backlog Fournisseur</a></li>
+                            <li><a href="#"><i class="icon-Commit"></i>BL non facturés</a></li>
+                            <li><a href="#"><i class="icon-Commit"></i>Réception Fournisseur</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="header">Liens importants</li>
+                    <li><a href="#"><img src="{{ asset('assets/images/svg-icon/image.svg') }}" class="svg-icon" alt=""><span>{{ 'sidebar.menu.products'|trans }}</span></a></li>
+
+                </ul>
+
+                <div class="sidebar-widgets">
+                    <div class="copyright text-start m-25">
+                        <p><strong class="d-block">Lecoqsportif</strong> © {{ "now"|date("Y") }} All Rights Reserved</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</aside>

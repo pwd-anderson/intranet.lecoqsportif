@@ -1,0 +1,239 @@
+{% extends 'base.html.twig' %}
+{% block stylesheets %}
+    <style>
+        /* Hauteur minimum pour aligner les boîtes sur desktop */
+        .min-h-box {
+            min-height: 440px;
+        }
+
+        .max-h-box {
+            max-height: 440px;
+        }
+
+        .min-h-248-box {
+            min-height: 248px;
+        }
+
+        .max-h-248-box {
+            max-height: 248px;
+        }
+
+        /* Sur mobile (écran < 768px), on réduit la hauteur min pour éviter les espaces inutiles */
+        @media (max-width: 767px) {
+            .min-h-box {
+                min-height: auto;
+            }
+        }
+
+        .scroll-table {
+            max-height: 440px;
+            overflow-y: auto;
+            scrollbar-width: none; /* Firefox */
+        }
+
+        .scroll-table::-webkit-scrollbar {
+            width: 0px; /* Chrome/Safari */
+            background: transparent;
+        }
+
+        .ct-bar-tooltip {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .ct-bar-tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translate(-50%, -6px);
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            font-size: 12px;
+            z-index: 10;
+        }
+
+        .chartist-tooltip {
+            position: absolute;
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 100;
+        }
+
+    </style>
+{% endblock %}
+
+{% block title %}{{ 'dashboard.title'|trans }} | {{ 'site.title'|trans }}{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <!-- Traductions utilisées dans JS (dashboard.js) -->
+            <span id="trans_variation_month" data-text="{{ 'dashboard.variation_text_month'|trans }}"></span>
+
+            <!-- Blocs Conversion EUR -> CHF -->
+            <div class="col-lg-3 col-md-6">
+                <div class="box min-h-248-box">
+                    <div class="box-body">
+                        <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} : <span class="fw-bold text-info">1 EUR = <span id="taux-eur-chf-text"></span> CHF</span></h6>
+                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
+                            <h3 class="mb-0 me-5" id="taux-eur-chf-val"></h3>
+                            <p class="mb-0" id="evolution-rate-text"></p>
+                        </div>
+                        <div id="bar-negative-chart"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Blocs Conversion USD -> CHF -->
+            <div class="col-lg-3 col-md-6">
+                <div class="box min-h-248-box">
+                    <div class="box-body">
+                        <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} : <span class="fw-bold text-primary">1 USD = <span id="taux-usd-chf-text"></span> CHF</span></h6>
+                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
+                            <h3 class="mb-0 me-5" id="taux-usd-chf-val"></h3>
+                            <p class="mb-0" id="evolution-rate-usd-text"></p>
+                        </div>
+                        <div id="bar-negative-chart-usd"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Blocs Ventes Année en cours -->
+            <div class="col-lg-3 col-md-6">
+                <div class="box min-h-248-box">
+                    <div class="box-body">
+                        <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("Y") }} <small>(EUR)</small></h6>
+                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
+                            <h3 class="mb-0 me-5" id="ca_n"></h3>
+                            <p class="mb-0"><span class="text-danger" id="variation"><i class="fa fa-arrow-down"></i></span></p>
+                        </div>
+                        <div id="primary-line-chart"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Blocs Mois en cours -->
+            <div class="col-lg-3 col-md-6">
+                <div class="box min-h-248-box">
+                    <div class="box-body">
+                        <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("m/Y") }} <small>(EUR)</small></h6>
+                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
+                            <h3 class="mb-0 me-5" id="ca_nm">–</h3>
+                            <p class="mb-0" id="variation_m">–</p>
+                        </div>
+                        <div id="warning-line-chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOP Client -->
+            <div class="col-lg-4 col-md-6">
+                <div class="box min-h-box">
+                    <div class="box-body pt-10 pb-10">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Top 10 Clients 2025</span>
+                        </div>
+                        <div id="chart-top-clients" style="height: 360px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOP produits avec meilleur marges -->
+            <div class="col-lg-4 col-md-6">
+                <div class="box min-h-box">
+                    <div class="box-body text-center p-10">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Répartition CA 2025 par société</span>
+                        </div>
+                        <div id="chart-top-company-sales" class="mb-20"></div>
+                        <div id="table-top-company-sales"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <div class="box min-h-box">
+                    <div class="box-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Produits les plus vendus (2025)</span>
+                        </div>
+                        <div id="chart-top-product-sales" style="height: 360px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-12 col-md-6">
+                <div class="box">
+                    <div class="box-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Évolution du CA sur 5 ans</span>
+                        </div>
+                        <div id="userflow"></div>
+                        <div id="apex-legend-sales" class="d-flex flex-wrap gap-2 mt-3 justify-content-center small"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+{% endblock %}
+{% block javascripts %}
+    <script>
+        $(function () {
+
+            'use strict';
+
+            window.Apex = {
+                markers: {
+                    size: 0
+                }
+            };
+            const exchangeUrlEur = "{{ path('api_dashboard_exchange_rate', { currency: 'EUR' }) }}";
+            chargerConversionChart(exchangeUrlEur, {
+                text: '#taux-eur-chf-text',
+                value: '#taux-eur-chf-val',
+                evolution: '#evolution-rate-text'
+            }, '#bar-negative-chart', ['#2e62b9', '#fad050']);
+
+            const exchangeUrlUsd = "{{ path('api_dashboard_exchange_rate', { currency: 'USD' }) }}";
+            chargerConversionChart(exchangeUrlUsd, {
+                text: '#taux-usd-chf-text',
+                value: '#taux-usd-chf-val',
+                evolution: '#evolution-rate-usd-text'
+            }, '#bar-negative-chart-usd', ['#27ae60', '#e74c3c']);
+
+            renderSalesYearChart(
+                '{{ path("api_dashboard_ca_par_mois") }}',
+                '#ca_n',
+                '#variation',
+                '#primary-line-chart'
+            );
+
+            renderSalesMonthChart(
+                '{{ path("api_dashboard_sales_current_month") }}',
+                '#ca_nm',
+                '#variation_m',
+                '#warning-line-chart'
+            );
+
+            // Top clients
+            renderTopClientsChart('{{ path("api_dashboard_top_clients") }}', '#chart-top-clients');
+            // Top sociétés ca
+            renderTopCompanySalesChart('{{ path("api_dashboard_top_company_sales") }}', '#chart-top-company-sales', '#table-top-company-sales');
+            // Meilleurs ventes
+            renderTopProductSalesChart('{{ path("api_dashboard_top_product_sales") }}', '#chart-top-product-sales');
+            // CA Evolution sur 5 ans
+            renderSalesEvolutionChart('{{ path("api_dashboard_sales_evolution_5y") }}', '#userflow', '#apex-legend-sales');
+
+
+        }); // End of use strict
+
+    </script>
+{% endblock %}
