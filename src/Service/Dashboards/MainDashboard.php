@@ -227,7 +227,7 @@ class MainDashboard
                 I.IsBohPerimeter_Product = 1
                 AND I.IsBohPerimeter_IR = 1
                 AND I.DocumentType = 'INVOICE'
-                AND YEAR(I.ExpectedInvoicingDate) = 2025
+                AND YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
             GROUP BY I.CompanyCode
             ORDER BY TotalSales DESC
         ";

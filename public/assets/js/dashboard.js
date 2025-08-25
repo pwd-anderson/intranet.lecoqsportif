@@ -258,8 +258,9 @@ function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector) {
         // Tableau
         let html = '<table class="table table-sm mb-0" style="font-size: 12px;"><tbody>';
         result.labels.forEach((label, i) => {
+            const val = Number(result.values[i]) || 0;
             html += `<tr><td class="text-start text-truncate" style="max-width: 140px;">${label}</td>
-                     <td class="text-end fw-bold">${result.values[i].toFixed(2).toLocaleString('fr-CH')} €</td></tr>`;
+             <td class="text-end fw-bold">${val.toLocaleString('fr-CH', { minimumFractionDigits: 2 })} €</td></tr>`;
         });
         html += '</tbody></table>';
         document.querySelector(tableSelector).innerHTML = html;
