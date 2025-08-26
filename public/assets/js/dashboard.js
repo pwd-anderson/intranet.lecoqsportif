@@ -222,10 +222,13 @@ function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector) {
             return;
         }
 
+        // Sécuriser les valeurs avant usage
+        const safeValues = result.values.map(v => Number(v) || 0);
+
         const options = {
             chart: { type: 'donut', height: 240, toolbar: { show: false } },
             labels: result.labels,
-            series: result.values,
+            series: safeValues,
             legend: { show: false },
             dataLabels: {
                 formatter: (val) => val.toFixed(1) + ' %'
@@ -255,12 +258,12 @@ function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector) {
         chart.render();
         el._chart = chart;
 
-        // Tableau
+        // Tableau HTML avec valeurs sûres
         let html = '<table class="table table-sm mb-0" style="font-size: 12px;"><tbody>';
         result.labels.forEach((label, i) => {
-            const val = Number(result.values[i]) || 0;
+            const val = safeValues[i];
             html += `<tr><td class="text-start text-truncate" style="max-width: 140px;">${label}</td>
-             <td class="text-end fw-bold">${val.toLocaleString('fr-CH', { minimumFractionDigits: 2 })} €</td></tr>`;
+                     <td class="text-end fw-bold">${val.toLocaleString('fr-CH', { minimumFractionDigits: 2 })} €</td></tr>`;
         });
         html += '</tbody></table>';
         document.querySelector(tableSelector).innerHTML = html;
