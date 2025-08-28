@@ -18,7 +18,7 @@ class MssqlManager
     ) {
         try {
             $this->connection = new PDO($this->dsn, $this->user, $this->password, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 180
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
             ]);
         } catch (PDOException $e) {
             $this->logger->error('Connection to MSSQL failed: ' . $e->getMessage(), ['exception' => $e]);
