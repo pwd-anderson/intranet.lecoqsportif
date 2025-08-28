@@ -28,8 +28,13 @@ sidebar:
     products_details: "Product Details"
     products_orders: "Product Orders"
     products_edit: "Product Edit"
+    stock: "Stock"
+    clients: "Clients"
   stat:
     sales:
         sales_by_year: "Annual Sales"
+        delivery_without_invoice: "Deliveries Without Invoice"
     management:
-        ca_marges: "Sales and Margins"
+        ca_marges: "Sales Margins"
+    stock:
+        stock_a_terme: "Future Stock"

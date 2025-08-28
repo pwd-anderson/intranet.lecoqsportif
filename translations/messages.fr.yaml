@@ -28,9 +28,14 @@ sidebar:
     products_details: "Détails du produit"
     products_orders: "Commandes de produits"
     products_edit: "Modification du produit"
+    stock: "Stock"
+    clients: "Clients"
   stat:
       sales:
           sales_by_year: "Ventes annuelles"
+          delivery_without_invoice: "Livraisons non facturées"
       management:
           ca_marges: "CA Marges"
+      stock:
+          stock_a_terme: "Stock à terme"
 

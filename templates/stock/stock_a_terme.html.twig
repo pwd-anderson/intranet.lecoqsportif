@@ -1,0 +1,70 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {# Import ag-Grid CSS #}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input {
+            color: #000000 !important;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <h3 class="box-title mb-0">Stock à terme</h3>
+                        <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                            </select>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
+                            <button id="exportBtn" class="btn btn-info btn-sm" type="button" onclick="onBtnExportCSV()">CSV</button>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+                    <!-- /.box-header -->
+                    <div class="box-body">
+                        <div class="table-responsive-sm">
+                            <div id="myGrid" class="ag-theme-alpine" style="height: 1000px;"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}"></script>
+
+    <script>
+        const currentYear = new Date().getFullYear();
+
+        const agGridConfig = {
+            columnDefs: {{ columns|json_encode|raw }},
+            dataUrl: '{{ path('stock_a_terme_json') }}',
+            numericColumns: {{ numericColumns|json_encode|raw }},
+            integerColumns: {{ integerColumns|json_encode|raw }},
+            totalColumns: {{ totalColumns|json_encode|raw }}
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+
+            window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+        });
+    </script>
+{% endblock %}

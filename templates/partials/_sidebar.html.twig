@@ -36,24 +36,29 @@
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li><a href="#"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.sales_by_year'|trans }}</a></li>
-                            <li><a href="#"><i class="icon-Commit"></i>Ventes par produits</a></li>
-                            <li><a href="#"><i class="icon-Commit"></i>Backlog</a></li>
-                            <li><a href="#"><i class="icon-Commit"></i>Ventes par client</a></li>
-                            <li><a href="#"><i class="icon-Commit"></i>Détails factures</a></li>
+                            <li><a href="{{ path('app_sales_livraison_non_facturees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.delivery_without_invoice'|trans }}</a></li>
                         </ul>
                     </li>
 
                     <li class="treeview">
                         <a href="#">
-                            <img src="{{ asset('assets/images/svg-icon/authentication.svg') }}" class="svg-icon" alt="">
+                            <img src="{{ asset('assets/images/svg-icon/purchase.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.purchasing'|trans }}</span>
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li><a href="#"><i class="icon-Commit"></i>Backlog Fournisseur</a></li>
-                            <li><a href="#"><i class="icon-Commit"></i>BL non facturés</a></li>
                             <li><a href="#"><i class="icon-Commit"></i>Réception Fournisseur</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="treeview">
+                        <a href="#">
+                            <img src="{{ asset('assets/images/svg-icon/stock.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.menu.stock'|trans }}</span>
+                            <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+                        </a>
+                        <ul class="treeview-menu">
+                            <li><a href="{{ path('app_stock_a_terme') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme'|trans }}</a></li>
                         </ul>
                     </li>
 
