@@ -7,7 +7,7 @@ use Symfony\Component\Mime\Email;
 use Psr\Log\LoggerInterface;
 use App\Service\Tools\MssqlManager;
 
-class Sales
+class Achat
 {
 
     public function __construct(
@@ -16,20 +16,10 @@ class Sales
         private GraphMailer $graphMailer
     ) {}
 
-    public function getLivraisonsNonFacturees(): array
+    public function getReception(): array
     {
         try {
-            $query = "select
-                      s.CompanyCode
-                      ,s.[Document No_]
-                      ,s.No_
-                      , s.[Variant Code]
-                      ,SUM(S.[Qty_ Shipped Not Invoiced]) QtyShippedNotInvoiced,
-                      sum(s.[Shipped Not Invoiced]) as montant_ttc, sum(s.[Shipped Not Invoiced HT]) as montant_ht
-                    FROM [DB_Datalake].[nav].[Sales Line] s
-                      where s.[Qty_ Shipped Not Invoiced] <> 0
-                       and year(s.[Created Date Time]) > 2016
-                       GROUP BY s.No_, s.[Variant Code],s.[Document No_],s.CompanyCode";
+            $query = "";
 
             $data = $this->mssqlManager->executeQuery($query);
             return $data;
