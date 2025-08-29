@@ -49,6 +49,9 @@ class AggridOption
     #[ORM\Column(nullable: true)]
     private ?int $orderIndex = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $cellClass = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -194,6 +197,18 @@ class AggridOption
     public function setOrderIndex(?int $orderIndex): static
     {
         $this->orderIndex = $orderIndex;
+
+        return $this;
+    }
+
+    public function getCellClass(): ?string
+    {
+        return $this->cellClass;
+    }
+
+    public function setCellClass(?string $cellClass): static
+    {
+        $this->cellClass = $cellClass;
 
         return $this;
     }
