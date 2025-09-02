@@ -10,6 +10,7 @@ window.AgGridCommon = (function () {
             const col = config.columnDefs.find(col => col.field === fieldName);
             if (col) {
                 col.valueFormatter = window.decimalFormatter;
+                col.comparator = window.decimalComparator;
             }
         });
 
@@ -18,6 +19,7 @@ window.AgGridCommon = (function () {
             const col = config.columnDefs.find(col => col.field === fieldName);
             if (col) {
                 col.valueFormatter = window.integerFormatter;
+                col.comparator = window.integerComparator;
             }
         });
 
@@ -155,12 +157,23 @@ window.AgGridCommon = (function () {
 
     function decimalFormatter(params) {
         if (params.value == null) return "";
-        return Number(params.value).toFixed(2);
+        return Number(params.value).toLocaleString('fr-CH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
     }
 
     function integerFormatter(params) {
         if (params.value == null) return "";
-        return Number(params.value).toFixed(0);
+        return Number(params.value).toLocaleString('fr-CH');
+    }
+
+    function decimalComparator(a, b) {
+        return Number(a) - Number(b);
+    }
+
+    function integerComparator(a, b) {
+        return Number(a) - Number(b);
     }
 
     function dorpDownSelect(selector, startYear, selectedYear, callback) {
@@ -189,6 +202,8 @@ window.AgGridCommon = (function () {
     window.decimalFormatter = decimalFormatter;
     window.integerFormatter = integerFormatter;
     window.dorpDownSelect = dorpDownSelect;
+    window.decimalComparator = decimalComparator;
+    window.integerComparator = integerComparator;
 
     return {
         initGrid: initGrid,
