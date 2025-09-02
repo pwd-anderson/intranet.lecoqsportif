@@ -155,12 +155,15 @@ window.AgGridCommon = (function () {
 
     function decimalFormatter(params) {
         if (params.value == null) return "";
-        return Number(params.value).toFixed(2);
+        return Number(params.value).toLocaleString('fr-CH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
     }
 
     function integerFormatter(params) {
         if (params.value == null) return "";
-        return Number(params.value).toFixed(0);
+        return Number(params.value).toLocaleString('fr-CH');
     }
 
     function dorpDownSelect(selector, startYear, selectedYear, callback) {
