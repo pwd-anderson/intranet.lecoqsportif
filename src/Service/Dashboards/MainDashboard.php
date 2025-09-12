@@ -23,12 +23,9 @@ class MainDashboard
                         SELECT
                             CAST(I.ExpectedInvoicingDate AS DATE) AS jour,
                             I.AmountEurTM
-                        FROM BI.DWH.F_Invoices I
+                        FROM LCS_BI.F_Invoices_Dash I
                         WHERE
-                            I.IsBohPerimeter_Product = 1
-                            AND I.IsBohPerimeter_IR = 1
-                            AND I.DocumentType = 'INVOICE'
-                            AND YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
+                            YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
                             AND (
                                 (YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE()) AND I.ExpectedInvoicingDate <= CAST(GETDATE() AS DATE))
                                 OR
@@ -70,12 +67,9 @@ class MainDashboard
                             YEAR(I.ExpectedInvoicingDate) AS annee,
                             MONTH(I.ExpectedInvoicingDate) AS mois,
                             SUM(I.AmountEurTM) AS ca_mensuel
-                        FROM BI.DWH.F_Invoices I
+                        FROM LCS_BI.F_Invoices_Dash I
                         WHERE
-                            I.IsBohPerimeter_Product = 1
-                            AND I.IsBohPerimeter_IR = 1
-                            AND I.DocumentType = 'INVOICE'
-                            AND YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
+                            YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
                         GROUP BY YEAR(I.ExpectedInvoicingDate), MONTH(I.ExpectedInvoicingDate)
                     )
                     SELECT
@@ -108,7 +102,7 @@ class MainDashboard
                             DAY(I.ExpectedInvoicingDate) AS jour,
                             YEAR(I.ExpectedInvoicingDate) AS annee,
                             SUM(I.AmountEurTM) AS ca_jour
-                        FROM BI.DWH.F_Invoices I
+                        FROM LCS_BI.F_Invoices_Dash I
                         WHERE
                             MONTH(I.ExpectedInvoicingDate) = MONTH(GETDATE())
                             AND YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
@@ -116,9 +110,6 @@ class MainDashboard
                                 (YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE()) AND DAY(I.ExpectedInvoicingDate) <= DAY(GETDATE()))
                                 OR YEAR(I.ExpectedInvoicingDate) = YEAR(DATEADD(YEAR, -1, GETDATE()))
                             )
-                            AND I.IsBohPerimeter_Product = 1
-                            AND I.IsBohPerimeter_IR = 1
-                            AND I.DocumentType = 'INVOICE'
                         GROUP BY DAY(I.ExpectedInvoicingDate), YEAR(I.ExpectedInvoicingDate)
                     ),
                     fusion AS (
@@ -150,7 +141,7 @@ class MainDashboard
                         SELECT
                             CAST(I.ExpectedInvoicingDate AS DATE) AS jour,
                             I.AmountEurTM
-                        FROM BI.DWH.F_Invoices I
+                        FROM LCS_BI.F_Invoices_Dash I
                         WHERE
                             YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
                             AND MONTH(I.ExpectedInvoicingDate) = MONTH(GETDATE())
@@ -158,9 +149,6 @@ class MainDashboard
                                 (YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE()) AND DAY(I.ExpectedInvoicingDate) <= DAY(GETDATE()))
                                 OR YEAR(I.ExpectedInvoicingDate) = YEAR(DATEADD(YEAR, -1, GETDATE()))
                             )
-                            AND I.IsBohPerimeter_Product = 1
-                            AND I.IsBohPerimeter_IR = 1
-                            AND I.DocumentType = 'INVOICE'
                     )
                     SELECT
                         SUM(CASE WHEN YEAR(jour) = YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END) AS ca_n,
@@ -194,14 +182,11 @@ class MainDashboard
                 I.CustomerNo,
                 C.Name AS CustomerName,
                 SUM(I.AmountEurTM) AS TotalCA_EUR
-            FROM BI.DWH.F_Invoices I
-            LEFT JOIN BI.DWH.D_Customer C
+            FROM LCS_BI.F_Invoices_Dash I
+            LEFT JOIN LCS_BI.D_Customer C
                 ON C.Code = I.CustomerNo AND C.CompanyCode = I.CompanyCode
             WHERE
-                I.IsBohPerimeter_Product = 1
-                AND I.IsBohPerimeter_IR = 1
-                AND I.DocumentType = 'INVOICE'
-                AND YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
+                YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
             GROUP BY I.CustomerNo, C.Name
             ORDER BY TotalCA_EUR DESC;
         ";
@@ -222,12 +207,9 @@ class MainDashboard
             SELECT TOP 10
                 I.CompanyCode,
                 SUM(I.AmountEurTM) AS TotalSales
-            FROM BI.DWH.F_Invoices I
+            FROM LCS_BI.F_Invoices_Dash I
             WHERE
-                I.IsBohPerimeter_Product = 1
-                AND I.IsBohPerimeter_IR = 1
-                AND I.DocumentType = 'INVOICE'
-                AND YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
+                YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
             GROUP BY I.CompanyCode
             ORDER BY TotalSales DESC
         ";
@@ -247,13 +229,10 @@ class MainDashboard
                         I.ItemNo,
                         IT.Description AS ItemDescription,
                         SUM(I.AmountEurTM) AS TotalSales
-                    FROM BI.DWH.F_Invoices I
-                    LEFT JOIN BI.DWH.D_Item IT ON IT.ItemNo = I.ItemNo
+                    FROM LCS_BI.F_Invoices_Dash I
+                    LEFT JOIN LCS_BI.D_Item IT ON IT.ItemNo = I.ItemNo
                     WHERE
-                        I.IsBohPerimeter_Product = 1
-                        AND I.IsBohPerimeter_IR = 1
-                        AND I.DocumentType = 'INVOICE'
-                        AND YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
+                        YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
                     GROUP BY I.ItemNo, IT.Description
                     ORDER BY TotalSales DESC;"; // Mets la requête ici
 
@@ -274,12 +253,9 @@ class MainDashboard
                     YEAR(I.ExpectedInvoicingDate) AS annee,
                     MONTH(I.ExpectedInvoicingDate) AS mois,
                     SUM(I.AmountEurTM) AS ca_mensuel
-                FROM BI.DWH.F_Invoices I
+                FROM LCS_BI.F_Invoices_Dash I
                 WHERE
-                    I.IsBohPerimeter_Product = 1
-                    AND I.IsBohPerimeter_IR = 1
-                    AND I.DocumentType = 'INVOICE'
-                    AND YEAR(I.ExpectedInvoicingDate) BETWEEN YEAR(GETDATE()) - 4 AND YEAR(GETDATE())
+                    YEAR(I.ExpectedInvoicingDate) BETWEEN YEAR(GETDATE()) - 4 AND YEAR(GETDATE())
                 GROUP BY YEAR(I.ExpectedInvoicingDate), MONTH(I.ExpectedInvoicingDate)
             )
             SELECT annee, mois, ca_mensuel

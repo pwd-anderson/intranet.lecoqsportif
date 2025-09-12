@@ -33,12 +33,10 @@ class Management
                     SUM(I.AmountCurrency) AS AmountCurrency,
                     SUM(I.Margin_Cost_AmountEurTM) AS CostAmountEur,      -- coût achat
                     SUM(I.Margin_Cost_AmountCurrency) AS CostAmountCurrency,
-                    SUM(I.Margin_AmountEurTM) AS Margin_AmountEur,        -- marge
-                    FORMAT(INV.LastInboundDate, 'yyyy-MM-dd') as LastInboundDate
-                FROM BI.DWH.F_Invoices I
-                LEFT JOIN BI.DWH.D_Customer C ON C.Code = I.CustomerNo AND C.CompanyCode = I.CompanyCode
-                LEFT JOIN BI.DWH.D_Item IT ON IT.ItemNo = I.ItemNo
-                LEFT JOIN (SELECT ItemNo,MAX(LastInboundDate) LastInboundDate FROM BI.DWH.F_Inventory WHERE LocationCode like 'LOGTXM-1' GROUP BY ItemNo) INV ON INV.ItemNo = I.ItemNo
+                    SUM(I.Margin_AmountEurTM) AS Margin_AmountEur
+                FROM LCS_BI.F_Invoices_2 I
+                LEFT JOIN LCS_BI.D_Customer C ON C.Code = I.CustomerNo AND C.CompanyCode = I.CompanyCode
+                LEFT JOIN LCS_BI.D_Item IT ON IT.ItemNo = I.ItemNo
                 WHERE
                     IsBohPerimeter_Product = 1
                     AND IsBohPerimeter_IR = 1
@@ -55,8 +53,7 @@ class Management
                     C.Name,
                     I.CurrencyCode,
                     I.ItemNo,
-                    IT.Description,
-                    INV.LastInboundDate;";
+                    IT.Description;";
 
             $data = $this->mssqlManager->executeQuery($query);
             //dump($data);exit;
