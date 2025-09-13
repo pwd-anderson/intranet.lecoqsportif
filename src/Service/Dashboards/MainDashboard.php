@@ -253,7 +253,7 @@ class MainDashboard
                     YEAR(I.ExpectedInvoicingDate) AS annee,
                     MONTH(I.ExpectedInvoicingDate) AS mois,
                     SUM(I.AmountEurTM) AS ca_mensuel
-                FROM LCS_BI.F_Invoices_Dash I
+                FROM LCS_BI.F_Invoices_Dash_Evol I
                 WHERE
                     YEAR(I.ExpectedInvoicingDate) BETWEEN YEAR(GETDATE()) - 4 AND YEAR(GETDATE())
                 GROUP BY YEAR(I.ExpectedInvoicingDate), MONTH(I.ExpectedInvoicingDate)
