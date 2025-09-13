@@ -18,7 +18,7 @@ class Stock
     public function getStockATerme(): array
     {
         try {
-            $query = "SELECT * FROM BI.REPORT.Audit_Planned_Stock();";
+            $query = "SELECT * FROM LCS_BI.STOCK_A_TERME;";
 
             $data = $this->mssqlManager->executeQuery($query);
             return $data;

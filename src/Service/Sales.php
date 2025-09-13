@@ -19,18 +19,7 @@ class Sales
     public function getLivraisonsNonFacturees(): array
     {
         try {
-            $query = "select
-                      s.CompanyCode
-                      ,s.[Document No_]
-                      ,s.No_
-                      , s.[Variant Code]
-                      ,SUM(S.[Qty_ Shipped Not Invoiced]) QtyShippedNotInvoiced,
-                      sum(s.[Shipped Not Invoiced]) as montant_ttc, sum(s.[Shipped Not Invoiced HT]) as montant_ht
-                    FROM [DB_Datalake].[nav].[Sales Line] s
-                      where s.[Qty_ Shipped Not Invoiced] <> 0
-                       and year(s.[Created Date Time]) > 2016
-                       GROUP BY s.No_, s.[Variant Code],s.[Document No_],s.CompanyCode";
-
+            $query = "SELECT * FROM LCS_BI.LIVRAISONS_NON_FACTUREES";
             $data = $this->mssqlManager->executeQuery($query);
             return $data;
 
