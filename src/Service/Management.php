@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Factory\MssqlManagerFactory;
 use App\Service\Tools\GraphMailer;
 use Symfony\Component\Mime\Email;
 use Psr\Log\LoggerInterface;
@@ -9,12 +10,16 @@ use App\Service\Tools\MssqlManager;
 
 class Management
 {
+    private MssqlManager $mssqlMade2design;
 
     public function __construct(
-        private MssqlManager $mssqlManager,
+        private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
         private GraphMailer $graphMailer
-    ) {}
+    )
+    {
+        $this->mssqlMade2design = $this->mssqlManagerFactory->create();
+    }
 
     public function getCAMargesByYear($year): array
     {
@@ -55,7 +60,7 @@ class Management
                     I.ItemNo,
                     IT.Description;";
 
-            $data = $this->mssqlManager->executeQuery($query);
+            $data = $this->mssqlMade2design->executeQuery($query);
             //dump($data);exit;
             return $data;
 

@@ -87,4 +87,79 @@ final class SalesController extends AbstractController
         $dataSalesUtf8 = $helpers->convertArrayToUtf8($dataSales);
         return new JsonResponse($dataSalesUtf8);
     }
+
+    #[Route('/sales/backlog_clients', name: 'app_sales_backlog_clients')]
+    public function backlogCients(AggridOptionRepository $aggridOptionRepository): Response
+    {
+        $agridOptions = $aggridOptionRepository->findBy(
+            ['gridName' => 'backlog_clients_grid'],
+            ['orderIndex' => 'ASC']
+        );
+
+        $numericColumns = [];
+        $totalColumns = [];
+        $columns = [];
+        $integerColumns = [];
+
+        foreach ($agridOptions as $option) {
+
+            if (in_array($option->getType(), ['decimal'])) {
+                $numericColumns[] = $option->getField();
+            }
+
+            if (in_array($option->getType(), ['integer'])) {
+                $integerColumns[] = $option->getField();
+            }
+
+            if ($option->getAggFunc()) {
+                $totalColumns[] = $option->getField();
+            }
+
+            if ($option->getFilter() == 'agDateColumnFilter'){
+                $columns[] = [
+                    'field' => $option->getField(),
+                    'headerName' => $option->getHeaderName(),
+                    'filter' => $option->getFilter(),
+                    'sortable' => $option->isSortable(),
+                    'minWidth' => $option->getMinWidth(),
+                    'cellClass' => $option->getCellClass(),
+                    'cellStyle' => $option->getCellStyle(),
+                    'aggFunc' => $option->getAggFunc(),
+                    'flex' => $option->getFlex(),
+                    'valueFormatter' => 'dateFormatter',
+                    'comparator' => 'dateComparator',
+                    'filterParams' => [
+                        'comparator' => 'dateFilterComparator'
+                    ]
+                ];
+            }else{
+                $columns[] = [
+                    'field' => $option->getField(),
+                    'headerName' => $option->getHeaderName(),
+                    'filter' => $option->getFilter(),
+                    'sortable' => $option->isSortable(),
+                    'minWidth' => $option->getMinWidth(),
+                    'cellClass' => $option->getCellClass(),
+                    'cellStyle' => $option->getCellStyle(),
+                    'aggFunc' => $option->getAggFunc(),
+                    'flex' => $option->getFlex(),
+                ];
+            }
+        }
+
+        return $this->render('sales/backlog_clients.html.twig', [
+            'columns' => $columns,
+            'numericColumns' => $numericColumns,
+            'integerColumns' => $integerColumns,
+            'totalColumns' => $totalColumns,
+        ]);
+    }
+
+    #[Route('/sales/backlog_clients_json', name: 'backlog_clients_json')]
+    public function backlogClientsJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $dataSales = $sales->getBacklogClients();
+        $dataSalesUtf8 = $helpers->convertArrayToUtf8($dataSales);
+        return new JsonResponse($dataSalesUtf8);
+    }
 }

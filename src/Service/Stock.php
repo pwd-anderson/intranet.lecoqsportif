@@ -2,25 +2,30 @@
 
 namespace App\Service;
 
+use App\Factory\MssqlManagerFactory;
 use App\Service\Tools\GraphMailer;
 use Psr\Log\LoggerInterface;
 use App\Service\Tools\MssqlManager;
 
 class Stock
 {
+    private MssqlManager $mssqlLcs;
 
     public function __construct(
-        private MssqlManager $mssqlManager,
+        private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
         private GraphMailer $graphMailer
-    ) {}
+    )
+    {
+        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs');
+    }
 
     public function getStockATerme(): array
     {
         try {
-            $query = "SELECT * FROM LCS_BI.STOCK_A_TERME;";
+            $query = "SELECT * FROM BI.REPORT.Audit_Planned_Stock();";
 
-            $data = $this->mssqlManager->executeQuery($query);
+            $data = $this->mssqlLcs->executeQuery($query);
             return $data;
 
         } catch (\Exception $e) {

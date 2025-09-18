@@ -2,6 +2,7 @@
 
 namespace App\Service\Dashboards;
 
+use App\Factory\MssqlManagerFactory;
 use App\Service\Tools\GraphMailer;
 use Symfony\Component\Mime\Email;
 use Psr\Log\LoggerInterface;
@@ -10,11 +11,16 @@ use App\Service\Tools\MssqlManager;
 class MainDashboard
 {
 
+    private MssqlManager $mssqlMade2design;
+
     public function __construct(
-        private  MssqlManager $mssqlManager,
+        private  MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
         private GraphMailer $graphMailer
-    ) {}
+    )
+    {
+        $this->mssqlMade2design = $this->mssqlManagerFactory->create();
+    }
 
     public function getSalesComparaisonYears(): array
     {
@@ -50,7 +56,7 @@ class MainDashboard
                         ) AS variation_pourcent
                     FROM ventes_annuelles;";
 
-            $dataGraph = $this->mssqlManager->executeQuery($query);
+            $dataGraph = $this->mssqlMade2design->executeQuery($query);
             return $dataGraph;
 
         } catch (\Exception $e) {
@@ -80,7 +86,7 @@ class MainDashboard
                     GROUP BY mois
                     ORDER BY mois;";
 
-            $dataGraph = $this->mssqlManager->executeQuery($query);
+            $dataGraph = $this->mssqlMade2design->executeQuery($query);
             return $dataGraph;
 
         } catch (\Exception $e) {
@@ -125,7 +131,7 @@ class MainDashboard
                     FROM fusion
                     ORDER BY jour;";
 
-            return $this->mssqlManager->executeQuery($query);
+            return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ OGIER Erreur Dashboard : CA jour mois courant', $e);
@@ -165,7 +171,7 @@ class MainDashboard
                         ) AS variation_pourcent
                     FROM ventes_filtrees;";
 
-            return $this->mssqlManager->executeQuery($query);
+            return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ OGIER Erreur Dashboard : CA mois courant', $e);
@@ -191,7 +197,7 @@ class MainDashboard
             ORDER BY TotalCA_EUR DESC;
         ";
 
-            return $this->mssqlManager->executeQuery($query);
+            return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Dashboard : Top Clients', $e);
@@ -214,7 +220,7 @@ class MainDashboard
             ORDER BY TotalSales DESC
         ";
 
-            return $this->mssqlManager->executeQuery($query);
+            return $this->mssqlMade2design->executeQuery($query);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Dashboard : Top sociétés CA', $e);
             $this->logger->error('LCS Erreur Top sociétés CA', ['exception' => $e]);
@@ -236,7 +242,7 @@ class MainDashboard
                     GROUP BY I.ItemNo, IT.Description
                     ORDER BY TotalSales DESC;"; // Mets la requête ici
 
-            return $this->mssqlManager->executeQuery($query);
+            return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur Dashboard : Top Produits Ventes', $e);
@@ -262,7 +268,7 @@ class MainDashboard
             FROM ventes_par_mois
             ORDER BY annee, mois;";
 
-            return $this->mssqlManager->executeQuery($query);
+            return $this->mssqlMade2design->executeQuery($query);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur Dashboard : Évolution 5 ans', $e);
             $this->logger->error('Erreur CA mensuel 5 ans', ['exception' => $e]);

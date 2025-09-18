@@ -2,16 +2,16 @@
 
 namespace App\Service;
 
+use App\Factory\MssqlManagerFactory;
 use App\Service\Tools\GraphMailer;
 use Symfony\Component\Mime\Email;
 use Psr\Log\LoggerInterface;
-use App\Service\Tools\MssqlManager;
 
 class Achat
 {
 
     public function __construct(
-        private MssqlManager $mssqlManager,
+        private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
         private GraphMailer $graphMailer
     ) {}
@@ -21,7 +21,7 @@ class Achat
         try {
             $query = "";
 
-            $data = $this->mssqlManager->executeQuery($query);
+            //$data = $this->mssqlManager->executeQuery($query);
             return $data;
 
         } catch (\Exception $e) {
