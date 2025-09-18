@@ -79,7 +79,6 @@ class Sales
                         and s.[Outstanding Quantity] <> 0;";
 
             $data = $this->mssqlLcs->executeQuery($query);
-            dd($data);
             return $data;
 
         } catch (\Exception $e) {
