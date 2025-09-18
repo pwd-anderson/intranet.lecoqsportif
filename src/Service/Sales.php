@@ -76,7 +76,8 @@ class Sales
                         AND s.[Document Type] = 1
                         AND (SH.[Sales order typ] <> 'IR' OR SH.[Order Date] <= '20200101') -- exclusion des forecast JO 2024
                         and c.[Business Model] in ('1_WHOLESALE', '2_DISTRIBUTORS')
-                        and s.[Outstanding Quantity] <> 0;";
+                        and s.[Outstanding Quantity] <> 0
+                        order by s.[Requested Delivery Date] desc;";
 
             $data = $this->mssqlLcs->executeQuery($query);
             return $data;
