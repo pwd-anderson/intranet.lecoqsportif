@@ -36,7 +36,7 @@
         ]
     },
     "easycorp/easyadmin-bundle": {
-        "version": "4.24",
+        "version": "4.25",
         "recipe": {
             "repo": "github.com/symfony/recipes",
             "branch": "main",
@@ -301,7 +301,7 @@
         }
     },
     "symfony/ux-twig-component": {
-        "version": "2.27",
+        "version": "2.30",
         "recipe": {
             "repo": "github.com/symfony/recipes",
             "branch": "main",
