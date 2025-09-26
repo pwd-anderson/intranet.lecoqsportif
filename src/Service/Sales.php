@@ -29,6 +29,7 @@ class Sales
                         ,c.No_
                         ,c.Name
                         ,s.[Document No_]
+                        ,s.[Shipment Date]
                         ,s.No_
                         , s.[Variant Code]
                         ,SUM(S.[Qty_ Shipped Not Invoiced]) QtyShippedNotInvoiced,
@@ -37,7 +38,7 @@ class Sales
                         left join [DB_Datalake].[nav].[Customer] as c on s.CompanyCode = c.CompanyCode and s.[Bill-to Customer No_] = c.No_
                         where s.[Qty_ Shipped Not Invoiced] <> 0
                         and year(s.[Created Date Time]) > 2016
-                        GROUP BY s.No_, s.[Variant Code],s.[Document No_],s.CompanyCode,c.No_,c.Name";
+                        GROUP BY s.No_, s.[Variant Code],s.[Document No_],s.CompanyCode,c.No_,c.Name,s.[Shipment Date]";
 
             $data = $this->mssqlLcs->executeQuery($query);
             return $data;
