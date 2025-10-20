@@ -1,5 +1,5 @@
 {% extends 'base.html.twig' %}
-
+{% block title %}KPI eCommerce{% endblock %}
 {% block stylesheets %}
     {{ parent() }}
     <style>
@@ -9,11 +9,158 @@
 
 {% block body %}
     <section class="content">
-        <h3>KPI eCommerce</h3>
+
+        <div class="box py-3 px-3"> <!-- padding top/bottom ajouté ici -->
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <h3 class="mb-0">KPI eCommerce</h3>
+                <div class="col-md-3 col-12 mt-3 mt-md-0">
+                    <div class="form-group mb-0">
+                        <select class="form-control select2 text-uppercase fs-18">
+                            <option selected="selected">overview week 40 e-com</option>
+                            <option>overview week 39 e-com</option>
+                            <option>overview week 38 e-com</option>
+                            <option>overview week 37 e-com</option>
+                            <option>overview week 36 e-com</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6 col-12">
+                <h4 class="mx-3">Eshop</h4>
+                <div class="row">
+                    <div class="col-12 col-md-12">
+                        <a class="box box-link-pop text-center" href="javascript:void(0)">
+                            <div class="box-body py-25">
+                                <p class="mt-1 text-muted text-uppercase fs-18 fw-bold">CA HT</p>
+                                <p class="fs-40 m-0">
+                                    <strong>63544129 €</strong>
+                                </p>
+                                <p class="mb-1 fs-18 fw-semibold"><span class="text-danger">-56%</span> vs N-1</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12 col-md-4">
+                        <a class="box box-link-pop text-center" href="javascript:void(0)">
+                            <div class="box-body py-10">
+                                <p class="mt-1 text-muted text-uppercase fs-18 fw-bold">panier moyen</p>
+                                <p class="fs-40">
+                                    <strong class="countnm per">499</strong>
+                                </p>
+                                <p class="mb-1 fs-18 fw-semibold"><span class="text-danger">-56%</span> vs N-1</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <a class="box box-link-pop text-center" href="javascript:void(0)">
+                            <div class="box-body py-10">
+                                <p class="mt-1 text-muted text-uppercase fs-18 fw-bold">taux de conversion</p>
+                                <p class="fs-40 text-success">
+                                    <strong>10</strong>
+                                </p>
+                                <p class="mb-1 fs-18 fw-semibold"><span class="text-danger">-56%</span> vs N-1</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <a class="box box-link-pop text-center" href="javascript:void(0)">
+                            <div class="box-body py-10">
+                                <p class="mt-1 text-muted text-uppercase fs-18 fw-bold">trafic (hors paid)</p>
+                                <p class="fs-40 text-danger">
+                                    <strong>3</strong>
+                                </p>
+                                <p class="mb-1 fs-18 fw-semibold"><span class="text-danger">-56%</span> vs N-1</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12 col-md-4">
+                        <a class="box box-link-pop text-center" href="javascript:void(0)">
+                            <div class="box-body py-10">
+                                <p class="mt-1 text-muted text-uppercase fs-18 fw-bold">roas (paid)</p>
+                                <p class="fs-40">
+                                    <strong>$499</strong>
+                                </p>
+                                <p class="mb-1 fs-18 fw-semibold"><span class="text-danger">-56%</span> vs N-1</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <a class="box box-link-pop text-center" href="javascript:void(0)">
+                            <div class="box-body py-10">
+                                <p class="mt-1 text-muted text-uppercase fs-18 fw-bold">cac</p>
+                                <p class="fs-40 text-success">
+                                    <strong>10</strong>
+                                </p>
+                                <p class="mb-1 fs-18 fw-semibold"><span class="text-danger">-56%</span> vs N-1</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <a class="box box-link-pop text-center" href="javascript:void(0)">
+                            <div class="box-body py-10">
+                                <p class="mt-1 text-muted text-uppercase fs-18 fw-bold">ca via email</p>
+                                <p class="fs-40 text-danger">
+                                    <strong>3</strong>
+                                </p>
+                                <p class="mb-1 fs-18 fw-semibold"><span class="text-danger">-56%</span> vs N-1</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <h4 class="mx-3">Marketplace</h4>
+                    <div class="col-12 col-md-12">
+                        <a class="box box-link-pop text-center" href="javascript:void(0)">
+                            <div class="box-body py-10">
+                                <p class="mt-1 text-muted text-uppercase fs-18 fw-bold">ca net ht</p>
+                                <p class="fs-40">
+                                    <strong>63512 €</strong>
+                                </p>
+                                <p class="mb-1 fs-18 fw-semibold"><span class="text-danger">-56%</span> vs N-1</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                <!-- /.row -->
+            </div>
+        </div>
+
     </section>
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            $(function () {
+                "use strict";
+                //Initialize Select2 Elements
+                $('.select2').select2();
+
+                $('.countnm').each(function () {
+                    $(this).prop('Counter',0).animate({
+                        Counter: $(this).text()
+                    }, {
+                        duration: 2500,
+                        easing: 'swing',
+                        step: function (now) {
+                            $(this).text(Math.ceil(now));
+                        }
+                    });
+                });
+
+            });
+        });
+
+    </script>
 
 {% endblock %}
