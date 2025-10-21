@@ -5,7 +5,10 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
-    trusted_hosts: ['^.+\.ngrok-free\.app$', '^.+\.ngrok-free\.dev$']
+    trusted_hosts:
+        - '^.+\.ngrok-free\.app$'
+        - '^.+\.ngrok-free\.dev$'
+        - '^intranet\.lecoqsportif\.com$'
 
     #esi: true
     #fragments: true
