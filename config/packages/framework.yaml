@@ -9,6 +9,7 @@ framework:
         - '^.+\.ngrok-free\.app$'
         - '^.+\.ngrok-free\.dev$'
         - '^intranet\.lecoqsportif\.com$'
+        - '^pprod\-intranet\.lecoqsportif\.com$'
 
     #esi: true
     #fragments: true
