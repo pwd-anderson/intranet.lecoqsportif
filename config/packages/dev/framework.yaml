@@ -1,0 +1,13 @@
+framework:
+    profiler:
+        enabled: true
+        collect: true
+        only_exceptions: false
+
+    router:
+        strict_requirements: true
+        http_port: 80
+        https_port: 443
+
+    trusted_proxies: '0.0.0.0/0'  # Toutes les IP
+    trusted_hosts: [ '^.*\.ngrok\-free\.app$' ]

@@ -3,7 +3,7 @@ site:
 dashboard:
   title: Tableau de bord
   conversion:
-    title: TAUX DE CONVERSION
+    title: TAUX DE CHANGE
   ventes:
     title: VENTES
   variation_text_month: " par rapport au M-1"

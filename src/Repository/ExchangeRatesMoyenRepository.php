@@ -16,35 +16,36 @@ class ExchangeRatesMoyenRepository extends ServiceEntityRepository
         parent::__construct($registry, ExchangeRatesMoyen::class);
     }
 
-    public function getDataConversionRate(string $sourceCurrency): array
+    public function getDataConversionRate(string $sourceCurrency, string $targetCurrency = 'USD'): array
     {
         $conn = $this->getEntityManager()->getConnection();
 
         $sql = '
         SELECT
-            DATE_FORMAT(date_cours, "%Y-%m") AS mois,
+            DATE_FORMAT(mois_taux, "%Y-%m") AS mois,
             AVG(rate) AS avg_rate
         FROM exchange_rates_moyen
         WHERE source_currency = :source
-          AND target_currency = "CHF"
-          AND date_cours BETWEEN :start AND :end
+          AND target_currency = :target
+          AND mois_taux BETWEEN :start AND :end
         GROUP BY mois
         ORDER BY mois ASC
     ';
 
-        $end = new \DateTimeImmutable('last day of this month');
-        $start = (clone $end)->modify('-12 months')->modify('first day of this month');
+        $end = new \DateTimeImmutable('first day of this month'); // ex : 2025-10-01
+        $start = (clone $end)->modify('-12 months');
 
         $stmt = $conn->prepare($sql);
         $result = $stmt->executeQuery([
             'source' => $sourceCurrency,
+            'target' => $targetCurrency,
             'start' => $start->format('Y-m-d'),
             'end' => $end->format('Y-m-d'),
         ]);
 
         $rows = $result->fetchAllAssociative();
 
-        // Calcul variation mensuelle
+        // Calcul des variations
         $final = [];
         $prev = null;
         foreach ($rows as $row) {
@@ -73,24 +74,24 @@ class ExchangeRatesMoyenRepository extends ServiceEntityRepository
             $prev = $avg;
         }
 
-        return array_slice($final, 1); // ignorer premier mois sans comparaison
+        return array_slice($final, 1); // on ignore le premier mois sans comparaison
     }
 
-    public function getCurrentRateAndEvolution(string $sourceCurrency): array
+    public function getCurrentRateAndEvolution(string $sourceCurrency, string $targetCurrency = 'USD'): array
     {
         $conn = $this->getEntityManager()->getConnection();
 
-        $currentMonth = new \DateTimeImmutable('first day of this month');
-        $previousMonth = $currentMonth->modify('-1 month');
-        $nextMonth = $currentMonth->modify('+1 month');
+        // On va chercher les taux pour mois N et N-1 => dates de fin mois N-1 et N-2
+        $end = new \DateTimeImmutable('last day of last month'); // 30/09
+        $start = (clone $end)->modify('-1 month')->modify('first day');
 
         $sql = '
         SELECT
-            DATE_FORMAT(date_cours, "%Y-%m") AS mois,
+            DATE_FORMAT(DATE_ADD(date_cours, INTERVAL 1 MONTH), "%Y-%m") AS mois,
             AVG(rate) AS avg_rate
         FROM exchange_rates_moyen
         WHERE source_currency = :source
-          AND target_currency = "CHF"
+          AND target_currency = :target
           AND date_cours BETWEEN :start AND :end
         GROUP BY mois
     ';
@@ -98,8 +99,9 @@ class ExchangeRatesMoyenRepository extends ServiceEntityRepository
         $stmt = $conn->prepare($sql);
         $result = $stmt->executeQuery([
             'source' => $sourceCurrency,
-            'start' => $previousMonth->format('Y-m-d'),
-            'end' => $nextMonth->format('Y-m-d'),
+            'target' => $targetCurrency,
+            'start' => $start->format('Y-m-d'),
+            'end' => $end->format('Y-m-d'),
         ]);
 
         $rows = $result->fetchAllAssociative();
@@ -109,8 +111,8 @@ class ExchangeRatesMoyenRepository extends ServiceEntityRepository
             $rates[$row['mois']] = (float) $row['avg_rate'];
         }
 
-        $moisActuel = $currentMonth->format('Y-m');
-        $moisPrecedent = $previousMonth->format('Y-m');
+        $moisPrecedent = $end->format('Y-m'); // exemple : 2025-09
+        $moisActuel = $end->modify('+1 month')->format('Y-m'); // exemple : 2025-10
 
         $tauxActuel = $rates[$moisActuel] ?? null;
         $tauxPrecedent = $rates[$moisPrecedent] ?? null;

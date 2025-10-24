@@ -80,34 +80,22 @@
             <!-- Traductions utilisées dans JS (dashboard.js) -->
             <span id="trans_variation_month" data-text="{{ 'dashboard.variation_text_month'|trans }}"></span>
 
-            <!-- Blocs Conversion EUR -> CHF -->
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="box min-h-248-box">
                     <div class="box-body">
-                        <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} : <span class="fw-bold text-info">1 EUR = <span id="taux-eur-chf-text"></span> CHF</span></h6>
+                        <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} :
+                            <span class="fw-bold text-info">1 EUR = <span id="taux-eur-usd-text"></span> USD</span>
+                        </h6>
                         <div class="d-flex d-lg-block d-xl-flex align-items-end">
-                            <h3 class="mb-0 me-5" id="taux-eur-chf-val"></h3>
-                            <p class="mb-0" id="evolution-rate-text"></p>
+                            <h3 class="mb-0 me-5" id="taux-eur-usd-val"></h3>
+                            <p class="mb-0" id="evolution-rate-eur-usd-text"></p>
                         </div>
-                        <div id="bar-negative-chart"></div>
-                    </div>
-                </div>
-            </div>
-            <!-- Blocs Conversion USD -> CHF -->
-            <div class="col-lg-3 col-md-6">
-                <div class="box min-h-248-box">
-                    <div class="box-body">
-                        <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} : <span class="fw-bold text-primary">1 USD = <span id="taux-usd-chf-text"></span> CHF</span></h6>
-                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
-                            <h3 class="mb-0 me-5" id="taux-usd-chf-val"></h3>
-                            <p class="mb-0" id="evolution-rate-usd-text"></p>
-                        </div>
-                        <div id="bar-negative-chart-usd"></div>
+                        <div id="bar-negative-chart-eur-usd"></div>
                     </div>
                 </div>
             </div>
             <!-- Blocs Ventes Année en cours -->
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="box min-h-248-box">
                     <div class="box-body">
                         <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("Y") }} <small>(EUR)</small></h6>
@@ -120,7 +108,7 @@
                 </div>
             </div>
             <!-- Blocs Mois en cours -->
-            <div class="col-lg-3 col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="box min-h-248-box">
                     <div class="box-body">
                         <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("m/Y") }} <small>(EUR)</small></h6>
@@ -195,19 +183,13 @@
                     size: 0
                 }
             };
-            const exchangeUrlEur = "{{ path('api_dashboard_exchange_rate', { currency: 'EUR' }) }}";
-            chargerConversionChart(exchangeUrlEur, {
-                text: '#taux-eur-chf-text',
-                value: '#taux-eur-chf-val',
-                evolution: '#evolution-rate-text'
-            }, '#bar-negative-chart', ['#2e62b9', '#fad050']);
+            const exchangeUrlEurUsd = "{{ path('api_dashboard_exchange_rate', { currency: 'EUR' }) }}";
 
-            const exchangeUrlUsd = "{{ path('api_dashboard_exchange_rate', { currency: 'USD' }) }}";
-            chargerConversionChart(exchangeUrlUsd, {
-                text: '#taux-usd-chf-text',
-                value: '#taux-usd-chf-val',
-                evolution: '#evolution-rate-usd-text'
-            }, '#bar-negative-chart-usd', ['#27ae60', '#e74c3c']);
+            chargerConversionChart(exchangeUrlEurUsd, {
+                text: '#taux-eur-usd-text',
+                value: '#taux-eur-usd-val',
+                evolution: '#evolution-rate-eur-usd-text'
+            }, '#bar-negative-chart-eur-usd', ['#2e62b9', '#fad050']);
 
             renderSalesYearChart(
                 '{{ path("api_dashboard_ca_par_mois") }}',

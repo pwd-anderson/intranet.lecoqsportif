@@ -3,7 +3,7 @@ site:
 dashboard:
   title: Dashboard
   conversion:
-    title: CONVERSION RATE
+    title: EXCHANGE RATE
   ventes:
     title: SALES
   variation_text_month: " compared to au M-1"

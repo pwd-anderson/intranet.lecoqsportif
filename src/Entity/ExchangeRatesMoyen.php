@@ -29,6 +29,9 @@ class ExchangeRatesMoyen
     #[ORM\Column]
     private ?\DateTimeImmutable $insertedAt = null;
 
+    #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
+    private ?\DateTime $moisTaux = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -90,6 +93,18 @@ class ExchangeRatesMoyen
     public function setInsertedAt(\DateTimeImmutable $insertedAt): static
     {
         $this->insertedAt = $insertedAt;
+
+        return $this;
+    }
+
+    public function getMoisTaux(): ?\DateTime
+    {
+        return $this->moisTaux;
+    }
+
+    public function setMoisTaux(?\DateTime $moisTaux): static
+    {
+        $this->moisTaux = $moisTaux;
 
         return $this;
     }

@@ -22,10 +22,12 @@ final class HomeController extends AbstractController
     }
 
     #[Route('/api/dashboard/exchange-rate/{currency}', name: 'api_dashboard_exchange_rate')]
-    public function getExchangeRateData(ExchangeRatesMoyenRepository $exchangeRatesMoyenRepository, string $currency = 'EUR'): JsonResponse
+    public function getExchangeRateData(ExchangeRatesMoyenRepository $repo, string $currency = 'EUR'): JsonResponse
     {
-        $data = $exchangeRatesMoyenRepository->getDataConversionRate($currency);
-        $rateData = $exchangeRatesMoyenRepository->getCurrentRateAndEvolution($currency);
+        $target = 'USD'; // fixe USD
+
+        $data = $repo->getDataConversionRate($currency, $target);
+        $rateData = $repo->getCurrentRateAndEvolution($currency, $target);
 
         $series = [
             'positive' => [],
