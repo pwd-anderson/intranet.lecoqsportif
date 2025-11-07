@@ -189,11 +189,12 @@ function renderTopClientsChart(apiUrl, selector) {
                     horizontal: true,
                     borderRadius: 1,
                     barHeight: '70%',
-                    dataLabels: { position: 'right' }
                 }
             },
             dataLabels: {
                 enabled: true,
+                position: 'right',
+                offsetX: 25,
                 formatter: val => val.toLocaleString('fr-CH', { maximumFractionDigits: 0 }) + ' €',
                 style: { fontSize: '12px', colors: ['#333'] }
             },

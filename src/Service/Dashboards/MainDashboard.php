@@ -40,6 +40,9 @@ class MainDashboard
                                  (MONTH(I.ExpectedInvoicingDate) = MONTH(GETDATE()) AND DAY(I.ExpectedInvoicingDate) <= DAY(GETDATE())))
                                 )
                             )
+                            AND IsBohPerimeter_Product = 1
+                    AND IsBohPerimeter_IR = 1
+                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
                     )
                     SELECT
                         SUM(CASE WHEN YEAR(jour) = YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END) AS ca_n,
@@ -76,6 +79,9 @@ class MainDashboard
                         FROM LCS_BI.F_Invoices_Dash I
                         WHERE
                             YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
+                            AND IsBohPerimeter_Product = 1
+                    AND IsBohPerimeter_IR = 1
+                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
                         GROUP BY YEAR(I.ExpectedInvoicingDate), MONTH(I.ExpectedInvoicingDate)
                     )
                     SELECT
@@ -116,6 +122,9 @@ class MainDashboard
                                 (YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE()) AND DAY(I.ExpectedInvoicingDate) <= DAY(GETDATE()))
                                 OR YEAR(I.ExpectedInvoicingDate) = YEAR(DATEADD(YEAR, -1, GETDATE()))
                             )
+                            AND IsBohPerimeter_Product = 1
+                    AND IsBohPerimeter_IR = 1
+                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
                         GROUP BY DAY(I.ExpectedInvoicingDate), YEAR(I.ExpectedInvoicingDate)
                     ),
                     fusion AS (
@@ -155,6 +164,9 @@ class MainDashboard
                                 (YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE()) AND DAY(I.ExpectedInvoicingDate) <= DAY(GETDATE()))
                                 OR YEAR(I.ExpectedInvoicingDate) = YEAR(DATEADD(YEAR, -1, GETDATE()))
                             )
+                            AND IsBohPerimeter_Product = 1
+                            AND IsBohPerimeter_IR = 1
+                            AND DocumentType IN ('INVOICE', 'CREDITMEMO')
                     )
                     SELECT
                         SUM(CASE WHEN YEAR(jour) = YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END) AS ca_n,
@@ -193,6 +205,9 @@ class MainDashboard
                 ON C.Code = I.CustomerNo AND C.CompanyCode = I.CompanyCode
             WHERE
                 YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
+            AND IsBohPerimeter_Product = 1
+                    AND IsBohPerimeter_IR = 1
+                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
             GROUP BY I.CustomerNo, C.Name
             ORDER BY TotalCA_EUR DESC;
         ";
@@ -216,6 +231,9 @@ class MainDashboard
             FROM LCS_BI.F_Invoices_Dash I
             WHERE
                 YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
+            AND IsBohPerimeter_Product = 1
+                    AND IsBohPerimeter_IR = 1
+                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
             GROUP BY I.CompanyCode
             ORDER BY TotalSales DESC
         ";
@@ -239,6 +257,9 @@ class MainDashboard
                     LEFT JOIN LCS_BI.D_Item IT ON IT.ItemNo = I.ItemNo
                     WHERE
                         YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
+                    AND IsBohPerimeter_Product = 1
+                    AND IsBohPerimeter_IR = 1
+                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
                     GROUP BY I.ItemNo, IT.Description
                     ORDER BY TotalSales DESC;"; // Mets la requête ici
 
@@ -260,8 +281,6 @@ class MainDashboard
                     MONTH(I.ExpectedInvoicingDate) AS mois,
                     SUM(I.AmountEurTM) AS ca_mensuel
                 FROM LCS_BI.F_Invoices_Dash_Evol I
-                WHERE
-                    YEAR(I.ExpectedInvoicingDate) BETWEEN YEAR(GETDATE()) - 4 AND YEAR(GETDATE())
                 GROUP BY YEAR(I.ExpectedInvoicingDate), MONTH(I.ExpectedInvoicingDate)
             )
             SELECT annee, mois, ca_mensuel

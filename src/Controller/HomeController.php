@@ -107,12 +107,13 @@ final class HomeController extends AbstractController
     public function getTopClients(): JsonResponse
     {
         $clients = $this->mainDashboard->getTopClients(); // appelle ta méthode SQL directe
+        $dataUtf8 = $this->helpers->convertArrayToUtf8($clients);
 
         $labels = [];
         $values = [];
 
-        foreach ($clients as $row) {
-            $labels[] = $row->CustomerName ?? $row['CustomerName'];
+        foreach ($dataUtf8 as $row) {
+            $labels[] = $row->CustomerName ?? mb_strimwidth($row['CustomerName'], 0, 25, '…');
             $values[] = round($row->TotalCA_EUR ?? $row['TotalCA_EUR'], 2);
         }
 
