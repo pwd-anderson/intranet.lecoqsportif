@@ -294,4 +294,28 @@ class MainDashboard
             return [];
         }
     }
+
+    public function getSalesOfToday(): ?float
+    {
+        try {
+            $query = "
+            SELECT
+                SUM(I.AmountEurTM) AS ca_jour
+            FROM LCS_BI.F_Invoices_Dash I
+            WHERE I.ExpectedInvoicingDate = CAST(GETDATE() AS DATE)
+            AND IsBohPerimeter_Product = 1
+            AND IsBohPerimeter_IR = 1
+            AND DocumentType IN ('INVOICE', 'CREDITMEMO')
+        ";
+
+            $result = $this->mssqlMade2design->executeQuery($query);
+            //dd($result[0]->ca_jour);
+
+            return $result[0]->ca_jour ?? 0;
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Dashboard : CA du jour', $e);
+            $this->logger->error('LCS Erreur CA du jour', ['exception' => $e]);
+            return 0;
+        }
+    }
 }

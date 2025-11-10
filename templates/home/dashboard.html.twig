@@ -80,7 +80,7 @@
             <!-- Traductions utilisées dans JS (dashboard.js) -->
             <span id="trans_variation_month" data-text="{{ 'dashboard.variation_text_month'|trans }}"></span>
 
-            <div class="col-lg-4 col-md-6">
+            <div class="col-lg-3 col-md-6">
                 <div class="box min-h-248-box">
                     <div class="box-body">
                         <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} :
@@ -95,7 +95,7 @@
                 </div>
             </div>
             <!-- Blocs Ventes Année en cours -->
-            <div class="col-lg-4 col-md-6">
+            <div class="col-lg-3 col-md-6">
                 <div class="box min-h-248-box">
                     <div class="box-body">
                         <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("Y") }} <small>(EUR)</small></h6>
@@ -108,7 +108,7 @@
                 </div>
             </div>
             <!-- Blocs Mois en cours -->
-            <div class="col-lg-4 col-md-6">
+            <div class="col-lg-3 col-md-6">
                 <div class="box min-h-248-box">
                     <div class="box-body">
                         <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("m/Y") }} <small>(EUR)</small></h6>
@@ -117,6 +117,22 @@
                             <p class="mb-0" id="variation_m">–</p>
                         </div>
                         <div id="warning-line-chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blocs Jour -->
+            <div class="col-lg-3 col-md-6">
+                <div class="box min-h-248-box">
+                    <div class="box-body text-center" style="display: flex; flex-direction: column; justify-content: center;">
+                        <div class="kpi-ca mb-1">
+                            <p class="mb-1 fs-16 text-uppercase">CA du jour <small>(EUR)</small></p>
+                            <h2 id="ca-jour-kpi" class="countnm mb-1">—</h2>
+                            <p class="text-muted fs-15 mb-0">Aujourd'hui</p>
+                        </div>
+                        <div class="kpi-chart mt-1" style="margin-top: auto;">
+                            <i class="fa fa-calendar-day fa-3x text-warning"></i>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -213,6 +229,8 @@
             renderTopProductSalesChart('{{ path("api_dashboard_top_product_sales") }}', '#chart-top-product-sales');
             // CA Evolution sur 5 ans
             renderSalesEvolutionChart('{{ path("api_dashboard_sales_evolution_5y") }}', '#userflow', '#apex-legend-sales');
+            // CA du Jour
+            chargerCaJour('{{ path("api_dashboard_ca_today") }}');
 
 
         }); // End of use strict

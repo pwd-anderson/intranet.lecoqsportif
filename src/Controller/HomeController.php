@@ -195,4 +195,14 @@ final class HomeController extends AbstractController
             'categories' => $labels,
         ]);
     }
+
+    #[Route('/api/dashboard/ca-today', name: 'api_dashboard_ca_today')]
+    public function getSalesOfToday(): JsonResponse
+    {
+        $ca = $this->mainDashboard->getSalesOfToday();
+
+        return new JsonResponse([
+            'ca_jour' => round($ca, 2),
+        ]);
+    }
 }

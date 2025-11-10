@@ -364,3 +364,14 @@ function renderSalesEvolutionChart(apiUrl, selector, legendSelector) {
         document.querySelector(legendSelector).innerHTML = legendHtml;
     });
 }
+
+function chargerCaJour(apiUrl) {
+    $.getJSON(apiUrl, function (data) {
+        console.log(data.ca_jour);
+        if (data.ca_jour !== null) {
+            $('#ca-jour-kpi').text(data.ca_jour.toLocaleString('fr-CH', { minimumFractionDigits: 2 }));
+        } else {
+            $('#ca-jour-kpi').text('—');
+        }
+    });
+}
