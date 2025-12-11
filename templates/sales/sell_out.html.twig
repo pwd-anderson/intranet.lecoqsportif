@@ -1,0 +1,485 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .sellout-sidebar {
+            border-radius: 8px;
+            background: #fff;
+            overflow-y: auto;
+        }
+
+        .sellout-menu {
+            padding: 0;
+            margin: 0;
+        }
+
+        .menu-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 14px;
+            border-left: 3px solid transparent;
+            transition: all .15s ease-in-out;
+        }
+
+        .menu-item:hover {
+            background: #f5f5f5;
+            border-left-color: #ccc;
+        }
+
+        .menu-item.active {
+            background: #e9f3ff;
+            border-left-color: #0d6efd;
+            font-weight: 600;
+            color: #0d6efd;
+        }
+
+        /* Bloc filtre */
+        .filter-block {
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .filter-block .filter-label {
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+
+        .filter-block select {
+            width: 100%;
+            border: none;
+            background: rgba(255,255,255,0.8);
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        /* Icône */
+        .filter-icon {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+
+        /* Couleurs adaptées au screenshot */
+        .bg-r2        { background-color: #b3d7ff; }  /* bleu clair */
+        .bg-chef      { background-color: #d7b3ff; }  /* violet clair */
+        .bg-group     { background-color: #ffe8a3; }  /* jaune clair */
+        .bg-ville     { background-color: #f9b3d9; }  /* rose clair */
+
+        /* css 4ème colonne*/
+        .detailed-filters {
+            border-radius: 8px;
+            background: #fff;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        /* Titre de section */
+        .filter-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin: 10px 0 5px 0;
+            color: #555;
+        }
+
+        /* Ligne d'un filtre */
+        .filter-item {
+            margin-bottom: 10px;
+        }
+
+        .filter-item-label {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        /* Recherche */
+        .filter-search input {
+            border-radius: 6px;
+        }
+
+        .echart-container {
+            height: 300px;
+            margin: 0 !important;   /* supprime toute marge */
+            padding: 0 !important;  /* supprime tout padding */
+        }
+
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="container-fluid sellout-dashboard">
+        <div class="row">
+
+            <!-- Colonne 1 : Menus -->
+            <div class="col-md-2 col-lg-2">
+                <div class="sellout-sidebar box h-auto">
+                    <div class="box-header">
+                        <h5 class="fw-bold mb-0">SellOut</h5>
+                    </div>
+
+                    <div class="box-body p-0">
+                        <ul class="sellout-menu list-unstyled mb-0">
+
+                            <li class="menu-item active">Recap Last Collection</li>
+                            <li class="menu-item">Recap graph évo Last Collection</li>
+                            <li class="menu-item">Recap 2 latest collection</li>
+                            <li class="menu-item">Qtés + CA _catégories</li>
+
+                            <li class="menu-item">Ranking_Apparel</li>
+                            <li class="menu-item">Ranking_Footwear_global</li>
+                            <li class="menu-item">Ranking_Footwear_Global_hors_promo</li>
+                            <li class="menu-item">Ranking_Accessoires</li>
+
+                            <li class="menu-item">Apparel overview hors OP FW25</li>
+                            <li class="menu-item">textile par typologie LW hors OP</li>
+                            <li class="menu-item">TXT overview all refs FW25 + SS25 last week</li>
+
+                            <li class="menu-item">FTW overview hors OP FW25</li>
+                            <li class="menu-item">FTW overview all refs FW25 + SS25</li>
+
+                            <li class="menu-item">item APP</li>
+                            <li class="menu-item">item FTW</li>
+                            <li class="menu-item">item Accessoires + Teamsport</li>
+
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne 2 : Filtres -->
+            <div class="col-md-2 col-lg-2">
+                <div class="box h-auto">
+
+                    <div class="box-body">
+
+                        <!-- R2 -->
+                        <div class="filter-block bg-r2">
+                            <div class="filter-icon text-center">
+                                <i class="fa fa-map"></i>
+                            </div>
+                            <div class="filter-label">R2</div>
+                            <select>
+                                <option>Tout</option>
+                            </select>
+                        </div>
+
+                        <!-- Chef de secteur -->
+                        <div class="filter-block bg-chef">
+                            <div class="filter-icon text-center">
+                                <i class="fa fa-user"></i>
+                            </div>
+                            <div class="filter-label">Chef de secteur</div>
+                            <select>
+                                <option>Tout</option>
+                            </select>
+                        </div>
+
+                        <!-- Groupement -->
+                        <div class="filter-block bg-group">
+                            <div class="filter-icon text-center">
+                                <i class="fa fa-building"></i>
+                            </div>
+                            <div class="filter-label">Groupement</div>
+                            <select>
+                                <option>Plusieurs sélections</option>
+                            </select>
+                        </div>
+
+                        <!-- Ville -->
+                        <div class="filter-block bg-ville">
+                            <div class="filter-icon text-center">
+                                <i class="fa fa-city"></i>
+                            </div>
+                            <div class="filter-label">Ville</div>
+                            <select>
+                                <option>Tout</option>
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne 3 : Zone principale (Graphs) -->
+            <div class="col-md-6 col-lg-6">
+                <div class="box">
+                    <div class="box-header px-3 py-2 mt-1">
+                        <h5 class="text-uppercase">Evolution volume Ventes/Semaine global collection en cours</h5>
+                    </div>
+                    <div class="box-body">
+                        <!-- Contenu principal, graphique vide pour l'instant -->
+                        <div id="sellout-main-content-1" class="echart-container"></div>
+                    </div>
+                </div>
+
+                <div class="box">
+                    <div class="box-header px-3 py-2 mt-1">
+                        <h5 class="text-uppercase">Cumul volume Ventes/Semaine global collection en cours</h5>
+                    </div>
+                    <div class="box-body">
+                        <!-- Contenu principal, graphique vide pour l'instant -->
+                        <div id="sellout-main-content-2" class="echart-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne 4 : Filtres détaillés -->
+            <div class="col-md-2 col-lg-2">
+                <div class="detailed-filters box h-auto">
+
+                    <div class="box-header">
+                        <h5 class="fw-bold">Filtres</h5>
+                    </div>
+
+                    <div class="box-body">
+
+                        <!-- Champ de recherche -->
+                        <div class="filter-search mb-3">
+                            <input type="text" class="form-control" placeholder="Rechercher">
+                        </div>
+
+                        <!-- Section : Filters in this page -->
+                        <div class="filter-section-title">Filtres dans cette page</div>
+
+                        <div class="filter-accordion">
+
+                            {% set filtersPage = [
+                                'Category', 'Sub Category', 'UM', 'Typology',
+                                'Color', 'Item No', 'Item Description',
+                                'Gender Code', 'Age Group', 'Franchise',
+                                'Line Product Is OP'
+                            ] %}
+
+                            {% for item in filtersPage %}
+                                <div class="filter-item">
+                                    <div class="filter-item-label">{{ item }}</div>
+                                    <select class="form-select">
+                                        <option>est (Tout)</option>
+                                    </select>
+                                </div>
+                            {% endfor %}
+
+                        </div>
+
+                        <hr>
+
+                        <!-- Section : Filters all pages -->
+                        <div class="filter-section-title">Filtres dans toutes les pages</div>
+
+                        {% set filtersAll = ['Group Code', 'Store Code'] %}
+
+                        {% for item in filtersAll %}
+                            <div class="filter-item">
+                                <div class="filter-item-label">{{ item }}</div>
+                                <select class="form-select">
+                                    <option>est (Tout)</option>
+                                </select>
+                            </div>
+                        {% endfor %}
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/vendor_components/echarts/dist/echarts-en.min.js') }}"></script>
+    <script>
+
+        $(document).ready(function () {
+
+            // Exemple de données pour la série 1
+            var seriesData1 = [
+                ["2018-06-05", 115], ["2018-06-06", 135], ["2018-06-07", 145], ["2018-06-08", 95],
+                ["2018-06-09", 74], ["2018-06-10", 89], ["2018-06-11", 65], ["2018-06-12", 87],
+                ["2018-06-13", 96], ["2018-06-14", 154], ["2018-06-15", 269], ["2018-06-16", 145],
+                ["2018-06-17", 154], ["2018-06-18", 101], ["2018-06-19", 425], ["2018-06-20", 203]
+            ];
+
+            // Exemple de données pour la série 2
+            var seriesData2 = [
+                ["2018-06-05", 80], ["2018-06-06", 110], ["2018-06-07", 20], ["2018-06-08", 70],
+                ["2018-06-09", 150], ["2018-06-10", 160], ["2018-06-11", 40], ["2018-06-12", 70],
+                ["2018-06-13", 90], ["2018-06-14", 130], ["2018-06-15", 220], ["2018-06-16", 110],
+                ["2018-06-17", 150], ["2018-06-18", 90], ["2018-06-19", 350], ["2018-06-20", 180]
+            ];
+
+            // 🎯 Appel de la fonction
+            var myChartInstance = createLineChart('sellout-main-content-1', {
+                data1: seriesData1,
+                name1: 'SO N',
+                color1: '#0d6efd', // Bleu Bootstrap
+                data2: seriesData2,
+                name2: 'SO N-1',
+                color2: '#91CC75' // Jaune Bootstrap
+            });
+
+            // 💡 Gestion du resize (utilise l'instance retournée par la fonction)
+            $(window).on('resize', function () {
+                myChartInstance.resize();
+            });
+
+            // 🎯 Appel de la fonction
+            var myChartInstance = createLineChart('sellout-main-content-2', {
+                data1: seriesData1,
+                name1: 'SO N',
+                color1: '#fd0d0d'
+            });
+
+            // 💡 Gestion du resize (utilise l'instance retournée par la fonction)
+            $(window).on('resize', function () {
+                myChartInstance.resize();
+            });
+        });
+
+        /**
+         * Génère un graphique linéaire (simple ou double) avec dégradé ECharts.
+         * * @param {string} containerId - L'ID de l'élément DOM où le graphique doit être injecté.
+         * @param {object} config - Objet de configuration pour le graphique.
+         * @param {Array<Array<string | number>>} config.data1 - Données [x, y] pour la première courbe (OBLIGATOIRE).
+         * @param {string} config.name1 - Nom de la première courbe (OBLIGATOIRE).
+         * @param {string} config.color1 - Couleur principale de la première courbe (OBLIGATOIRE).
+         * @param {Array<Array<string | number>>} [config.data2] - Données [x, y] pour la deuxième courbe (OPTIONNEL).
+         * @param {string} [config.name2] - Nom de la deuxième courbe (OPTIONNEL).
+         * @param {string} [config.color2] - Couleur principale de la deuxième courbe (OPTIONNEL).
+         */
+        function createLineChart(containerId, config) {
+            // Vérification du conteneur et initialisation/réutilisation du graphique
+            var chartDom = document.getElementById(containerId);
+            if (!chartDom) {
+                console.error("Conteneur ECharts non trouvé : " + containerId);
+                return;
+            }
+
+            var existingChart = echarts.getInstanceByDom(chartDom);
+            var targetChart = existingChart || echarts.init(chartDom);
+
+            // Préparation des données et des listes de noms pour la légende
+            var dateList = config.data1.map(item => item[0]);
+            var valueList1 = config.data1.map(item => item[1]);
+            var legendData = [config.name1];
+            var seriesList = [];
+
+            // Fonction utilitaire pour créer le dégradé de couleur
+            function createAreaGradient(hexColor) {
+                const hexToRgb = (hex) => {
+                    const bigint = parseInt(hex.slice(1), 16);
+                    const r = (bigint >> 16) & 255;
+                    const g = (bigint >> 8) & 255;
+                    const b = bigint & 255;
+                    return `rgba(${r},${g},${b},0)`;
+                };
+
+                return new echarts.graphic.LinearGradient(
+                    0, 0, 0, 1,
+                    [
+                        { offset: 0, color: hexColor },
+                        { offset: 1, color: hexToRgb(hexColor) }
+                    ]
+                );
+            }
+
+            // --- 1. CONFIGURATION DE LA PREMIÈRE COURBE (OBLIGATOIRE) ---
+            const series1 = {
+                name: config.name1,
+                type: 'line',
+                data: valueList1,
+                smooth: true,
+                showSymbol: true,
+                symbolSize: 8,
+                lineStyle: {
+                    width: 3,
+                    color: config.color1
+                },
+                label: {
+                    show: true,
+                    position: 'top',
+                    fontSize: 12,
+                    color: '#333',
+                    formatter: '{c}'
+                },
+                areaStyle: {
+                    opacity: 0.35,
+                    color: createAreaGradient(config.color1)
+                }
+            };
+            seriesList.push(series1);
+
+            // --- 2. CONFIGURATION DE LA DEUXIÈME COURBE (CONDITIONNELLE) ---
+            if (config.data2 && config.name2 && config.color2) {
+                var valueList2 = config.data2.map(item => item[1]);
+                legendData.push(config.name2);
+
+                const series2 = {
+                    name: config.name2,
+                    type: 'line',
+                    data: valueList2,
+                    smooth: true,
+                    showSymbol: true,
+                    symbolSize: 8,
+                    lineStyle: {
+                        width: 3,
+                        color: config.color2
+                    },
+                    label: {
+                        show: true,
+                        position: 'top',
+                        fontSize: 12,
+                        color: '#333',
+                        formatter: '{c}'
+                    },
+                    areaStyle: {
+                        opacity: 0.35,
+                        color: createAreaGradient(config.color2)
+                    }
+                };
+                seriesList.push(series2);
+            }
+
+            // 3. Configuration Globale
+            var option = {
+                grid: {
+                    top: '10%',
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                tooltip: { trigger: 'axis' },
+                legend: {
+                    data: legendData, // Noms ajustés en fonction du nombre de séries
+                    top: '1%',
+                    right: '5%'
+                },
+                xAxis: {
+                    data: dateList,
+                    boundaryGap: false,
+                    axisLine: { lineStyle: { color: '#555' } },
+                    axisLabel: {
+                        fontSize: 12,
+                        rotate: 45
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    splitLine: { show: true },
+                    axisLine: { show: false }
+                },
+                series: seriesList // Le tableau final des courbes
+            };
+
+            targetChart.setOption(option, true);
+            return targetChart;
+        }
+
+    </script>
+{% endblock %}

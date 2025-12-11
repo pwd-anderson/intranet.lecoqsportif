@@ -162,4 +162,11 @@ final class SalesController extends AbstractController
         $dataSalesUtf8 = $helpers->convertArrayToUtf8($dataSales);
         return new JsonResponse($dataSalesUtf8);
     }
+
+    #[Route('/sales/sell_out', name: 'app_sales_sell_out')]
+    public function sellOut(): Response
+    {
+
+        return $this->render('sales/sell_out.html.twig');
+    }
 }
