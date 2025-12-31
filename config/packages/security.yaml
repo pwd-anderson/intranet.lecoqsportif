@@ -1,5 +1,5 @@
 security:
-    hide_user_not_found: false
+    expose_security_errors: 'all'
 
     password_hashers:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: auto

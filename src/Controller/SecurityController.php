@@ -41,7 +41,7 @@ final class SecurityController extends AbstractController
     #[Route('/callback', name: 'app_callback')]
     public function callback(Request $request, SessionInterface $session): Response
     {
-        if ($request->get('state') !== $session->get('oauth2state')) {
+        if ($request->query->get('state') !== $session->get('oauth2state')) {
             $session->remove('oauth2state');
             return new Response('Invalid state', Response::HTTP_FORBIDDEN);
         }
@@ -66,8 +66,14 @@ final class SecurityController extends AbstractController
                 'scopes'                  => 'openid email profile',
             ]);
 
+            $code = $request->query->get('code');
+
+            if (!$code) {
+                throw new BadRequestHttpException('Missing authorization code');
+            }
+
             $accessToken = $provider->getAccessToken('authorization_code', [
-                'code' => $request->get('code'),
+                'code' => $code,
             ]);
 
             $user = $provider->getResourceOwner($accessToken);

@@ -9,6 +9,7 @@ use Psr\Log\LoggerInterface;
 class GraphMailer
 {
     private string $senderEmail;
+    private string $adminEmail;
 
     public function __construct(
         private GraphAccessTokenService $tokenService,
