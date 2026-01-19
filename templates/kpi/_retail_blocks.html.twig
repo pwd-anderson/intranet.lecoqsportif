@@ -1,0 +1,216 @@
+{% for boutique in boutiques %}
+    <div class="col-12 col-lg-4">
+        <h4 class="mx-3 border-bottom pb-2">{{ boutique.name }}</h4>
+
+        <!-- CA HT Main Block -->
+        <div class="row">
+            <div class="col-12">
+                <div class="box box-link-pop text-center bg-light-blue mx-1">
+                    <div class="box-body py-2">
+                        <p class="mt-1 text-uppercase fs-16 fw-bold mb-0">CA HT</p>
+                        <p class="fs-30 fw-bold m-0">
+                            <strong class="countnm">{{ boutique.ca_ht }}</strong> <span>€</span>
+                        </p>
+                        <p class="mb-1 fs-12 fw-semibold">
+                                    <span class="{{ boutique.variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ boutique.variation_rfc }}%
+                                    </span> vs RFC /
+                            <span class="{{ boutique.variation_n1 < 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ boutique.variation_n1 }}%
+                                    </span> vs N-1 /
+                            <span class="{{ boutique.variation_hors_jo < 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ boutique.variation_hors_jo }}%
+                                    </span> hors JO
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 1: PM, ATV, Trafic -->
+        <div class="margin-adjust">
+            <div class="row g-1">
+                <div class="col-4">
+                    <div class="box box-link-pop text-center bg-light-blue mb-2">
+                        <div class="box-body py-2 px-1">
+                            <p class="text-uppercase fs-10 fw-bold mb-0 text-truncate" title="PANIER MOYEN TTC">PANIER MOYEN TTC</p>
+                            <p class="fs-18 fw-bold m-0">
+                                <strong class="countnm">{{ boutique.panier_moyen }}</strong> €
+                            </p>
+                            <p class="fs-10 mb-0 fw-semibold">
+                                        <span class="{{ boutique.panier_variation > 0 ? 'text-success' : 'text-danger' }}">
+                                            {{ boutique.panier_variation > 0 ? '+' : '' }}{{ boutique.panier_variation }}%
+                                        </span> vs N-1
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="box box-link-pop text-center bg-light-blue mb-2">
+                        <div class="box-body py-2 px-1">
+                            <p class="text-uppercase fs-10 fw-bold mb-0">ATV</p>
+                            <p class="fs-18 fw-bold m-0">
+                                <strong>{{ boutique.atv }}</strong>
+                            </p>
+                            <p class="fs-10 mb-0 fw-semibold">
+                                        <span class="{{ boutique.atv_variation > 0 ? 'text-success' : 'text-danger' }}">
+                                            {{ boutique.atv_variation }}pts
+                                        </span> vs N-1
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="box box-link-pop text-center bg-light-blue mb-2">
+                        <div class="box-body py-2 px-1">
+                            <p class="text-uppercase fs-10 fw-bold mb-0">TRAFIC</p>
+                            <p class="fs-18 fw-bold m-0">
+                                <strong>{{ boutique.trafic }}</strong>
+                            </p>
+                            <p class="fs-10 mb-0 fw-semibold invisible">&nbsp;</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: FTW, APP, Couverture -->
+        <div class="margin-adjust">
+            <div class="row g-1">
+                <div class="col-4">
+                    <div class="box box-link-pop text-center bg-light-blue mb-2">
+                        <div class="box-body py-2 px-1">
+                            <p class="text-uppercase fs-10 fw-bold mb-0">FTW</p>
+                            <p class="fs-18 fw-bold m-0">
+                                <strong>{{ boutique.ftw_ca }} k€</strong>
+                            </p>
+                            <p class="fs-10 mb-0 fw-semibold">
+                                        <span class="{{ boutique.ftw_variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
+                                            {{ boutique.ftw_variation_rfc }}%
+                                        </span> vs RFC
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="box box-link-pop text-center bg-light-blue mb-2">
+                        <div class="box-body py-2 px-1">
+                            <p class="text-uppercase fs-10 fw-bold mb-0">APP</p>
+                            <p class="fs-18 fw-bold m-0">
+                                <strong>{{ boutique.app_ca }} k€</strong>
+                            </p>
+                            <p class="fs-10 mb-0 fw-semibold">
+                                        <span class="{{ boutique.app_variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
+                                            {{ boutique.app_variation_rfc }}%
+                                        </span> vs RFC
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="box box-link-pop text-center bg-light-blue mb-2">
+                        <div class="box-body py-2 px-1">
+                            <p class="text-uppercase fs-10 fw-bold mb-0">Couverture</p>
+                            <p class="fs-18 fw-bold m-0">
+                                <strong>{{ boutique.couverture }} week</strong>
+                            </p>
+                            <p class="fs-10 mb-0 fw-semibold invisible">&nbsp;</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CUMUL ANNEE -->
+        <h5 class="mx-3 text-uppercase mt-2">CUMUL ANNEE</h5>
+        <div class="row">
+            <div class="col-12">
+                <div class="box box-link-pop text-center bg-light-pink mx-1">
+                    <div class="box-body py-2">
+                        <p class="mt-1 text-uppercase fs-14 fw-bold mb-0">CA NET HT</p>
+                        <p class="fs-30 fw-bold m-0">
+                            {% set cumul = boutique.cumul_ca %}
+                            {% if cumul >= 1000 %}
+                                <strong class="countnm">
+                                    {{ (cumul / 1000)|round(0, 'floor') }}
+                                </strong>
+                                <span>k€</span>
+                            {% else %}
+                                <strong class="countnm">
+                                    {{ cumul|round(0, 'floor') }}
+                                </strong>
+                                <span>€</span>
+                            {% endif %}
+                        </p>
+                        <p class="mb-1 fs-14 fw-semibold">
+                                    <span class="{{ boutique.cumul_variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ boutique.cumul_variation_rfc }}%
+                                    </span> vs RFC /
+                            <span class="{{ boutique.cumul_variation_n1 < 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ boutique.cumul_variation_n1 }}%
+                                    </span> vs N-1
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer / Comments -->
+        {# Footer / Comments (editable UI only - no save yet) #}
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="box bg-light-blue p-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted text-uppercase fw-semibold">Commentaire</small>
+                        <small class="text-muted" style="cursor:pointer" data-comment-action="hint">
+                            Cliquer pour éditer
+                        </small>
+                    </div>
+
+                    {# Vue lecture #}
+                    <div
+                        class="mt-2"
+                        data-comment-display
+                        data-store="{{ boutique.store_key }}"
+                        data-view="{{ view }}"
+                        data-year="{{ year }}"
+                        data-week="{{ week }}"
+                        data-save-url="{{ path('kpi_comment_save') }}"
+                    >
+                        {% if boutique.comment %}
+                            {{ boutique.comment|raw }}
+                        {% else %}
+                            <p class="text-muted mb-0" data-comment-placeholder>
+                                Clique pour ajouter un commentaire…
+                            </p>
+                        {% endif %}
+                    </div>
+
+                    {# Vue édition #}
+                    <div class="mt-2 d-none" data-comment-editor-wrap>
+                        <div
+                            class="form-control"
+                            data-comment-editor
+                            contenteditable="true"
+                            style="min-height: 110px; white-space: pre-wrap;"
+                        ></div>
+
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-success" data-comment-save>
+                                Enregistrer
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-comment-cancel>
+                                Annuler
+                            </button>
+                        </div>
+
+                        <small class="text-muted d-block mt-2">
+                            (Sauvegarde à venir — étape suivante)
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+{% endfor %}

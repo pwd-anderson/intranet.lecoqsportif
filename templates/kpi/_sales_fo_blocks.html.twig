@@ -1,0 +1,593 @@
+{# kpi/_sales_fo_blocks.html.twig #}
+
+{% block stylesheets %}
+    <style>
+        /* ✅ tu peux reprendre ton CSS sales_by_family ici (table-kpi-pro + lw-box-pro etc.)
+           + le CSS des box bg-light-blue de retail_blocks (déjà dans ton thème admin normalement)
+        */
+        .chart-container { display:none; } /* sécurité */
+
+        .equal-height-col {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .equal-height-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .block-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-height: 48%;
+        }
+
+        .block-content { flex: 1; }
+
+        /* ✅ table style pro (comme ton sales_by_family) */
+        .table-kpi-pro {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            overflow: hidden;
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        .table-kpi-pro thead th {
+            background: #f0f2f8;
+            color: #1f2d5c;
+            font-weight: 800;
+            text-align: right;
+            padding: 7px 8px;
+            border-bottom: 1px solid #e4e7f0;
+            white-space: nowrap;
+        }
+
+        .table-kpi-pro thead th:first-child { text-align: left; }
+
+        .table-kpi-pro tbody td {
+            padding: 6px 8px;
+            text-align: right;
+            border-bottom: 1px solid #f0f2f8;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .table-kpi-pro tbody td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: #1f2d5c;
+        }
+
+        .table-kpi-pro tbody tr:hover { background: #f8f9fd; }
+
+        .table-kpi-pro .row-total td {
+            font-weight: 900;
+            background: #f0f2f8;
+            border-top: 1px solid #e4e7f0;
+        }
+
+        .table-kpi-pro .table-title {
+            background: #1f2d5c !important;
+            color: #fff !important;
+            text-align: center !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .table-kpi-pro .table-subtitle {
+            background: #fafbff !important;
+            color: #6c757d !important;
+            text-align: center !important;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .lw-box-pro {
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-weight: 900;
+            font-size: 12px;
+            background: #ffffff;
+            border: 1px solid #e6e9f3;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            color: #1f2d5c;
+            display: inline-block;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .evolution-pos { color: #5ca83e; }
+        .evolution-neg { color: #dc3545; }
+
+        .product-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+    </style>
+{% endblock %}
+
+<div class="container-fluid py-4">
+    <div class="row">
+
+        {# ======================================================
+           ✅ COL 1 : FULL BOUTIQUE (retail_blocks)
+        ====================================================== #}
+        <div class="col-md-4">
+
+            {% set boutique = data.full_boutique %}
+            <!-- CA HT Main Block -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="box box-link-pop text-center bg-light-blue mx-1">
+                        <div class="box-body py-2">
+                            <p class="mt-1 text-uppercase fs-16 fw-bold mb-0">CA HT</p>
+                            <p class="fs-30 fw-bold m-0">
+                                <strong class="countnm">{{ boutique.ca_ht }}</strong> <span>€</span>
+                            </p>
+                            <p class="mb-1 fs-12 fw-semibold">
+                                <span class="{{ boutique.variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
+                                    {{ boutique.variation_rfc }}%
+                                </span> vs RFC /
+                                <span class="{{ boutique.variation_n1 < 0 ? 'text-danger' : 'text-success' }}">
+                                    {{ boutique.variation_n1 }}%
+                                </span> vs N-1 /
+                                <span class="{{ boutique.variation_hors_jo < 0 ? 'text-danger' : 'text-success' }}">
+                                    {{ boutique.variation_hors_jo }}%
+                                </span> hors JO
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 1: PM, ATV, Trafic -->
+            <div class="margin-adjust">
+                <div class="row g-1">
+                    <div class="col-4">
+                        <div class="box box-link-pop text-center bg-light-blue mb-2">
+                            <div class="box-body py-2 px-1">
+                                <p class="text-uppercase fs-10 fw-bold mb-0 text-truncate" title="PANIER MOYEN TTC">
+                                    PANIER MOYEN TTC
+                                </p>
+                                <p class="fs-18 fw-bold m-0">
+                                    <strong class="countnm">{{ boutique.panier_moyen }}</strong> €
+                                </p>
+                                <p class="fs-10 mb-0 fw-semibold">
+                                    <span class="{{ boutique.panier_variation > 0 ? 'text-success' : 'text-danger' }}">
+                                        {{ boutique.panier_variation > 0 ? '+' : '' }}{{ boutique.panier_variation }}%
+                                    </span> vs N-1
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-4">
+                        <div class="box box-link-pop text-center bg-light-blue mb-2">
+                            <div class="box-body py-2 px-1">
+                                <p class="text-uppercase fs-10 fw-bold mb-0">ATV</p>
+                                <p class="fs-18 fw-bold m-0">
+                                    <strong>{{ boutique.atv }}</strong>
+                                </p>
+                                <p class="fs-10 mb-0 fw-semibold">
+                                    <span class="{{ boutique.atv_variation > 0 ? 'text-success' : 'text-danger' }}">
+                                        {{ boutique.atv_variation }}pts
+                                    </span> vs N-1
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-4">
+                        <div class="box box-link-pop text-center bg-light-blue mb-2">
+                            <div class="box-body py-2 px-1">
+                                <p class="text-uppercase fs-10 fw-bold mb-0">TRAFIC</p>
+                                <p class="fs-18 fw-bold m-0">
+                                    <strong>{{ boutique.trafic }}</strong>
+                                </p>
+                                <p class="fs-10 mb-0 fw-semibold invisible">&nbsp;</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: FTW, APP, Couverture -->
+            <div class="margin-adjust">
+                <div class="row g-1">
+                    <div class="col-4">
+                        <div class="box box-link-pop text-center bg-light-blue mb-2">
+                            <div class="box-body py-2 px-1">
+                                <p class="text-uppercase fs-10 fw-bold mb-0">FTW</p>
+                                <p class="fs-18 fw-bold m-0">
+                                    <strong>{{ boutique.ftw_ca }} k€</strong>
+                                </p>
+                                <p class="fs-10 mb-0 fw-semibold">
+                                    <span class="{{ boutique.ftw_variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ boutique.ftw_variation_rfc }}%
+                                    </span> vs RFC
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-4">
+                        <div class="box box-link-pop text-center bg-light-blue mb-2">
+                            <div class="box-body py-2 px-1">
+                                <p class="text-uppercase fs-10 fw-bold mb-0">APP</p>
+                                <p class="fs-18 fw-bold m-0">
+                                    <strong>{{ boutique.app_ca }} k€</strong>
+                                </p>
+                                <p class="fs-10 mb-0 fw-semibold">
+                                    <span class="{{ boutique.app_variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
+                                        {{ boutique.app_variation_rfc }}%
+                                    </span> vs RFC
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-4">
+                        <div class="box box-link-pop text-center bg-light-blue mb-2">
+                            <div class="box-body py-2 px-1">
+                                <p class="text-uppercase fs-10 fw-bold mb-0">Couverture</p>
+                                <p class="fs-18 fw-bold m-0">
+                                    <strong>{{ boutique.couverture }} week</strong>
+                                </p>
+                                <p class="fs-10 mb-0 fw-semibold invisible">&nbsp;</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CUMUL ANNEE -->
+            <h5 class="mx-3 text-uppercase mt-2">CUMUL ANNEE</h5>
+            <div class="row">
+                <div class="col-12">
+                    <div class="box box-link-pop text-center bg-light-pink mx-1">
+                        <div class="box-body py-2">
+                            <p class="mt-1 text-uppercase fs-14 fw-bold mb-0">CA NET HT</p>
+                            <p class="fs-30 fw-bold m-0">
+                                {% set cumul = boutique.cumul_ca %}
+                                {% if cumul >= 1000 %}
+                                    <strong class="countnm">{{ (cumul / 1000)|round(0, 'floor') }}</strong>
+                                    <span>k€</span>
+                                {% else %}
+                                    <strong class="countnm">{{ cumul|round(0, 'floor') }}</strong>
+                                    <span>€</span>
+                                {% endif %}
+                            </p>
+                            <p class="mb-1 fs-14 fw-semibold">
+                                <span class="{{ boutique.cumul_variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
+                                    {{ boutique.cumul_variation_rfc }}%
+                                </span> vs RFC /
+                                <span class="{{ boutique.cumul_variation_n1 < 0 ? 'text-danger' : 'text-success' }}">
+                                    {{ boutique.cumul_variation_n1 }}%
+                                </span> vs N-1
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Footer / Comments -->
+            {# Footer / Comments (editable UI only - no save yet) #}
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="box bg-light-blue p-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted text-uppercase fw-semibold">Commentaire</small>
+                            <small class="text-muted" style="cursor:pointer" data-comment-action="hint">
+                                Cliquer pour éditer
+                            </small>
+                        </div>
+
+                        {# Vue lecture #}
+                        <div
+                            class="mt-2"
+                            data-comment-display
+                            data-store="full_boutique"
+                            data-view="{{ view }}"
+                            data-year="{{ year }}"
+                            data-week="{{ week }}"
+                            data-save-url="{{ path('kpi_comment_save') }}"
+                        >
+                            {% set comment = data.comments['full_boutique']|default(null) %}
+                            {% if comment %}
+                                {{ comment|raw }}
+                            {% else %}
+                                <p class="text-muted mb-0" data-comment-placeholder>
+                                    Clique pour ajouter un commentaire…
+                                </p>
+                            {% endif %}
+                        </div>
+
+                        {# Vue édition #}
+                        <div class="mt-2 d-none" data-comment-editor-wrap>
+                            <div
+                                class="form-control"
+                                data-comment-editor
+                                contenteditable="true"
+                                style="min-height: 110px; white-space: pre-wrap;"
+                            ></div>
+
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-sm btn-success" data-comment-save>
+                                    Enregistrer
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-comment-cancel>
+                                    Annuler
+                                </button>
+                            </div>
+
+                            <small class="text-muted d-block mt-2">
+                                (Sauvegarde à venir — étape suivante)
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        {# ======================================================
+           ✅ COL 2 : APPAREL + FOOTWEAR tables (sales_by_family)
+        ====================================================== #}
+        <div class="col-md-4 equal-height-col">
+            <div class="card p-2 equal-height-card">
+
+                {# APPAREL #}
+                <div class="block-section">
+                    <table class="table-kpi-pro mb-0">
+                        <thead>
+                        <tr><th colspan="4" class="table-title">APPAREL</th></tr>
+                        <tr>
+                            <th>Item Group Code</th>
+                            <th>Amount N</th>
+                            <th>Amount N-1</th>
+                            <th>Evolution</th>
+                        </tr>
+                        </thead>
+                        <tbody class="block-content">
+                        {% for item in data.sales_by_family.apparel.items %}
+                            <tr>
+                                <td>{{ item.name }}</td>
+                                <td>{{ item.amount_n|number_format(0, '.', ' ') }}</td>
+                                <td>{{ item.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                                <td class="{{ item.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                    {{ item.evolution|number_format(1, ',', ' ') }} %
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        <tr class="row-total">
+                            <td>Total</td>
+                            <td>{{ data.sales_by_family.apparel.total.amount_n|number_format(0, '.', ' ') }}</td>
+                            <td>{{ data.sales_by_family.apparel.total.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                            <td class="{{ data.sales_by_family.apparel.total.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                {{ data.sales_by_family.apparel.total.evolution|number_format(1, ',', ' ') }} %
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="text-center">
+                        <div class="lw-box-pro">
+                            LW : {{ data.sales_by_family.apparel.lw|number_format(0, '.', ' ') }} €
+                        </div>
+                    </div>
+                </div>
+
+                {# FOOTWEAR #}
+                <div class="block-section">
+                    <table class="table-kpi-pro mb-0">
+                        <thead>
+                        <tr><th colspan="4" class="table-title">FOOTWEAR</th></tr>
+                        <tr>
+                            <th>Gender Code</th>
+                            <th>Amount N</th>
+                            <th>Amount N-1</th>
+                            <th>Evolution</th>
+                        </tr>
+                        </thead>
+                        <tbody class="block-content">
+                        {% for item in data.sales_by_family.footwear.items %}
+                            <tr>
+                                <td>{{ item.name }}</td>
+                                <td>{{ item.amount_n|number_format(0, '.', ' ') }}</td>
+                                <td>{{ item.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                                <td class="{{ item.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                    {{ item.evolution|number_format(1, ',', ' ') }} %
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        <tr class="row-total">
+                            <td>Total</td>
+                            <td>{{ data.sales_by_family.footwear.total.amount_n|number_format(0, '.', ' ') }}</td>
+                            <td>{{ data.sales_by_family.footwear.total.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                            <td class="{{ data.sales_by_family.footwear.total.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                {{ data.sales_by_family.footwear.total.evolution|number_format(1, ',', ' ') }} %
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="text-center">
+                        <div class="lw-box-pro">
+                            LW : {{ data.sales_by_family.footwear.lw|number_format(0, '.', ' ') }} €
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <!-- Footer / Comments -->
+            {# Footer / Comments (editable UI only - no save yet) #}
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="box bg-light-blue p-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted text-uppercase fw-semibold">Commentaire</small>
+                            <small class="text-muted" style="cursor:pointer" data-comment-action="hint">
+                                Cliquer pour éditer
+                            </small>
+                        </div>
+
+                        {# Vue lecture #}
+                        <div
+                            class="mt-2"
+                            data-comment-display
+                            data-store="textile_footwear"
+                            data-view="{{ view }}"
+                            data-year="{{ year }}"
+                            data-week="{{ week }}"
+                            data-save-url="{{ path('kpi_comment_save') }}"
+                        >
+                            {% set comment = data.comments['textile_footwear']|default(null) %}
+                            {% if comment %}
+                                {{ comment|raw }}
+                            {% else %}
+                                <p class="text-muted mb-0" data-comment-placeholder>
+                                    Clique pour ajouter un commentaire…
+                                </p>
+                            {% endif %}
+                        </div>
+
+                        {# Vue édition #}
+                        <div class="mt-2 d-none" data-comment-editor-wrap>
+                            <div
+                                class="form-control"
+                                data-comment-editor
+                                contenteditable="true"
+                                style="min-height: 110px; white-space: pre-wrap;"
+                            ></div>
+
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-sm btn-success" data-comment-save>
+                                    Enregistrer
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-comment-cancel>
+                                    Annuler
+                                </button>
+                            </div>
+
+                            <small class="text-muted d-block mt-2">
+                                (Sauvegarde à venir — étape suivante)
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ======================================================
+           ✅ COL 3 : TOP 5 PRODUITS (sales_by_family)
+        ====================================================== #}
+        <div class="col-md-4 equal-height-col">
+            <div class="card p-2 equal-height-card">
+
+                <div class="table-responsive">
+                    <table class="table-kpi-pro mb-0">
+                        <thead>
+                        <tr>
+                            <th colspan="5" class="table-title">TOP 5 PRODUITS</th>
+                        </tr>
+                        <tr>
+                            <th colspan="5" class="table-subtitle">
+                                TOP 5 – FO – {{ year }}-{{ week }}
+                            </th>
+                        </tr>
+                        <tr>
+                            <th style="width:45px;"></th>
+                            <th>Code</th>
+                            <th class="text-start">Produit</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">CA</th>
+                        </tr>
+                        </thead>
+                        <tbody class="block-content">
+                        {% for product in data.sales_by_family.top_products %}
+                            {% if loop.index0 == 5 %}
+                                <tr><td colspan="5" style="height: 20px; border:none;"></td></tr>
+                            {% endif %}
+                            <tr>
+                                <td class="text-center">
+                                    <img src="{{ product.image }}" class="product-img" alt="Product">
+                                </td>
+                                <td>{{ product.code }}</td>
+                                <td class="text-start">{{ product.name }}</td>
+                                <td class="text-end">{{ product.qty }}</td>
+                                <td class="text-end">{{ product.amount|number_format(0, '.', ' ') }} €</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+            <!-- Footer / Comments -->
+            {# Footer / Comments (editable UI only - no save yet) #}
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="box bg-light-blue p-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted text-uppercase fw-semibold">Commentaire</small>
+                            <small class="text-muted" style="cursor:pointer" data-comment-action="hint">
+                                Cliquer pour éditer
+                            </small>
+                        </div>
+
+                        {# Vue lecture #}
+                        <div
+                            class="mt-2"
+                            data-comment-display
+                            data-store="top_produits"
+                            data-view="{{ view }}"
+                            data-year="{{ year }}"
+                            data-week="{{ week }}"
+                            data-save-url="{{ path('kpi_comment_save') }}"
+                        >
+                            {% set comment = data.comments['top_produits']|default(null) %}
+                            {% if comment %}
+                                {{ comment|raw }}
+                            {% else %}
+                                <p class="text-muted mb-0" data-comment-placeholder>
+                                    Clique pour ajouter un commentaire…
+                                </p>
+                            {% endif %}
+                        </div>
+
+                        {# Vue édition #}
+                        <div class="mt-2 d-none" data-comment-editor-wrap>
+                            <div
+                                class="form-control"
+                                data-comment-editor
+                                contenteditable="true"
+                                style="min-height: 110px; white-space: pre-wrap;"
+                            ></div>
+
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-sm btn-success" data-comment-save>
+                                    Enregistrer
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-comment-cancel>
+                                    Annuler
+                                </button>
+                            </div>
+
+                            <small class="text-muted d-block mt-2">
+                                (Sauvegarde à venir — étape suivante)
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

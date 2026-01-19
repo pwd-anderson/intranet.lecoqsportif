@@ -37,6 +37,25 @@ class MssqlManager
         }
     }
 
+    public function executeQueryWithParams(string $query, array $params = []): array
+    {
+        try {
+            $stmt = $this->connection?->prepare($query);
+            if ($stmt && $stmt->execute($params)) {
+                return $stmt->fetchAll(PDO::FETCH_OBJ);
+            }
+
+            return [];
+
+        } catch (PDOException $e) {
+            $this->logger->error("Query with params failed: {$e->getMessage()}", [
+                'query' => $query,
+                'params' => $params,
+            ]);
+            return [];
+        }
+    }
+
     public function insertData(string $query): int
     {
         try {

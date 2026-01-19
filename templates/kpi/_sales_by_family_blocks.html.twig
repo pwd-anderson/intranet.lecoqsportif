@@ -1,0 +1,508 @@
+{% block stylesheets %}
+    <style>
+        /* ======================================================
+           GLOBAL
+        ====================================================== */
+
+        /* ======================================================
+           COLORS / HELPERS
+        ====================================================== */
+        .text-navy { color: #1f2d5c; }
+        .text-green { color: #5ca83e; }
+
+        .bg-navy { background-color: #1f2d5c; }
+        .bg-green { background-color: #5ca83e; }
+
+        .evolution-pos { color: #5ca83e; }
+        .evolution-neg { color: #dc3545; }
+
+        /* ======================================================
+           CARDS & LAYOUT
+        ====================================================== */
+        .card {
+            border: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        /* Equal height columns (middle column fix) */
+        .equal-height-col {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .equal-height-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .block-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-height: 48%; /* align with charts */
+        }
+
+        .block-content {
+            flex: 1;
+        }
+
+        /* ======================================================
+   TABLE STYLE (PRO - same as shopbygroup slide)
+===================================================== */
+
+        .table-kpi-pro {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            overflow: hidden;
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        .table-kpi-pro thead th {
+            background: #f0f2f8;
+            color: #1f2d5c;
+            font-weight: 800;
+            text-align: right;
+            padding: 7px 8px;
+            border-bottom: 1px solid #e4e7f0;
+            white-space: nowrap;
+        }
+
+        .table-kpi-pro thead th:first-child {
+            text-align: left;
+        }
+
+        .table-kpi-pro tbody td {
+            padding: 6px 8px;
+            text-align: right;
+            border-bottom: 1px solid #f0f2f8;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .table-kpi-pro tbody td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: #1f2d5c;
+        }
+
+        .table-kpi-pro tbody tr:hover {
+            background: #f8f9fd;
+        }
+
+        .table-kpi-pro .row-total td {
+            font-weight: 900;
+            background: #f0f2f8;
+            border-top: 1px solid #e4e7f0;
+        }
+
+        /* Titles inside table (APPAREL / FOOTWEAR / TOP 5) */
+        .table-kpi-pro .table-title {
+            background: #1f2d5c !important;
+            color: #fff !important;
+            text-align: center !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Subtitle row */
+        .table-kpi-pro .table-subtitle {
+            background: #fafbff !important;
+            color: #6c757d !important;
+            text-align: center !important;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* lw pill (same style) */
+        .lw-box-pro {
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-weight: 900;
+            font-size: 12px;
+            background: #ffffff;
+            border: 1px solid #e6e9f3;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            color: #1f2d5c;
+            display: inline-block;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        /* ======================================================
+           TITLES / TEXT
+        ====================================================== */
+        .section-title {
+            text-transform: uppercase;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #1f2d5c;
+        }
+
+        .green-title {
+            color: #5ca83e;
+        }
+
+        /* ======================================================
+           IMAGES
+        ====================================================== */
+        .product-img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+
+        .table-custom thead th {
+            border-bottom: 1px solid #ccc;
+        }
+
+        .table-custom tbody tr:hover {
+            background-color: #f5f7fa;
+        }
+    </style>
+{% endblock %}
+
+<div class="container-fluid py-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h4 class="fw-bold">(hors JO)</h4>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column: Charts -->
+        <div class="col-md-4">
+            <div class="card p-3">
+                <h6 class="text-center text-decoration-underline mb-3">Ventes par famille</h6>
+                <div class="chart-container">
+                    <canvas id="salesFamilyChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card p-3">
+                <h6 class="text-center text-decoration-underline mb-3">Ventes Semaine</h6>
+                <div class="chart-container">
+                    <canvas id="salesWeekChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Middle Column: Tables -->
+        <div class="col-md-4 equal-height-col">
+            <div class="card p-2 equal-height-card">
+                <!-- APPAREL block -->
+                <div class="block-section">
+
+                    <table class="table-kpi-pro mb-0">
+                        <thead>
+                        <tr>
+                            <th colspan="4" class="table-title">
+                                APPAREL
+                            </th>
+                        </tr>
+                        <tr>
+                            <th>Item Group Code</th>
+                            <th>Amount N</th>
+                            <th>Amount N-1</th>
+                            <th>Evolution</th>
+                        </tr>
+                        </thead>
+
+                        <tbody class="block-content">
+                        {% for item in data.apparel.items %}
+                            <tr>
+                                <td class="text-start">{{ item.name }}</td>
+                                <td>{{ item.amount_n|number_format(0, '.', ' ') }}</td>
+                                <td>{{ item.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                                <td class="{{ item.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                    {{ item.evolution|number_format(1, ',', ' ') }} %
+                                </td>
+                            </tr>
+                        {% endfor %}
+
+                        <tr class="row-total">
+                            <td class="text-start">Total</td>
+                            <td>{{ data.apparel.total.amount_n|number_format(0, '.', ' ') }}</td>
+                            <td>{{ data.apparel.total.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                            <td class="{{ data.apparel.total.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                {{ data.apparel.total.evolution|number_format(1, ',', ' ') }} %
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="text-center">
+                        <div class="lw-box-pro">
+                            LW : {{ data.apparel.lw|number_format(0, '.', ' ') }} €
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOOTWEAR block -->
+                <div class="block-section">
+
+                    <table class="table-kpi-pro mb-0">
+                        <thead>
+                        <tr>
+                            <th colspan="4" class="table-title">
+                                FOOTWEAR
+                            </th>
+                        </tr>
+                        <tr>
+                            <th>Gender Code</th>
+                            <th>Amount N</th>
+                            <th>Amount N-1</th>
+                            <th>Evolution</th>
+                        </tr>
+                        </thead>
+
+                        <tbody class="block-content">
+                        {% for item in data.footwear.items %}
+                            <tr>
+                                <td class="text-start">{{ item.name }}</td>
+                                <td>{{ item.amount_n|number_format(0, '.', ' ') }}</td>
+                                <td>{{ item.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                                <td class="{{ item.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                    {{ item.evolution|number_format(1, ',', ' ') }} %
+                                </td>
+                            </tr>
+                        {% endfor %}
+
+                        <tr class="row-total">
+                            <td class="text-start">Total</td>
+                            <td>{{ data.apparel.total.amount_n|number_format(0, '.', ' ') }}</td>
+                            <td>{{ data.apparel.total.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                            <td class="{{ data.apparel.total.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                {{ data.apparel.total.evolution|number_format(1, ',', ' ') }} %
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="text-center">
+                        <div class="lw-box-pro">
+                            LW : {{ data.footwear.lw|number_format(0, '.', ' ') }} €
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Top Products -->
+        <div class="col-md-4 equal-height-col">
+            <div class="card p-2 equal-height-card">
+
+                <div class="table-responsive">
+                    <table class="table-kpi-pro mb-0">
+
+                        <thead>
+                        <!-- TITRE -->
+                        <tr>
+                            <th colspan="5" class="table-title">
+                                TOP 5 PRODUITS
+                            </th>
+                        </tr>
+
+                        <!-- SOUS-TITRE -->
+                        <tr>
+                            <th colspan="5" class="table-subtitle">
+                                TOP 5 – CS – 2025-48 (Net Sales Sort)
+                            </th>
+                        </tr>
+
+                        <!-- COLONNES -->
+                        <tr>
+                            <th style="width: 45px;"></th>
+                            <th>Code</th>
+                            <th class="text-start">Produit</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">CA</th>
+                        </tr>
+                        </thead>
+
+                        <tbody class="block-content">
+                        {% for product in data.top_products %}
+                            {% if loop.index0 == 5 %}
+                                <tr><td colspan="5" style="height: 20px; border:none;"></td></tr>
+                            {% endif %}
+                            <tr>
+                                <td class="text-center">
+                                    <img src="{{ product.image }}" class="product-img" alt="Product">
+                                </td>
+                                <td>{{ product.code }}</td>
+                                <td class="text-start">{{ product.name }}</td>
+                                <td class="text-end">{{ product.qty }}</td>
+                                <td class="text-end">{{ product.amount|number_format(0, '.', ' ') }} €</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% block javascripts %}
+    <script>
+        (function () {
+
+            // ✅ register plugin 1 seule fois (évite bugs AJAX)
+            if (!window.chartDataLabelsRegistered) {
+                Chart.register(ChartDataLabels);
+                window.chartDataLabelsRegistered = true;
+            }
+
+            // ✅ helper format K€
+            function formatK(value) {
+                return Number(value).toFixed(1).replace('.', ',') + 'K';
+            }
+
+            /* ==========================================================
+               1) SALES BY FAMILY
+            ========================================================== */
+            const canvasFamily = document.getElementById('salesFamilyChart');
+
+            if (canvasFamily) {
+
+                // ✅ destroy old chart instance if exists
+                if (window.salesFamilyChartInstance) {
+                    window.salesFamilyChartInstance.destroy();
+                }
+
+                const ctxFamily = canvasFamily.getContext('2d');
+
+                window.salesFamilyChartInstance = new Chart(ctxFamily, {
+                    type: 'bar',
+                    data: {
+                        labels: {{ data.sales_by_family.labels|json_encode|raw }},
+                        datasets: [{
+                            data: {{ data.sales_by_family.data|json_encode|raw }},
+                            backgroundColor: {{ data.sales_by_family.colors|json_encode|raw }},
+                            barPercentage: 0.6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'end',
+                                formatter: formatK,
+                                font: { weight: 'bold' }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: formatK
+                                },
+                                grid: { borderDash: [2, 2] }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+
+
+            /* ==========================================================
+               2) WEEKLY SALES (STACKED)
+            ========================================================== */
+            const canvasWeek = document.getElementById('salesWeekChart');
+
+            if (canvasWeek) {
+
+                if (window.salesWeekChartInstance) {
+                    window.salesWeekChartInstance.destroy();
+                }
+
+                const ctxWeek = canvasWeek.getContext('2d');
+
+                // ✅ datasets dynamiques (2, 3, 4… familles)
+                const weekDatasets = {{ data.weekly_sales.datasets|json_encode|raw }};
+
+                // ✅ sécurité : on impose stack + style ici
+                weekDatasets.forEach(ds => {
+                    ds.stack = 'Stack 0';
+                });
+
+                window.salesWeekChartInstance = new Chart(ctxWeek, {
+                    type: 'bar',
+                    data: {
+                        labels: {{ data.weekly_sales.labels|json_encode|raw }},
+                        datasets: weekDatasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: {
+                                color: 'white',
+                                font: { weight: 'bold', size: 10 },
+                                formatter: formatK
+                            }
+                        },
+                        scales: {
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                ticks: { callback: formatK },
+                                grid: { borderDash: [2, 2] }
+                            },
+                            x: {
+                                stacked: true,
+                                grid: { display: false }
+                            }
+                        }
+                    },
+                    plugins: [{
+                        id: 'stackedTotals',
+                        afterDatasetsDraw: (chart) => {
+                            const { ctx, scales: { x, y } } = chart;
+
+                            chart.data.labels.forEach((label, index) => {
+
+                                // ✅ total = somme de tous les datasets
+                                let total = 0;
+                                chart.data.datasets.forEach(ds => {
+                                    total += Number(ds.data[index]) || 0;
+                                });
+
+                                const yPos = y.getPixelForValue(total);
+
+                                ctx.save();
+                                ctx.fillStyle = '#666';
+                                ctx.textAlign = 'center';
+                                ctx.font = 'bold 10px Arial';
+                                ctx.fillText(formatK(total), x.getPixelForValue(index), yPos - 5);
+                                ctx.restore();
+                            });
+                        }
+                    }]
+                });
+            }
+
+        })();
+    </script>
+{% endblock %}

@@ -1,0 +1,291 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sales By Boutiques{% endblock %}
+
+{% block stylesheets %}
+    <style>
+        .table-custom th, .table-custom td {
+            vertical-align: middle;
+            text-align: center;
+            font-size: 0.8rem;
+            padding: 0.3rem 0.2rem;
+        }
+        .header-blue {
+            background-color: #1a237e; /* Dark Blue */
+            color: white;
+            font-weight: bold;
+        }
+        .header-sub {
+            background-color: #9fa8da; /* Light Blue-Grey */
+            color: white;
+            font-weight: bold;
+            font-size: 0.7rem;
+        }
+        .row-total-retail {
+            background-color: #42a5f5; /* Blue */
+            color: white;
+            font-weight: bold;
+        }
+        .row-concept-store {
+            background-color: #1a237e; /* Dark Blue */
+            color: white;
+            font-weight: bold;
+        }
+        .row-cs-perimetre {
+            background-color: #90caf9; /* Light Blue */
+            color: white;
+            font-weight: bold;
+        }
+        .text-orange { color: #ff9800; }
+        .text-red { color: #f44336; }
+        .text-green { color: #4caf50; }
+
+        .circle {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .circle-red { background-color: #f44336; }
+        .circle-green { background-color: #4caf50; }
+        .circle-orange { background-color: #ff9800; }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <h2 class="mb-4 text-uppercase fw-bold text-dark-blue" style="color: #0d47a1;">SALES by Boutiques</h2>
+
+        {# MACRO for rendering a table row #}
+        {% macro render_row(row, is_boutique=false) %}
+            <td>{{ row.name }}</td>
+            {% if is_boutique %}
+                <td class="text-uppercase">{{ row.type|default('') }}</td>
+            {% else %}
+                <td></td>
+            {% endif %}
+
+            {# CA NET HT #}
+            <td>{{ row.ca.reel }}</td>
+            <td>{{ row.ca.poids|default('') }}</td>
+            <td>{{ row.ca.rfc|default('') }}</td>
+            <td class="fw-bold">
+                {% if row.ca.ecart_bud is defined %}
+                    {{ row.ca.ecart_bud }}%
+                    {% if row.ca.ecart_bud < -5 %}
+                        <span class="circle circle-red"></span>
+                        {% elseif row.ca.ecart_bud > 0 %}
+                        <span class="circle circle-green"></span>
+                    {% else %}
+                        <span class="circle circle-orange"></span>
+                    {% endif %}
+                {% endif %}
+            </td>
+            <td>{{ row.ca.ly }}</td>
+            <td>{{ row.ca.ecart }}</td>
+            <td class="fw-bold">{{ row.ca.ecart_percent }}%</td>
+
+            {# MARGE NETTE #}
+            <td class="border-start">{{ row.marge.reel }}</td>
+            <td>{{ row.marge.rfc|default('') }}</td>
+            <td class="fw-bold">
+                {% if row.marge.ecart_bud is defined %}
+                    {{ row.marge.ecart_bud }}%
+                {% endif %}
+            </td>
+            <td>{{ row.marge.ly }}</td>
+            <td>{{ row.marge.ecart }}</td>
+            <td class="fw-bold">{{ row.marge.ecart_percent }}%</td>
+
+            {# TAUX MARGE NETTE #}
+            <td class="border-start">{{ row.taux.reel }}%</td>
+            <td>{{ row.taux.rfc }}%</td>
+            <td class="fw-bold">
+                {% if row.taux.ecart_bud is defined %}
+                    {{ row.taux.ecart_bud }}%
+                    {% if row.taux.ecart_bud < -2 %}
+                        <span class="circle circle-red"></span>
+                        {% elseif row.taux.ecart_bud >= 0 %}
+                        <span class="circle circle-green"></span>
+                    {% else %}
+                        <span class="circle circle-orange"></span>
+                    {% endif %}
+                {% endif %}
+            </td>
+            <td>{{ row.taux.ly }}%</td>
+            <td class="fw-bold">{{ row.taux.ecart_n1 }}%</td>
+        {% endmacro %}
+
+        {% import _self as macros %}
+
+        {# WEEK 48 TABLE #}
+        <div class="row mb-5">
+            <div class="col-12">
+                <h4 class="mb-2">WEEK 48</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm table-custom">
+                        <thead>
+                        <tr class="header-blue">
+                            <th colspan="2" class="bg-white text-dark border-0"></th>
+                            <th colspan="7">CA NET HT (K€)</th>
+                            <th colspan="6">MARGE NETTE (K€)</th>
+                            <th colspan="5">TAUX MARGE NETTE (%)</th>
+                        </tr>
+                        <tr class="header-sub">
+                            <th style="width: 150px;"></th>
+                            <th style="width: 50px;"></th>
+
+                            {# CA #}
+                            <th>REEL</th>
+                            <th>%<br>réseau/total</th>
+                            <th>RFC</th>
+                            <th>ECART %<br>BUD</th>
+                            <th>LY</th>
+                            <th>ECART</th>
+                            <th>ECART<br>%</th>
+
+                            {# MARGE #}
+                            <th>REEL</th>
+                            <th>RFC</th>
+                            <th>ECART %<br>BUD</th>
+                            <th>LY</th>
+                            <th>ECART</th>
+                            <th>ECART<br>%</th>
+
+                            {# TAUX #}
+                            <th>REEL</th>
+                            <th>RFC</th>
+                            <th>ECART %<br>BUD</th>
+                            <th>LY</th>
+                            <th>ECART %<br>N-1</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {# Total Retail #}
+                        <tr class="row-total-retail">
+                            {{ macros.render_row(sales_data.week.total_retail) }}
+                        </tr>
+
+                        {# Concept Store #}
+                        <tr class="row-concept-store">
+                            {{ macros.render_row(sales_data.week.concept_store) }}
+                        </tr>
+
+                        {# Boutiques #}
+                        {% for boutique in sales_data.week.boutiques %}
+                            <tr>
+                                {{ macros.render_row(boutique, true) }}
+                            </tr>
+                        {% endfor %}
+
+                        {# CS Perimetre Constant #}
+                        {% if sales_data.week.cs_perimetre is defined %}
+                            <tr class="row-cs-perimetre">
+                                <td>{{ sales_data.week.cs_perimetre.name }}</td>
+                                <td></td>
+
+                                {# CA #}
+                                <td>{{ sales_data.week.cs_perimetre.ca.reel }}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td>{{ sales_data.week.cs_perimetre.ca.ly }}</td>
+                                <td>{{ sales_data.week.cs_perimetre.ca.ecart }}</td>
+                                <td class="fw-bold">{{ sales_data.week.cs_perimetre.ca.ecart_percent }}%</td>
+
+                                {# MARGE #}
+                                <td class="border-start">{{ sales_data.week.cs_perimetre.marge.reel }}</td>
+                                <td></td>
+                                <td></td>
+                                <td>{{ sales_data.week.cs_perimetre.marge.ly }}</td>
+                                <td>{{ sales_data.week.cs_perimetre.marge.ecart }}</td>
+                                <td class="fw-bold">{{ sales_data.week.cs_perimetre.marge.ecart_percent }}%</td>
+
+                                {# TAUX #}
+                                <td class="border-start">{{ sales_data.week.cs_perimetre.taux.reel }}%</td>
+                                <td>{{ sales_data.week.cs_perimetre.taux.rfc }}%</td>
+                                <td class="fw-bold">
+                                    {{ sales_data.week.cs_perimetre.taux.ecart_bud }}%
+                                </td>
+                                <td>{{ sales_data.week.cs_perimetre.taux.ly }}%</td>
+                                <td class="fw-bold">{{ sales_data.week.cs_perimetre.taux.ecart_n1 }}%</td>
+                            </tr>
+                        {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {# CUMUL TABLE #}
+        <div class="row">
+            <div class="col-12">
+                <h4 class="mb-2">CUMUL</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm table-custom">
+                        <thead>
+                        <tr class="header-blue">
+                            <th colspan="2" class="bg-white text-dark border-0"></th>
+                            <th colspan="7">CA NET HT (K€)</th>
+                            <th colspan="6">MARGE NETTE (K€)</th>
+                            <th colspan="5">TAUX MARGE NETTE (%)</th>
+                        </tr>
+                        <tr class="header-sub">
+                            <th style="width: 150px;"></th>
+                            <th style="width: 50px;"></th>
+
+                            {# CA #}
+                            <th>REEL</th>
+                            <th>POIDS<br>%</th>
+                            <th>RFC</th>
+                            <th>ECART %<br>BUD</th>
+                            <th>LY</th>
+                            <th>ECART</th>
+                            <th>ECART<br>%</th>
+
+                            {# MARGE #}
+                            <th>REEL</th>
+                            <th>RFC</th>
+                            <th>ECART %<br>RFC</th>
+                            <th>LY</th>
+                            <th>ECART</th>
+                            <th>ECART %<br>LY</th>
+
+                            {# TAUX #}
+                            <th>REEL</th>
+                            <th>RFC</th>
+                            <th>ECART %<br>BUD</th>
+                            <th>LY</th>
+                            <th>ECART<br>% N-1</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {# Total Retail #}
+                        <tr class="row-total-retail">
+                            {{ macros.render_row(sales_data.cumul.total_retail) }}
+                        </tr>
+
+                        {# Concept Store #}
+                        <tr class="row-concept-store">
+                            {{ macros.render_row(sales_data.cumul.concept_store) }}
+                        </tr>
+
+                        {# Boutiques #}
+                        {% for boutique in sales_data.cumul.boutiques %}
+                            <tr>
+                                {{ macros.render_row(boutique, true) }}
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}

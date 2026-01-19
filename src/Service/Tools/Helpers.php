@@ -31,4 +31,13 @@ class Helpers
 
         return $data;
     }
+
+    public function variation(float $current, float $reference): float
+    {
+        if ($reference <= 0.0) {
+            return 0.0;
+        }
+
+        return round((($current - $reference) / $reference) * 100, 1);
+    }
 }

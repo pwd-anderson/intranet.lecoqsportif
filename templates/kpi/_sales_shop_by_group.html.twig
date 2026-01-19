@@ -1,0 +1,292 @@
+{% block stylesheets %}
+    <style>
+        body {
+            background: #f6f7fb;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Layout global */
+        .kpi-wrapper {
+            max-width: 1250px;
+            margin: 0 auto;
+            padding: 10px 20px;
+        }
+
+        .shops-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        /* Card colonne */
+        .shop-column {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+            padding: 14px 14px 12px 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Titre shop */
+        .shop-title {
+            font-size: 16px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #1f2d5c;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #eef0f5;
+            min-height: 42px;
+            line-height: 1.2;
+        }
+
+        /* Bloc catégorie */
+        .category-section {
+            margin-bottom: 16px;
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .category-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: #fff;
+        }
+
+        .category-pill.apparel {
+            background: #1f2d5c;
+        }
+
+        .category-pill.footwear {
+            background: #5ca83e;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            overflow: hidden;
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        thead th {
+            background: #f0f2f8;
+            color: #1f2d5c;
+            font-weight: 800;
+            text-align: right;
+            padding: 7px 8px;
+            border-bottom: 1px solid #e4e7f0;
+            white-space: nowrap;
+        }
+
+        thead th:first-child {
+            text-align: left;
+        }
+
+        tbody td {
+            padding: 6px 8px;
+            text-align: right;
+            border-bottom: 1px solid #f0f2f8;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        tbody td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: #1f2d5c;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fd;
+        }
+
+        .row-total td {
+            font-weight: 900;
+            background: #f0f2f8;
+            border-top: 1px solid #e4e7f0;
+        }
+
+        /* Variations */
+        .evo-pos {
+            color: #1a8f3a;
+            font-weight: 700;
+        }
+
+        .evo-neg {
+            color: #c0392b;
+            font-weight: 700;
+        }
+
+        /* LW pill */
+        .lw-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 8px;
+        }
+
+        .lw-box {
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-weight: 900;
+            font-size: 12px;
+            background: #ffffff;
+            border: 1px solid #e6e9f3;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            color: #1f2d5c;
+        }
+
+        /* commentaire aligné exactement sous les 3 colonnes */
+        .kpi-comment-footer{
+            width: 100%;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .shops-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock %}
+
+<div class="kpi-wrapper">
+    <div class="shops-grid">
+        {% for shop in shops %}
+            <div class="shop-column">
+                <div class="shop-title">
+                    {{ shop.name|nl2br }}
+                </div>
+
+                {% for category in shop.categories %}
+                    <div class="category-section">
+                        <div class="category-header">
+                            <div class="category-pill {{ category.name|lower }}">
+                                {{ category.name }}
+                            </div>
+                        </div>
+
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>{{ category.code_label }}</th>
+                                <th>Amount N</th>
+                                <th>Amount N-1</th>
+                                <th>Evolution</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for item in category.items %}
+                                <tr>
+                                    <td>{{ item.code }}</td>
+                                    <td>{{ item.amount_n|number_format(0, '.', ' ') }}</td>
+                                    <td>
+                                        {% if item.amount_n1 is not null %}
+                                            {{ item.amount_n1|number_format(0, '.', ' ') }} €
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.evolution == 'Infini' %}
+                                            <span>Infini</span>
+                                        {% else %}
+                                            <span class="{{ item.evolution > 0 ? 'evo-pos' : 'evo-neg' }}">
+                                                {{ item.evolution|number_format(1, ',', ' ') }} %
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+
+                            <tr class="row-total">
+                                <td>Total</td>
+                                <td>{{ category.total.amount_n|number_format(0, '.', ' ') }}</td>
+                                <td>{{ category.total.amount_n1|number_format(0, '.', ' ') }} €</td>
+                                <td>
+                                    <span class="{{ category.total.evolution > 0 ? 'evo-pos' : 'evo-neg' }}">
+                                        {{ category.total.evolution|number_format(1, ',', ' ') }} %
+                                    </span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="lw-container">
+                            <div class="lw-box">
+                                LW : {{ category.lw|number_format(0, '.', ' ') }} €
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+    {# Footer / Comments (GLOBAL SLIDE) #}
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="box bg-light-blue p-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted text-uppercase fw-semibold">Commentaire</small>
+                    <small class="text-muted" style="cursor:pointer" data-comment-action="hint">
+                        Cliquer pour éditer
+                    </small>
+                </div>
+
+                {# Vue lecture #}
+                <div
+                    class="mt-2"
+                    data-comment-display
+                    data-store="GLOBAL"
+                    data-view="{{ view }}"
+                    data-year="{{ year }}"
+                    data-week="{{ week }}"
+                    data-save-url="{{ path('kpi_comment_save') }}"
+                >
+                    {% if comment_global is defined and comment_global %}
+                        {{ comment_global|raw }}
+                    {% else %}
+                        <p class="text-muted mb-0" data-comment-placeholder>
+                            Clique pour ajouter un commentaire…
+                        </p>
+                    {% endif %}
+                </div>
+
+                {# Vue édition #}
+                <div class="mt-2 d-none" data-comment-editor-wrap>
+                    <div
+                        class="form-control"
+                        data-comment-editor
+                        contenteditable="true"
+                        style="min-height: 110px; white-space: pre-wrap;"
+                    ></div>
+
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-success" data-comment-save>
+                            Enregistrer
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-comment-cancel>
+                            Annuler
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
