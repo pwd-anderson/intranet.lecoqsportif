@@ -176,7 +176,7 @@ class SalesByBoutiquesKpi
             $year,
             $week,
             $cumul,
-            ['CONCEPT STORE', 'FACTORY OUTLET']
+            ['CONCEPT STORE', 'FACTORY OUTLET', 'MARKETPLACE', 'ESHOP']
         );
 
 // CA
@@ -229,7 +229,13 @@ class SalesByBoutiquesKpi
             WHERE
                 l.BusinessType = 'CS'
                 AND c.ReportingDimensionDescription = 'RETAIL'
-                AND YEAR(i.ExpectedInvoicingDate) IN (:year, :year_minus_1)
+                AND (
+        CASE
+            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12 THEN YEAR(i.ExpectedInvoicingDate) + 1
+            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1 THEN YEAR(i.ExpectedInvoicingDate) - 1
+            ELSE YEAR(i.ExpectedInvoicingDate)
+        END
+    ) IN (:year, :year_minus_1)
         ";
 
         $params = [
@@ -273,7 +279,13 @@ class SalesByBoutiquesKpi
             WHERE
                 c.ReportingDimensionDescription = 'RETAIL'
                 AND l.BusinessType <> ''
-                AND YEAR(i.ExpectedInvoicingDate) IN (:year, :year_minus_1)
+                AND (
+        CASE
+            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12 THEN YEAR(i.ExpectedInvoicingDate) + 1
+            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1 THEN YEAR(i.ExpectedInvoicingDate) - 1
+            ELSE YEAR(i.ExpectedInvoicingDate)
+        END
+    ) IN (:year, :year_minus_1)
         ";
 
         $params = [
@@ -310,7 +322,13 @@ class SalesByBoutiquesKpi
         WHERE
             l.BusinessType = 'CS'
             AND c.ReportingDimensionDescription = 'RETAIL'
-            AND YEAR(i.ExpectedInvoicingDate) IN (:year, :year_minus_1)
+            AND (
+        CASE
+            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12 THEN YEAR(i.ExpectedInvoicingDate) + 1
+            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1 THEN YEAR(i.ExpectedInvoicingDate) - 1
+            ELSE YEAR(i.ExpectedInvoicingDate)
+        END
+    ) IN (:year, :year_minus_1)
     ";
 
         $params = [

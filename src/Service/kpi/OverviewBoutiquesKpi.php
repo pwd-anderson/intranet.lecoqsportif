@@ -174,7 +174,13 @@ class OverviewBoutiquesKpi
         LEFT JOIN [BI].[DWH].D_Item it ON i.ItemNo = it.ItemNo
         LEFT JOIN [BI].[DWH].D_Collection c on i.ItemNo = c.Code and i.SeriesNo = c.SeasonCode
         WHERE l.BusinessType IN (:businessType)
-        AND YEAR(i.ExpectedInvoicingDate) IN (:year, :year_minus_1) ";
+        AND (
+        CASE
+            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12 THEN YEAR(i.ExpectedInvoicingDate) + 1
+            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1 THEN YEAR(i.ExpectedInvoicingDate) - 1
+            ELSE YEAR(i.ExpectedInvoicingDate)
+        END
+    ) IN (:year, :year_minus_1) ";
 
         $params = [
             'year' => $year,
@@ -363,7 +369,7 @@ class OverviewBoutiquesKpi
         FROM [BI].[DWH].[F_Inventory] s
         LEFT JOIN [BI].[DWH].D_Location l ON s.LocationCode = l.Code
         WHERE
-            l.BusinessType IN ('CS')
+            l.BusinessType IN ('FO')
         and l.Code <> 'CSFR-RENNE'
         GROUP BY l.Code
     ";

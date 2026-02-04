@@ -17,11 +17,34 @@ class MssqlManager
         private LoggerInterface $logger
     ) {
         try {
-            $this->connection = new PDO($this->dsn, $this->user, $this->password, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-            ]);
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+
+                // ⏱ Timeout global (connexion / socket)
+                PDO::ATTR_TIMEOUT => 300,
+            ];
+
+            /**
+             * Timeout spécifique SQL Server (REQUÊTE)
+             * - existe uniquement avec le driver sqlsrv
+             * - ignoré proprement avec dblib
+             */
+            if (defined('PDO::SQLSRV_ATTR_QUERY_TIMEOUT')) {
+                $options[PDO::SQLSRV_ATTR_QUERY_TIMEOUT] = 300;
+            }
+
+            $this->connection = new PDO(
+                $this->dsn,
+                $this->user,
+                $this->password,
+                $options
+            );
+
         } catch (PDOException $e) {
-            $this->logger->error('Connection to MSSQL failed: ' . $e->getMessage(), ['exception' => $e]);
+            $this->logger->error(
+                'Connection to MSSQL failed',
+                ['exception' => $e, 'dsn' => $this->dsn]
+            );
         }
     }
 
@@ -90,6 +113,46 @@ class MssqlManager
             return $results;
         } catch (PDOException $e) {
             $this->logger->error("Query as row array failed: {$e->getMessage()}", ['query' => $query]);
+            return [];
+        }
+    }
+
+    public function executeMultiStatement(string $sql): array
+    {
+        try {
+            if (!$this->connection) {
+                return [];
+            }
+
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute();
+
+            $result = [];
+
+            /**
+             * On consomme TOUS les resultsets intermédiaires
+             * (SET, SELECT INTO, etc.)
+             */
+            do {
+                $rows = $stmt->fetchAll(PDO::FETCH_OBJ);
+
+                // On garde uniquement le DERNIER SELECT non vide
+                if (!empty($rows)) {
+                    $result = $rows;
+                }
+            } while ($stmt->nextRowset());
+
+            return $result;
+
+        } catch (PDOException $e) {
+            $this->logger->error(
+                'Multi-statement SQL failed',
+                [
+                    'error' => $e->getMessage(),
+                    'sql_preview' => substr($sql, 0, 500),
+                ]
+            );
+
             return [];
         }
     }

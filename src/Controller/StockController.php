@@ -15,11 +15,6 @@ final class StockController extends AbstractController
     #[Route('/stock/stock_a_terme', name: 'app_stock_a_terme')]
     public function stockATerme(AggridOptionRepository $aggridOptionRepository): Response
     {
-        ini_set('display_errors', '1');
-        ini_set('display_startup_errors', '1');
-        error_reporting(E_ALL);
-        ini_set('max_execution_time', 300); // 5 minutes
-        ini_set('memory_limit', '-1');
 
         $agridOptions = $aggridOptionRepository->findBy(
             ['gridName' => 'stock_a_terme_grid'],
