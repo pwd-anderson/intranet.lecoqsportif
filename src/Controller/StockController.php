@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Repository\AggridOptionRepository;
 use App\Service\Stock;
-use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -80,10 +79,9 @@ final class StockController extends AbstractController
     }
 
     #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
-    public function stockAtermeJson(Stock $stock, Helpers $helpers): JsonResponse
+    public function stockAtermeJson(Stock $stock): JsonResponse
     {
         $dataStock = $stock->getStockATerme();
-        $dataStockUtf8 = $helpers->convertArrayToUtf8($dataStock);
-        return new JsonResponse($dataStockUtf8);
+        return new JsonResponse($dataStock);
     }
 }
