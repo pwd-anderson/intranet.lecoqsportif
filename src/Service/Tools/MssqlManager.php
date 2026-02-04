@@ -19,9 +19,6 @@ class MssqlManager
         try {
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-
-                // ⏱ Timeout global (connexion / socket)
-                PDO::ATTR_TIMEOUT => 300,
             ];
 
             /**
@@ -134,11 +131,12 @@ class MssqlManager
              * (SET, SELECT INTO, etc.)
              */
             do {
-                $rows = $stmt->fetchAll(PDO::FETCH_OBJ);
+                if ($stmt->columnCount() > 0) {
+                    $rows = $stmt->fetchAll(PDO::FETCH_OBJ);
 
-                // On garde uniquement le DERNIER SELECT non vide
-                if (!empty($rows)) {
-                    $result = $rows;
+                    if (!empty($rows)) {
+                        $result = $rows;
+                    }
                 }
             } while ($stmt->nextRowset());
 
