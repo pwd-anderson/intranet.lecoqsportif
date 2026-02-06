@@ -23,6 +23,9 @@ parameters:
             user: '%env(resolve:MSSQL_LCS_SEI_USER)%'
             password: '%env(resolve:MSSQL_LCS_SEI_PASS)%'
 
+    db.lcs: '%env(DB_LCS)%'
+    db.lcs_sei: '%env(DB_LCS_SEI)%'
+
     graph.token_endpoint: '%env(resolve:GRAPH_TOKEN_ENDPOINT)%'
     graph.client_id: '%env(resolve:GRAPH_CLIENT_ID)%'
     graph.client_secret: '%env(resolve:GRAPH_CLIENT_SECRET)%'

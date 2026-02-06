@@ -8,6 +8,7 @@ use App\Service\Tools\GraphMailer;
 use Psr\Log\LoggerInterface;
 use App\Service\Tools\MssqlManager;
 use SQLite3;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class Stock
 {
@@ -19,10 +20,14 @@ class Stock
         private LoggerInterface $logger,
         private GraphMailer $graphMailer,
         private SqlFileLoader $sqlFileLoader,
+        #[Autowire('%db.lcs%')]
+        string $dbLcs,
+        #[Autowire('%db.lcs_sei%')]
+        string $dbLcsSei,
     )
     {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs_sei');
-        $this->mssqlSei = $this->mssqlManagerFactory->create('lcs_sei');
+        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
+        $this->mssqlSei = $this->mssqlManagerFactory->create($dbLcsSei);
     }
 
     public function getStockATerme(): array
