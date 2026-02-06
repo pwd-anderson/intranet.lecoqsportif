@@ -21,7 +21,7 @@ class Stock
         private SqlFileLoader $sqlFileLoader,
     )
     {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs');
+        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs_sei');
         $this->mssqlSei = $this->mssqlManagerFactory->create('lcs_sei');
     }
 

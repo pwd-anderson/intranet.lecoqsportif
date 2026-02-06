@@ -39,3 +39,4 @@ sidebar:
         ca_marges: "Sales Margins"
     stock:
         stock_a_terme: "Future Stock"
+        stock_allocation: "Stock Allocation"

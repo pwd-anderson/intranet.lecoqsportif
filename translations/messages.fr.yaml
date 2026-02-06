@@ -39,4 +39,5 @@ sidebar:
           ca_marges: "CA Marges"
       stock:
           stock_a_terme: "Stock à terme"
+          stock_allocation: "Stock Allocation"
 
