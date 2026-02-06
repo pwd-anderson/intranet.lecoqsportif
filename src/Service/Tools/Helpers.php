@@ -11,22 +11,27 @@ class Helpers
      * @param string $fromEncoding
      * @return mixed
      */
-    public function convertArrayToUtf8(mixed $data, string $fromEncoding = 'ISO-8859-1'): mixed
+    public function convertArrayToUtf8(mixed $data): mixed
     {
         if (is_array($data)) {
             foreach ($data as $key => $value) {
-                $data[$key] = $this->convertArrayToUtf8($value, $fromEncoding);
+                $data[$key] = $this->convertArrayToUtf8($value);
             }
             return $data;
         }
 
         if ($data instanceof \stdClass) {
-            // On le convertit en array, puis on traite récursivement
-            return $this->convertArrayToUtf8((array) $data, $fromEncoding);
+            return $this->convertArrayToUtf8((array) $data);
         }
 
         if (is_string($data)) {
-            return mb_convert_encoding($data, 'UTF-8', $fromEncoding);
+            // ✅ déjà UTF-8 valide → on ne touche PAS
+            if (mb_check_encoding($data, 'UTF-8')) {
+                return $data;
+            }
+
+            // ⚠️ sinon, tentative de récupération
+            return mb_convert_encoding($data, 'UTF-8', 'UTF-16LE, ISO-8859-1, CP1252');
         }
 
         return $data;

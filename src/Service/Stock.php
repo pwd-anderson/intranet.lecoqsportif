@@ -12,6 +12,7 @@ use SQLite3;
 class Stock
 {
     private MssqlManager $mssqlLcs;
+    private MssqlManager $mssqlSei;
 
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
@@ -21,6 +22,7 @@ class Stock
     )
     {
         $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs');
+        $this->mssqlSei = $this->mssqlManagerFactory->create('lcs_sei');
     }
 
     public function getStockATerme(): array
@@ -36,15 +38,17 @@ class Stock
         }
     }
 
-    private function loadSql(string $filename): string
+    public function getStockAllocation(): array
     {
-        $path = $this->projectDir . '/src/Sql/Navision/' . $filename;
+        try {
+            $query = $this->sqlFileLoader->load('Sei/stock_allocation.sql');
+            $data = $this->mssqlSei->executeQuery($query);
+            return $data;
 
-        if (!is_file($path)) {
-            throw new \RuntimeException("SQL file not found: $path");
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock Allocation : Récupération de données stock', $e);
+            $this->logger->error('LCS Erreur Stock Allocation : Récupération de données stock', ['exception' => $e]);
         }
-
-        return file_get_contents($path);
     }
 
 }

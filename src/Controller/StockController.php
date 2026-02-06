@@ -3,7 +3,9 @@
 namespace App\Controller;
 
 use App\Repository\AggridOptionRepository;
+use App\Service\AgGrid\AgGridColumnBuilder;
 use App\Service\Stock;
+use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,77 +13,82 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class StockController extends AbstractController
 {
-    #[Route('/stock/stock_a_terme', name: 'app_stock_a_terme')]
-    public function stockATerme(AggridOptionRepository $aggridOptionRepository): Response
-    {
+    public function __construct(
+        private AggridOptionRepository $aggridOptionRepository,
+        private AgGridColumnBuilder $columnBuilder,
+    ) {}
 
-        $agridOptions = $aggridOptionRepository->findBy(
-            ['gridName' => 'stock_a_terme_grid'],
+    #[Route('/stock/stock_a_terme', name: 'app_stock_a_terme')]
+    public function stockATermeAlias(): Response
+    {
+        return $this->stockGeneric('stock_a_terme');
+    }
+
+    #[Route('/stock/stock_allocation', name: 'app_stock_allocation')]
+    public function stockAllocationAlias(): Response
+    {
+        return $this->stockGeneric('stock_allocation');
+    }
+
+    // ✅ Tes routes JSON
+    #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
+    public function stockAtermeJson(Stock $stock, Helpers $helpers): JsonResponse
+    {
+        $data = $stock->getStockATerme();
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
+    #[Route('/stock/stock_allocation_json', name: 'stock_allocation_json')]
+    public function stockAllocationJson(Stock $stock, Helpers $helpers): JsonResponse
+    {
+        $data = $stock->getStockAllocation();
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
+    #[Route(
+        '/stock/{type}',
+        name: 'app_stock_generic',
+        requirements: ['type' => 'stock_a_terme|stock_allocation']
+    )]
+    public function stockGeneric(string $type): Response
+    {
+        $config = [
+            'stock_a_terme' => [
+                'gridName' => 'stock_a_terme_grid',
+                'title' => 'Stock à terme',
+                'jsonRoute' => 'stock_a_terme_json',
+            ],
+            'stock_allocation' => [
+                'gridName' => 'stock_allocation_grid',
+                'title' => 'Stock allocation',
+                'jsonRoute' => 'stock_allocation_json',
+            ],
+        ];
+
+        if (!isset($config[$type])) {
+            throw $this->createNotFoundException(sprintf('Unknown stock type "%s"', $type));
+        }
+
+        $gridConfig = $config[$type];
+
+        $agridOptions = $this->aggridOptionRepository->findBy(
+            ['gridName' => $gridConfig['gridName']],
             ['orderIndex' => 'ASC']
         );
 
-        $numericColumns = [];
-        $totalColumns = [];
-        $columns = [];
-        $integerColumns = [];
+        $grid = $this->columnBuilder->build($agridOptions);
 
-        foreach ($agridOptions as $option) {
-
-            if (in_array($option->getType(), ['decimal'])) {
-                $numericColumns[] = $option->getField();
-            }
-
-            if (in_array($option->getType(), ['integer'])) {
-                $integerColumns[] = $option->getField();
-            }
-
-            if ($option->getAggFunc()) {
-                $totalColumns[] = $option->getField();
-            }
-
-            if ($option->getFilter() == 'agDateColumnFilter'){
-                $columns[] = [
-                    'field' => $option->getField(),
-                    'headerName' => $option->getHeaderName(),
-                    'filter' => $option->getFilter(),
-                    'sortable' => $option->isSortable(),
-                    'minWidth' => $option->getMinWidth(),
-                    'cellClass' => $option->getCellClass(),
-                    'cellStyle' => $option->getCellStyle(),
-                    'aggFunc' => $option->getAggFunc(),
-                    'flex' => $option->getFlex(),
-                    'valueFormatter' => 'dateFormatter',
-                    'comparator' => 'dateComparator',
-                    'filterParams' => [
-                        'comparator' => 'dateFilterComparator'
-                    ]
-                ];
-            }else{
-                $columns[] = [
-                    'field' => $option->getField(),
-                    'headerName' => $option->getHeaderName(),
-                    'filter' => $option->getFilter(),
-                    'sortable' => $option->isSortable(),
-                    'minWidth' => $option->getMinWidth(),
-                    'cellClass' => $option->getCellClass(),
-                    'cellStyle' => $option->getCellStyle(),
-                    'aggFunc' => $option->getAggFunc(),
-                    'flex' => $option->getFlex(),
-                ];
-            }
-        }
-        return $this->render('stock/stock_a_terme.html.twig', [
-            'columns' => $columns,
-            'numericColumns' => $numericColumns,
-            'integerColumns' => $integerColumns,
-            'totalColumns' => $totalColumns,
+        return $this->render('stock/stock_generic.html.twig', [
+            'title' => $gridConfig['title'],
+            'columns' => $grid['columns'],
+            'numericColumns' => $grid['numericColumns'],
+            'integerColumns' => $grid['integerColumns'],
+            'totalColumns' => $grid['totalColumns'],
+            'dataUrl' => $this->generateUrl($gridConfig['jsonRoute']),
         ]);
-    }
-
-    #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
-    public function stockAtermeJson(Stock $stock): JsonResponse
-    {
-        $dataStock = $stock->getStockATerme();
-        return new JsonResponse($dataStock);
     }
 }
