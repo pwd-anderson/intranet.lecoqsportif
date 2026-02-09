@@ -49,6 +49,10 @@ class AgGridColumnBuilder
                 ];
             }
 
+            if ($option->isComputed()) {
+                $column['computed'] = true;
+            }
+
             $columns[] = $column;
         }
 

@@ -52,6 +52,9 @@ class AggridOption
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $cellClass = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?bool $computed = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -209,6 +212,18 @@ class AggridOption
     public function setCellClass(?string $cellClass): static
     {
         $this->cellClass = $cellClass;
+
+        return $this;
+    }
+
+    public function isComputed(): ?bool
+    {
+        return $this->computed;
+    }
+
+    public function setComputed(?bool $computed): static
+    {
+        $this->computed = $computed;
 
         return $this;
     }

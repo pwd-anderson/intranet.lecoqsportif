@@ -142,7 +142,7 @@
                 <div class="box min-h-box">
                     <div class="box-body pt-10 pb-10">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Top 10 Clients 2025</span>
+                            <span class="text-muted small">Top 10 Clients {{ "now"|date("Y") }}</span>
                         </div>
                         <div id="chart-top-clients" style="height: 360px;"></div>
                     </div>
@@ -154,7 +154,7 @@
                 <div class="box min-h-box">
                     <div class="box-body text-center p-10">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Répartition CA 2025 par société</span>
+                            <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par société</span>
                         </div>
                         <div id="chart-top-company-sales" class="mb-20"></div>
                         <div id="table-top-company-sales"></div>
@@ -166,7 +166,7 @@
                 <div class="box min-h-box">
                     <div class="box-body">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Produits les plus vendus (2025)</span>
+                            <span class="text-muted small">Produits les plus vendus ({{ "now"|date("Y") }})</span>
                         </div>
                         <div id="chart-top-product-sales" style="height: 360px;"></div>
                     </div>

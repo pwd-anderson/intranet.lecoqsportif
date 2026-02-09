@@ -49,7 +49,7 @@ window.AgGridCommon = (function () {
             getRowStyle: function (params) {
                 if (params.node.rowPinned) {
                     return {
-                        background: '#25b5b5',
+                        background: '#024185FF',
                         fontWeight: 'bold',
                         color: '#FFFFFF'
                     };
