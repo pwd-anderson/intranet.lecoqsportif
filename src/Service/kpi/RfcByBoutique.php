@@ -29,31 +29,28 @@ class RfcByBoutique
     public function getRfcByStore(int $year, int $week, bool $cumul): array
     {
         $sql = "
-            SELECT
-                [CODE MAG] AS code,
-                SUM([RFC WEEK]) AS rfc_ca,
-                SUM([RFC WEEK Marge Valeur]) AS rfc_marge
-            FROM UCD..RFC_AVEC_MARGE
-            WHERE YEAR = :year
-            AND RESEAU = 'CONCEPT STORE'
-        ";
-
-        $params = [
-            'year' => $year,
-            'week' => $week,
-        ];
+        SELECT
+            [CODE MAG] AS code,
+            SUM([RFC WEEK]) AS rfc_ca,
+            SUM([RFC WEEK Marge Valeur]) AS rfc_marge
+        FROM UCD..RFC_AVEC_MARGE
+        WHERE YEAR = {$year}
+        AND RESEAU = 'CONCEPT STORE'
+    ";
 
         if ($cumul) {
-            $sql .= " AND SEMAINE <= :week ";
+            $sql .= " AND SEMAINE <= {$week} ";
         } else {
-            $sql .= " AND SEMAINE = :week ";
+            $sql .= " AND SEMAINE = {$week} ";
         }
 
         $sql .= "
-            GROUP BY [CODE MAG]
-        ";
+        GROUP BY [CODE MAG]
+    ";
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, $params);
+        // 🔥 Exécution directe
+        $rows = $this->mssqlLcs->executeQuery($sql);
+
         $out = [];
 
         foreach ($rows as $r) {
@@ -61,9 +58,9 @@ class RfcByBoutique
                 continue;
             }
 
-            $out[(string)$r->code] = [
-                'ca'    => (float) $r->rfc_ca,     // déjà en K€
-                'marge' => (float) $r->rfc_marge,  // déjà en K€
+            $out[(string) $r->code] = [
+                'ca'    => (float) ($r->rfc_ca ?? 0),     // déjà en K€
+                'marge' => (float) ($r->rfc_marge ?? 0),  // déjà en K€
             ];
         }
 
@@ -73,46 +70,56 @@ class RfcByBoutique
     /**
      * RFC : retourne une valeur en K€
      */
-    public function fetchRfc(int $year, int $week, bool $cumul, array $reseaux, string $columnName): float
-    {
-        // Si tu n'as pas encore la colonne marge RFC, on renvoie 0 sans casser le code
+    public function fetchRfc(
+        int $year,
+        int $week,
+        bool $cumul,
+        array $reseaux,
+        string $columnName
+    ): float {
+        // Sécurité : colonne RFC non définie
         if (trim($columnName) === '') {
             return 0.0;
         }
 
-        // IN (...)
-        $in = [];
-        $params = [
-            'year' => $year,
-            'week' => $week,
-        ];
-
-        foreach ($reseaux as $idx => $r) {
-            $key = 'r' . $idx;
-            $in[] = ':' . $key;
-            $params[$key] = $r;
+        // Sécurité minimale : pas de réseau
+        if (empty($reseaux)) {
+            return 0.0;
         }
 
+        // Construction du IN ('CS','FO',...)
+        $reseauxSql = implode(
+            ',',
+            array_map(
+                fn(string $r) => "'" . str_replace("'", "''", $r) . "'",
+                $reseaux
+            )
+        );
+
         $sql = "
-            SELECT SUM([$columnName]) AS rfc
-            FROM UCD..RFC_AVEC_MARGE
-            WHERE YEAR = :year
-              AND RESEAU IN (" . implode(',', $in) . ")
-        ";
+        SELECT
+            SUM([$columnName]) AS rfc
+        FROM UCD..RFC_AVEC_MARGE
+        WHERE
+            YEAR = {$year}
+            AND RESEAU IN ({$reseauxSql})
+    ";
 
         if ($cumul) {
-            $sql .= " AND SEMAINE <= :week ";
+            $sql .= " AND SEMAINE <= {$week} ";
         } else {
-            $sql .= " AND SEMAINE = :week ";
+            $sql .= " AND SEMAINE = {$week} ";
         }
 
         try {
-            $rows = $this->mssqlLcs->executeQueryWithParams($sql, $params);
-            $val = isset($rows[0]->rfc) ? (float) $rows[0]->rfc : 0.0;
-            // RFC est déjà en K€ chez toi (comme slide 1)
-            return $val;
+            $rows = $this->mssqlLcs->executeQuery($sql);
+
+            return isset($rows[0]->rfc)
+                ? (float) $rows[0]->rfc   // RFC déjà en K€
+                : 0.0;
+
         } catch (\Throwable $e) {
-            // Si la colonne RFC marge n'existe pas, on ne casse pas le slide
+            // Si la colonne RFC marge n'existe pas → on ne casse pas le slide
             $this->logger->warning('RFC fetch failed: ' . $e->getMessage());
             return 0.0;
         }
@@ -128,38 +135,47 @@ class RfcByBoutique
         bool $cumul,
         array $reseaux
     ): array {
-        $in = [];
-        $params = [
-            'year' => $year,
-            'week' => $week,
-        ];
-
-        foreach ($reseaux as $idx => $r) {
-            $key = 'r' . $idx;
-            $in[] = ':' . $key;
-            $params[$key] = $r;
+        // Sécurité : aucun réseau
+        if (empty($reseaux)) {
+            return ['ca' => 0.0, 'marge' => 0.0];
         }
+
+        // Construction du IN ('CONCEPT STORE','FACTORY OUTLET',...)
+        $reseauxSql = implode(
+            ',',
+            array_map(
+                fn(string $r) => "'" . str_replace("'", "''", $r) . "'",
+                $reseaux
+            )
+        );
 
         $sql = "
         SELECT
             SUM([RFC WEEK]) AS rfc_ca,
             SUM([RFC WEEK Marge Valeur]) AS rfc_marge
         FROM UCD..RFC_AVEC_MARGE
-        WHERE YEAR = :year
-          AND RESEAU IN (" . implode(',', $in) . ")
+        WHERE
+            YEAR = {$year}
+            AND RESEAU IN ({$reseauxSql})
     ";
 
         if ($cumul) {
-            $sql .= " AND SEMAINE <= :week ";
+            $sql .= " AND SEMAINE <= {$week} ";
         } else {
-            $sql .= " AND SEMAINE = :week ";
+            $sql .= " AND SEMAINE = {$week} ";
         }
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, $params);
+        try {
+            $rows = $this->mssqlLcs->executeQuery($sql);
 
-        return [
-            'ca'    => (float) ($rows[0]->rfc_ca ?? 0),
-            'marge' => (float) ($rows[0]->rfc_marge ?? 0),
-        ];
+            return [
+                'ca'    => isset($rows[0]->rfc_ca) ? (float) $rows[0]->rfc_ca : 0.0,
+                'marge' => isset($rows[0]->rfc_marge) ? (float) $rows[0]->rfc_marge : 0.0,
+            ];
+        } catch (\Throwable $e) {
+            // On ne casse jamais le KPI
+            $this->logger->warning('RFC aggregate fetch failed: ' . $e->getMessage());
+            return ['ca' => 0.0, 'marge' => 0.0];
+        }
     }
 }

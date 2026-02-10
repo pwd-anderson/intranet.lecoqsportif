@@ -218,143 +218,208 @@ class SalesByBoutiquesKpi
     /**
      * Données boutique : CS + RETAIL (liste)
      */
-    private function fetchBoutiquesData(int $year, int $week, bool $cumul, string $businessType = 'CS'): array
-    {
+    private function fetchBoutiquesData(
+        int $year,
+        int $week,
+        bool $cumul,
+        string $businessType = 'CS'
+    ): array {
+        // Sécurisation minimale
+        $businessTypeSql = str_replace("'", "''", $businessType);
+        $yearMinus1 = $year - 1;
+
         $sql = "
-            SELECT
-                l.BusinessType,
-                l.Code,
-                l.StoreDescription,
+        SELECT
+            l.BusinessType,
+            l.Code,
+            l.StoreDescription,
 
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.AmountEurTM ELSE 0 END) AS Amount_N,
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1 THEN i.AmountEurTM ELSE 0 END) AS Amount_N1,
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                THEN i.AmountEurTM ELSE 0 END) AS Amount_N,
 
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N,
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1 THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N1
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                THEN i.AmountEurTM ELSE 0 END) AS Amount_N1,
 
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Location l ON i.LocationCode = l.Code
-            LEFT JOIN [BI].[DWH].D_Customer c ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N,
 
-            WHERE
-                l.BusinessType = '$businessType'
-                AND c.ReportingDimensionDescription = 'RETAIL'
-                AND (
-        CASE
-            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12 THEN YEAR(i.ExpectedInvoicingDate) + 1
-            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1 THEN YEAR(i.ExpectedInvoicingDate) - 1
-            ELSE YEAR(i.ExpectedInvoicingDate)
-        END
-    ) IN (:year, :year_minus_1)
-        ";
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N1
 
-        $params = [
-            'year' => $year,
-            'year_minus_1' => $year - 1,
-            'week' => $week,
-        ];
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Customer c
+            ON i.CustomerNo = c.Code
+           AND i.CompanyCode = c.CompanyCode
+
+        WHERE
+            l.BusinessType = '{$businessTypeSql}'
+            AND c.ReportingDimensionDescription = 'RETAIL'
+            AND (
+                CASE
+                    WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1
+                         AND MONTH(i.ExpectedInvoicingDate) = 12
+                        THEN YEAR(i.ExpectedInvoicingDate) + 1
+
+                    WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52
+                         AND MONTH(i.ExpectedInvoicingDate) = 1
+                        THEN YEAR(i.ExpectedInvoicingDate) - 1
+
+                    ELSE YEAR(i.ExpectedInvoicingDate)
+                END
+            ) IN ({$year}, {$yearMinus1})
+    ";
 
         if ($cumul) {
-            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) <= :week ";
+            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) <= {$week} ";
         } else {
-            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week ";
+            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week} ";
         }
 
         $sql .= "
-            GROUP BY l.BusinessType, l.Code, l.StoreDescription
-            HAVING SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.AmountEurTM ELSE 0 END) <> 0
-            ORDER BY l.Code ASC
-        ";
-        return $this->mssqlLcs->executeQueryWithParams($sql, $params);
+        GROUP BY
+            l.BusinessType,
+            l.Code,
+            l.StoreDescription
+        HAVING
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                THEN i.AmountEurTM ELSE 0 END) <> 0
+        ORDER BY l.Code ASC
+    ";
+
+        return $this->mssqlLcs->executeQuery($sql);
     }
 
     /**
      * TOTAL RETAIL : uniquement RETAIL (pas de filtre CS)
      * -> on agrège tout en une ligne
      */
-    private function fetchTotalRetailData(int $year, int $week, bool $cumul): ?object
-    {
-        $sql = "
-            SELECT
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.AmountEurTM ELSE 0 END) AS Amount_N,
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1 THEN i.AmountEurTM ELSE 0 END) AS Amount_N1,
+    private function fetchTotalRetailData(
+        int $year,
+        int $week,
+        bool $cumul
+    ): ?object {
+        $yearMinus1 = $year - 1;
 
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N,
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1 THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N1
-
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Customer c ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
-            LEFT JOIN [BI].[DWH].D_Location l on i.LocationCode = l.Code
-
-            WHERE
-                c.ReportingDimensionDescription = 'RETAIL'
-                AND l.BusinessType <> ''
-                AND (
-        CASE
-            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12 THEN YEAR(i.ExpectedInvoicingDate) + 1
-            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1 THEN YEAR(i.ExpectedInvoicingDate) - 1
-            ELSE YEAR(i.ExpectedInvoicingDate)
-        END
-    ) IN (:year, :year_minus_1)
-        ";
-
-        $params = [
-            'year' => $year,
-            'year_minus_1' => $year - 1,
-            'week' => $week,
-        ];
-
-        if ($cumul) {
-            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) <= :week ";
-        } else {
-            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week ";
-        }
-        $sql .= " HAVING
-                    SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.AmountEurTM ELSE 0 END) <> 0 ";
-
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, $params);
-        return $rows[0] ?? null;
-    }
-
-    private function fetchConceptStoreTotal(int $year, int $week, bool $cumul, string $businessType = 'CS'): object
-    {
         $sql = "
         SELECT
-            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.AmountEurTM ELSE 0 END) AS Amount_N,
-            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1 THEN i.AmountEurTM ELSE 0 END) AS Amount_N1,
-            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N,
-            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1 THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N1
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                THEN i.AmountEurTM ELSE 0 END) AS Amount_N,
+
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                THEN i.AmountEurTM ELSE 0 END) AS Amount_N1,
+
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N,
+
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N1
+
         FROM [BI].[DWH].[F_Invoices] i
-        LEFT JOIN [BI].[DWH].D_Location l ON i.LocationCode = l.Code
         LEFT JOIN [BI].[DWH].D_Customer c
             ON i.CustomerNo = c.Code
            AND i.CompanyCode = c.CompanyCode
+        LEFT JOIN [BI].[DWH].D_Location l
+            ON i.LocationCode = l.Code
+
         WHERE
-            l.BusinessType = '$businessType'
-            AND c.ReportingDimensionDescription = 'RETAIL'
+            c.ReportingDimensionDescription = 'RETAIL'
+            AND l.BusinessType <> ''
             AND (
-        CASE
-            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12 THEN YEAR(i.ExpectedInvoicingDate) + 1
-            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1 THEN YEAR(i.ExpectedInvoicingDate) - 1
-            ELSE YEAR(i.ExpectedInvoicingDate)
-        END
-    ) IN (:year, :year_minus_1)
+                CASE
+                    WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1
+                         AND MONTH(i.ExpectedInvoicingDate) = 12
+                        THEN YEAR(i.ExpectedInvoicingDate) + 1
+
+                    WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52
+                         AND MONTH(i.ExpectedInvoicingDate) = 1
+                        THEN YEAR(i.ExpectedInvoicingDate) - 1
+
+                    ELSE YEAR(i.ExpectedInvoicingDate)
+                END
+            ) IN ({$year}, {$yearMinus1})
     ";
 
-        $params = [
-            'year' => $year,
-            'year_minus_1' => $year - 1,
-        ];
-
         if ($cumul) {
-            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) <= :week ";
+            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) <= {$week} ";
         } else {
-            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week ";
+            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week} ";
         }
 
-        $params['week'] = $week;
+        $sql .= "
+        HAVING
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                THEN i.AmountEurTM ELSE 0 END) <> 0
+    ";
 
-        return $this->mssqlLcs->executeQueryWithParams($sql, $params)[0];
+        $rows = $this->mssqlLcs->executeQuery($sql);
+
+        return $rows[0] ?? null;
+    }
+
+    private function fetchConceptStoreTotal(
+        int $year,
+        int $week,
+        bool $cumul,
+        string $businessType = 'CS'
+    ): object {
+        $yearMinus1 = $year - 1;
+
+        $sql = "
+        SELECT
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                THEN i.AmountEurTM ELSE 0 END) AS Amount_N,
+
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                THEN i.AmountEurTM ELSE 0 END) AS Amount_N1,
+
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N,
+
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                THEN i.Margin_AmountEurTM ELSE 0 END) AS Margin_N1
+
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Customer c
+            ON i.CustomerNo = c.Code
+           AND i.CompanyCode = c.CompanyCode
+
+        WHERE
+            l.BusinessType = '{$businessType}'
+            AND c.ReportingDimensionDescription = 'RETAIL'
+            AND (
+                CASE
+                    WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1
+                         AND MONTH(i.ExpectedInvoicingDate) = 12
+                        THEN YEAR(i.ExpectedInvoicingDate) + 1
+
+                    WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52
+                         AND MONTH(i.ExpectedInvoicingDate) = 1
+                        THEN YEAR(i.ExpectedInvoicingDate) - 1
+
+                    ELSE YEAR(i.ExpectedInvoicingDate)
+                END
+            ) IN ({$year}, {$yearMinus1})
+    ";
+
+        if ($cumul) {
+            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) <= {$week} ";
+        } else {
+            $sql .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week} ";
+        }
+
+        $rows = $this->mssqlLcs->executeQuery($sql);
+
+        // Sécurité (au cas où)
+        return $rows[0] ?? (object) [
+            'Amount_N'  => 0,
+            'Amount_N1' => 0,
+            'Margin_N'  => 0,
+            'Margin_N1' => 0,
+        ];
     }
 
     private function buildLineFromRow(object $r): array
