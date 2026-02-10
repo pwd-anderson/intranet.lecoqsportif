@@ -87,39 +87,46 @@ class SalesByFamilyKpi
      * 1) Totaux par famille (K€) - année N uniquement
      * => correspond à ta requête "par item code"
      */
-    private function fetchFamilyTotalsK(int $year, int $week, string $businessType = 'CS'): array
-    {
-        $sql = "
-            SELECT
-                it.ItemFamilyCode AS family,
-                SUM(i.AmountEurTM)/1000.0 AS amount_k
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Location l  ON i.LocationCode = l.Code
-            LEFT JOIN [BI].[DWH].D_Item it     ON i.ItemNo = it.ItemNo
-            LEFT JOIN [BI].[DWH].D_Collection co ON i.ItemNo = co.Code AND i.SeriesNo = co.SeasonCode
-            LEFT JOIN [BI].[DWH].D_Customer c  ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
-            WHERE
-                l.BusinessType IN (:businessType)
-                AND YEAR(i.ExpectedInvoicingDate) = :year
-                AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
-                {$this->baseJoFilterSql()}
-                AND it.ItemFamilyCode IN (:f1, :f2, :f3)
-            GROUP BY it.ItemFamilyCode
-        ";
+    private function fetchFamilyTotalsK(
+        int $year,
+        int $week,
+        string $businessType = 'CS'
+    ): array {
+        $f1 = self::FAMILY_FOOTWEAR;
+        $f2 = self::FAMILY_TEXTILE;
+        $f3 = self::FAMILY_HARDWARE;
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, [
-            'businessType' => $businessType,
-            'year' => $year,
-            'week' => $week,
-            'f1' => self::FAMILY_FOOTWEAR,
-            'f2' => self::FAMILY_TEXTILE,
-            'f3' => self::FAMILY_HARDWARE,
-        ]);
+        $sql = "
+        SELECT
+            it.ItemFamilyCode AS family,
+            SUM(i.AmountEurTM) / 1000.0 AS amount_k
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Item it
+            ON i.ItemNo = it.ItemNo
+        LEFT JOIN [BI].[DWH].D_Collection co
+            ON i.ItemNo = co.Code
+           AND i.SeriesNo = co.SeasonCode
+        LEFT JOIN [BI].[DWH].D_Customer c
+            ON i.CustomerNo = c.Code
+           AND i.CompanyCode = c.CompanyCode
+        WHERE
+            l.BusinessType = '{$businessType}'
+            AND YEAR(i.ExpectedInvoicingDate) = {$year}
+            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            {$this->baseJoFilterSql()}
+            AND it.ItemFamilyCode IN ('{$f1}', '{$f2}', '{$f3}')
+        GROUP BY it.ItemFamilyCode
+    ";
+
+        $rows = $this->mssqlLcs->executeQuery($sql);
 
         $out = [];
         foreach ($rows as $r) {
-            $out[(string)$r->family] = (float)($r->amount_k ?? 0);
+            $out[(string) $r->family] = (float) ($r->amount_k ?? 0);
         }
+
         return $out;
     }
 
@@ -128,44 +135,56 @@ class SalesByFamilyKpi
      * => correspond à ta requête "par jour/item code"
      * IMPORTANT: day() retourne le jour du mois => labels = jours du mois (comme ta requête)
      */
-    private function fetchDailyByFamilyK(int $year, int $week, string $businessType = 'CS'): array
-    {
-        $sql = "
-            SELECT
-                it.ItemFamilyCode AS family,
-                DAY(i.ExpectedInvoicingDate) AS jour,
-                SUM(i.AmountEurTM)/1000.0 AS amount_k
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Location l  ON i.LocationCode = l.Code
-            LEFT JOIN [BI].[DWH].D_Item it     ON i.ItemNo = it.ItemNo
-            LEFT JOIN [BI].[DWH].D_Collection co ON i.ItemNo = co.Code AND i.SeriesNo = co.SeasonCode
-            LEFT JOIN [BI].[DWH].D_Customer c  ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
-            WHERE
-                l.BusinessType IN (:businessType)
-                AND YEAR(i.ExpectedInvoicingDate) = :year
-                AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
-                {$this->baseJoFilterSql()}
-                AND it.ItemFamilyCode IN (:f1, :f2, :f3)
-            GROUP BY it.ItemFamilyCode, DAY(i.ExpectedInvoicingDate)
-            ORDER BY jour ASC
-        ";
+    private function fetchDailyByFamilyK(
+        int $year,
+        int $week,
+        string $businessType = 'CS'
+    ): array {
+        $f1 = self::FAMILY_FOOTWEAR;
+        $f2 = self::FAMILY_TEXTILE;
+        $f3 = self::FAMILY_HARDWARE;
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, [
-            'year' => $year,
-            'week' => $week,
-            'businessType' => $businessType,
-            'f1' => self::FAMILY_FOOTWEAR,
-            'f2' => self::FAMILY_TEXTILE,
-            'f3' => self::FAMILY_HARDWARE,
-        ]);
+        $sql = "
+        SELECT
+            it.ItemFamilyCode AS family,
+            DAY(i.ExpectedInvoicingDate) AS jour,
+            SUM(i.AmountEurTM) / 1000.0 AS amount_k
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Item it
+            ON i.ItemNo = it.ItemNo
+        LEFT JOIN [BI].[DWH].D_Collection co
+            ON i.ItemNo = co.Code
+           AND i.SeriesNo = co.SeasonCode
+        LEFT JOIN [BI].[DWH].D_Customer c
+            ON i.CustomerNo = c.Code
+           AND i.CompanyCode = c.CompanyCode
+        WHERE
+            l.BusinessType = '{$businessType}'
+            AND YEAR(i.ExpectedInvoicingDate) = {$year}
+            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            {$this->baseJoFilterSql()}
+            AND it.ItemFamilyCode IN ('{$f1}', '{$f2}', '{$f3}')
+        GROUP BY
+            it.ItemFamilyCode,
+            DAY(i.ExpectedInvoicingDate)
+        ORDER BY jour ASC
+    ";
+
+        $rows = $this->mssqlLcs->executeQuery($sql);
 
         // out[jour][family] = amount_k
         $out = [];
         foreach ($rows as $r) {
-            $jour = (int)($r->jour ?? 0);
-            $fam  = (string)($r->family ?? '');
-            if ($jour <= 0 || $fam === '') continue;
-            $out[$jour][$fam] = (float)($r->amount_k ?? 0);
+            $jour = (int) ($r->jour ?? 0);
+            $fam  = (string) ($r->family ?? '');
+
+            if ($jour <= 0 || $fam === '') {
+                continue;
+            }
+
+            $out[$jour][$fam] = (float) ($r->amount_k ?? 0);
         }
 
         return $out;
@@ -290,130 +309,159 @@ class SalesByFamilyKpi
      * -> tu avais une requête pour TEXTILE uniquement en 2025
      * -> ici on fait N et N-1, et on rend la requête générique pour TEXTILE/FOOTWEAR
      */
-    private function fetchGroupByFamilyWithNAndN1(string $family, int $year, int $week, string $groupField, $businessType = 'CS'): array
-    {
-        // Sécurité : évite l’injection SQL via champ dynamique
+    private function fetchGroupByFamilyWithNAndN1(
+        string $family,
+        int $year,
+        int $week,
+        string $groupField,
+        string $businessType = 'CS'
+    ): array {
+        // Sécurité : champ dynamique autorisé uniquement
         $allowed = ['ItemGroupCode', 'GenusCode'];
         if (!in_array($groupField, $allowed, true)) {
             $groupField = 'ItemGroupCode';
         }
-        $sql = "
-            SELECT
-                co.$groupField AS grp,
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :y  THEN i.AmountEurTM ELSE 0 END) AS n,
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :y1 THEN i.AmountEurTM ELSE 0 END) AS n1
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Location l  ON i.LocationCode = l.Code
-            LEFT JOIN [BI].[DWH].D_Item it     ON i.ItemNo = it.ItemNo
-            LEFT JOIN [BI].[DWH].D_Collection co ON i.ItemNo = co.Code AND i.SeriesNo = co.SeasonCode
-            LEFT JOIN [BI].[DWH].D_Customer c  ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
-            WHERE
-                l.BusinessType IN ('$businessType')
-                AND YEAR(i.ExpectedInvoicingDate) IN (:y, :y1)
-                AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
-                {$this->baseJoFilterSql()}
-                AND it.ItemFamilyCode = :family
-                AND co.$groupField IS NOT NULL
-            GROUP BY co.$groupField
-            HAVING SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :y THEN i.AmountEurTM ELSE 0 END) <> 0
-            ORDER BY co.$groupField ASC
-        ";
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, [
-            'y' => $year,
-            'y1' => $year - 1,
-            'week' => $week,
-            'family' => $family,
-        ]);
+        $yearN  = $year;
+        $yearN1 = $year - 1;
+
+        $sql = "
+        SELECT
+            co.$groupField AS grp,
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN}  THEN i.AmountEurTM ELSE 0 END) AS n,
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN1} THEN i.AmountEurTM ELSE 0 END) AS n1
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Item it
+            ON i.ItemNo = it.ItemNo
+        LEFT JOIN [BI].[DWH].D_Collection co
+            ON i.ItemNo = co.Code
+           AND i.SeriesNo = co.SeasonCode
+        LEFT JOIN [BI].[DWH].D_Customer c
+            ON i.CustomerNo = c.Code
+           AND i.CompanyCode = c.CompanyCode
+        WHERE
+            l.BusinessType = '{$businessType}'
+            AND YEAR(i.ExpectedInvoicingDate) IN ({$yearN}, {$yearN1})
+            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            {$this->baseJoFilterSql()}
+            AND it.ItemFamilyCode = '{$family}'
+            AND co.$groupField IS NOT NULL
+        GROUP BY co.$groupField
+        HAVING
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN} THEN i.AmountEurTM ELSE 0 END) <> 0
+        ORDER BY co.$groupField ASC
+    ";
+
+        $rows = $this->mssqlLcs->executeQuery($sql);
 
         $out = [];
         foreach ($rows as $r) {
-            $name = (string)($r->grp ?? '');
-            if ($name === '') continue;
+            $name = (string) ($r->grp ?? '');
+            if ($name === '') {
+                continue;
+            }
 
             $out[] = [
-                'name' => $name,
-                'amount_n' => (float)($r->n ?? 0),
-                'amount_n_1' => (float)($r->n1 ?? 0),
+                'name'        => $name,
+                'amount_n'    => (float) ($r->n ?? 0),
+                'amount_n_1'  => (float) ($r->n1 ?? 0),
             ];
         }
+
         return $out;
     }
 
     /**
      * LW = total famille semaine X (en €)
      */
-    private function fetchFamilyTotalEuroForWeek(string $family, int $year, int $week): float
-    {
+    private function fetchFamilyTotalEuroForWeek(
+        string $family,
+        int $year,
+        int $week
+    ): float {
         $sql = "
-            SELECT
-                SUM(i.AmountEurTM) AS total_eur
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Location l  ON i.LocationCode = l.Code
-            LEFT JOIN [BI].[DWH].D_Item it     ON i.ItemNo = it.ItemNo
-            LEFT JOIN [BI].[DWH].D_Collection co ON i.ItemNo = co.Code AND i.SeriesNo = co.SeasonCode
-            WHERE
-                l.BusinessType IN ('CS')
-                AND YEAR(i.ExpectedInvoicingDate) = :year
-                AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
-                {$this->baseJoFilterSql()}
-                AND it.ItemFamilyCode = :family
-        ";
+        SELECT
+            SUM(i.AmountEurTM) AS total_eur
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Item it
+            ON i.ItemNo = it.ItemNo
+        LEFT JOIN [BI].[DWH].D_Collection co
+            ON i.ItemNo = co.Code
+           AND i.SeriesNo = co.SeasonCode
+        WHERE
+            l.BusinessType = 'CS'
+            AND YEAR(i.ExpectedInvoicingDate) = {$year}
+            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            {$this->baseJoFilterSql()}
+            AND it.ItemFamilyCode = '{$family}'
+    ";
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, [
-            'year' => $year,
-            'week' => $week,
-            'family' => $family,
-        ]);
+        $rows = $this->mssqlLcs->executeQuery($sql);
 
-        return isset($rows[0]->total_eur) ? (float)$rows[0]->total_eur : 0.0;
+        return isset($rows[0]->total_eur)
+            ? (float) $rows[0]->total_eur
+            : 0.0;
     }
 
     /**
      * 4) Top produits (en €) : marge + qty
      * -> comme ta requête top 5 (mais paramétrable famille + limit)
      */
-    private function fetchTopProductsEuro(int $year, int $week, string $family, int $limit = 5, string $businessType = 'CS'): array
-    {
+    private function fetchTopProductsEuro(
+        int $year,
+        int $week,
+        string $family,
+        int $limit = 5,
+        string $businessType = 'CS'
+    ): array {
         $sql = "
-            SELECT TOP {$limit}
-                it.ItemNo AS itemno,
-                it.[Description] AS descr,
-                SUM(i.AmountEurTM) AS amount_eur,
-                SUM(i.Quantity) AS qty
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Location l  ON i.LocationCode = l.Code
-            LEFT JOIN [BI].[DWH].D_Item it     ON i.ItemNo = it.ItemNo
-            LEFT JOIN [BI].[DWH].D_Collection co ON i.ItemNo = co.Code AND i.SeriesNo = co.SeasonCode
-            WHERE
-                l.BusinessType IN (:businessType)
-                AND YEAR(i.ExpectedInvoicingDate) = :year
-                AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
-                {$this->baseJoFilterSql()}
-                AND it.ItemFamilyCode = :family
-            GROUP BY it.ItemNo, it.[Description]
-            ORDER BY SUM(i.AmountEurTM) DESC
-        ";
+        SELECT TOP {$limit}
+            it.ItemNo AS itemno,
+            it.[Description] AS descr,
+            SUM(i.AmountEurTM) AS amount_eur,
+            SUM(i.Quantity) AS qty
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Item it
+            ON i.ItemNo = it.ItemNo
+        LEFT JOIN [BI].[DWH].D_Collection co
+            ON i.ItemNo = co.Code
+           AND i.SeriesNo = co.SeasonCode
+        WHERE
+            l.BusinessType = '{$businessType}'
+            AND YEAR(i.ExpectedInvoicingDate) = {$year}
+            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            {$this->baseJoFilterSql()}
+            AND it.ItemFamilyCode = '{$family}'
+        GROUP BY
+            it.ItemNo,
+            it.[Description]
+        ORDER BY
+            SUM(i.AmountEurTM) DESC
+    ";
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, [
-            'year' => $year,
-            'week' => $week,
-            'family' => $family,
-            'businessType' => $businessType,
-        ]);
+        $rows = $this->mssqlLcs->executeQuery($sql);
 
         $out = [];
         foreach ($rows as $r) {
-
             $itemNo = trim((string) ($r->itemno ?? ''));
+            if ($itemNo === '') {
+                continue;
+            }
+
             $safeItemNo = rawurlencode($itemNo);
 
             $out[] = [
                 'image'  => "https://www.lecoqbiz.com/CMS/Images/Small/{$safeItemNo}.jpg",
                 'code'   => $itemNo,
-                'name'   => (string)($r->descr ?? ''),
-                'qty'    => (int)($r->qty ?? 0),
-                'amount' => (float)($r->amount_eur ?? 0),
+                'name'   => (string) ($r->descr ?? ''),
+                'qty'    => (int) ($r->qty ?? 0),
+                'amount' => (float) ($r->amount_eur ?? 0),
             ];
         }
 

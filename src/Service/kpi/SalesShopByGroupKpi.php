@@ -177,68 +177,82 @@ class SalesShopByGroupKpi
      * - FOOTWEAR => co.GenusCode
      * avec N / N-1 (en €)
      */
-    private function fetchGroupDataNAndN1(string $familyCode, int $year, int $week, array $scope, string $groupField): array
-    {
-        // Sécurité : évite l’injection SQL via champ dynamique
+    private function fetchGroupDataNAndN1(
+        string $familyCode,
+        int $year,
+        int $week,
+        array $scope,
+        string $groupField
+    ): array {
+        // Sécurité : champ dynamique autorisé uniquement
         $allowed = ['ItemGroupCode', 'GenusCode'];
         if (!in_array($groupField, $allowed, true)) {
             $groupField = 'ItemGroupCode';
         }
 
+        $yearN  = $year;
+        $yearN1 = $year - 1;
+
         $sql = "
-            SELECT
-                co.$groupField AS grp,
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :y  THEN i.AmountEurTM ELSE 0 END) AS n,
-                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :y1 THEN i.AmountEurTM ELSE 0 END) AS n1
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Location   l  ON i.LocationCode = l.Code
-            LEFT JOIN [BI].[DWH].D_Item       it ON i.ItemNo = it.ItemNo
-            LEFT JOIN [BI].[DWH].D_Collection co ON i.ItemNo = co.Code AND i.SeriesNo = co.SeasonCode
-            LEFT JOIN [BI].[DWH].D_Customer   c  ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
-            WHERE 1=1
-                AND YEAR(i.ExpectedInvoicingDate) IN (:y, :y1)
-                AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
-                AND it.ItemFamilyCode = :family
-                AND co.$groupField IS NOT NULL
-                {$this->baseJoFilterSql()}
-        ";
+        SELECT
+            co.$groupField AS grp,
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN}  THEN i.AmountEurTM ELSE 0 END) AS n,
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN1} THEN i.AmountEurTM ELSE 0 END) AS n1
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location   l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Item       it
+            ON i.ItemNo = it.ItemNo
+        LEFT JOIN [BI].[DWH].D_Collection co
+            ON i.ItemNo = co.Code
+           AND i.SeriesNo = co.SeasonCode
+        LEFT JOIN [BI].[DWH].D_Customer   c
+            ON i.CustomerNo = c.Code
+           AND i.CompanyCode = c.CompanyCode
+        WHERE
+            YEAR(i.ExpectedInvoicingDate) IN ({$yearN}, {$yearN1})
+            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            AND it.ItemFamilyCode = '{$familyCode}'
+            AND co.$groupField IS NOT NULL
+            {$this->baseJoFilterSql()}
+    ";
 
-        $params = [
-            'y' => $year,
-            'y1' => $year - 1,
-            'week' => $week,
-            'family' => $familyCode,
-        ];
-
-        // SCOPE
+        // 🔹 Scope CS boutique
         if (($scope['mode'] ?? '') === 'cs_store') {
-            $sql .= " AND l.BusinessType IN ('CS') AND l.Code = :storeCode ";
-            $params['storeCode'] = $scope['storeCode'];
+            $storeCode = $scope['storeCode'] ?? '';
+            $sql .= "
+            AND l.BusinessType = 'CS'
+            AND l.Code = '{$storeCode}'
+        ";
         }
 
+        // 🔹 Scope retail total
         if (($scope['mode'] ?? '') === 'retail_total') {
-            $sql .= " AND c.ReportingDimensionDescription = 'RETAIL' ";
+            $sql .= "
+            AND c.ReportingDimensionDescription = 'RETAIL'
+        ";
         }
 
         $sql .= "
-            GROUP BY co.$groupField
-            HAVING SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :y THEN i.AmountEurTM ELSE 0 END) <> 0
-            ORDER BY co.$groupField ASC
-        ";
+        GROUP BY co.$groupField
+        HAVING
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN} THEN i.AmountEurTM ELSE 0 END) <> 0
+        ORDER BY co.$groupField ASC
+    ";
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, $params);
+        $rows = $this->mssqlLcs->executeQuery($sql);
 
         $out = [];
         foreach ($rows as $r) {
-            $code = (string)($r->grp ?? '');
+            $code = (string) ($r->grp ?? '');
             if ($code === '') {
                 continue;
             }
 
             $out[] = [
-                'code' => $code,
-                'amount_n' => (float)($r->n ?? 0),
-                'amount_n1' => (float)($r->n1 ?? 0),
+                'code'       => $code,
+                'amount_n'   => (float) ($r->n ?? 0),
+                'amount_n1'  => (float) ($r->n1 ?? 0),
             ];
         }
 
@@ -248,41 +262,53 @@ class SalesShopByGroupKpi
     /**
      * LW = total famille (en €) sur semaine X (année N)
      */
-    private function fetchFamilyTotalForWeek(string $familyCode, int $year, int $week, array $scope): float
-    {
+    private function fetchFamilyTotalForWeek(
+        string $familyCode,
+        int $year,
+        int $week,
+        array $scope
+    ): float {
         $sql = "
-            SELECT
-                SUM(i.AmountEurTM) AS total_eur
-            FROM [BI].[DWH].[F_Invoices] i
-            LEFT JOIN [BI].[DWH].D_Location   l  ON i.LocationCode = l.Code
-            LEFT JOIN [BI].[DWH].D_Item       it ON i.ItemNo = it.ItemNo
-            LEFT JOIN [BI].[DWH].D_Collection co ON i.ItemNo = co.Code AND i.SeriesNo = co.SeasonCode
-            LEFT JOIN [BI].[DWH].D_Customer   c  ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
-            WHERE 1=1
-                AND YEAR(i.ExpectedInvoicingDate) = :year
-                AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
-                AND it.ItemFamilyCode = :family
-                {$this->baseJoFilterSql()}
-        ";
+        SELECT
+            SUM(i.AmountEurTM) AS total_eur
+        FROM [BI].[DWH].[F_Invoices] i
+        LEFT JOIN [BI].[DWH].D_Location   l
+            ON i.LocationCode = l.Code
+        LEFT JOIN [BI].[DWH].D_Item       it
+            ON i.ItemNo = it.ItemNo
+        LEFT JOIN [BI].[DWH].D_Collection co
+            ON i.ItemNo = co.Code
+           AND i.SeriesNo = co.SeasonCode
+        LEFT JOIN [BI].[DWH].D_Customer   c
+            ON i.CustomerNo = c.Code
+           AND i.CompanyCode = c.CompanyCode
+        WHERE
+            YEAR(i.ExpectedInvoicingDate) = {$year}
+            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            AND it.ItemFamilyCode = '{$familyCode}'
+            {$this->baseJoFilterSql()}
+    ";
 
-        $params = [
-            'year' => $year,
-            'week' => $week,
-            'family' => $familyCode,
-        ];
-
-        // SCOPE
+        // 🔹 Scope CS boutique
         if (($scope['mode'] ?? '') === 'cs_store') {
-            $sql .= " AND l.BusinessType IN ('CS') AND l.Code = :storeCode ";
-            $params['storeCode'] = $scope['storeCode'];
+            $storeCode = $scope['storeCode'] ?? '';
+            $sql .= "
+            AND l.BusinessType = 'CS'
+            AND l.Code = '{$storeCode}'
+        ";
         }
 
+        // 🔹 Scope retail total
         if (($scope['mode'] ?? '') === 'retail_total') {
-            $sql .= " AND c.ReportingDimensionDescription = 'RETAIL' ";
+            $sql .= "
+            AND c.ReportingDimensionDescription = 'RETAIL'
+        ";
         }
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($sql, $params);
+        $rows = $this->mssqlLcs->executeQuery($sql);
 
-        return isset($rows[0]->total_eur) ? (float)$rows[0]->total_eur : 0.0;
+        return isset($rows[0]->total_eur)
+            ? (float) $rows[0]->total_eur
+            : 0.0;
     }
 }
