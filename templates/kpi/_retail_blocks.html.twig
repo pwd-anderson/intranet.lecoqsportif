@@ -84,11 +84,7 @@
                             <p class="fs-18 fw-bold m-0">
                                 <strong>{{ boutique.ftw_ca }} k€</strong>
                             </p>
-                            <p class="fs-10 mb-0 fw-semibold">
-                                        <span class="{{ boutique.ftw_variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
-                                            {{ boutique.ftw_variation_rfc }}%
-                                        </span> vs RFC
-                            </p>
+                            <p class="fs-10 mb-0 fw-semibold invisible">&nbsp;</p>
                         </div>
                     </div>
                 </div>
@@ -99,11 +95,7 @@
                             <p class="fs-18 fw-bold m-0">
                                 <strong>{{ boutique.app_ca }} k€</strong>
                             </p>
-                            <p class="fs-10 mb-0 fw-semibold">
-                                        <span class="{{ boutique.app_variation_rfc < 0 ? 'text-danger' : 'text-success' }}">
-                                            {{ boutique.app_variation_rfc }}%
-                                        </span> vs RFC
-                            </p>
+                            <p class="fs-10 mb-0 fw-semibold invisible">&nbsp;</p>
                         </div>
                     </div>
                 </div>
@@ -112,7 +104,7 @@
                         <div class="box-body py-2 px-1">
                             <p class="text-uppercase fs-10 fw-bold mb-0">Couverture</p>
                             <p class="fs-18 fw-bold m-0">
-                                <strong>{{ boutique.couverture }} week</strong>
+                                <strong>{{ boutique.couverture }} weeks</strong>
                             </p>
                             <p class="fs-10 mb-0 fw-semibold invisible">&nbsp;</p>
                         </div>

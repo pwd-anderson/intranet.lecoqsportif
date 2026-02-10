@@ -35,9 +35,10 @@ final class KpiController extends AbstractController
         $views = [
             'overview_boutiques' => 'Overview boutiques',
             'sales_by_boutiques' => 'Sales by boutiques',
-            'sales_by_family' => 'Sales by Family',
-            'sales_shop_by_group' => 'Sales Shop by Group',
-            'sales_fo' => 'Sales FO',
+            'sales_by_family' => 'Overview Categories',
+            'sales_shop_by_group' => 'Overview Categories boutiques',
+            'sales_fo' => 'Overview FO',
+            'overview_boutiques_fo' => 'Sales FO',
             // futur :
             // 'sales_by_country' => 'Sales by country',
         ];
@@ -99,6 +100,13 @@ final class KpiController extends AbstractController
             case 'sales_fo':
                 return $this->render('kpi/_sales_fo_blocks.html.twig', [
                     'data' => $salesFoKpi->getData($year, $week),
+                    'view' => $view,
+                    'year' => $year,
+                    'week' => $week,
+                ]);
+            case 'overview_boutiques_fo':
+                return $this->render('kpi/_sales_by_boutiques_blocks.html.twig', [
+                    'sales_data' => $salesByBoutiques->getSalesByBoutique($year, $week, 'FO'),
                     'view' => $view,
                     'year' => $year,
                     'week' => $week,

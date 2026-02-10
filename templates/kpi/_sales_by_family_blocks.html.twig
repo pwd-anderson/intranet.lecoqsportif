@@ -282,10 +282,10 @@
 
                         <tr class="row-total">
                             <td class="text-start">Total</td>
-                            <td>{{ data.apparel.total.amount_n|number_format(0, '.', ' ') }}</td>
-                            <td>{{ data.apparel.total.amount_n_1|number_format(0, '.', ' ') }} €</td>
-                            <td class="{{ data.apparel.total.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
-                                {{ data.apparel.total.evolution|number_format(1, ',', ' ') }} %
+                            <td>{{ data.footwear.total.amount_n|number_format(0, '.', ' ') }}</td>
+                            <td>{{ data.footwear.total.amount_n_1|number_format(0, '.', ' ') }} €</td>
+                            <td class="{{ data.footwear.total.evolution > 0 ? 'evolution-pos' : 'evolution-neg' }}">
+                                {{ data.footwear.total.evolution|number_format(1, ',', ' ') }} %
                             </td>
                         </tr>
                         </tbody>

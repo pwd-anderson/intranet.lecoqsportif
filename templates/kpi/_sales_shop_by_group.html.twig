@@ -194,7 +194,7 @@
                             {% for item in category.items %}
                                 <tr>
                                     <td>{{ item.code }}</td>
-                                    <td>{{ item.amount_n|number_format(0, '.', ' ') }}</td>
+                                    <td>{{ item.amount_n|number_format(0, '.', ' ') }} €</td>
                                     <td>
                                         {% if item.amount_n1 is not null %}
                                             {{ item.amount_n1|number_format(0, '.', ' ') }} €

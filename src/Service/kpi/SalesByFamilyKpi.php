@@ -3,8 +3,10 @@
 namespace App\Service\kpi;
 
 use App\Factory\MssqlManagerFactory;
+use App\Service\Tools\CollectionSorter;
 use App\Service\Tools\Helpers;
 use App\Service\Tools\MssqlManager;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class SalesByFamilyKpi
 {
@@ -20,9 +22,11 @@ class SalesByFamilyKpi
 
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
-        private Helpers $helpers
+        private Helpers $helpers,
+        #[Autowire('%db.lcs%')]
+        string $dbLcs,
     ) {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs');
+        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
     }
 
     public function getData(int $year, int $week, string $businessType = 'CS'): array
@@ -36,8 +40,8 @@ class SalesByFamilyKpi
         $weeklyChart = $this->buildWeeklyChart3Datasets($dailyByFamilyK);
 
         // 3) TABLES : group code (N / N-1 / evolution) + total + LW
-        $apparel = $this->buildGroupBlock(self::FAMILY_TEXTILE, $year, $week, 'ItemGroupCode');
-        $footwear = $this->buildGroupBlock(self::FAMILY_FOOTWEAR, $year, $week, 'GenusCode');
+        $apparel = $this->buildGroupBlock(self::FAMILY_TEXTILE, $year, $week, 'ItemGroupCode', $businessType);
+        $footwear = $this->buildGroupBlock(self::FAMILY_FOOTWEAR, $year, $week, 'GenusCode', $businessType);
 
         // 4) TOP produits : 5 textile + 5 footwear (en €)
         $topTextile = $this->fetchTopProductsEuro($year, $week, self::FAMILY_TEXTILE, 5, $businessType);
@@ -220,27 +224,48 @@ class SalesByFamilyKpi
      * - total idem
      * - lw = total N semaine-1 (en €)
      */
-    private function buildGroupBlock(string $family, int $year, int $week, string $groupField): array
-    {
-        $items = $this->fetchGroupByFamilyWithNAndN1($family, $year, $week, $groupField);
+    private function buildGroupBlock(
+        string $family,
+        int $year,
+        int $week,
+        string $groupField,
+               $businessType = 'CS'
+    ): array {
+        $items = $this->fetchGroupByFamilyWithNAndN1(
+            $family,
+            $year,
+            $week,
+            $groupField,
+            $businessType
+        );
 
         $totalN = 0.0;
         $totalN1 = 0.0;
 
-        foreach ($items as &$it) {
-            $totalN += $it['amount_n'];
+        foreach ($items as $k => $it) {
+            $totalN  += $it['amount_n'];
             $totalN1 += $it['amount_n_1'];
-            $it['evolution'] = $this->helpers->variation($it['amount_n'], $it['amount_n_1']);
+
+            $items[$k]['evolution'] = $this->helpers->variation(
+                $it['amount_n'],
+                $it['amount_n_1']
+            );
         }
-        unset($it);
+
+        // 🔽 TRI DÉCROISSANT SUR amount_n
+        CollectionSorter::sortDescByKey($items, 'amount_n');
 
         $totalEvolution = $this->helpers->variation($totalN, $totalN1);
 
         // LW = semaine-1 (sur l’année N)
-        $lw = $this->fetchFamilyTotalEuroForWeek($family, $year, max(1, $week - 1));
+        $lw = $this->fetchFamilyTotalEuroForWeek(
+            $family,
+            $year,
+            max(1, $week - 1)
+        );
 
         return [
-            'items' => array_map(function(array $x) {
+            'items' => array_map(static function (array $x) {
                 // Twig attend "name"
                 return [
                     'name' => $x['name'],
@@ -265,7 +290,7 @@ class SalesByFamilyKpi
      * -> tu avais une requête pour TEXTILE uniquement en 2025
      * -> ici on fait N et N-1, et on rend la requête générique pour TEXTILE/FOOTWEAR
      */
-    private function fetchGroupByFamilyWithNAndN1(string $family, int $year, int $week, string $groupField): array
+    private function fetchGroupByFamilyWithNAndN1(string $family, int $year, int $week, string $groupField, $businessType = 'CS'): array
     {
         // Sécurité : évite l’injection SQL via champ dynamique
         $allowed = ['ItemGroupCode', 'GenusCode'];
@@ -283,7 +308,7 @@ class SalesByFamilyKpi
             LEFT JOIN [BI].[DWH].D_Collection co ON i.ItemNo = co.Code AND i.SeriesNo = co.SeasonCode
             LEFT JOIN [BI].[DWH].D_Customer c  ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
             WHERE
-                l.BusinessType IN ('CS')
+                l.BusinessType IN ('$businessType')
                 AND YEAR(i.ExpectedInvoicingDate) IN (:y, :y1)
                 AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
                 {$this->baseJoFilterSql()}

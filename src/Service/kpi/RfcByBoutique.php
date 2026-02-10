@@ -7,6 +7,7 @@ use App\Service\Tools\GraphMailer;
 use App\Service\Tools\Helpers;
 use App\Service\Tools\MssqlManager;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class RfcByBoutique
 {
@@ -15,9 +16,11 @@ class RfcByBoutique
         private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
         private GraphMailer $graphMailer,
-        private Helpers $helpers
+        private Helpers $helpers,
+        #[Autowire('%db.lcs%')]
+        string $dbLcs,
     ) {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs');
+        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
     }
     /**
      * RFC par boutique (clé = CODE MAG)

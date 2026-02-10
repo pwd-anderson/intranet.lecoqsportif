@@ -3,8 +3,10 @@
 namespace App\Service\kpi;
 
 use App\Factory\MssqlManagerFactory;
+use App\Service\Tools\CollectionSorter;
 use App\Service\Tools\Helpers;
 use App\Service\Tools\MssqlManager;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class SalesShopByGroupKpi
 {
@@ -16,9 +18,11 @@ class SalesShopByGroupKpi
 
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
-        private Helpers $helpers
+        private Helpers $helpers,
+        #[Autowire('%db.lcs%')]
+        string $dbLcs,
     ) {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs');
+        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
     }
 
     public function getData(int $year, int $week): array
@@ -107,21 +111,25 @@ class SalesShopByGroupKpi
         int $year,
         int $week,
         array $scope,
-        string $groupField // <-- ItemGroupCode ou GenusCode
+        string $groupField
     ): array {
         $items = $this->fetchGroupDataNAndN1($familyCode, $year, $week, $scope, $groupField);
 
         $totalN = 0.0;
         $totalN1 = 0.0;
 
-        foreach ($items as &$it) {
-            $totalN += $it['amount_n'];
+        foreach ($items as $k => $it) {
+            $totalN  += $it['amount_n'];
             $totalN1 += $it['amount_n1'];
 
-            // évolution = variation(N vs N-1)
-            $it['evolution'] = $this->helpers->variation($it['amount_n'], $it['amount_n1']);
+            $items[$k]['evolution'] = $this->helpers->variation(
+                $it['amount_n'],
+                $it['amount_n1']
+            );
         }
-        unset($it);
+
+        // TRI DÉCROISSANT SUR LE CA N
+        CollectionSorter::sortDescByKey($items, 'amount_n');
 
         $totalEvolution = $this->helpers->variation($totalN, $totalN1);
 
@@ -132,20 +140,20 @@ class SalesShopByGroupKpi
             'name' => $categoryName,
             'code_label' => $codeLabel,
 
-            'items' => array_map(fn(array $x) => [
+            'items' => array_map(static fn(array $x) => [
                 'code' => $x['code'],
-                'amount_n' => (float)$x['amount_n'],
-                'amount_n1' => (float)$x['amount_n1'],
-                'evolution' => $x['evolution'] === null ? 'Infini' : (float)$x['evolution'],
+                'amount_n' => (float) $x['amount_n'],
+                'amount_n1' => (float) $x['amount_n1'],
+                'evolution' => $x['evolution'] === null ? 'Infini' : (float) $x['evolution'],
             ], $items),
 
             'total' => [
-                'amount_n' => (float)$totalN,
-                'amount_n1' => (float)$totalN1,
-                'evolution' => (float)$totalEvolution,
+                'amount_n' => (float) $totalN,
+                'amount_n1' => (float) $totalN1,
+                'evolution' => (float) $totalEvolution,
             ],
 
-            'lw' => (float)$lw,
+            'lw' => (float) $lw,
         ];
     }
 

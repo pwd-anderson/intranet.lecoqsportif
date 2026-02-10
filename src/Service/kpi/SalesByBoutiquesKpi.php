@@ -4,10 +4,12 @@ namespace App\Service\kpi;
 
 use App\Factory\MssqlManagerFactory;
 use App\Repository\KpiDeckPresentationRepository;
+use App\Service\Tools\CollectionSorter;
 use App\Service\Tools\GraphMailer;
 use App\Service\Tools\Helpers;
 use App\Service\Tools\MssqlManager;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class SalesByBoutiquesKpi
 {
@@ -23,26 +25,28 @@ class SalesByBoutiquesKpi
         private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
         private GraphMailer $graphMailer,
-        private Helpers $helpers
+        private Helpers $helpers,
+        #[Autowire('%db.lcs%')]
+        string $dbLcs,
     ) {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs');
+        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
     }
 
-    public function getSalesByBoutique(int $year, int $week): array
+    public function getSalesByBoutique(int $year, int $week, string $businessType = 'CS'): array
     {
         return [
-            'week'  => $this->buildPeriod($year, $week, false),
-            'cumul' => $this->buildPeriod($year, $week, true),
+            'week'  => $this->buildPeriod($year, $week, false, $businessType),
+            'cumul' => $this->buildPeriod($year, $week, true, $businessType),
         ];
     }
 
-    private function buildPeriod(int $year, int $week, bool $cumul): array
+    private function buildPeriod(int $year, int $week, bool $cumul, string $businessType = 'CS'): array
     {
         /**
          * 1) BOUTIQUES (CS périmètre constant)
          * ================================
          */
-        $rowsBoutiques = $this->fetchBoutiquesData($year, $week, $cumul);
+        $rowsBoutiques = $this->fetchBoutiquesData($year, $week, $cumul, $businessType);
 
         $boutiques = [];
         foreach ($rowsBoutiques as $row) {
@@ -54,7 +58,7 @@ class SalesByBoutiquesKpi
          * ================================
          * → somme des boutiques affichées
          */
-        $csPerimetre = $this->initLine('CS PERIMETRE CONSTANT');
+        $csPerimetre = $this->initLine($businessType .' PERIMETRE CONSTANT');
         foreach ($boutiques as $b) {
             $this->addToTotal($csPerimetre, $b);
         }
@@ -65,8 +69,12 @@ class SalesByBoutiquesKpi
          * ================================
          * → requête AGRÉGÉE (pas somme des boutiques)
          */
-        $rowConcept = $this->fetchConceptStoreTotal($year, $week, $cumul);
-        $concept = $this->initLine('CONCEPT STORE');
+        $rowConcept = $this->fetchConceptStoreTotal($year, $week, $cumul, $businessType);
+        $label = $businessType === 'CS'
+            ? 'CONCEPT STORE'
+            : 'FACTORY OUTLET';
+
+        $concept = $this->initLine($label);
 
         if ($rowConcept !== null) {
             $concept['ca']['reel'] = $this->toK($rowConcept->Amount_N ?? 0);
@@ -193,6 +201,8 @@ class SalesByBoutiquesKpi
             (float) $rfcTotal['marge']
         );
 
+        CollectionSorter::sortDescByPath($boutiques, ['ca', 'reel']);
+
         /**
          * 7) RETOUR FINAL
          * ================================
@@ -208,7 +218,7 @@ class SalesByBoutiquesKpi
     /**
      * Données boutique : CS + RETAIL (liste)
      */
-    private function fetchBoutiquesData(int $year, int $week, bool $cumul): array
+    private function fetchBoutiquesData(int $year, int $week, bool $cumul, string $businessType = 'CS'): array
     {
         $sql = "
             SELECT
@@ -227,7 +237,7 @@ class SalesByBoutiquesKpi
             LEFT JOIN [BI].[DWH].D_Customer c ON i.CustomerNo = c.Code AND i.CompanyCode = c.CompanyCode
 
             WHERE
-                l.BusinessType = 'CS'
+                l.BusinessType = '$businessType'
                 AND c.ReportingDimensionDescription = 'RETAIL'
                 AND (
         CASE
@@ -306,7 +316,7 @@ class SalesByBoutiquesKpi
         return $rows[0] ?? null;
     }
 
-    private function fetchConceptStoreTotal(int $year, int $week, bool $cumul): object
+    private function fetchConceptStoreTotal(int $year, int $week, bool $cumul, string $businessType = 'CS'): object
     {
         $sql = "
         SELECT
@@ -320,7 +330,7 @@ class SalesByBoutiquesKpi
             ON i.CustomerNo = c.Code
            AND i.CompanyCode = c.CompanyCode
         WHERE
-            l.BusinessType = 'CS'
+            l.BusinessType = '$businessType'
             AND c.ReportingDimensionDescription = 'RETAIL'
             AND (
         CASE

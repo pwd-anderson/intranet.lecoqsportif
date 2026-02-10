@@ -121,7 +121,6 @@
     {# WEEK 48 TABLE #}
     <div class="row mb-1">
         <div class="col-12">
-            <h4 class="mb-2">WEEK 48</h4>
             <div class="table-responsive">
                 <table class="table table-bordered table-sm table-custom">
                     <thead>
@@ -166,18 +165,6 @@
                         {{ macros.render_row(sales_data.week.total_retail) }}
                     </tr>
 
-                    {# Concept Store #}
-                    <tr class="row-concept-store">
-                        {{ macros.render_row(sales_data.week.concept_store) }}
-                    </tr>
-
-                    {# Boutiques #}
-                    {% for boutique in sales_data.week.boutiques %}
-                        <tr>
-                            {{ macros.render_row(boutique, true) }}
-                        </tr>
-                    {% endfor %}
-
                     {# CS Perimetre Constant #}
                     {% if sales_data.week.cs_perimetre is defined %}
                         <tr class="row-cs-perimetre">
@@ -211,6 +198,19 @@
                             <td class="fw-bold">{{ sales_data.week.cs_perimetre.taux.ecart_n1 }}%</td>
                         </tr>
                     {% endif %}
+
+                    {# Boutiques #}
+                    {% for boutique in sales_data.week.boutiques %}
+                        <tr>
+                            {{ macros.render_row(boutique, true) }}
+                        </tr>
+                    {% endfor %}
+
+                    {# Concept Store #}
+                    <tr class="row-concept-store">
+                        {{ macros.render_row(sales_data.week.concept_store) }}
+                    </tr>
+
                     </tbody>
                 </table>
             </div>

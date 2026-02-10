@@ -35,6 +35,7 @@ sidebar:
           sales_by_year: "Ventes annuelles"
           delivery_without_invoice: "Livraisons non facturées"
           backlog_clients: "Backlog Clients"
+          kpi_deck_retail: "Retail KPI Deck"
       management:
           ca_marges: "CA Marges"
       stock:
