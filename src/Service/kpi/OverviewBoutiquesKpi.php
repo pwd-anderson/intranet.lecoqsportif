@@ -164,62 +164,75 @@ class OverviewBoutiquesKpi
         ];
     }
 
-    public function getCaHtRaw(int $year, ?int $week = null, bool $withJo = true, bool $cumul = false, ?string $itemFamilyCode = null, string $businessType = 'CS'): array
-    {
-        $query = "
-    SELECT
-        l.Code,
+    public function getCaHtRaw(
+        int $year,
+        ?int $week = null,
+        bool $withJo = true,
+        bool $cumul = false,
+        ?string $itemFamilyCode = null,
+        string $businessType = 'CS'
+    ): array {
+        $yearMinus1 = $year - 1;
 
-        SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.AmountEurTM ELSE 0 END) AS ca_n,
-        SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1 THEN i.AmountEurTM ELSE 0 END) AS ca_n1
+        $query = "
+        SELECT
+            l.Code,
+
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year} THEN i.AmountEurTM ELSE 0 END) AS ca_n,
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1} THEN i.AmountEurTM ELSE 0 END) AS ca_n1
+
         FROM [BI].[DWH].[F_Invoices] i
         LEFT JOIN [BI].[DWH].D_Location l ON i.LocationCode = l.Code
         LEFT JOIN [BI].[DWH].D_Item it ON i.ItemNo = it.ItemNo
-        LEFT JOIN [BI].[DWH].D_Collection c on i.ItemNo = c.Code and i.SeriesNo = c.SeasonCode
-        WHERE l.BusinessType IN (:businessType)
-        AND (
-        CASE
-            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12 THEN YEAR(i.ExpectedInvoicingDate) + 1
-            WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1 THEN YEAR(i.ExpectedInvoicingDate) - 1
-            ELSE YEAR(i.ExpectedInvoicingDate)
-        END
-    ) IN (:year, :year_minus_1) ";
+        LEFT JOIN [BI].[DWH].D_Collection c ON i.ItemNo = c.Code AND i.SeriesNo = c.SeasonCode
 
-        $params = [
-            'year' => $year,
-            'year_minus_1' => $year - 1,
-            'businessType' => $businessType,
-        ];
+        WHERE l.BusinessType = '{$businessType}'
+        AND (
+            CASE
+                WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = 1 AND MONTH(i.ExpectedInvoicingDate) = 12
+                    THEN YEAR(i.ExpectedInvoicingDate) + 1
+                WHEN DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) >= 52 AND MONTH(i.ExpectedInvoicingDate) = 1
+                    THEN YEAR(i.ExpectedInvoicingDate) - 1
+                ELSE YEAR(i.ExpectedInvoicingDate)
+            END
+        ) IN ({$year}, {$yearMinus1})
+    ";
 
         // semaine
         if ($week !== null && $cumul === false) {
-            $query .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week ";
-            $params['week'] = $week;
+            $query .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week} ";
         }
+
         // Année cumulative
-        if ($week !== null && $cumul) {
-            $query .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) <= :week ";
-            $params['week'] = $week;
+        if ($week !== null && $cumul === true) {
+            $query .= " AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) <= {$week} ";
         }
 
         // exclusion JO
         if (!$withJo) {
-            $query .= " AND c.RoyaltieCode NOT IN ('EFRO', 'EFRO 25/26', 'EFRP', 'EFRP 25/26', 'P2024') ";
+            $query .= "
+            AND c.RoyaltieCode NOT IN (
+                'EFRO',
+                'EFRO 25/26',
+                'EFRP',
+                'EFRP 25/26',
+                'P2024'
+            )
+        ";
         }
 
         // FTW / APP
         if ($itemFamilyCode !== null) {
-            $query .= " AND it.ItemFamilyCode = :itemFamilyCode ";
-            $params['itemFamilyCode'] = $itemFamilyCode;
+            $query .= " AND it.ItemFamilyCode = '{$itemFamilyCode}' ";
         }
 
         $query .= "
-                GROUP BY l.Code
-                HAVING
-                    SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.AmountEurTM ELSE 0 END) <> 0
-            ";
+        GROUP BY l.Code
+        HAVING
+            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year} THEN i.AmountEurTM ELSE 0 END) <> 0
+    ";
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($query, $params);
+        $rows = $this->mssqlLcs->executeQuery($query);
 
         $blocks = [
             'full_boutique' => ['ca_n' => 0, 'ca_n1' => 0],
@@ -229,7 +242,6 @@ class OverviewBoutiquesKpi
 
         foreach ($rows as $row) {
 
-            // Full boutique
             $blocks['full_boutique']['ca_n']  += (float) $row->ca_n;
             $blocks['full_boutique']['ca_n1'] += (float) $row->ca_n1;
 
@@ -248,7 +260,7 @@ class OverviewBoutiquesKpi
             $b = [
                 'ca' => round($b['ca_n'], 0),
                 'vs_n1' => $this->helpers->variation($b['ca_n'], $b['ca_n1']),
-                'vs_rfc' => -50.0, // à remplire dynamiquement
+                'vs_rfc' => -50.0, // placeholder
             ];
         }
 
@@ -257,63 +269,63 @@ class OverviewBoutiquesKpi
 
     public function getPannierMoyEtATV(int $year, int $week, string $businessType = 'CS'): array
     {
+        $yearMinus1 = $year - 1;
         /*
          * 1️⃣ REQUÊTE VENTES (semaine / N vs N-1)
          */
         $salesQuery = "
-        SELECT
-            l.Code,
+            SELECT
+                l.Code,
 
-            COUNT(DISTINCT CASE
-                WHEN YEAR(i.ExpectedInvoicingDate) = :year
-                THEN i.RetailTransactionNumber
-            END) AS tickets_n,
+                COUNT(DISTINCT CASE
+                    WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                    THEN i.RetailTransactionNumber
+                END) AS tickets_n,
 
-            COUNT(DISTINCT CASE
-                WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1
-                THEN i.RetailTransactionNumber
-            END) AS tickets_n1,
+                COUNT(DISTINCT CASE
+                    WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                    THEN i.RetailTransactionNumber
+                END) AS tickets_n1,
 
-            SUM(CASE
-                WHEN YEAR(i.ExpectedInvoicingDate) = :year
-                THEN i.Quantity
-                ELSE 0
-            END) AS qty_n,
+                SUM(CASE
+                    WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                    THEN i.Quantity
+                    ELSE 0
+                END) AS qty_n,
 
-            SUM(CASE
-                WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1
-                THEN i.Quantity
-                ELSE 0
-            END) AS qty_n1,
+                SUM(CASE
+                    WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                    THEN i.Quantity
+                    ELSE 0
+                END) AS qty_n1,
 
-            SUM(CASE
-                WHEN YEAR(i.ExpectedInvoicingDate) = :year
-                THEN i.AmountEurTM * 1.2
-                ELSE 0
-            END) AS ca_ttc_n,
+                SUM(CASE
+                    WHEN YEAR(i.ExpectedInvoicingDate) = {$year}
+                    THEN i.AmountEurTM * 1.2
+                    ELSE 0
+                END) AS ca_ttc_n,
 
-            SUM(CASE
-                WHEN YEAR(i.ExpectedInvoicingDate) = :year_minus_1
-                THEN i.AmountEurTM * 1.2
-                ELSE 0
-            END) AS ca_ttc_n1
+                SUM(CASE
+                    WHEN YEAR(i.ExpectedInvoicingDate) = {$yearMinus1}
+                    THEN i.AmountEurTM * 1.2
+                    ELSE 0
+                END) AS ca_ttc_n1
 
-        FROM [BI].[DWH].[F_Invoices] i
-        LEFT JOIN [BI].[DWH].D_Location l ON i.LocationCode = l.Code
-        LEFT JOIN [BI].[DWH].D_Item it ON i.ItemNo = it.ItemNo
-        WHERE
-            l.BusinessType IN (:businessType)
-            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = :week
-            AND YEAR(i.ExpectedInvoicingDate) IN (:year, :year_minus_1)
-        GROUP BY l.Code
-        HAVING SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = :year THEN i.AmountEurTM ELSE 0 END) <> 0 ";
+            FROM [BI].[DWH].[F_Invoices] i
+            LEFT JOIN [BI].[DWH].D_Location l ON i.LocationCode = l.Code
+            LEFT JOIN [BI].[DWH].D_Item it ON i.ItemNo = it.ItemNo
 
-        $salesRows = $this->mssqlLcs->executeQueryWithParams($salesQuery, [
-            'year' => $year,
-            'year_minus_1' => $year - 1,
-            'week' => $week,
-            'businessType' => $businessType,
-        ]);
+            WHERE
+                l.BusinessType = '{$businessType}'
+                AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+                AND YEAR(i.ExpectedInvoicingDate) IN ({$year}, {$yearMinus1})
+
+            GROUP BY l.Code
+            HAVING
+                SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$year} THEN i.AmountEurTM ELSE 0 END) <> 0
+        ";
+
+        $salesRows = $this->mssqlLcs->executeQuery($salesQuery);
 
         /*
          * 2️⃣ INITIALISATION DES BLOCS (Option A)
@@ -345,19 +357,19 @@ class OverviewBoutiquesKpi
         foreach ($salesRows as $row) {
 
             // Full boutique = somme de tout
-            foreach (['tickets_n','tickets_n1','qty_n','qty_n1','ca_ttc_n','ca_ttc_n1'] as $field) {
-                $blocks['full_boutique'][$field] += (float) $row->$field;
+            foreach (['tickets_n', 'tickets_n1', 'qty_n', 'qty_n1', 'ca_ttc_n', 'ca_ttc_n1'] as $field) {
+                $blocks['full_boutique'][$field] += (float)$row->$field;
             }
 
             if ($row->Code === 'CSFR-STGER') {
-                foreach (['tickets_n','tickets_n1','qty_n','qty_n1','ca_ttc_n','ca_ttc_n1'] as $field) {
-                    $blocks['st_germain'][$field] += (float) $row->$field;
+                foreach (['tickets_n', 'tickets_n1', 'qty_n', 'qty_n1', 'ca_ttc_n', 'ca_ttc_n1'] as $field) {
+                    $blocks['st_germain'][$field] += (float)$row->$field;
                 }
             }
 
             if ($row->Code === 'CITADIUM') {
-                foreach (['tickets_n','tickets_n1','qty_n','qty_n1','ca_ttc_n','ca_ttc_n1'] as $field) {
-                    $blocks['citadium'][$field] += (float) $row->$field;
+                foreach (['tickets_n', 'tickets_n1', 'qty_n', 'qty_n1', 'ca_ttc_n', 'ca_ttc_n1'] as $field) {
+                    $blocks['citadium'][$field] += (float)$row->$field;
                 }
             }
         }
@@ -366,18 +378,18 @@ class OverviewBoutiquesKpi
          * 4️⃣ REQUÊTE STOCK (global, sans semaine)
          */
         $stockQuery = "
-        SELECT
-            l.Code,
-            SUM(s.StockMovementQuantity) AS stock
-        FROM [BI].[DWH].[F_Inventory] s
-        LEFT JOIN [BI].[DWH].D_Location l ON s.LocationCode = l.Code
-        WHERE
-            l.BusinessType IN ('$businessType')
-        and l.Code <> 'CSFR-RENNE'
-        GROUP BY l.Code
-    ";
+    SELECT
+        l.Code,
+        SUM(s.StockMovementQuantity) AS stock
+    FROM [BI].[DWH].[F_Inventory] s
+    LEFT JOIN [BI].[DWH].D_Location l ON s.LocationCode = l.Code
+    WHERE
+        l.BusinessType = '{$businessType}'
+        AND l.Code <> 'CSFR-RENNE'
+    GROUP BY l.Code
+";
 
-        $stockRows = $this->mssqlLcs->executeQueryWithParams($stockQuery, []);
+        $stockRows = $this->mssqlLcs->executeQuery($stockQuery);
 
         /*
          * 5️⃣ AGRÉGATION DU STOCK
@@ -385,14 +397,14 @@ class OverviewBoutiquesKpi
         foreach ($stockRows as $row) {
 
             // Full boutique = somme de tout
-            $blocks['full_boutique']['stock'] += (float) $row->stock;
+            $blocks['full_boutique']['stock'] += (float)$row->stock;
 
             if ($row->Code === 'CSFR-STGER') {
-                $blocks['st_germain']['stock'] += (float) $row->stock;
+                $blocks['st_germain']['stock'] += (float)$row->stock;
             }
 
             if ($row->Code === 'CITADIUM') {
-                $blocks['citadium']['stock'] += (float) $row->stock;
+                $blocks['citadium']['stock'] += (float)$row->stock;
             }
         }
 
@@ -414,13 +426,13 @@ class OverviewBoutiquesKpi
 
             // ✅ Couverture = stock / qty (arrondi à l'inférieur)
             $couverture = $qty > 0
-                ? (int) floor($stock / $qty)
+                ? (int)floor($stock / $qty)
                 : 0;
 
             $b = [
                 // Données de base
-                'qty' => (int) round($qty, 0),
-                'stock' => (int) round($stock, 0),
+                'qty' => (int)round($qty, 0),
+                'stock' => (int)round($stock, 0),
                 'couverture' => $couverture,
 
                 // ATV
@@ -439,50 +451,56 @@ class OverviewBoutiquesKpi
         return $blocks;
     }
 
-    public function getRfcCaByStore(int $week, bool $cumul = false, string $businessType= 'CS'): array
+    public function getRfcCaByStore(int $week, bool $cumul = false, string $businessType = 'CS'): array
     {
-        $businessType = $businessType === 'CS' ? 'CONCEPT STORE' : 'FACTORY OUTLET';
+        // Mapping métier (inchangé)
+        $businessTypeLabel = $businessType === 'CS'
+            ? 'CONCEPT STORE'
+            : 'FACTORY OUTLET';
+
         $query = "
         SELECT
             [CODE MAG] AS store_code,
             SUM([RFC WEEK]) AS rfc
         FROM UCD..RFC_AVEC_MARGE
         WHERE
-            RESEAU = :businessType
+            RESEAU = '{$businessTypeLabel}'
     ";
 
         if ($cumul) {
-            $query .= " AND SEMAINE <= :week ";
+            $query .= " AND SEMAINE <= {$week} ";
         } else {
-            $query .= " AND SEMAINE = :week ";
+            $query .= " AND SEMAINE = {$week} ";
         }
 
         $query .= " GROUP BY [CODE MAG] ";
 
-        $rows = $this->mssqlLcs->executeQueryWithParams($query, [
-            'week' => $week, 'businessType' => $businessType
-        ]);
+        // 🔥 Exécution directe
+        $rows = $this->mssqlLcs->executeQuery($query);
 
         // Initialisation
         $data = [
-            'full_boutique' => 0,
-            'st_germain'    => 0,
-            'citadium'      => 0,
+            'full_boutique' => 0.0,
+            'st_germain'    => 0.0,
+            'citadium'      => 0.0,
         ];
 
         foreach ($rows as $row) {
+
+            $rfc = (float) ($row->rfc ?? 0);
+
             switch ($row->store_code) {
                 case 'CSFR-STGER':
-                    $data['st_germain'] += (float) $row->rfc;
+                    $data['st_germain'] += $rfc;
                     break;
 
                 case 'CITADIUM':
-                    $data['citadium'] += (float) $row->rfc;
+                    $data['citadium'] += $rfc;
                     break;
             }
 
-            // Full boutique = tout cumuler
-            $data['full_boutique'] += (float) $row->rfc;
+            // Full boutique = cumul de tout
+            $data['full_boutique'] += $rfc;
         }
 
         return $data;
