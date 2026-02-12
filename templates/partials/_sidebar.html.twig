@@ -17,7 +17,7 @@
         <div class="multinav">
             <div class="multinav-scroll" style="height: 100%;">
                 <ul class="sidebar-menu" data-widget="tree">
-                    <li class="{% if path == '/' %}active{% endif %}"><a href="#"><img src="{{ asset('assets/images/svg-icon/dashboard.svg') }}" class="svg-icon" alt=""><span>{{ 'sidebar.accueil'|trans }}</span></a></li>
+                    <li class="{% if path == '/' %}active{% endif %}"><a href="{{ path('app_home') }}"><img src="{{ asset('assets/images/svg-icon/dashboard.svg') }}" class="svg-icon" alt=""><span>{{ 'sidebar.accueil'|trans }}</span></a></li>
 
                     {# Block Menu #}
                     <li class="header">Menus</li>

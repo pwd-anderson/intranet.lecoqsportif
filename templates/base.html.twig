@@ -7,7 +7,7 @@
     <link rel="icon" href="{{ asset('assets/images/favicon.ico') }}">
     <title>{% block title %}{{ 'site.title'|trans }}{% endblock %}</title>
     <link href="{{ asset('assets/css/vendors_css.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/style.css') }}?v={{ "now"|date("U") }}" rel="stylesheet">
     <link href="{{ asset('assets/css/skin_color.css') }}" rel="stylesheet">
 
     {% block stylesheets %}{% endblock %}
