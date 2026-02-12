@@ -22,11 +22,6 @@ class MssqlManager
 
             ];
 
-            // Timeout UNIQUEMENT pour dblib (local / VPN)
-            if (str_starts_with($this->dsn, 'dblib:')) {
-                $options[PDO::ATTR_TIMEOUT] = 300;
-            }
-
             /**
              * Timeout spécifique SQL Server (REQUÊTE)
              * - existe uniquement avec le driver sqlsrv

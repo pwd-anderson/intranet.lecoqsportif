@@ -1,5 +1,5 @@
 /*
-Template Name: Master Admin - Responsive Admin Template 
+Template Name: Master Admin - Responsive Admin Template
 Author: Multipurpose Themes
 File: scss
 */
@@ -1070,7 +1070,7 @@ small, .small {
   font-weight: 400; }
 
 /*******************
-Padding property 
+Padding property
 *******************/
 .p-0 {
   padding: 0px !important; }
@@ -7674,7 +7674,7 @@ Padding property
     padding-top: 200px !important;
     padding-bottom: 200px !important; } }
 /*******************
-Margin property 
+Margin property
 *******************/
 .m-0 {
   margin: 0px !important; }
@@ -14278,7 +14278,7 @@ Margin property
     margin-top: 200px !important;
     margin-bottom: 200px !important; } }
 /*******************
-Width property 
+Width property
 *******************/
 .w-0 {
   width: 0px !important; }
@@ -17197,7 +17197,7 @@ Width property
   .max-w-lg-auto {
     max-width: auto; } }
 /*******************
-Height property 
+Height property
 *******************/
 .h-0 {
   height: 0px !important; }
@@ -32201,3 +32201,19 @@ img.away, img.busy, img.offline, img.online {
   z-index: -1; }
 
 /*# sourceMappingURL=style.css.map */
+
+/* style custom pour le side bar */
+.sidebar-menu li a {
+    display: flex;
+    align-items: flex-start;
+}
+
+.sidebar-menu li a .icon-Commit {
+    margin-right: 8px;
+    margin-top: 3px;
+}
+
+.sidebar-menu li a .menu-label {
+    white-space: normal;
+    line-height: 1.3;
+}

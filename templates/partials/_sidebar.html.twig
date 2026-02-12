@@ -1,3 +1,5 @@
+{% set path = app.request.pathinfo|replace({'/fr': '', '/en': ''}) %}
+{% set currentRoute = app.request.attributes.get('_route') %}
 <aside class="main-sidebar mt-2">
     <section class="sidebar position-relative">
         <div class="user-profile px-30 py-15">
@@ -15,35 +17,35 @@
         <div class="multinav">
             <div class="multinav-scroll" style="height: 100%;">
                 <ul class="sidebar-menu" data-widget="tree">
-                    <li class="active"><a href="#"><img src="{{ asset('assets/images/svg-icon/dashboard.svg') }}" class="svg-icon" alt=""><span>{{ 'sidebar.accueil'|trans }}</span></a></li>
+                    <li class="{% if path == '/' %}active{% endif %}"><a href="#"><img src="{{ asset('assets/images/svg-icon/dashboard.svg') }}" class="svg-icon" alt=""><span>{{ 'sidebar.accueil'|trans }}</span></a></li>
 
                     {# Block Menu #}
                     <li class="header">Menus</li>
-                    <li class="treeview">
+                    <li class="treeview {% if path starts with '/management' %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/management.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.management'|trans }}</span>
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li><a href="{{ path('app_ca_marges_year') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.management.ca_marges'|trans }}</a></li>
+                            <li class="{% if currentRoute == 'app_ca_marges_year' %}active{% endif %}"><a href="{{ path('app_ca_marges_year') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.management.ca_marges'|trans }}</a></li>
                         </ul>
                     </li>
-                    <li class="treeview">
+                    <li class="treeview  {% if path starts with '/sales' %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/ecommerce.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.sales'|trans }}</span>
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li><a href="{{ path('app_sales_livraison_non_facturees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.delivery_without_invoice'|trans }}</a></li>
-                            <li><a href="{{ path('app_sales_backlog_clients') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.backlog_clients'|trans }}</a></li>
-                            <li><a href="{{ path('app_kpi_retail') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.kpi_deck_retail'|trans }}</a></li>
-                            <li><a href="{{ path('app_sales_commandes_a_facturer') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.commandes_a_facturer'|trans|nl2br }}</a></li>
+                            <li class="{% if currentRoute == 'app_sales_livraison_non_facturees' %}active{% endif %}"><a href="{{ path('app_sales_livraison_non_facturees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.delivery_without_invoice'|trans }}</a></li>
+                            <li class="{% if currentRoute == 'app_sales_backlog_clients' %}active{% endif %}"><a href="{{ path('app_sales_backlog_clients') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.backlog_clients'|trans }}</a></li>
+                            <li class="{% if currentRoute == 'app_kpi_retail' %}active{% endif %}"><a href="{{ path('app_kpi_retail') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.kpi_deck_retail'|trans }}</a></li>
+                            <li class="{% if currentRoute == 'app_sales_commandes_a_facturer' %}active{% endif %}"><a href="{{ path('app_sales_commandes_a_facturer') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.commandes_a_facturer'|trans|nl2br }}</a></li>
                         </ul>
                     </li>
 
-                    <li class="treeview">
+                    <li class="treeview  {% if path starts with '/purchase' %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/purchase.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.purchasing'|trans }}</span>
@@ -54,15 +56,15 @@
                         </ul>
                     </li>
 
-                    <li class="treeview">
+                    <li class="treeview  {% if path starts with '/stock' %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/stocks.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.stock'|trans }}</span>
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li><a href="{{ path('app_stock_a_terme') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme'|trans }}</a></li>
-                            <li><a href="{{ path('app_stock_allocation') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_allocation'|trans }}</a></li>
+                            <li class="{% if currentRoute == 'app_stock_a_terme' %}active{% endif %}"><a href="{{ path('app_stock_a_terme') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme'|trans }}</a></li>
+                            <li class="{% if currentRoute == 'app_stock_allocation' %}active{% endif %}"><a href="{{ path('app_stock_allocation') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_allocation'|trans }}</a></li>
                         </ul>
                     </li>
 
