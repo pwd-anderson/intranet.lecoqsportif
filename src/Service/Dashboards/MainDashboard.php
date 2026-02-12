@@ -104,47 +104,46 @@ class MainDashboard
     public function getSalesComparaisonCurrentMonthByDay(): array
     {
         try {
-            $query = "WITH jours_mois_complet AS (
-                        SELECT TOP (DAY(EOMONTH(GETDATE())))
-                            ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS jour
-                        FROM sys.all_objects
-                    ),
-                    ventes_journalieres AS (
-                        SELECT
-                            DAY(I.ExpectedInvoicingDate) AS jour,
-                            YEAR(I.ExpectedInvoicingDate) AS annee,
-                            SUM(I.AmountEurTM) AS ca_jour
-                        FROM LCS_BI.F_Invoices_Dash I
-                        WHERE
-                            MONTH(I.ExpectedInvoicingDate) = MONTH(GETDATE())
-                            AND YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
-                            AND (
-                                (YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE()) AND DAY(I.ExpectedInvoicingDate) <= DAY(GETDATE()))
-                                OR YEAR(I.ExpectedInvoicingDate) = YEAR(DATEADD(YEAR, -1, GETDATE()))
-                            )
-                            AND IsBohPerimeter_Product = 1
-                    AND IsBohPerimeter_IR = 1
-                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
-                        GROUP BY DAY(I.ExpectedInvoicingDate), YEAR(I.ExpectedInvoicingDate)
-                    ),
-                    fusion AS (
-                        SELECT
-                            j.jour,
-                            ISNULL(MAX(CASE WHEN v.annee = YEAR(GETDATE()) THEN v.ca_jour END), 0) AS ca_n,
-                            ISNULL(MAX(CASE WHEN v.annee = YEAR(DATEADD(YEAR, -1, GETDATE())) THEN v.ca_jour END), 0) AS ca_n_1
-                        FROM jours_mois_complet j
-                        LEFT JOIN ventes_journalieres v ON j.jour = v.jour
-                        GROUP BY j.jour
-                    )
-                    SELECT *
-                    FROM fusion
-                    ORDER BY jour;";
+            $query = "
+        WITH jours_mtd AS (
+            SELECT TOP (DAY(GETDATE()))
+                ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS jour
+            FROM sys.all_objects
+        ),
+        ventes_journalieres AS (
+            SELECT
+                DAY(I.ExpectedInvoicingDate) AS jour,
+                YEAR(I.ExpectedInvoicingDate) AS annee,
+                SUM(I.AmountEurTM) AS ca_jour
+            FROM LCS_BI.F_Invoices_Dash I
+            WHERE
+                YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR,-1,GETDATE())))
+                AND MONTH(I.ExpectedInvoicingDate) = MONTH(GETDATE())
+                AND DAY(I.ExpectedInvoicingDate) <= DAY(GETDATE())
+                AND IsBohPerimeter_Product = 1
+                AND IsBohPerimeter_IR = 1
+                AND DocumentType IN ('INVOICE','CREDITMEMO')
+            GROUP BY DAY(I.ExpectedInvoicingDate), YEAR(I.ExpectedInvoicingDate)
+        ),
+        fusion AS (
+            SELECT
+                j.jour,
+                ISNULL(MAX(CASE WHEN v.annee = YEAR(GETDATE()) THEN v.ca_jour END),0) AS ca_n,
+                ISNULL(MAX(CASE WHEN v.annee = YEAR(DATEADD(YEAR,-1,GETDATE())) THEN v.ca_jour END),0) AS ca_n_1
+            FROM jours_mtd j
+            LEFT JOIN ventes_journalieres v ON j.jour = v.jour
+            GROUP BY j.jour
+        )
+        SELECT *
+        FROM fusion
+        ORDER BY jour;
+        ";
 
             return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ OGIER Erreur Dashboard : CA jour mois courant', $e);
-            $this->logger->error('Erreur CA jour mois courant', ['exception' => $e]);
+            $this->graphMailer->notifyError('❌ OGIER Erreur Dashboard : CA MTD jour', $e);
+            $this->logger->error('Erreur CA MTD jour', ['exception' => $e]);
             return [];
         }
     }
@@ -152,42 +151,54 @@ class MainDashboard
     public function getSalesComparaisonCurrentMonth(): array
     {
         try {
-            $query = "WITH ventes_filtrees AS (
-                        SELECT
-                            CAST(I.ExpectedInvoicingDate AS DATE) AS jour,
-                            I.AmountEurTM
-                        FROM LCS_BI.F_Invoices_Dash I
-                        WHERE
-                            YEAR(I.ExpectedInvoicingDate) IN (YEAR(GETDATE()), YEAR(DATEADD(YEAR, -1, GETDATE())))
-                            AND MONTH(I.ExpectedInvoicingDate) = MONTH(GETDATE())
-                            AND (
-                                (YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE()) AND DAY(I.ExpectedInvoicingDate) <= DAY(GETDATE()))
-                                OR YEAR(I.ExpectedInvoicingDate) = YEAR(DATEADD(YEAR, -1, GETDATE()))
-                            )
-                            AND IsBohPerimeter_Product = 1
-                            AND IsBohPerimeter_IR = 1
-                            AND DocumentType IN ('INVOICE', 'CREDITMEMO')
-                    )
-                    SELECT
-                        SUM(CASE WHEN YEAR(jour) = YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END) AS ca_n,
-                        SUM(CASE WHEN YEAR(jour) = YEAR(DATEADD(YEAR, -1, GETDATE())) THEN AmountEurTM ELSE 0 END) AS ca_n_1,
-                        ROUND(
-                            CASE
-                                WHEN SUM(CASE WHEN YEAR(jour) = YEAR(DATEADD(YEAR, -1, GETDATE())) THEN AmountEurTM ELSE 0 END) = 0
-                                    THEN NULL
-                                ELSE
-                                    (SUM(CASE WHEN YEAR(jour) = YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END)
-                                    - SUM(CASE WHEN YEAR(jour) = YEAR(DATEADD(YEAR, -1, GETDATE())) THEN AmountEurTM ELSE 0 END))
-                                    / SUM(CASE WHEN YEAR(jour) = YEAR(DATEADD(YEAR, -1, GETDATE())) THEN AmountEurTM ELSE 0 END) * 100
-                            END, 2
-                        ) AS variation_pourcent
-                    FROM ventes_filtrees;";
+            $query = "
+        WITH ventes_mtd AS (
+            SELECT
+                CAST(I.ExpectedInvoicingDate AS DATE) AS jour,
+                I.AmountEurTM
+            FROM LCS_BI.F_Invoices_Dash I
+            WHERE
+                (
+                    I.ExpectedInvoicingDate BETWEEN
+                        DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                        AND CAST(GETDATE() AS DATE)
+                )
+                OR
+                (
+                    I.ExpectedInvoicingDate BETWEEN
+                        DATEFROMPARTS(YEAR(DATEADD(YEAR,-1,GETDATE())), MONTH(GETDATE()), 1)
+                        AND DATEADD(YEAR,-1,CAST(GETDATE() AS DATE))
+                )
+                AND IsBohPerimeter_Product = 1
+                AND IsBohPerimeter_IR = 1
+                AND DocumentType IN ('INVOICE','CREDITMEMO')
+        )
+        SELECT
+            SUM(CASE WHEN YEAR(jour)=YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END) AS ca_n,
+            SUM(CASE WHEN YEAR(jour)=YEAR(DATEADD(YEAR,-1,GETDATE())) THEN AmountEurTM ELSE 0 END) AS ca_n_1,
+            ROUND(
+                CASE
+                    WHEN SUM(CASE WHEN YEAR(jour)=YEAR(DATEADD(YEAR,-1,GETDATE())) THEN AmountEurTM ELSE 0 END)=0
+                        THEN NULL
+                    ELSE
+                        (
+                            SUM(CASE WHEN YEAR(jour)=YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END)
+                            -
+                            SUM(CASE WHEN YEAR(jour)=YEAR(DATEADD(YEAR,-1,GETDATE())) THEN AmountEurTM ELSE 0 END)
+                        )
+                        /
+                        SUM(CASE WHEN YEAR(jour)=YEAR(DATEADD(YEAR,-1,GETDATE())) THEN AmountEurTM ELSE 0 END)
+                        *100
+                END
+            ,2) AS variation_pourcent
+        FROM ventes_mtd;
+        ";
 
             return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ OGIER Erreur Dashboard : CA mois courant', $e);
-            $this->logger->error('Erreur CA mois courant', ['exception' => $e]);
+            $this->graphMailer->notifyError('❌ OGIER Erreur Dashboard : CA MTD', $e);
+            $this->logger->error('Erreur CA MTD', ['exception' => $e]);
             return [];
         }
     }
