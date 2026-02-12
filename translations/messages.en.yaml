@@ -36,8 +36,9 @@ sidebar:
         delivery_without_invoice: "Deliveries Without Invoice"
         backlog_clients: "Backlog Clients"
         kpi_deck_retail: "Retail KPI Deck"
+        commandes_a_facturer: "Commandes à Facturer\n(Vue Balance âgée)"
     management:
         ca_marges: "Sales Margins"
     stock:
         stock_a_terme: "Future Stock"
-        stock_allocation: "Stock Allocation"
+        stock_allocation: "Stock & Allocation (Data X3)"

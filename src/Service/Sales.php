@@ -3,7 +3,9 @@
 namespace App\Service;
 
 use App\Factory\MssqlManagerFactory;
+use App\Infrastructure\Sql\SqlFileLoader;
 use App\Service\Tools\GraphMailer;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mime\Email;
 use Psr\Log\LoggerInterface;
 use App\Service\Tools\MssqlManager;
@@ -15,10 +17,15 @@ class Sales
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
-        private GraphMailer $graphMailer
+        private GraphMailer $graphMailer,
+        private SqlFileLoader $sqlFileLoader,
+        #[Autowire('%db.lcs%')]
+        string $dbLcs,
+        #[Autowire('%db.lcs_sei%')]
+        string $dbLcsSei,
     )
     {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create('lcs');
+        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
     }
 
     public function getLivraisonsNonFacturees(): array
@@ -86,6 +93,19 @@ class Sales
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Sales : Récupération de données Backlog clients', $e);
             $this->logger->error('LCS Erreur Sales : Récupération de données Backlog clients', ['exception' => $e]);
+        }
+    }
+
+    public function getCommandesAFacturer(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Navision/commandes_a_facturer_tmp.sql');
+            $data = $this->mssqlLcs->executeQuery($query);
+            return $data;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Commandes à Facturer : Récupération de données Ventes LCS', $e);
+            $this->logger->error('LCS Erreur Commandes à Facturer : Récupération de données Ventes LCS', ['exception' => $e]);
         }
     }
 
