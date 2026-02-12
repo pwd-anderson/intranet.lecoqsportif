@@ -106,7 +106,7 @@ function renderSalesYearChart(apiUrl, caSelector, variationSelector, chartSelect
             yaxis: { show: false },
             tooltip: {
                 y: {
-                    formatter: val => val.toLocaleString('fr-CH', { style: 'currency', currency: 'CHF' })
+                    formatter: val => val.toLocaleString('fr-CH', { style: 'currency', currency: 'EUR' })
                 }
             }
         };

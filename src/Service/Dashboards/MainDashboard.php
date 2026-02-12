@@ -152,46 +152,54 @@ class MainDashboard
     {
         try {
             $query = "
-        WITH ventes_mtd AS (
+        WITH bornes AS (
+            SELECT
+                -- Mois courant
+                DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS start_n,
+                CAST(GETDATE() AS DATE) AS end_n,
+
+                -- Même mois année précédente
+                DATEFROMPARTS(YEAR(DATEADD(YEAR,-1,GETDATE())), MONTH(GETDATE()), 1) AS start_n1,
+                DATEADD(YEAR,-1, CAST(GETDATE() AS DATE)) AS end_n1
+        ),
+        ventes_mtd AS (
             SELECT
                 CAST(I.ExpectedInvoicingDate AS DATE) AS jour,
                 I.AmountEurTM
             FROM LCS_BI.F_Invoices_Dash I
+            CROSS JOIN bornes b
             WHERE
                 (
-                    I.ExpectedInvoicingDate BETWEEN
-                        DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
-                        AND CAST(GETDATE() AS DATE)
-                )
-                OR
-                (
-                    I.ExpectedInvoicingDate BETWEEN
-                        DATEFROMPARTS(YEAR(DATEADD(YEAR,-1,GETDATE())), MONTH(GETDATE()), 1)
-                        AND DATEADD(YEAR,-1,CAST(GETDATE() AS DATE))
+                    (I.ExpectedInvoicingDate >= b.start_n
+                     AND I.ExpectedInvoicingDate < DATEADD(DAY,1,b.end_n))
+                    OR
+                    (I.ExpectedInvoicingDate >= b.start_n1
+                     AND I.ExpectedInvoicingDate < DATEADD(DAY,1,b.end_n1))
                 )
                 AND IsBohPerimeter_Product = 1
                 AND IsBohPerimeter_IR = 1
                 AND DocumentType IN ('INVOICE','CREDITMEMO')
         )
         SELECT
-            SUM(CASE WHEN YEAR(jour)=YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END) AS ca_n,
-            SUM(CASE WHEN YEAR(jour)=YEAR(DATEADD(YEAR,-1,GETDATE())) THEN AmountEurTM ELSE 0 END) AS ca_n_1,
+            SUM(CASE WHEN jour BETWEEN b.start_n AND b.end_n THEN AmountEurTM ELSE 0 END) AS ca_n,
+            SUM(CASE WHEN jour BETWEEN b.start_n1 AND b.end_n1 THEN AmountEurTM ELSE 0 END) AS ca_n_1,
             ROUND(
                 CASE
-                    WHEN SUM(CASE WHEN YEAR(jour)=YEAR(DATEADD(YEAR,-1,GETDATE())) THEN AmountEurTM ELSE 0 END)=0
+                    WHEN SUM(CASE WHEN jour BETWEEN b.start_n1 AND b.end_n1 THEN AmountEurTM ELSE 0 END) = 0
                         THEN NULL
                     ELSE
                         (
-                            SUM(CASE WHEN YEAR(jour)=YEAR(GETDATE()) THEN AmountEurTM ELSE 0 END)
+                            SUM(CASE WHEN jour BETWEEN b.start_n AND b.end_n THEN AmountEurTM ELSE 0 END)
                             -
-                            SUM(CASE WHEN YEAR(jour)=YEAR(DATEADD(YEAR,-1,GETDATE())) THEN AmountEurTM ELSE 0 END)
+                            SUM(CASE WHEN jour BETWEEN b.start_n1 AND b.end_n1 THEN AmountEurTM ELSE 0 END)
                         )
                         /
-                        SUM(CASE WHEN YEAR(jour)=YEAR(DATEADD(YEAR,-1,GETDATE())) THEN AmountEurTM ELSE 0 END)
-                        *100
+                        SUM(CASE WHEN jour BETWEEN b.start_n1 AND b.end_n1 THEN AmountEurTM ELSE 0 END)
+                        * 100
                 END
             ,2) AS variation_pourcent
-        FROM ventes_mtd;
+        FROM ventes_mtd
+        CROSS JOIN bornes b;
         ";
 
             return $this->mssqlMade2design->executeQuery($query);
