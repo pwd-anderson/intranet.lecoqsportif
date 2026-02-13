@@ -240,37 +240,16 @@ class MainDashboard
         }
     }
 
-    public function getTopCompanySales(): array
-    {
-        try {
-            $query = "
-            SELECT TOP 10
-                I.CompanyCode,
-                SUM(I.AmountEurTM) AS TotalSales
-            FROM LCS_BI.F_Invoices_Dash I
-            WHERE
-                YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
-            AND IsBohPerimeter_Product = 1
-                    AND IsBohPerimeter_IR = 1
-                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
-            GROUP BY I.CompanyCode
-            ORDER BY TotalSales DESC
-        ";
-
-            return $this->mssqlMade2design->executeQuery($query);
-        } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Dashboard : Top sociétés CA', $e);
-            $this->logger->error('LCS Erreur Top sociétés CA', ['exception' => $e]);
-            return [];
-        }
-    }
-
     public function getTopFamilySales(): array
     {
         try {
             $query = "
             SELECT
-                IT.ItemFamilyCode,
+                CASE
+                    WHEN IT.ItemFamilyCode = '1 FOOTWEAR' THEN 'FOOTWEAR'
+                    WHEN IT.ItemFamilyCode = '2 TEXTILE' THEN 'TEXTILE'
+                    WHEN IT.ItemFamilyCode = '3 HARDWARE' THEN 'HARDWARE'
+                END AS ItemFamilyCode,
                 SUM(I.AmountEurTM) AS TotalSales
             FROM LCS_BI.F_Invoices_Dash I
             LEFT JOIN LCS_BI.D_Item IT ON IT.ItemNo = I.ItemNo
@@ -296,21 +275,41 @@ class MainDashboard
     public function getTopProductsBySales(): array
     {
         try {
-            $query = "SELECT TOP 10
-                        I.ItemNo,
-                        IT.Description AS ItemDescription,
-                        SUM(I.AmountEurTM) AS TotalSales
-                    FROM LCS_BI.F_Invoices_Dash I
-                    LEFT JOIN LCS_BI.D_Item IT ON IT.ItemNo = I.ItemNo
-                    WHERE
-                        YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
-                    AND IsBohPerimeter_Product = 1
-                    AND IsBohPerimeter_IR = 1
-                    AND DocumentType IN ('INVOICE', 'CREDITMEMO')
-                    GROUP BY I.ItemNo, IT.Description
-                    ORDER BY TotalSales DESC;"; // Mets la requête ici
+            $query = "SELECT TOP 5
+                    I.ItemNo,
+                    IT.Description AS ItemDescription,
+                    SUM(I.AmountEurTM) AS TotalSales
+                FROM LCS_BI.F_Invoices_Dash I
+                LEFT JOIN LCS_BI.D_Item IT ON IT.ItemNo = I.ItemNo
+                WHERE
+                    YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
+                AND IsBohPerimeter_Product = 1
+                AND IsBohPerimeter_IR = 1
+                AND DocumentType IN ('INVOICE', 'CREDITMEMO')
+                GROUP BY I.ItemNo, IT.Description
+                ORDER BY TotalSales DESC;";
 
-            return $this->mssqlMade2design->executeQuery($query);
+            $rows = $this->mssqlMade2design->executeQuery($query);
+
+            $out = [];
+            foreach ($rows as $r) {
+
+                $itemNo = trim((string)($r->ItemNo ?? ''));
+                if ($itemNo === '') {
+                    continue;
+                }
+
+                $safeItemNo = rawurlencode($itemNo);
+
+                $out[] = [
+                    'image'  => "https://www.lecoqbiz.com/CMS/Images/Small/{$safeItemNo}.jpg",
+                    'code'   => $itemNo,
+                    'label'  => (string)($r->ItemDescription ?? ''),
+                    'value'  => (float)($r->TotalSales ?? 0),
+                ];
+            }
+
+            return $out;
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur Dashboard : Top Produits Ventes', $e);

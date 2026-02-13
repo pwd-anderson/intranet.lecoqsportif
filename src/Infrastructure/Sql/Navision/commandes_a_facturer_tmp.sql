@@ -17,7 +17,7 @@ WHERE
   AND SH.[Document Type] = 1
   AND SH.[Created Date Time] >= DATEADD(MONTH,-18,GETDATE())
   AND C.[Gen_ Bus_ Posting Group] <> 'DOTFACT'
-    AND SH.[N° Contrat Dotation] <> ''
+    AND SH.[N° Contrat Dotation] = ''
 GROUP BY
     SH.CompanyCode
     ,SH.[Sell-to Customer No_]

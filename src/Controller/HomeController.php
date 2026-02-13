@@ -123,23 +123,6 @@ final class HomeController extends AbstractController
         ]);
     }
 
-    #[Route('/api/dashboard/top-company-sales', name: 'api_dashboard_top_company_sales')]
-    public function getTopCompanySales(): JsonResponse
-    {
-        $data = $this->mainDashboard->getTopCompanySales();
-        $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
-
-        $dataArray = array_map(fn($item) => (array) $item, $dataUtf8);
-
-        $labels = array_column($dataArray, 'CompanyCode');
-        $values = array_column($dataArray, 'TotalSales');
-
-        return new JsonResponse([
-            'labels' => $labels,
-            'values' => $values,
-        ]);
-    }
-
     #[Route('/api/dashboard/top-family-sales', name: 'api_dashboard_top_family_sales')]
     public function getTopFamilySales(): JsonResponse
     {
@@ -163,15 +146,7 @@ final class HomeController extends AbstractController
         $data = $this->mainDashboard->getTopProductsBySales();
         $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
 
-        $dataArray = array_map(fn($item) => (array) $item, $dataUtf8);
-
-        $labels = array_column($dataArray, 'ItemDescription');
-        $values = array_map(fn($v) => round($v, 2), array_column($dataArray, 'TotalSales'));
-
-        return new JsonResponse([
-            'labels' => $labels,
-            'values' => $values,
-        ]);
+        return new JsonResponse($dataUtf8);
     }
 
     #[Route('/api/dashboard/sales-evolution-5y', name: 'api_dashboard_sales_evolution_5y')]

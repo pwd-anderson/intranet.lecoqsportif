@@ -272,51 +272,103 @@ function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector) {
 }
 
 function renderTopProductSalesChart(apiUrl, selector) {
+
     $.getJSON(apiUrl, function (result) {
+
         const el = document.querySelector(selector);
         if (!el) return;
+
         el.innerHTML = '';
 
-        if (!result || !Array.isArray(result.labels) || result.labels.length === 0) {
+        if (!Array.isArray(result) || result.length === 0) {
             el.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
             return;
         }
 
-        const options = {
-            chart: { type: 'bar', height: 360, toolbar: { show: false } },
-            plotOptions: {
-                bar: { horizontal: true, borderRadius: 4, barHeight: '70%' }
-            },
-            dataLabels: {
-                enabled: true,
-                formatter: val => val.toLocaleString('fr-CH') + ' €'
-            },
-            xaxis: {
-                categories: result.labels,
-                labels: {
-                    formatter: val => val.toLocaleString('fr-CH')
-                }
-            },
-            colors: ['#00b894'],
-            series: [{ name: 'CA (€)', data: result.values }],
-            tooltip: {
-                y: {
-                    formatter: val => val.toLocaleString('fr-CH') + ' €'
-                }
-            },
-            grid: {
-                borderColor: '#eee',
-                row: { colors: ['#f9f9f9', 'transparent'], opacity: 0.5 }
-            }
-        };
+        const maxValue = Math.max(...result.map(p => Number(p.value) || 0));
 
-        if (el._chart) el._chart.destroy();
+        result.forEach(p => {
 
-        const chart = new ApexCharts(el, options);
-        chart.render();
-        el._chart = chart;
+            const percent = maxValue > 0 ? (p.value / maxValue) * 100 : 0;
+
+            el.innerHTML += `
+                <div class="top-product-row">
+                    <img src="${p.image}"
+                                 class="top-product-img"
+                                 onerror="this.src='/assets/images/no-image.png';">
+
+                    <div class="top-product-info">
+                        <div class="top-product-label">${p.label}</div>
+                        <div class="top-product-bar-container">
+                            <div class="top-product-bar" style="width:${percent}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="top-product-value">
+                        ${p.value.toLocaleString('fr-CH')} €
+                    </div>
+                </div>
+            `;
+        });
     });
 }
+
+function injectImagesIntoYAxis(chartContext, data) {
+    const labels = chartContext.el.querySelectorAll('.apexcharts-yaxis-label');
+
+    labels.forEach(label => {
+        let text = label.textContent.trim();
+        // Correction pour le texte dupliqué (ex: "Produit AProduit A") parfois généré par ApexCharts
+        let item = data.find(p => p.label === text);
+
+        if (!item) {
+            // Tentative de correspondance si le texte est dupliqué
+            item = data.find(p => text === p.label + p.label);
+        }
+
+        // Fallback générique si le texte contient le label (attention aux sous-chaînes)
+        if (!item) {
+            item = data.find(p => text.indexOf(p.label) === 0);
+        }
+
+        if (item && item.image) {
+            const existingImage = label.parentNode.querySelector(`image[data-label="${item.label}"]`);
+            if (existingImage) return;
+
+            let bbox = { width: 0 };
+            try {
+                bbox = label.getBBox();
+            } catch (e) {
+                // Fallback si getBBox échoue (ex: élément non rendu)
+            }
+
+            const img = document.createElementNS("http://www.w3.org/2000/svg", "image");
+
+            const x = parseFloat(label.getAttribute('x'));
+            const y = parseFloat(label.getAttribute('y'));
+            const imgSize = 30;
+            const gap = 8;
+
+            // Calcul de la position X (suppose alignement à droite par défaut pour l'axe Y)
+            // On place l'image à gauche du texte
+            const imgX = x - bbox.width - imgSize - gap;
+
+            // Centrage vertical par rapport à la ligne de base du texte
+            const imgY = y - (imgSize / 2) - 5; // -5 ajustement visuel empirique
+
+            img.setAttributeNS(null, "href", item.image);
+            img.setAttributeNS(null, "x", imgX.toString());
+            img.setAttributeNS(null, "y", imgY.toString());
+            img.setAttributeNS(null, "width", imgSize.toString());
+            img.setAttributeNS(null, "height", imgSize.toString());
+            img.setAttribute("data-label", item.label);
+            img.style.pointerEvents = "none";
+
+            label.parentNode.insertBefore(img, label);
+        }
+    });
+}
+
 
 function renderSalesEvolutionChart(apiUrl, selector, legendSelector) {
     $.getJSON(apiUrl, function (response) {
