@@ -265,6 +265,34 @@ class MainDashboard
         }
     }
 
+    public function getTopFamilySales(): array
+    {
+        try {
+            $query = "
+            SELECT
+                IT.ItemFamilyCode,
+                SUM(I.AmountEurTM) AS TotalSales
+            FROM LCS_BI.F_Invoices_Dash I
+            LEFT JOIN LCS_BI.D_Item IT ON IT.ItemNo = I.ItemNo
+            WHERE
+                YEAR(I.ExpectedInvoicingDate) = YEAR(GETDATE())
+                AND IT.ItemFamilyCode IN ('1 FOOTWEAR','2 TEXTILE','3 HARDWARE')
+                AND IsBohPerimeter_Product = 1
+                AND IsBohPerimeter_IR = 1
+                AND DocumentType IN ('INVOICE', 'CREDITMEMO')
+            GROUP BY IT.ItemFamilyCode
+            ORDER BY TotalSales DESC
+        ";
+
+            return $this->mssqlMade2design->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Dashboard : Top familles CA', $e);
+            $this->logger->error('LCS Erreur Top familles CA', ['exception' => $e]);
+            return [];
+        }
+    }
+
     public function getTopProductsBySales(): array
     {
         try {

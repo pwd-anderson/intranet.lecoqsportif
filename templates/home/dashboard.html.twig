@@ -149,15 +149,15 @@
                 </div>
             </div>
 
-            <!-- TOP produits avec meilleur marges -->
+            <!-- CA par famille -->
             <div class="col-lg-4 col-md-6">
                 <div class="box min-h-box">
                     <div class="box-body text-center p-10">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par société</span>
+                            <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par famille</span>
                         </div>
-                        <div id="chart-top-company-sales" class="mb-20"></div>
-                        <div id="table-top-company-sales"></div>
+                        <div id="chart-top-family-sales" class="mb-20"></div>
+                        <div id="table-top-family-sales"></div>
                     </div>
                 </div>
             </div>
@@ -224,7 +224,7 @@
             // Top clients
             renderTopClientsChart('{{ path("api_dashboard_top_clients") }}', '#chart-top-clients');
             // Top sociétés ca
-            renderTopCompanySalesChart('{{ path("api_dashboard_top_company_sales") }}', '#chart-top-company-sales', '#table-top-company-sales');
+            renderTopCompanySalesChart('{{ path("api_dashboard_top_family_sales") }}', '#chart-top-family-sales', '#table-top-family-sales');
             // Meilleurs ventes
             renderTopProductSalesChart('{{ path("api_dashboard_top_product_sales") }}', '#chart-top-product-sales');
             // CA Evolution sur 5 ans

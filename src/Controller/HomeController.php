@@ -140,6 +140,23 @@ final class HomeController extends AbstractController
         ]);
     }
 
+    #[Route('/api/dashboard/top-family-sales', name: 'api_dashboard_top_family_sales')]
+    public function getTopFamilySales(): JsonResponse
+    {
+        $data = $this->mainDashboard->getTopFamilySales();
+        $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
+
+        $dataArray = array_map(fn($item) => (array) $item, $dataUtf8);
+
+        $labels = array_column($dataArray, 'ItemFamilyCode');
+        $values = array_column($dataArray, 'TotalSales');
+
+        return new JsonResponse([
+            'labels' => $labels,
+            'values' => $values,
+        ]);
+    }
+
     #[Route('/api/dashboard/top-product-sales', name: 'api_dashboard_top_product_sales')]
     public function getTopProductSales(): JsonResponse
     {
