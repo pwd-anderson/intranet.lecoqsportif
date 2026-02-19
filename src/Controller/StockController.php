@@ -8,6 +8,7 @@ use App\Service\Stock;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -30,6 +31,15 @@ final class StockController extends AbstractController
         return $this->stockGeneric('stock_allocation');
     }
 
+    #[Route('/stock/stock_collection', name: 'app_stock_collection')]
+    public function stockCollection(): Response
+    {
+        return $this->render('stock/stock_collection.html.twig', [
+            'title' => 'Stock par Collection',
+            'dataUrl' => $this->generateUrl('stock_collection_json'),
+        ]);
+    }
+
     // ✅ Tes routes JSON
     #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
     public function stockAtermeJson(Stock $stock, Helpers $helpers): JsonResponse
@@ -47,6 +57,17 @@ final class StockController extends AbstractController
         $dataUtf8 = $helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);
+    }
+
+    #[Route('/stock/stock_collection_json', name: 'stock_collection_json')]
+    public function stockCollectionJson(Request $request, Stock $stock): JsonResponse
+    {
+        $location = $request->query->get('location');
+        $status   = $request->query->get('status');
+
+        $data = $stock->getStockParCollection($location, $status);
+
+        return new JsonResponse($data);
     }
 
     #[Route(

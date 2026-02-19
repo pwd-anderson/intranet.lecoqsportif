@@ -61,7 +61,9 @@ window.AgGridCommon = (function () {
         new agGrid.Grid(gridDiv, gridOptions);
 
         // Initial load
-        window.AgGridCommon.reloadData(gridOptions, config.dataUrl, config.totalColumns);
+        if (config.dataUrl) {
+            window.AgGridCommon.reloadData(gridOptions, config.dataUrl, config.totalColumns);
+        }
 
         window.onBtExportExcel = function () {
             gridOptions.api.exportDataAsExcel();
@@ -207,6 +209,7 @@ window.AgGridCommon = (function () {
 
     return {
         initGrid: initGrid,
-        reloadData: reloadData
+        reloadData: reloadData,
+        updateTotals: updateRowCountAndTotals
     };
 })();

@@ -42,3 +42,4 @@ sidebar:
     stock:
         stock_a_terme: "Future Stock"
         stock_allocation: "Stock & Allocation (Data X3)"
+        stock_collection_logtex: "Stock by collection at LogTex"

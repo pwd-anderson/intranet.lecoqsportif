@@ -1,0 +1,319 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {# Import ag-Grid CSS #}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input {
+            color: #000000 !important;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+
+                <div class="box">
+
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <h3 class="box-title mb-0">Stock par collection chez LogTex</h3>
+                        <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                            </select>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
+                            <button id="exportBtn" class="btn btn-info btn-sm" type="button" onclick="onBtnExportCSV()">CSV</button>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                </div>
+
+                {% set blocks = [
+                    {title: 'Stock – Tous statuts', status: 'ALL', grid: 'grid_all'},
+                    {title: 'Stock – A1', status: 'A1', grid: 'grid_a1'},
+                    {title: 'Stock – A2', status: 'A2', grid: 'grid_a2'},
+                    {title: 'Stock – R',  status: 'R',  grid: 'grid_r'}
+                ] %}
+
+                {% for block in blocks %}
+
+                    <div class="box mb-4">
+
+                        <div class="box-header with-border">
+                            <h4 class="box-title mb-0">{{ block.title }}</h4>
+                        </div>
+
+                        <div class="box-body border-bottom py-2">
+                            <div class="d-flex align-items-center gap-3">
+                                <label class="mb-0 small fw-bold text-muted">
+                                    Location :
+                                </label>
+
+                                <select class="form-select form-select-sm locationSelect"
+                                        data-status="{{ block.status }}"
+                                        data-grid="{{ block.grid }}"
+                                        style="width:200px;">
+                                    <option value="">Toutes</option>
+                                    <option value="LCSI1">LCSI1</option>
+                                    <option value="LCSI2">LCSI2</option>
+                                    <option value="LCSI3">LCSI3</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="box-body pt-2">
+                            <div id="{{ block.grid }}" class="ag-theme-alpine" style="height: 269px;"></div>
+                        </div>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            function buildColumnDefs(keys) {
+
+                const defs = keys.map(function(key) {
+
+                    const isText = key === 'FAMILLE';
+
+                    return {
+                        field: key,
+                        headerName: key,
+                        sortable: true,
+                        filter: isText ? 'agTextColumnFilter' : 'agNumberColumnFilter',
+                        resizable: true,
+                        flex: 0,
+                        minWidth: 120,
+
+                        cellStyle: function(params) {
+
+                            const baseStyle = {
+                                borderRight: "0.2px solid #CECECEFF",
+                                borderBottom: "0.2px solid #CECECEFF",
+                                textAlign: isText ? 'center' : 'right'
+                            };
+
+                            // 🔵 Ligne Total général
+                            if (params.node.rowPinned && params.data?.FAMILLE === 'Total général') {
+                                return {
+                                    ...baseStyle,
+                                    background: '#a4d8ed',
+                                    fontWeight: 'bold'
+                                };
+                            }
+
+                            // ⚪ Ligne Poids du stock
+                            if (params.node.rowPinned && params.data?.FAMILLE === 'Poids du stock') {
+                                return {
+                                    ...baseStyle,
+                                    background: 'white',
+                                    fontWeight: 'bold',
+                                    color: '#000000'
+                                };
+                            }
+
+                            // 🔹 Colonne TOTAL (corps normal)
+                            if (key === 'TOTAL') {
+                                return {
+                                    ...baseStyle,
+                                    fontWeight: 'bold'
+                                };
+                            }
+
+                            // 🔹 Cellule normale
+                            return baseStyle;
+                        },
+
+                        cellRenderer: function(params) {
+
+                            if (isText) return params.value;
+
+                            if (params.node.rowPinned && params.data?.FAMILLE === 'Poids du stock') {
+                                if (params.value === null || params.value === undefined) return '';
+                                return Number(params.value).toFixed(1) + ' %';
+                            }
+
+                            return params.value;
+                        }
+                    };
+                });
+
+                // TOTAL en 1ère colonne
+                const totalCol = defs.find(c => c.field === 'TOTAL');
+                const otherCols = defs.filter(c => c.field !== 'TOTAL');
+
+                return totalCol ? [totalCol, ...otherCols] : defs;
+            }
+
+            function setTotalsAndWeightRow(gridOptions, totalColumns) {
+
+                const totalsRow = { FAMILLE: 'Total général' };
+                totalColumns.forEach(col => totalsRow[col] = 0);
+
+                gridOptions.api.forEachNodeAfterFilterAndSort(node => {
+                    totalColumns.forEach(col => {
+                        totalsRow[col] += Number(node.data?.[col]) || 0;
+                    });
+                });
+
+                const grandTotal = Number(totalsRow.TOTAL) || 0;
+
+                const poidsRow = { FAMILLE: 'Poids du stock' };
+                totalColumns.forEach(col => {
+                    if (col === 'TOTAL') {
+                        poidsRow[col] = null;
+                    } else {
+                        poidsRow[col] = grandTotal > 0 ? (totalsRow[col] / grandTotal) * 100 : null;
+                    }
+                });
+
+                gridOptions.api.setPinnedBottomRowData([totalsRow, poidsRow]);
+            }
+
+            function computePinnedRows(gridOptions, totalColumns) {
+
+                const totalsRow = { FAMILLE: 'Total général' };
+                totalColumns.forEach(col => totalsRow[col] = 0);
+
+                gridOptions.api.forEachNodeAfterFilterAndSort(node => {
+                    totalColumns.forEach(col => {
+                        totalsRow[col] += Number(node.data?.[col]) || 0;
+                    });
+                });
+
+                const grandTotal = Number(totalsRow.TOTAL) || 0;
+
+                const poidsRow = { FAMILLE: 'Poids du stock' };
+                totalColumns.forEach(col => {
+                    if (col === 'TOTAL') {
+                        poidsRow[col] = null;
+                    } else {
+                        poidsRow[col] = grandTotal > 0
+                            ? (totalsRow[col] / grandTotal) * 100
+                            : null;
+                    }
+                });
+
+                gridOptions.api.setPinnedBottomRowData([totalsRow, poidsRow]);
+            }
+
+            function loadGrid(gridId, location = '', status = 'ALL') {
+
+                let url = `{{ dataUrl }}?status=${encodeURIComponent(status)}`;
+                if (location) {
+                    url += `&location=${encodeURIComponent(location)}`;
+                }
+
+                fetch(url)
+                    .then(res => res.json())
+                    .then(data => {
+
+                        const gridDiv = document.getElementById(gridId);
+
+                        if (!data || !data.length) {
+                            if (gridDiv.__gridOptions) {
+                                gridDiv.__gridOptions.api.setRowData([]);
+                            }
+                            return;
+                        }
+
+                        const keys = Object.keys(data[0]);
+                        const totalColumns = keys.filter(k => k !== 'FAMILLE');
+
+                        const columnDefs = buildColumnDefs(keys);
+
+                        // 🔥 Première création
+                        if (!gridDiv.__gridOptions) {
+
+                            const agGridConfig = {
+                                columnDefs: columnDefs,
+                                dataUrl: null,
+                                numericColumns: totalColumns,
+                                integerColumns: [],
+                                totalColumns: []   // 🔥 IMPORTANT
+                            };
+
+                            const gridOptions = window.AgGridCommon.initGrid('#' + gridId, agGridConfig);
+                            gridDiv.__gridOptions = gridOptions;
+
+                            gridOptions.api.setRowData(data);
+                            // Ajuster largeur si peu de colonnes
+                            setTimeout(() => {
+                                gridOptions.api.sizeColumnsToFit();
+                            }, 50);
+                            setTotalsAndWeightRow(gridOptions, totalColumns);
+
+                            gridOptions.api.addEventListener('filterChanged', () => {
+                                setTotalsAndWeightRow(gridOptions, totalColumns);
+                            });
+
+                            gridOptions.api.addEventListener('sortChanged', () => {
+                                setTotalsAndWeightRow(gridOptions, totalColumns);
+                            });
+
+                            return;
+                        }
+
+                        // 🔁 Rechargement
+                        const gridOptions = gridDiv.__gridOptions;
+
+                        gridOptions.api.setColumnDefs(columnDefs);
+                        gridOptions.api.setRowData(data);
+                        setTotalsAndWeightRow(gridOptions, totalColumns);
+
+                        // ✅ Fit columns à chaque reload (location/status)
+                        setTimeout(() => {
+                            if (!gridOptions || !gridOptions.api || !gridOptions.columnApi) return;
+
+                            const el = document.querySelector('#' + gridId);
+                            if (!el || !document.body.contains(el)) return;
+
+                            const MAX_COLS_TO_FIT = 8;
+                            const displayedCols = gridOptions.columnApi.getAllDisplayedColumns().length;
+
+                            if (displayedCols <= MAX_COLS_TO_FIT) {
+                                gridOptions.api.sizeColumnsToFit();
+                            }
+                        }, 0);
+
+                    })
+                    .catch(err => console.error(err));
+            }
+
+            // 🔥 Initialisation des 4 blocs
+            document.querySelectorAll('.locationSelect').forEach(select => {
+
+                const gridId = select.dataset.grid;
+                const status = select.dataset.status;
+
+                loadGrid(gridId, '', status);
+
+                select.addEventListener('change', function() {
+                    loadGrid(gridId, this.value, status);
+                });
+            });
+
+        });
+    </script>
+{% endblock %}

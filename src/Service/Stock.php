@@ -56,4 +56,24 @@ class Stock
         }
     }
 
+    public function getStockParCollection(?string $location = null, ?string $status): array
+    {
+        try {
+
+            $query = $this->sqlFileLoader->load('Sei/stock_collection.sql');
+
+            $location = preg_replace('/[^A-Za-z0-9_]/', '', $location ?? '');
+            $status   = preg_replace('/[^A-Za-z0-9_]/', '', $status ?? '');
+
+            $query = str_replace('{{LOCATION}}', $location, $query);
+            $query = str_replace('{{STATUS}}', $status, $query);
+
+            return $this->mssqlSei->executeMultiStatement($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock Collection : Récupération de données stock', $e);
+            $this->logger->error('LCS Erreur Stock Collection: Récupération de données stock', ['exception' => $e]);
+        }
+    }
+
 }
