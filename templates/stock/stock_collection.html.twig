@@ -25,7 +25,7 @@
                 <div class="box">
 
                     <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
-                        <h3 class="box-title mb-0">Stock par collection chez LogTex</h3>
+                        <h3 class="box-title mb-0">Stock LogTex</h3>
                         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
                             </select>
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
@@ -96,15 +96,24 @@
                 const defs = keys.map(function(key) {
 
                     const isText = key === 'FAMILLE';
+                    const isTotal = key === 'TOTAL';
+                    const isPinned = isText || isTotal;
 
                     return {
                         field: key,
                         headerName: key,
                         sortable: true,
                         filter: isText ? 'agTextColumnFilter' : 'agNumberColumnFilter',
+                        pinned: isPinned ? 'left' : undefined,
                         resizable: true,
                         flex: 0,
                         minWidth: 120,
+
+                        // ✅ format integer sur toutes les colonnes sauf FAMILLE
+                        ...(isText ? {} : {
+                            valueFormatter: window.integerFormatter,
+                            comparator: window.integerComparator
+                        }),
 
                         cellStyle: function(params) {
 
@@ -114,39 +123,22 @@
                                 textAlign: isText ? 'center' : 'right'
                             };
 
-                            // 🔵 Ligne Total général
                             if (params.node.rowPinned && params.data?.FAMILLE === 'Total général') {
-                                return {
-                                    ...baseStyle,
-                                    background: '#a4d8ed',
-                                    fontWeight: 'bold'
-                                };
+                                return { ...baseStyle, background: '#a4d8ed', fontWeight: 'bold', color: '#090909' };
                             }
 
-                            // ⚪ Ligne Poids du stock
                             if (params.node.rowPinned && params.data?.FAMILLE === 'Poids du stock') {
-                                return {
-                                    ...baseStyle,
-                                    background: 'white',
-                                    fontWeight: 'bold',
-                                    color: '#000000'
-                                };
+                                return { ...baseStyle, background: 'white', fontWeight: 'bold', color: '#000000' };
                             }
 
-                            // 🔹 Colonne TOTAL (corps normal)
-                            if (key === 'TOTAL') {
-                                return {
-                                    ...baseStyle,
-                                    fontWeight: 'bold'
-                                };
+                            if (isTotal) {
+                                return { ...baseStyle, fontWeight: 'bold' };
                             }
 
-                            // 🔹 Cellule normale
                             return baseStyle;
                         },
 
                         cellRenderer: function(params) {
-
                             if (isText) return params.value;
 
                             if (params.node.rowPinned && params.data?.FAMILLE === 'Poids du stock') {
@@ -154,16 +146,25 @@
                                 return Number(params.value).toFixed(1) + ' %';
                             }
 
-                            return params.value;
+                            // ✅ important : on laisse AgGrid afficher le valueFormatter
+                            return params.valueFormatted ?? params.value;
                         }
                     };
                 });
 
-                // TOTAL en 1ère colonne
-                const totalCol = defs.find(c => c.field === 'TOTAL');
-                const otherCols = defs.filter(c => c.field !== 'TOTAL');
+                // FAMILLE en premier
+                const familleCol = defs.find(c => c.field === 'FAMILLE');
+                const totalCol   = defs.find(c => c.field === 'TOTAL');
 
-                return totalCol ? [totalCol, ...otherCols] : defs;
+                const otherCols = defs.filter(c =>
+                    c.field !== 'FAMILLE' && c.field !== 'TOTAL'
+                );
+
+                return [
+                    ...(familleCol ? [familleCol] : []),
+                    ...(totalCol ? [totalCol] : []),
+                    ...otherCols
+                ];
             }
 
             function setTotalsAndWeightRow(gridOptions, totalColumns) {
@@ -191,39 +192,10 @@
                 gridOptions.api.setPinnedBottomRowData([totalsRow, poidsRow]);
             }
 
-            function computePinnedRows(gridOptions, totalColumns) {
-
-                const totalsRow = { FAMILLE: 'Total général' };
-                totalColumns.forEach(col => totalsRow[col] = 0);
-
-                gridOptions.api.forEachNodeAfterFilterAndSort(node => {
-                    totalColumns.forEach(col => {
-                        totalsRow[col] += Number(node.data?.[col]) || 0;
-                    });
-                });
-
-                const grandTotal = Number(totalsRow.TOTAL) || 0;
-
-                const poidsRow = { FAMILLE: 'Poids du stock' };
-                totalColumns.forEach(col => {
-                    if (col === 'TOTAL') {
-                        poidsRow[col] = null;
-                    } else {
-                        poidsRow[col] = grandTotal > 0
-                            ? (totalsRow[col] / grandTotal) * 100
-                            : null;
-                    }
-                });
-
-                gridOptions.api.setPinnedBottomRowData([totalsRow, poidsRow]);
-            }
-
             function loadGrid(gridId, location = '', status = 'ALL') {
 
                 let url = `{{ dataUrl }}?status=${encodeURIComponent(status)}`;
-                if (location) {
-                    url += `&location=${encodeURIComponent(location)}`;
-                }
+                if (location) url += `&location=${encodeURIComponent(location)}`;
 
                 fetch(url)
                     .then(res => res.json())
@@ -234,12 +206,17 @@
                         if (!data || !data.length) {
                             if (gridDiv.__gridOptions) {
                                 gridDiv.__gridOptions.api.setRowData([]);
+                                gridDiv.__gridOptions.api.setPinnedBottomRowData([]);
                             }
                             return;
                         }
 
                         const keys = Object.keys(data[0]);
-                        const totalColumns = keys.filter(k => k !== 'FAMILLE');
+
+                        // ✅ colonnes dynamiques : tout sauf FAMILLE = quantités
+                        const integerColumns = keys.filter(k => k !== 'FAMILLE');
+                        const numericColumns = []; // on force integer pour quantités
+                        const totalColumns   = integerColumns;
 
                         const columnDefs = buildColumnDefs(keys);
 
@@ -248,50 +225,62 @@
 
                             const agGridConfig = {
                                 columnDefs: columnDefs,
-                                dataUrl: null,
-                                numericColumns: totalColumns,
-                                integerColumns: [],
-                                totalColumns: []   // 🔥 IMPORTANT
+                                dataUrl: null,                 // on ne laisse pas common refetch
+                                numericColumns: numericColumns,
+                                integerColumns: integerColumns, // ✅ comme anciennes stats
+                                totalColumns: []               // ✅ on gère pinned nous-mêmes
                             };
 
                             const gridOptions = window.AgGridCommon.initGrid('#' + gridId, agGridConfig);
                             gridDiv.__gridOptions = gridOptions;
 
                             gridOptions.api.setRowData(data);
-                            // Ajuster largeur si peu de colonnes
-                            setTimeout(() => {
-                                gridOptions.api.sizeColumnsToFit();
-                            }, 50);
+
+                            // pinned
                             setTotalsAndWeightRow(gridOptions, totalColumns);
 
+                            // recalcul pinned si filtre/tri
                             gridOptions.api.addEventListener('filterChanged', () => {
                                 setTotalsAndWeightRow(gridOptions, totalColumns);
                             });
-
                             gridOptions.api.addEventListener('sortChanged', () => {
                                 setTotalsAndWeightRow(gridOptions, totalColumns);
                             });
 
+                            // ✅ Fit columns seulement si peu de colonnes
+                            setTimeout(() => {
+                                const MAX_COLS_TO_FIT = 8;
+                                const displayedCols = gridOptions.columnApi.getAllDisplayedColumns().length;
+                                if (displayedCols <= MAX_COLS_TO_FIT) {
+                                    gridOptions.api.sizeColumnsToFit();
+                                }
+                            }, 50);
+
                             return;
                         }
 
-                        // 🔁 Rechargement
+                        // 🔁 Reload (location/status change)
                         const gridOptions = gridDiv.__gridOptions;
 
+                        // ⚠️ Update defs (collections peuvent changer)
                         gridOptions.api.setColumnDefs(columnDefs);
+
+                        // ⚠️ Re-appliquer formatters via AgGridCommon (car setColumnDefs reset)
+                        integerColumns.forEach(fieldName => {
+                            const col = columnDefs.find(c => c.field === fieldName);
+                            if (col) {
+                                col.valueFormatter = window.integerFormatter;
+                                col.comparator = window.integerComparator;
+                            }
+                        });
+
                         gridOptions.api.setRowData(data);
                         setTotalsAndWeightRow(gridOptions, totalColumns);
 
-                        // ✅ Fit columns à chaque reload (location/status)
+                        // ✅ Fit columns si peu de colonnes
                         setTimeout(() => {
-                            if (!gridOptions || !gridOptions.api || !gridOptions.columnApi) return;
-
-                            const el = document.querySelector('#' + gridId);
-                            if (!el || !document.body.contains(el)) return;
-
                             const MAX_COLS_TO_FIT = 8;
                             const displayedCols = gridOptions.columnApi.getAllDisplayedColumns().length;
-
                             if (displayedCols <= MAX_COLS_TO_FIT) {
                                 gridOptions.api.sizeColumnsToFit();
                             }
@@ -301,7 +290,7 @@
                     .catch(err => console.error(err));
             }
 
-            // 🔥 Initialisation des 4 blocs
+            // 🔥 Init des 4 blocs
             document.querySelectorAll('.locationSelect').forEach(select => {
 
                 const gridId = select.dataset.grid;
