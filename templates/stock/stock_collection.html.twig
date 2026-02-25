@@ -27,9 +27,7 @@
                     <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
                         <h3 class="box-title mb-0">Stock LogTex</h3>
                         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
-                            </select>
-                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
-                            <button id="exportBtn" class="btn btn-info btn-sm" type="button" onclick="onBtnExportCSV()">CSV</button>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="exportStockLogTexExcel()">Excel</button>
                             <span id="rowCount" class="text-muted small"></span>
                         </div>
                     </div>
@@ -87,6 +85,7 @@
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -304,5 +303,140 @@
             });
 
         });
+
+        window.exportStockLogTexExcel = function () {
+            const blocks = [
+                { id: 'grid_all', title: 'Stock – Tous statuts' },
+                { id: 'grid_a1',  title: 'Stock – A1' },
+                { id: 'grid_a2',  title: 'Stock – A2' },
+                { id: 'grid_r',   title: 'Stock – R' }
+            ];
+
+            // sécurité: si la lib n'est pas chargée, tu le vois direct
+            if (!window.XLSX) {
+                console.error('XLSX introuvable: tu as bien chargé xlsx-js-style ?');
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([]);
+
+            let rowCursor = 1; // lignes Excel (1-based)
+
+            blocks.forEach((block, idx) => {
+                const gridDiv = document.getElementById(block.id);
+                if (!gridDiv?.__gridOptions) return;
+
+                const api = gridDiv.__gridOptions.api;
+                const columnApi = gridDiv.__gridOptions.columnApi;
+
+                const colKeys = columnApi.getAllDisplayedColumns().map(c => c.getColId());
+                const colCount = colKeys.length;
+
+                // 2 lignes vides entre tableaux (sauf le 1er)
+                if (idx > 0) rowCursor += 2;
+
+                // ====== TITRE ======
+                XLSX.utils.sheet_add_aoa(ws, [[block.title]], { origin: `A${rowCursor}` });
+
+                // style titre
+                ws[`A${rowCursor}`].s = {
+                    font: { bold: true, sz: 14, color: { rgb: "FFFFFF" } },
+                    fill: { patternType: "solid", fgColor: { rgb: "024185" } },
+                    alignment: { horizontal: "center", vertical: "center" }
+                };
+
+                // merge A..lastCol
+                ws["!merges"] = ws["!merges"] || [];
+                ws["!merges"].push({
+                    s: { r: rowCursor - 1, c: 0 },
+                    e: { r: rowCursor - 1, c: Math.max(colCount - 1, 0) }
+                });
+
+                rowCursor += 2; // une ligne vide après titre
+
+                // ====== HEADER ======
+                XLSX.utils.sheet_add_aoa(ws, [colKeys], { origin: `A${rowCursor}` });
+
+                // style header
+                for (let c = 0; c < colCount; c++) {
+                    const cellAddr = XLSX.utils.encode_cell({ r: rowCursor - 1, c });
+                    if (!ws[cellAddr]) continue;
+                    ws[cellAddr].s = {
+                        font: { bold: true, color: { rgb: "FFFFFF" } },
+                        fill: { patternType: "solid", fgColor: { rgb: "5B9BD5" } },
+                        alignment: { horizontal: "center", vertical: "center" }
+                    };
+                }
+
+                rowCursor++;
+
+                // ====== ROWS (avec filtres/tri appliqués) ======
+                api.forEachNodeAfterFilterAndSort(node => {
+                    const row = colKeys.map(k => node.data?.[k]);
+                    XLSX.utils.sheet_add_aoa(ws, [row], { origin: `A${rowCursor}` });
+                    rowCursor++;
+                });
+
+                // ====== PINNED ROWS (Total + Poids) ======
+                const pinnedCount = api.getPinnedBottomRowCount();
+                for (let i = 0; i < pinnedCount; i++) {
+                    const pinned = api.getPinnedBottomRow(i);
+                    const row = colKeys.map(k => {
+
+                        const value = pinned.data?.[k];
+
+                        // 🎯 Si c’est la ligne "Poids du stock"
+                        if (pinned.data?.FAMILLE === 'Poids du stock' && typeof value === 'number') {
+
+                            // On convertit en vrai pourcentage Excel
+                            return value / 100; // Excel attend 0.25 pour 25%
+                        }
+
+                        return value;
+                    });
+                    XLSX.utils.sheet_add_aoa(ws, [row], { origin: `A${rowCursor}` });
+
+                    // style pinned (gris)
+                    for (let c = 0; c < colCount; c++) {
+                        const cellAddr = XLSX.utils.encode_cell({ r: rowCursor - 1, c });
+                        if (!ws[cellAddr]) continue;
+                        const isPoids = pinned.data?.FAMILLE === 'Poids du stock';
+
+                        ws[cellAddr].s = {
+                            font: { bold: true },
+                            fill: { patternType: "solid", fgColor: { rgb: "EAEAEA" } },
+                            numFmt: isPoids ? "0.0%" : "#,##0"
+                        };
+                    }
+
+                    rowCursor++;
+                }
+            });
+
+            // Largeurs colonnes (optionnel)
+            ws["!cols"] = ws["!cols"] || [];
+            // on met une largeur "propre" par défaut
+            const maxCols = 50;
+            for (let i = 0; i < maxCols; i++) ws["!cols"][i] = { wch: 16 };
+
+            XLSX.utils.book_append_sheet(wb, ws, "Stock");
+            XLSX.writeFile(wb, "Stock_LogTex.xlsx");
+        };
+
+        window.onBtExportExcel = function () {
+
+            const blocks = [
+                { id: 'grid_all', title: 'Stock – Tous statuts' },
+                { id: 'grid_a1',  title: 'Stock – A1' },
+                { id: 'grid_a2',  title: 'Stock – A2' },
+                { id: 'grid_r',   title: 'Stock – R' }
+            ];
+
+            window.AgGridCommon.exportAllGridsOneSheet(
+                blocks,
+                'Stock_LogTex.xlsx'
+            );
+        };
     </script>
 {% endblock %}
