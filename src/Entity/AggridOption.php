@@ -55,6 +55,12 @@ class AggridOption
     #[ORM\Column(nullable: true)]
     private ?bool $computed = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $valueFormatter = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $compatator = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -224,6 +230,30 @@ class AggridOption
     public function setComputed(?bool $computed): static
     {
         $this->computed = $computed;
+
+        return $this;
+    }
+
+    public function getValueFormatter(): ?string
+    {
+        return $this->valueFormatter;
+    }
+
+    public function setValueFormatter(?string $valueFormatter): static
+    {
+        $this->valueFormatter = $valueFormatter;
+
+        return $this;
+    }
+
+    public function getCompatator(): ?string
+    {
+        return $this->compatator;
+    }
+
+    public function setCompatator(?string $compatator): static
+    {
+        $this->compatator = $compatator;
 
         return $this;
     }

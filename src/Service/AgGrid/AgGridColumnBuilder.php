@@ -53,6 +53,14 @@ class AgGridColumnBuilder
                 $column['computed'] = true;
             }
 
+            if ($option->getValueFormatter()) {
+                $column['valueFormatter'] = $option->getValueFormatter();
+            }
+
+            if ($option->getCompatator()) {
+                $column['comparator'] = $option->getCompatator();
+            }
+
             $columns[] = $column;
         }
 

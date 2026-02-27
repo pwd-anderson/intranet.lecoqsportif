@@ -198,6 +198,15 @@ window.AgGridCommon = (function () {
         });
     }
 
+    function percentFormatter(params) {
+        if (params.value == null) return "";
+        return (Number(params.value) * 100).toFixed(0) + " %";
+    }
+
+    function percentComparator(a, b) {
+        return Number(a) - Number(b);
+    }
+
     window.dateFormatter = dateFormatter;
     window.dateComparator = dateComparator;
     window.dateFilterComparator = dateFilterComparator;
@@ -206,6 +215,8 @@ window.AgGridCommon = (function () {
     window.dorpDownSelect = dorpDownSelect;
     window.decimalComparator = decimalComparator;
     window.integerComparator = integerComparator;
+    window.percentFormatter = percentFormatter;
+    window.percentComparator = percentComparator;
 
     return {
         initGrid: initGrid,
