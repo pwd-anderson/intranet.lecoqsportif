@@ -43,6 +43,19 @@ class Stock
         }
     }
 
+    public function getStockATermeAvecSegmentationProduit(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Navision/stock_a_terme_segmentation_produit_tmp.sql');
+            $data = $this->mssqlLcs->executeMultiStatement($query);
+            return $data;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme : Récupération de données stock', $e);
+            $this->logger->error('LCS Erreur Stock à Terme : Récupération de données stock', ['exception' => $e]);
+        }
+    }
+
     public function getStockAllocation(): array
     {
         try {
