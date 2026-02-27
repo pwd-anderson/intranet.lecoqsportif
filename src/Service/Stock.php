@@ -80,15 +80,27 @@ class Stock
     {
         try {
             $sql = $this->sqlFileLoader->load('Sei/stock_composant.sql');
-            return $this->mssqlSei->executeQueryWithParams(
-                $sql,
-                [
-                    'famille' => $famille ?: null
-                ]
-            );
+
+            // Nettoyage strict (évite injection, espaces, quotes, etc.)
+            $famille = $famille !== null ? trim($famille) : null;
+            $famille = $famille !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $famille) : null;
+
+            // Construit la clause WHERE
+            $familleWhere = '';
+            if ($famille) {
+                // ⚠️ TCLCOD_0 est un code => on le quote ici (après sanitation)
+                $familleWhere = "  AND ITM.TCLCOD_0 = '{$famille}'";
+            }
+
+            $sql = str_replace('{{FAMILLE_WHERE}}', $familleWhere, $sql);
+
+            // Ici tu utilises ta méthode "simple"
+            return $this->mssqlSei->executeQuery($sql);
+
         } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Stock Collection : Récupération de données stock', $e);
-            $this->logger->error('LCS Erreur Stock Collection: Récupération de données stock', ['exception' => $e]);
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock Composant : Récupération de données stock', $e);
+            $this->logger->error('LCS Erreur Stock Composant: Récupération de données stock', ['exception' => $e]);
+            return [];
         }
     }
 
