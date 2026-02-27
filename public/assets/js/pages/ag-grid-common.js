@@ -38,6 +38,7 @@ window.AgGridCommon = (function () {
 
         const gridOptions = {
             columnDefs: config.columnDefs,
+            excelStyles: config.excelStyles || [],
             defaultColDef: {
                 sortable: true,
                 filter: true,
@@ -45,6 +46,7 @@ window.AgGridCommon = (function () {
                 minWidth: 100,
                 flex: 1,
                 floatingFilter: true,
+                headerClass: config.headerClass || 'excelHeader'
             },
             getRowStyle: function (params) {
                 if (params.node.rowPinned) {

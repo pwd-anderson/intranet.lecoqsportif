@@ -55,7 +55,7 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.5"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.6"></script>
 
     <script>
         const currentYear = new Date().getFullYear();
@@ -140,11 +140,40 @@
             dataUrl: '{{ dataUrl }}',
             numericColumns: {{ numericColumns|json_encode|raw }},
             integerColumns: {{ integerColumns|json_encode|raw }},
-            totalColumns: {{ totalColumns|json_encode|raw }}
+            totalColumns: {{ totalColumns|json_encode|raw }},
+            headerClass: 'excelHeaderBlue',
+
+            excelStyles: [
+                {
+                    id: 'excelHeaderBlue',
+                    font: { bold: true, color: '#FFFFFF' },
+                    alignment: { horizontal: 'Center' },
+                    interior: { color: '#024185', pattern: 'Solid' }
+                }
+            ]
         };
 
         document.addEventListener('DOMContentLoaded', () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+
+            window.onBtExportExcel = function () {
+
+                const headerMap = {
+                    SITE: 'Site',
+                    STATUS_STOCK: 'Statut',
+                    STOCK_INTERNE: 'Stock interne',
+                    VALORISATION_STOCK_INTERNE: 'Valorisation',
+                    TAUX_DEPRECIATION: 'Dépréciation',
+                    VALEUR_REEVALUATION: 'Valeur réévaluée'
+                };
+
+                window.gridOptions.api.exportDataAsExcel({
+                    fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
+                    processHeaderCallback: p =>
+                        headerMap[p.column.getColId()] ||
+                        p.column.getColDef().headerName
+                });
+            };
 
             const familleSelect = document.getElementById('familleSelect');
 
