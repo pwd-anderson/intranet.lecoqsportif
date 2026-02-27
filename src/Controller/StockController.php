@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Repository\AggridOptionRepository;
 use App\Service\AgGrid\AgGridColumnBuilder;
+use App\Service\Divers;
 use App\Service\Stock;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -31,6 +32,12 @@ final class StockController extends AbstractController
         return $this->stockGeneric('stock_allocation');
     }
 
+    #[Route('/stock/stock_composant', name: 'app_stock_composant')]
+    public function stockComposantAlias(): Response
+    {
+        return $this->stockGeneric('stock_composant');
+    }
+
     #[Route('/stock/stock_collection', name: 'app_stock_collection')]
     public function stockCollection(): Response
     {
@@ -40,7 +47,7 @@ final class StockController extends AbstractController
         ]);
     }
 
-    // ✅ Tes routes JSON
+    // Routes JSON
     #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
     public function stockAtermeJson(Stock $stock, Helpers $helpers): JsonResponse
     {
@@ -70,10 +77,28 @@ final class StockController extends AbstractController
         return new JsonResponse($data);
     }
 
+    #[Route('/stock/stock_composant_json', name: 'stock_composant_json')]
+    public function stockComposantJson(Request $request, Stock $stock, Helpers $helpers): JsonResponse
+    {
+        $famille = $request->query->get('famille');
+
+        $data = $stock->getStockComposant($famille);
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
+    // Appel divers
+    #[Route('/stock/familles_json', name: 'stock_familles_json')]
+    public function stockFamillesJson(Divers $divers): JsonResponse
+    {
+        return new JsonResponse($divers->getFamilles());
+    }
+
     #[Route(
         '/stock/{type}',
         name: 'app_stock_generic',
-        requirements: ['type' => 'stock_a_terme|stock_allocation']
+        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant']
     )]
     public function stockGeneric(string $type): Response
     {
@@ -87,6 +112,11 @@ final class StockController extends AbstractController
                 'gridName' => 'stock_allocation_grid',
                 'title' => 'Stock allocation',
                 'jsonRoute' => 'stock_allocation_json',
+            ],
+            'stock_composant' => [
+                'gridName' => 'stock_composant_grid',
+                'title' => 'Stock Composant',
+                'jsonRoute' => 'stock_composant_json',
             ],
         ];
 
@@ -110,6 +140,7 @@ final class StockController extends AbstractController
             'integerColumns' => $grid['integerColumns'],
             'totalColumns' => $grid['totalColumns'],
             'dataUrl' => $this->generateUrl($gridConfig['jsonRoute']),
+            'type' => $type,
         ]);
     }
 }

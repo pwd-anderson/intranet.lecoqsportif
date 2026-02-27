@@ -76,4 +76,20 @@ class Stock
         }
     }
 
+    public function getStockComposant(?string $famille = null): array
+    {
+        try {
+            $sql = $this->sqlFileLoader->load('Sei/stock_composant.sql');
+            return $this->mssqlSei->executeQueryWithParams(
+                $sql,
+                [
+                    'famille' => $famille ?: null
+                ]
+            );
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock Collection : Récupération de données stock', $e);
+            $this->logger->error('LCS Erreur Stock Collection: Récupération de données stock', ['exception' => $e]);
+        }
+    }
+
 }

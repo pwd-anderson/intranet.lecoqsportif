@@ -61,18 +61,31 @@ class MssqlManager
     public function executeQueryWithParams(string $query, array $params = []): array
     {
         try {
-            $stmt = $this->connection?->prepare($query);
-            if ($stmt && $stmt->execute($params)) {
-                return $stmt->fetchAll(PDO::FETCH_OBJ);
+
+            $stmt = $this->connection->prepare($query);
+
+            foreach ($params as $key => $value) {
+
+                if ($value === null) {
+                    $stmt->bindValue(':' . $key, null, PDO::PARAM_NULL);
+                } elseif (is_int($value)) {
+                    $stmt->bindValue(':' . $key, $value, PDO::PARAM_INT);
+                } else {
+                    $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
+                }
             }
 
-            return [];
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (PDOException $e) {
+
             $this->logger->error("Query with params failed: {$e->getMessage()}", [
                 'query' => $query,
                 'params' => $params,
             ]);
+
             return [];
         }
     }

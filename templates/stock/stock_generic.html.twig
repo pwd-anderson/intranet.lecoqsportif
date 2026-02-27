@@ -27,8 +27,14 @@
                         <h3 class="box-title mb-0">{{ title }}</h3>
                         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
                             </select>
+                            {% if type == 'stock_composant' %}
+                                <select id="familleSelect"
+                                        class="form-select form-select-sm"
+                                        style="width:200px;">
+                                    <option value="">Toutes les familles</option>
+                                </select>
+                            {% endif %}
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
-                            <button id="exportBtn" class="btn btn-info btn-sm" type="button" onclick="onBtnExportCSV()">CSV</button>
                             <span id="rowCount" class="text-muted small"></span>
                         </div>
                     </div>
@@ -139,6 +145,41 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+
+            const familleSelect = document.getElementById('familleSelect');
+
+            if (familleSelect) {
+
+                fetch('{{ path("stock_familles_json") }}')
+                    .then(res => res.json())
+                    .then(data => {
+                        data.forEach(famille => {
+                            const option = document.createElement('option');
+                            option.value = famille;
+                            option.textContent = famille;
+                            familleSelect.appendChild(option);
+                        });
+                    });
+
+                familleSelect.addEventListener('change', function () {
+                    reloadGridWithFamille(this.value);
+                });
+            }
         });
+
+        function reloadGridWithFamille(famille) {
+
+            let url = '{{ dataUrl }}';
+
+            if (famille) {
+                url += '?famille=' + encodeURIComponent(famille);
+            }
+
+            window.AgGridCommon.reloadData(
+                window.gridOptions,
+                url,
+                {{ totalColumns|json_encode|raw }}
+            );
+        }
     </script>
 {% endblock %}

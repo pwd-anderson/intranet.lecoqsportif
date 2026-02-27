@@ -373,7 +373,17 @@
 
                 // ====== ROWS (avec filtres/tri appliqués) ======
                 api.forEachNodeAfterFilterAndSort(node => {
-                    const row = colKeys.map(k => node.data?.[k]);
+                    const row = colKeys.map(k => {
+
+                        let value = node.data?.[k];
+
+                        // Si ce n'est pas la colonne texte
+                        if (k !== 'FAMILLE' && value !== null && value !== undefined) {
+                            value = Number(value);
+                        }
+
+                        return value;
+                    });
                     XLSX.utils.sheet_add_aoa(ws, [row], { origin: `A${rowCursor}` });
                     rowCursor++;
                 });
