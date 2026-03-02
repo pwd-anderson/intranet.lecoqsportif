@@ -55,12 +55,43 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.6"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.5"></script>
 
     <script>
         const currentYear = new Date().getFullYear();
 
         const columnDefs = {{ columns|json_encode|raw }};
+
+        columnDefs.forEach(col => {
+
+            // helper pour ajouter une classe sans écraser
+            function addCellClass(col, newClass) {
+
+                if (!col.cellClass) {
+                    col.cellClass = newClass;
+                    return;
+                }
+
+                if (Array.isArray(col.cellClass)) {
+                    col.cellClass.push(newClass);
+                } else {
+                    col.cellClass = [col.cellClass, newClass];
+                }
+            }
+
+            // Format % pour dépréciation
+            if (col.field === 'TAUX_DEPRECIATION') {
+                col.valueFormatter = 'percentFormatter';
+                col.comparator = 'percentComparator';
+                addCellClass(col, 'excelPercentColumn');
+            }
+
+            // Colonne réévaluation en vert clair
+            if (col.field === 'VALEUR_REEVALUATION') {
+                addCellClass(col, 'excelReevalColumn');
+            }
+
+        });
 
         // Helpers
         function getMonthIndexFromField(field) {
@@ -149,6 +180,12 @@
                     font: { bold: true, color: '#FFFFFF' },
                     alignment: { horizontal: 'Center' },
                     interior: { color: '#024185', pattern: 'Solid' }
+                },
+
+                {
+                    id: 'excelPercentColumn',
+                    interior: { color: '#baedbc', pattern: 'Solid' },
+                    font: { color: '#1B5E20' }
                 }
             ]
         };
@@ -158,20 +195,23 @@
 
             window.onBtExportExcel = function () {
 
-                const headerMap = {
-                    SITE: 'Site',
-                    STATUS_STOCK: 'Statut',
-                    STOCK_INTERNE: 'Stock interne',
-                    VALORISATION_STOCK_INTERNE: 'Valorisation',
-                    TAUX_DEPRECIATION: 'Dépréciation',
-                    VALEUR_REEVALUATION: 'Valeur réévaluée'
-                };
-
                 window.gridOptions.api.exportDataAsExcel({
                     fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
-                    processHeaderCallback: p =>
-                        headerMap[p.column.getColId()] ||
-                        p.column.getColDef().headerName
+
+                    // ✅ Utilise automatiquement le headerName venant de la DB (agridoption)
+                    processHeaderCallback: p => p.column.getColDef().fieldName,
+
+                    // ✅ Gestion spéciale pour le %
+                    processCellCallback: (p) => {
+                        const field = p.column.getColId();
+
+                        if (field === 'TAUX_DEPRECIATION') {
+                            if (p.value == null || p.value === '') return '';
+                            return (Number(p.value) * 100).toFixed(0) + ' %';
+                        }
+
+                        return p.value;
+                    }
                 });
             };
 
