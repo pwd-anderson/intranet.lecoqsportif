@@ -199,7 +199,7 @@
                     fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
 
                     // ✅ Utilise automatiquement le headerName venant de la DB (agridoption)
-                    processHeaderCallback: p => p.column.getColDef().fieldName,
+                    processHeaderCallback: p => p.column.getColDef().headerName,
 
                     // ✅ Gestion spéciale pour le %
                     processCellCallback: (p) => {
