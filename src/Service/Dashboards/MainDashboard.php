@@ -119,57 +119,38 @@ class MainDashboard
     public function getSalesComparaisonCurrentMonth(): array
     {
         try {
-            $query = "SELECT
-                    SUM(CASE
-                            WHEN annee = YEAR(GETDATE())
-                             AND mois = MONTH(GETDATE())
-                             AND jour <= DAY(GETDATE())
-                            THEN ca ELSE 0
-                        END) AS ca_n,
+            $query = "WITH bornes AS (
+    SELECT
+        DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS start_n,
+        DATEADD(DAY, -1, CAST(GETDATE() AS DATE)) AS end_n,
 
-                    SUM(CASE
-                            WHEN annee = YEAR(GETDATE()) - 1
-                             AND mois = MONTH(GETDATE())
-                             AND jour <= DAY(GETDATE())
-                            THEN ca ELSE 0
-                        END) AS ca_n_1,
+        DATEFROMPARTS(YEAR(GETDATE()) - 1, MONTH(GETDATE()), 1) AS start_n1,
+        DATEADD(YEAR, -1, DATEADD(DAY, -1, CAST(GETDATE() AS DATE))) AS end_n1
+)
 
-                    ROUND(
-                        CASE
-                            WHEN SUM(CASE
-                                        WHEN annee = YEAR(GETDATE()) - 1
-                                         AND mois = MONTH(GETDATE())
-                                         AND jour <= DAY(GETDATE())
-                                        THEN ca ELSE 0
-                                     END) = 0
-                                THEN NULL
-                            ELSE
-                                (
-                                    SUM(CASE
-                                            WHEN annee = YEAR(GETDATE())
-                                             AND mois = MONTH(GETDATE())
-                                             AND jour <= DAY(GETDATE())
-                                            THEN ca ELSE 0
-                                        END)
-                                    -
-                                    SUM(CASE
-                                            WHEN annee = YEAR(GETDATE()) - 1
-                                             AND mois = MONTH(GETDATE())
-                                             AND jour <= DAY(GETDATE())
-                                            THEN ca ELSE 0
-                                        END)
-                                )
-                                /
-                                SUM(CASE
-                                        WHEN annee = YEAR(GETDATE()) - 1
-                                         AND mois = MONTH(GETDATE())
-                                         AND jour <= DAY(GETDATE())
-                                        THEN ca ELSE 0
-                                    END)
-                                * 100
-                        END
-                    , 2) AS variation_pourcent
-                FROM MASTER_TABLES.INTRANET_SALES_DAILY";
+SELECT
+    SUM(CASE WHEN d.date BETWEEN b.start_n AND b.end_n THEN d.ca ELSE 0 END) AS ca_n,
+
+    SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END) AS ca_n_1,
+
+    ROUND(
+        CASE
+            WHEN SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END) = 0
+                THEN NULL
+            ELSE
+                (
+                    SUM(CASE WHEN d.date BETWEEN b.start_n AND b.end_n THEN d.ca ELSE 0 END)
+                    -
+                    SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END)
+                )
+                /
+                SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END)
+                * 100
+        END
+    , 2) AS variation_pourcent
+
+FROM MASTER_TABLES.INTRANET_SALES_DAILY d
+CROSS JOIN bornes b;";
 
             return $this->mssqlMade2design->executeQuery($query);
 
