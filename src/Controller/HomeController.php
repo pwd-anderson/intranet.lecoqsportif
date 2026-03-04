@@ -194,7 +194,7 @@ final class HomeController extends AbstractController
         $ca = $this->mainDashboard->getSalesOfToday();
 
         return new JsonResponse([
-            'ca_jour' => round($ca, 2),
+            'ca_n_j_1' => round($ca, 2),
         ]);
     }
 }
