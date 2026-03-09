@@ -293,4 +293,207 @@ CROSS JOIN bornes b;";
             return 0;
         }
     }
+
+    public function refreshSalesAggMonth(): int
+    {
+        try {
+
+            // 1️⃣ suppression des anciennes données
+            $deleteQuery = "DELETE FROM [MASTER_TABLES].[INTRANET_SALES_AGG_MONTH]";
+            $this->mssqlMade2design->executeDelete($deleteQuery);
+
+            // 2️⃣ recalcul des données
+            $insertQuery = "
+        INSERT INTO [MASTER_TABLES].[INTRANET_SALES_AGG_MONTH] (annee, mois, ca)
+
+        SELECT
+            YEAR(I.DOCUMENTPOSTINGDATE) AS annee,
+            MONTH(I.DOCUMENTPOSTINGDATE) AS mois,
+            SUM(I.AMOUNTEURTM) AS ca
+
+        FROM SEI_X3_LCS.CONSO_INVOICES I
+
+        LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
+            ON I.ITEMNO = C.ITEM_ID
+            AND I.SERIESNO = C.SERIESCODE
+
+        WHERE
+            I.ISBOHPERIMETERPRODUCT = 1
+            AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
+            AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
+            AND I.SOURCE = 'LCS'
+            AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
+            AND YEAR(I.DOCUMENTPOSTINGDATE) > YEAR(GETDATE()) - 5
+
+        GROUP BY
+            YEAR(I.DOCUMENTPOSTINGDATE),
+            MONTH(I.DOCUMENTPOSTINGDATE)
+        ";
+
+            return $this->mssqlMade2design->insertData($insertQuery);
+
+        } catch (\Exception $e) {
+
+            $this->graphMailer->notifyError(
+                '❌ Erreur recalcul cube ventes intranet',
+                $e
+            );
+
+            $this->logger->error(
+                'Erreur recalcul cube ventes intranet',
+                ['exception' => $e]
+            );
+
+            return 0;
+        }
+    }
+
+    public function refreshSalesAggMonthClient(): int
+    {
+        try {
+
+            // suppression
+            $deleteQuery = "DELETE FROM [MASTER_TABLES].[INTRANET_SALES_AGG_YEAR]";
+            $this->mssqlMade2design->executeDelete($deleteQuery);
+
+            // insertion
+            $insertQuery = "
+        INSERT INTO [MASTER_TABLES].[INTRANET_SALES_AGG_YEAR] (
+            annee,
+            customer_no,
+            customer_name,
+            item_family_code,
+            item_no,
+            item_description,
+            ca
+        )
+
+        SELECT
+            YEAR(I.DOCUMENTPOSTINGDATE) AS annee,
+            I.CUSTOMERNO,
+            CUST.BILLTONAME,
+            COLL.ITEMFAMILYCODE,
+            I.ITEMNO,
+            COLL.ITEMDESC,
+            SUM(I.AMOUNTEURTM) AS ca
+
+        FROM SEI_X3_LCS.CONSO_INVOICES I
+
+        LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
+            ON I.COMPANYCODE = CUST.COMPANY_ID
+            AND I.CUSTOMERNO = CUST.CUSTOMER_ID
+
+        LEFT JOIN SEI_X3_LCS.LCS_COLLECTION COLL
+            ON I.ITEMNO = COLL.ITEM_ID
+            AND I.SERIESNO = COLL.SERIESCODE
+
+        WHERE
+            I.ISBOHPERIMETERPRODUCT = 1
+            AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
+            AND COLL.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
+            AND I.SOURCE = 'LCS'
+            AND I.COMPANYCODE = 'LCSI'
+            AND I.DOCUMENTPOSTINGDATE >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
+
+        GROUP BY
+            YEAR(I.DOCUMENTPOSTINGDATE),
+            I.CUSTOMERNO,
+            CUST.BILLTONAME,
+            COLL.ITEMFAMILYCODE,
+            I.ITEMNO,
+            COLL.ITEMDESC
+        ";
+
+            return $this->mssqlMade2design->insertData($insertQuery);
+
+        } catch (\Exception $e) {
+
+            $this->graphMailer->notifyError(
+                '❌ Erreur recalcul cube ventes client',
+                $e
+            );
+
+            $this->logger->error(
+                'Erreur recalcul cube ventes client',
+                ['exception' => $e]
+            );
+
+            return 0;
+        }
+    }
+
+    public function refreshSalesDaily(): int
+    {
+        try {
+
+            // suppression
+            $deleteQuery = "DELETE FROM MASTER_TABLES.INTRANET_SALES_DAILY";
+            $this->mssqlMade2design->executeDelete($deleteQuery);
+
+            // insertion
+            $insertQuery = "
+        INSERT INTO MASTER_TABLES.INTRANET_SALES_DAILY (
+            date,
+            annee,
+            mois,
+            jour,
+            ca
+        )
+
+        SELECT
+            CAST(I.DOCUMENTPOSTINGDATE AS DATE) AS [date],
+            YEAR(I.DOCUMENTPOSTINGDATE) AS annee,
+            MONTH(I.DOCUMENTPOSTINGDATE) AS mois,
+            DAY(I.DOCUMENTPOSTINGDATE) AS jour,
+            SUM(I.AMOUNTEURTM) AS ca
+
+        FROM SEI_X3_LCS.CONSO_INVOICES I
+
+        LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
+            ON I.ITEMNO = C.ITEM_ID
+            AND I.SERIESNO = C.SERIESCODE
+
+        WHERE
+            I.ISBOHPERIMETERPRODUCT = 1
+            AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
+            AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
+            AND I.SOURCE = 'LCS'
+            AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
+            AND I.DOCUMENTPOSTINGDATE >= DATEADD(YEAR, -2, GETDATE())
+
+        GROUP BY
+            CAST(I.DOCUMENTPOSTINGDATE AS DATE),
+            YEAR(I.DOCUMENTPOSTINGDATE),
+            MONTH(I.DOCUMENTPOSTINGDATE),
+            DAY(I.DOCUMENTPOSTINGDATE)
+
+        ORDER BY [date]
+        ";
+
+            return $this->mssqlMade2design->insertData($insertQuery);
+
+        } catch (\Exception $e) {
+
+            $this->graphMailer->notifyError(
+                '❌ Erreur recalcul cube ventes daily',
+                $e
+            );
+
+            $this->logger->error(
+                'Erreur recalcul cube ventes daily',
+                ['exception' => $e]
+            );
+
+            return 0;
+        }
+    }
+
+    public function refreshAllSalesCubes(): array
+    {
+        return [
+            'Cube CA mensuel' => $this->refreshSalesAggMonth(),
+            'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
+            'Cube ventes journalières' => $this->refreshSalesDaily(),
+        ];
+    }
 }

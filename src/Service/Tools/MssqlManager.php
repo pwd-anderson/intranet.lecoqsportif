@@ -169,6 +169,18 @@ class MssqlManager
         }
     }
 
+    public function executeDelete(string $query, array $params = []): int
+    {
+        try {
+            $stmt = $this->connection?->prepare($query);
+            $stmt?->execute($params);
+            return $stmt?->rowCount() ?? 0;
+        } catch (PDOException $e) {
+            $this->logger->error("Delete failed: {$e->getMessage()}", ['query' => $query, 'params' => $params]);
+            return 0;
+        }
+    }
+
     public function getConnection(): ?PDO
     {
         return $this->connection;
