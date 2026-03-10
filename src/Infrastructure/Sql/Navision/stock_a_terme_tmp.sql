@@ -354,112 +354,112 @@ SELECT
 
     CAST(
     ISNULL(sa.Stock_actuel, 0)
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0) + ISNULL(production.Quantites_produites_a_recevoir_mois_m, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
     AS float) AS STOCK_A_TERME_M,
 
     CAST(
     ISNULL(sa.Stock_actuel, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_1, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
     AS float) AS STOCK_A_TERME_M_1,
 
     CAST(
     ISNULL(sa.Stock_actuel, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0) + ISNULL(production.Quantites_produites_a_recevoir_mois_m, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_1, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_2, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
     AS float) AS STOCK_A_TERME_M_2,
 
     CAST(
     ISNULL(sa.Stock_actuel, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0) + ISNULL(production.Quantites_produites_a_recevoir_mois_m, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_1, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_2, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_3, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_3, 0)
     AS float) AS STOCK_A_TERME_M_3,
 
     CAST(
     ISNULL(sa.Stock_actuel, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0) + ISNULL(production.Quantites_produites_a_recevoir_mois_m, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_1, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_2, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_3, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_3, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_4, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_4, 0)
     AS float) AS STOCK_A_TERME_M_4,
 
     CAST(
     ISNULL(sa.Stock_actuel, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0) + ISNULL(production.Quantites_produites_a_recevoir_mois_m, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_1, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_2, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_3, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_3, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_4, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_4, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_5, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_5, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_5, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_5, 0)
     AS float) AS STOCK_A_TERME_M_5,
 
     CAST(
     ISNULL(sa.Stock_actuel, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0) + ISNULL(production.Quantites_produites_a_recevoir_mois_m, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_1, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_2, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_3, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_3, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_4, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_4, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_5, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_5, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_5, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_5, 0)
 
-    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_6, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_6, 0)  + ISNULL(production.Quantites_produites_a_recevoir_mois_m_6, 0)
     - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_6, 0)
     AS float) AS STOCK_A_TERME_M_6
 
@@ -495,7 +495,9 @@ WHERE p.[Item Family Code] IN ('1 FOOTWEAR', '2 TEXTILE', '3 HARDWARE')
     ISNULL(production.Quantites_produites_a_recevoir_mois_m_4, 0) <> 0 OR
     ISNULL(production.Quantites_produites_a_recevoir_mois_m_5, 0) <> 0 OR
     ISNULL(production.Quantites_produites_a_recevoir_mois_m_6, 0) <> 0
-    );
+    )
+  and p.[Item No_] = '2610318'
+  and p.Variant_Code = 'XS';
 
 -- on nettoie a la fin de la requete
 DROP TABLE #stock_aggregated, #achats, #ventes, #production, #produits;
