@@ -90,9 +90,11 @@ class Sales
                 s.No_ <> ''
                 AND s.[Type] = 2
                 AND s.[Document Type] = 1
-                AND (SH.[Sales order typ] <> 'IR' OR SH.[Order Date] <= '20200101')
+                AND (SH.[Sales order typ] <> 'IR')
                 AND c.[Business Model] in ('1_WHOLESALE', '2_DISTRIBUTORS')
                 AND s.[Outstanding Quantity] <> 0
+                and s.CompanyCode = 'LCSI BV'
+                and year(SH.[Order Date]) >= 2020
                 ORDER BY s.[Requested Delivery Date] desc;";
 
             $backlog = $this->mssqlLcs->executeQuery($query);
