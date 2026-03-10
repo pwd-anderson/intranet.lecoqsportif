@@ -346,7 +346,122 @@ SELECT
     CAST(ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_6, 0) + ISNULL(production.Quantites_produites_a_recevoir_mois_m_6, 0) as float) as BUY_MOIS_M_6,
     CAST(ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_6, 0) as float) as SALES_MOIS_M_6,
     0 as RESA_ETAIL_MOIS_M_6,
-    0 as RESA_RETAIL_MOIS_M_6
+    0 as RESA_RETAIL_MOIS_M_6,
+
+/* =======================
+   STOCK A TERME CALCULÉ
+   ======================= */
+
+    CAST(
+    ISNULL(sa.Stock_actuel, 0)
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
+    AS float) AS STOCK_A_TERME_M,
+
+    CAST(
+    ISNULL(sa.Stock_actuel, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
+    AS float) AS STOCK_A_TERME_M_1,
+
+    CAST(
+    ISNULL(sa.Stock_actuel, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
+    AS float) AS STOCK_A_TERME_M_2,
+
+    CAST(
+    ISNULL(sa.Stock_actuel, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_3, 0)
+    AS float) AS STOCK_A_TERME_M_3,
+
+    CAST(
+    ISNULL(sa.Stock_actuel, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_3, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_4, 0)
+    AS float) AS STOCK_A_TERME_M_4,
+
+    CAST(
+    ISNULL(sa.Stock_actuel, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_3, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_4, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_5, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_5, 0)
+    AS float) AS STOCK_A_TERME_M_5,
+
+    CAST(
+    ISNULL(sa.Stock_actuel, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_1, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_1, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_2, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_2, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_3, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_3, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_4, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_4, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_5, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_5, 0)
+
+    + ISNULL(achats.Quantites_commandees_a_recevoir_mois_m_6, 0)
+    - ISNULL(ventes.Quantites_vendues_a_livrer_mois_m_6, 0)
+    AS float) AS STOCK_A_TERME_M_6
 
 
 FROM #produits p
