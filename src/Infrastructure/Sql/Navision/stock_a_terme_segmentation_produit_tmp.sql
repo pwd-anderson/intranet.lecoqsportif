@@ -297,6 +297,7 @@ from (
     [DB_Datalake].[nav].[Prod_ Order Line] pro
     left join DB_Datalake.[nav lcsi bv].Item I on pro.[Item No_] = I.No_
     left join [DB_Datalake].[nav].[Transfer Line] tl on pro.CompanyCode = tl.CompanyCode and pro.[IKS Prod Order No_] = tl.[IKS Prod Order No_] and pro.[Item No_] = tl.[Item No_]
+    and pro.[Variant Code] = tl.[Variant Code] and pro.[Source No_] = tl.[Document No_]
     WHERE
     pro.[Remaining Quantity] <> 0
     AND pro.[Item No_] <> ''
