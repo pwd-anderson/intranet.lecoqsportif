@@ -1,72 +1,95 @@
-WITH CollectionRecente AS (
+WITH sto_agg AS (
     SELECT
-        YIL.ITMREF_0,
-        YCO.YCOLLECT_0,
-        YCO.YDATDEB_0,
-        ROW_NUMBER() OVER (
+        STOFCY_0,
+        ITMREF_0,
+        STA_0,
+        SUM(QTYSTU_0) AS STOCK_INTERNE,
+        SUM(PRIVAL_0 * QTYSTU_0) AS VALORISATION_STOCK_INTERNE
+    FROM X3_LCS.STOJOU
+    GROUP BY STOFCY_0, ITMREF_0, STA_0
+),
+
+     CollectionRecente AS (
+         SELECT
+             YIL.ITMREF_0,
+             YCO.YCOLLECT_0,
+             YCO.YDATDEB_0,
+             ROW_NUMBER() OVER (
             PARTITION BY YIL.ITMREF_0
             ORDER BY YCO.YDATDEB_0 DESC
         ) AS rn
-    FROM X3_LCS.YITMCOLLECT YIL
-             INNER JOIN X3_LCS.YCOLLECTION YCO
-                        ON YIL.YCOLLECT_0 = YCO.YCOLLECT_0
-)
+         FROM X3_LCS.YITMCOLLECT YIL
+                  INNER JOIN X3_LCS.YCOLLECTION YCO
+                             ON YIL.YCOLLECT_0 = YCO.YCOLLECT_0
+     )
+
 
 SELECT
-    STK.STOFCY_0 as SITE,
-    FCY.FCYNAM_0 as DESCRIPTION_SITE,
-    ITM.TCLCOD_0 as FAMILLE,
+    s.STOFCY_0 as SITE,
+    f.FCYNAM_0 as DESCRIPTION_SITE,
+    i.TCLCOD_0 as FAMILLE,
     CR.YCOLLECT_0 as DERNIERE_COLLECTION,
-    ITM.ITMREF_0 as ARTICLE,
-    ITM.ITMDES1_0 as DESCRIPTION_ARTICLE,
-    STK.STA_0 as STATUS_STOCK,
-    STK.QTYSTU_0 as STOCK_INTERNE,
-    0 as VALORISATION_STOCK_INTERNE,
+    i.ITMREF_0 as ARTICLE,
+    i.ITMDES1_0 as DESCRIPTION_ARTICLE,
+    s.STA_0 as STATUS_STOCK,
 
+    -- ================= STOCK INTERNE
+    s.STOCK_INTERNE,
+    s.VALORISATION_STOCK_INTERNE,
+
+    -- ================= STOCK ALLOUE
+    ISNULL(STK.CUMALLQTY_0,0) as STOCK_ALLOUE,
+
+    (s.VALORISATION_STOCK_INTERNE / NULLIF(s.STOCK_INTERNE,0))
+        * ISNULL(STK.CUMALLQTY_0,0) AS VALORISATION_STOCK_ALLOUE,
+
+    -- ================= STOCK DISPONIBLE
+    s.STOCK_INTERNE - ISNULL(STK.CUMALLQTY_0,0) AS STOCK_DISPONIBLE,
+
+    s.VALORISATION_STOCK_INTERNE -
+    ((s.VALORISATION_STOCK_INTERNE / NULLIF(s.STOCK_INTERNE,0))
+        * ISNULL(STK.CUMALLQTY_0,0)) AS VALORISATION_STOCK_DISPONIBLE,
+
+    -- ================= STOCK RESERVE (A2)
     CASE
-        WHEN STK.STA_0 = 'A' THEN ITV.PHYALL_0
+        WHEN s.STA_0 = 'A2' THEN ISNULL(ITV.GLOALL_0,0)
         ELSE 0
-        END as STOCK_ALLOUE,
-    0 as VALORISATION_STOCK_ALLOUE,
+        END AS STOCK_RESERVE,
 
     CASE
-        WHEN STK.STA_0 = 'A'
-            THEN (STK.QTYSTU_0 - ISNULL(ITV.PHYALL_0,0))
-        ELSE STK.QTYSTU_0
-        END as STOCK_DISPONIBLE,
-    0 as VALORISATION_STOCK_DISPONIBLE,
-
-    CASE
-        WHEN STK.STA_0 = 'A' THEN ITV.GLOALL_0
+        WHEN s.STA_0 = 'A2'
+            THEN ISNULL(ITV.GLOALL_0,0) *
+                 (s.VALORISATION_STOCK_INTERNE / NULLIF(s.STOCK_INTERNE,0))
         ELSE 0
-        END as STOCK_RESERVE,
-    0 as VALORISATION_STOCK_RESERVE,
+        END AS VALORISATION_STOCK_RESERVE,
 
-    CASE
-        WHEN STK.STA_0 = 'A'
-            THEN (STK.QTYSTU_0
-            - ISNULL(ITV.PHYALL_0,0)
-            - ISNULL(ITV.GLOALL_0,0))
-        ELSE STK.QTYSTU_0
-        END as STOCK_REEL,
-    0 as VALORISATION_STOCK_REEL
+    -- ================= STOCK REEL
+    (s.STOCK_INTERNE - ISNULL(STK.CUMALLQTY_0,0))
+        - CASE WHEN s.STA_0 = 'A2' THEN ISNULL(ITV.GLOALL_0,0) ELSE 0 END
+        AS STOCK_REEL,
 
-FROM X3_LCS.ITMMASTER ITM
+    (s.VALORISATION_STOCK_INTERNE -
+     ((s.VALORISATION_STOCK_INTERNE / NULLIF(s.STOCK_INTERNE,0))
+         * ISNULL(STK.CUMALLQTY_0,0)))
+        -
+    (
+        CASE WHEN s.STA_0 = 'A2' THEN ISNULL(ITV.GLOALL_0,0) ELSE 0 END
+            *
+        (s.VALORISATION_STOCK_INTERNE / NULLIF(s.STOCK_INTERNE,0))
+        ) AS VALORISATION_STOCK_REEL
 
-         LEFT JOIN CollectionRecente CR
-                   ON ITM.ITMREF_0 = CR.ITMREF_0
-                       AND CR.rn = 1   -- 👈 prend uniquement la collection la plus récente
-
-         LEFT JOIN X3_LCS.ITMMVT ITV
-                   ON ITM.ITMREF_0 = ITV.ITMREF_0
-
+FROM sto_agg s
          LEFT JOIN X3_LCS.STOCK STK
-                   ON ITM.ITMREF_0 = STK.ITMREF_0
-                       AND ITV.STOFCY_0 = STK.STOFCY_0
-
-         LEFT JOIN X3_LCS.FACILITY FCY
-                   ON STK.STOFCY_0 = FCY.FCY_0
-
-WHERE ITM.ITMREF_0 IS NOT NULL
-  AND STK.STOFCY_0 IS NOT NULL
---and ITM.ITMREF_0 like '2010776%';
+                   ON s.ITMREF_0 = STK.ITMREF_0
+                       AND s.STOFCY_0 = STK.STOFCY_0
+                       AND s.STA_0 = STK.STA_0
+         LEFT JOIN X3_LCS.ITMMVT ITV
+                   ON s.ITMREF_0 = ITV.ITMREF_0
+                       AND s.STOFCY_0 = ITV.STOFCY_0
+         LEFT JOIN X3_LCS.FACILITY f
+                   ON s.STOFCY_0 = f.FCY_0
+         LEFT JOIN X3_LCS.ITMMASTER i
+                   ON s.ITMREF_0 = i.ITMREF_0
+         LEFT JOIN CollectionRecente CR
+                   ON i.ITMREF_0 = CR.ITMREF_0
+                       AND CR.rn = 1
