@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -36,6 +38,15 @@ class User implements UserInterface
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $accessToken = null;
+
+    #[ORM\ManyToMany(targetEntity: AccessGroup::class)]
+    #[ORM\JoinTable(name: 'user_access_group')]
+    private Collection $accessGroups;
+
+    public function __construct()
+    {
+        $this->accessGroups = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -156,6 +167,27 @@ class User implements UserInterface
     public function setAccessToken(?string $accessToken): static
     {
         $this->accessToken = $accessToken;
+
+        return $this;
+    }
+
+    public function getAccessGroups(): Collection
+    {
+        return $this->accessGroups;
+    }
+
+    public function addAccessGroup(AccessGroup $accessGroup): self
+    {
+        if (!$this->accessGroups->contains($accessGroup)) {
+            $this->accessGroups->add($accessGroup);
+        }
+
+        return $this;
+    }
+
+    public function removeAccessGroup(AccessGroup $accessGroup): self
+    {
+        $this->accessGroups->removeElement($accessGroup);
 
         return $this;
     }
