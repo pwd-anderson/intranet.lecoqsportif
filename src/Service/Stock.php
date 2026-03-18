@@ -121,7 +121,7 @@ class Stock
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/stock_a_terme.sql');
-            $data = $this->mssqlLcs->executeMultiStatement($query);
+            $data = $this->mssqlSei->executeQuery($query);
             return $data;
 
         } catch (\Exception $e) {
