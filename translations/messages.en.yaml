@@ -41,6 +41,7 @@ sidebar:
         ca_marges: "Sales Margins"
     stock:
         stock_a_terme: "Future Stock"
+        stock_a_terme_x3: "Future Stock (Data X3)"
         stock_allocation: "Stock & Allocation (Data X3)"
         stock_collection_logtex: "Stock LogTex  (Data X3)"
         stock_composant: "Stock Composant  (Data X3)"

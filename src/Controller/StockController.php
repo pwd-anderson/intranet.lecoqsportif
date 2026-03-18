@@ -53,6 +53,12 @@ final class StockController extends AbstractController
         return $this->stockGeneric('stock_a_terme_segmentation_produits');
     }
 
+    #[Route('/stock/stock_a_terme_x3', name: 'app_stock_a_terme_x3')]
+    public function stockATermeX3Alias(): Response
+    {
+        return $this->stockGeneric('stock_a_terme_x3');
+    }
+
     // Routes JSON
     #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
     public function stockAtermeJson(Stock $stock, Helpers $helpers): JsonResponse
@@ -103,6 +109,15 @@ final class StockController extends AbstractController
         return new JsonResponse($dataUtf8);
     }
 
+    #[Route('/stock/stock_a_terme_x3_json', name: 'stock_a_terme_x3_json')]
+    public function stockAtermeX3Json(Stock $stock, Helpers $helpers): JsonResponse
+    {
+        $data = $stock->getStockATermeX3();
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
     // Appel divers
     #[Route('/stock/familles_json', name: 'stock_familles_json')]
     public function stockFamillesJson(Divers $divers): JsonResponse
@@ -113,7 +128,7 @@ final class StockController extends AbstractController
     #[Route(
         '/stock/{type}',
         name: 'app_stock_generic',
-        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits']
+        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3']
     )]
     public function stockGeneric(string $type): Response
     {
@@ -138,6 +153,11 @@ final class StockController extends AbstractController
                 'title' => 'Stock à terme Amazon',
                 'jsonRoute' => 'stock_a_terme_segmentation_produits_json',
             ],
+            'stock_a_terme_x3' => [
+                'gridName' => 'stock_a_terme_x3_grid',
+                'title' => 'Stock à terme',
+                'jsonRoute' => 'stock_a_terme_x3_json',
+            ]
         ];
 
         if (!isset($config[$type])) {

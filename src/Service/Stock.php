@@ -117,4 +117,17 @@ class Stock
         }
     }
 
+    public function getStockATermeX3(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/stock_a_terme.sql');
+            $data = $this->mssqlLcs->executeMultiStatement($query);
+            return $data;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme X3 : Récupération de données stock', $e);
+            $this->logger->error('LCS Erreur Stock à Terme X3 : Récupération de données stock', ['exception' => $e]);
+        }
+    }
+
 }

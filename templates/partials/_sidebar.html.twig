@@ -9,7 +9,13 @@
                 </div>
                 <div class="info ms-10">
                     <p class="mb-0">{{ 'sidebar.hello'|trans }}</p>
-                    <h5 class="mb-0">{{ app.user.firstname }} {{ app.user.lastname }}</h5>
+                    {% if app.user %}
+                        <h5 class="mb-0">
+                            {{ app.user.firstname|default('') }} {{ app.user.lastname|default('') }}
+                        </h5>
+                    {% else %}
+                        <h5 class="mb-0">Utilisateur local</h5>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -64,6 +70,7 @@
                         </a>
                         <ul class="treeview-menu">
                             <li class="{% if currentRoute == 'app_stock_a_terme' %}active{% endif %}"><a href="{{ path('app_stock_a_terme') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme'|trans }}</a></li>
+                            <li class="{% if currentRoute == 'app_stock_a_terme_x3' %}active{% endif %}"><a href="{{ path('app_stock_a_terme_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme_x3'|trans }}</a></li>
                             <li class="{% if currentRoute == 'app_stock_allocation' %}active{% endif %}"><a href="{{ path('app_stock_allocation') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_allocation'|trans }}</a></li>
                             <li class="{% if currentRoute == 'app_stock_collection' %}active{% endif %}"><a href="{{ path('app_stock_collection') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_collection_logtex'|trans }}</a></li>
                             <li class="{% if currentRoute == 'app_stock_composant' %}active{% endif %}"><a href="{{ path('app_stock_composant') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_composant'|trans }}</a></li>
