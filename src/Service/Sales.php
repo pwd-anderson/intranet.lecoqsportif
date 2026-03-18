@@ -60,42 +60,29 @@ class Sales
     {
         try {
 
-            $query = "SELECT
-                    s.CompanyCode,
-                    c.No_ as code_client,
-                    c.Name as nom_client,
-                    s.No_ as article,
-                    s.[Variant Code] as variant_code,
-                    i.[Item Family Code] as famille,
-                    i.[Last Series No_] as collection,
-                    s.[Document No_] as no_commande,
-                    SH.[Order Date] as date_commande,
-                    s.[Requested Delivery Date] as date_livraison,
-                    s.[Outstanding Quantity] as quantite,
-                    s.[Outstanding Amount (LCY) HT] as montant_ht_eur,
-                    0 as stock_reel
-
-                FROM
-                [DB_Datalake].[nav].[Sales Line] s
-                LEFT JOIN DB_Datalake.[nav].[Sales Header] SH
-                    ON SH.CompanyCode = S.CompanyCode
-                    AND SH.No_ = S.[Document No_]
-                    AND SH.[Document Type] = S.[Document Type]
-                LEFT JOIN [DB_Datalake].[nav].[Customer] c
-                    ON s.CompanyCode = c.CompanyCode
-                    AND s.[Bill-to Customer No_] = c.No_
-                LEFT JOIN [DB_Datalake].[nav lcsi bv].[Item] i
-                    ON s.No_ = i.No_
-                WHERE
-                s.No_ <> ''
-                AND s.[Type] = 2
-                AND s.[Document Type] = 1
-                AND (SH.[Sales order typ] <> 'IR')
-                AND c.[Business Model] in ('1_WHOLESALE', '2_DISTRIBUTORS')
-                AND s.[Outstanding Quantity] <> 0
-                and s.CompanyCode = 'LCSI BV'
-                and year(SH.[Order Date]) >= 2020
-                ORDER BY s.[Requested Delivery Date] desc;";
+            $query = "select s.CompanyCode AS CODE_COMPANY,
+                        s.OrderSeriesNo as COLLECTION,
+                        i.ItemFamilyCode as FAMILLE,
+                        s.ItemNo as ARTICLE,
+                        s.VariantCode AS CODE_VARIANT,
+                        c.BillToNo AS CODE_CLIENT,
+                        c.BillToName AS NOM_CLIENT,
+                        s.OrderDocumentNo AS NO_COMMANDE,
+                        s.OrderCreationDate AS DATE_COMMANDE,
+                        o.RequestedDeliveryDate_L AS DATE_LIVRAISON_DEMANDEE,
+                        s.OUT_Quantity AS QUANTITE,
+                        s.OUT_AmountEur AS MONTANT_HT_EUR,
+                        0 as STOCK_REEL
+                        from BI.DWH.F_Sales s
+                        left join BI.DWH.F_Sales_Orders o on s.OrderDocumentNo = o.OrderDocumentNo and s.CompanyCode = o.CompanyCode and s.OrderDocumentLineNo = o.OrderDocumentLineNo and s.VariantCode = o.VariantCode
+                        left join BI.DWH.D_Item i on s.ItemNo = i.ItemNo
+                        left join BI.DWH.D_Customer c on s.CustomerNo = c.Code and s.CompanyCode = c.CompanyCode
+                        where 1=1
+                        and s.CompanyCode = 'LCSI BV'
+                        and s.OUT_Quantity <> 0
+                        and s.IsBohPerimeter = 1
+                        and s.LocationCode in ('DIRECT', 'DT-WHS-TH', 'LOGTXM-1', 'SF-WHS-CN1')
+                        and s.SalesOrderType in ('CO', 'OP', 'PS', 'RE')";
 
             $backlog = $this->mssqlLcs->executeQuery($query);
 
@@ -127,12 +114,12 @@ class Sales
 
             foreach ($backlog as $row) {
 
-                $key = $row->collection . '|' .
-                    $row->famille . '|' .
-                    $row->article . '|' .
-                    $row->variant_code;
+                $key = $row->COLLECTION . '|' .
+                    $row->FAMILLE . '|' .
+                    $row->ARTICLE . '|' .
+                    $row->CODE_VARIANT;
 
-                $row->stock_reel = $stockIndex[$key] ?? 0;
+                $row->STOCK_REEL = $stockIndex[$key] ?? 0;
             }
             return $backlog;
 
