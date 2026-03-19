@@ -540,12 +540,80 @@ CROSS JOIN bornes b;";
         }
     }
 
+    public function refreshBacklogClient(): int
+    {
+        try {
+
+            // suppression
+            $deleteQuery = "DELETE FROM MASTER_TABLES.INTRANET_BACKLOG_CLI";
+            $this->mssqlMade2design->executeDelete($deleteQuery);
+
+            // insertion
+            $insertQuery = "
+        INSERT INTO MASTER_TABLES.INTRANET_BACKLOG_CLI (
+            retard,
+            quantite,
+            montant_ht_eur
+        )
+        SELECT
+            retard,
+            SUM(OUT_Quantity) AS quantite,
+            SUM(OUT_AmountEur) AS montant_ht_eur
+        FROM (
+            SELECT
+                s.OUT_Quantity,
+                s.OUT_AmountEur,
+
+                CASE
+                    WHEN o.RequestedDeliveryDate_L <= EOMONTH(GETDATE()) THEN 'MOIS'
+                    WHEN o.RequestedDeliveryDate_L > EOMONTH(GETDATE())
+                         AND o.RequestedDeliveryDate_L <= EOMONTH(DATEADD(MONTH, 1, GETDATE())) THEN 'MOIS + 1'
+                    ELSE '>MOIS + 2'
+                END AS retard
+
+            FROM DWH_LCS.F_Sales s
+
+            LEFT JOIN DWH_LCS.F_Sales_Orders o
+                ON s.OrderDocumentNo = o.OrderDocumentNo
+                AND s.CompanyCode = o.CompanyCode
+                AND s.OrderDocumentLineNo = o.OrderDocumentLineNo
+                AND s.VariantCode = o.VariantCode
+
+            WHERE s.CompanyCode = 'LCSI BV'
+              AND s.OUT_Quantity <> 0
+              AND s.IsBohPerimeter = 1
+              AND s.LocationCode IN ('DIRECT', 'DT-WHS-TH', 'LOGTXM-1', 'SF-WHS-CN1')
+              AND s.SalesOrderType IN ('CO', 'OP', 'PS', 'RE')
+
+        ) t
+        GROUP BY retard
+        ";
+
+            return $this->mssqlMade2design->insertData($insertQuery);
+
+        } catch (\Exception $e) {
+
+            $this->graphMailer->notifyError(
+                '❌ Erreur recalcul cube backlog client',
+                $e
+            );
+
+            $this->logger->error(
+                'Erreur recalcul cube backlog client',
+                ['exception' => $e]
+            );
+
+            return 0;
+        }
+    }
+
     public function refreshAllSalesCubes(): array
     {
         return [
             'Cube CA mensuel' => $this->refreshSalesAggMonth(),
             'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
             'Cube ventes journalières' => $this->refreshSalesDaily(),
+            'Cube backlog client' => $this->refreshBacklogClient(),
         ];
     }
 }
