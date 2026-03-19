@@ -294,6 +294,58 @@ CROSS JOIN bornes b;";
         }
     }
 
+    public function getBacklogClientDonut(): array
+    {
+        try {
+            $query = "
+            SELECT
+                retard,
+                SUM(quantite) AS quantite,
+                SUM(montant_ht_eur) AS montant
+            FROM MASTER_TABLES.INTRANET_BACKLOG_CLI
+            GROUP BY retard
+            ORDER BY
+                CASE retard
+                    WHEN 'MOIS' THEN 1
+                    WHEN 'MOIS + 1' THEN 2
+                    ELSE 3
+                END
+        ";
+
+            $results = $this->mssqlMade2design->executeQuery($query);
+
+            $labels = [];
+            $values = [];
+            $quantities = [];
+
+            foreach ($results as $row) {
+                $labels[] = $row->retard;
+                $values[] = (float)$row->montant;
+                $quantities[] = (float)$row->quantite;
+            }
+
+            return [
+                'labels' => $labels,
+                'values' => $values,
+                'quantities' => $quantities
+            ];
+
+        } catch (\Exception $e) {
+
+            $this->graphMailer->notifyError('❌ Dashboard : Backlog client donut', $e);
+
+            $this->logger->error('Erreur backlog client donut', [
+                'exception' => $e
+            ]);
+
+            return [
+                'labels' => [],
+                'values' => [],
+                'quantities' => []
+            ];
+        }
+    }
+
     public function refreshSalesAggMonth(): int
     {
         try {

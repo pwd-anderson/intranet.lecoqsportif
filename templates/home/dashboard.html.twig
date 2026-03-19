@@ -119,6 +119,14 @@
             text-align: right;
         }
 
+        #apex-legend-sales {
+            margin-bottom: 1%;
+            margin-top: 2.4%;
+        }
+        .titre-evolution {
+            margin-bottom: 2.8%;
+        }
+
     </style>
 {% endblock %}
 
@@ -226,14 +234,26 @@
                 </div>
             </div>
 
-            <div class="col-lg-12 col-md-6">
+            <div class="col-lg-4 col-md-6">
+                <div class="box">
+                    <div class="box-body text-center p-10">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Répartition backlog clients</span>
+                        </div>
+                        <div id="chart-backlog-client" class="mb-20"></div>
+                        <div id="table-backlog-client"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8 col-md-6">
                 <div class="box">
                     <div class="box-body">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center titre-evolution">
                             <span class="text-muted small">Évolution du CA sur 5 ans</span>
                         </div>
                         <div id="userflow"></div>
-                        <div id="apex-legend-sales" class="d-flex flex-wrap gap-2 mt-3 justify-content-center small"></div>
+                        <div id="apex-legend-sales" class="d-flex flex-wrap gap-4 justify-content-center small"></div>
                     </div>
                 </div>
             </div>
@@ -284,6 +304,11 @@
             renderSalesEvolutionChart('{{ path("api_dashboard_sales_evolution_5y") }}', '#userflow', '#apex-legend-sales');
             // CA du Jour
             chargerCaJour('{{ path("api_dashboard_ca_today") }}');
+            renderBacklogClientChart(
+                '{{ path("api_dashboard_backlog_client") }}',
+                '#chart-backlog-client',
+                '#table-backlog-client'
+            );
 
 
         }); // End of use strict

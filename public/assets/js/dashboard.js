@@ -374,7 +374,7 @@ function renderSalesEvolutionChart(apiUrl, selector, legendSelector) {
     $.getJSON(apiUrl, function (response) {
         const colors = ['#ff9800', '#40a2ed', '#26c6da', '#9b59b6', '#e74c3c'];
         const options = {
-            chart: { type: 'bar', height: 300, toolbar: { show: false } },
+            chart: { type: 'bar', height: 340, toolbar: { show: false } },
             plotOptions: {
                 bar: {
                     horizontal: false,
@@ -425,5 +425,94 @@ function chargerCaJour(apiUrl) {
         } else {
             $('#ca-jour-kpi').text('—');
         }
+    });
+}
+
+function renderBacklogClientChart(apiUrl, chartSelector, tableSelector) {
+    $.getJSON(apiUrl, function (result) {
+        const chartEl = document.querySelector(chartSelector);
+        const tableEl = document.querySelector(tableSelector);
+
+        if (!chartEl || !tableEl) return;
+
+        chartEl.innerHTML = '';
+        tableEl.innerHTML = '';
+
+        if (!result || !Array.isArray(result.labels) || result.labels.length === 0) {
+            chartEl.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
+            return;
+        }
+
+        const safeValues = result.values.map(v => Number(v) || 0);
+        const safeQuantities = result.quantities.map(v => Number(v) || 0);
+
+        const options = {
+            chart: {
+                type: 'donut',
+                height: 240,
+                toolbar: { show: false }
+            },
+            labels: result.labels,
+            series: safeValues,
+            legend: { show: false },
+            dataLabels: {
+                formatter: function (val) {
+                    return val.toFixed(1) + ' %';
+                }
+            },
+            tooltip: {
+                y: {
+                    formatter: function (val) {
+                        return Number(val).toLocaleString('fr-CH', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        }) + ' €';
+                    }
+                }
+            },
+            colors: ['#00C9A7', '#FFC75F', '#FF6F61'],
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: '60%',
+                        labels: { show: false }
+                    }
+                }
+            }
+        };
+
+        if (chartEl._chart) {
+            chartEl._chart.destroy();
+        }
+
+        const chart = new ApexCharts(chartEl, options);
+        chart.render();
+        chartEl._chart = chart;
+
+        let html = '<table class="table table-sm mb-0" style="font-size: 12px;"><tbody>';
+
+        result.labels.forEach((label, i) => {
+            html += `
+                <tr>
+                    <td class="text-start">${label}</td>
+                    <td class="text-end">
+                        <div class="fw-bold">
+                            ${safeValues[i].toLocaleString('fr-CH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })} €
+                        </div>
+                        <div class="text-muted small">
+                            ${safeQuantities[i].toLocaleString('fr-CH', {
+                maximumFractionDigits: 0
+            })} pcs
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        tableEl.innerHTML = html;
     });
 }
