@@ -19,6 +19,18 @@
                         <img src="{{ asset('assets/images/svg-icon/collapse.svg') }}" class="img-fluid svg-icon" alt="">
                     </a>
                 </li>
+
+                {% if app.request.attributes.get('_route') == 'app_home' %}
+                    <li class="nav-item dropdown d-flex align-items-center me-3">
+                        <form id="network-switcher">
+                            <select name="network" class="form-select form-select-sm" style="width: auto;">
+                                <option value="global">Global</option>
+                                <option value="boutique">Boutique</option>
+                                <option value="ecom">E-com</option>
+                            </select>
+                        </form>
+                    </li>
+                {% endif %}
                 <!-- Ajoute les autres boutons et champs de recherche ici si tu veux tout le header -->
             </ul>
         </div>
