@@ -58,7 +58,7 @@
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li><a href="#"><i class="icon-Commit"></i>Réception Fournisseur</a></li>
+                            <li class="{% if currentRoute == 'app_backlog_fournisseur' %}active{% endif %}"><a href="{{ path('app_backlog_fournisseur') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.backlog_fournisseur'|trans }}</a></li>
                         </ul>
                     </li>
 
