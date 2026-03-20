@@ -14,6 +14,12 @@
         .ag-text-field-input {
             color: #000000 !important;
         }
+
+        .statusLate {
+            background-color: #f8d7da !important;
+            color: #721c24 !important;
+            font-weight: bold;
+        }
     </style>
 {% endblock %}
 
@@ -54,6 +60,18 @@
 
         const columnDefs = {{ columns|json_encode|raw }};
 
+        columnDefs.forEach(col => {
+
+            if (col.field === 'STATUS') {
+
+                col.cellClassRules = {
+                    statusLate: params => params.value === 'EN RETARD'
+                };
+
+            }
+
+        });
+
 
         const agGridConfig = {
             columnDefs: columnDefs,
@@ -69,6 +87,11 @@
                     font: { bold: true, color: '#FFFFFF' },
                     alignment: { horizontal: 'Center' },
                     interior: { color: '#024185', pattern: 'Solid' }
+                },
+                {
+                    id: 'statusLate',
+                    interior: { color: '#F8D7DA', pattern: 'Solid' },
+                    font: { color: '#721C24', bold: true }
                 }
             ]
         };
