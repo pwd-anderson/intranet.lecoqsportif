@@ -1,4 +1,3 @@
-
 SELECT distinct
     PH.CompanyCode AS CODE_COMPANY
               ,PL.[Location Code] as SITE
@@ -20,25 +19,42 @@ SELECT distinct
     ) AS DATE_LIVRAISON
              -- si date livraison < date aujourd'hui -> EN RETARD en couleur rouge sinon VIDE
     ,CASE
-    WHEN COALESCE(
-    NULLIF(PH.[Confirmed Arrival whse date], '1753-01-01'),
-    NULLIF(PH.[Expected ETA], '1753-01-01')
-    ) IS NOT NULL
-    AND
-    COALESCE(
-    NULLIF(PH.[Confirmed Arrival whse date], '1753-01-01'),
-    NULLIF(PH.[Expected ETA], '1753-01-01')
-    ) < CAST(GETDATE() AS DATE)
-    THEN 'EN RETARD'
-    ELSE ''
-END AS STATUS
+        WHEN COALESCE(
+        NULLIF(PH.[Confirmed Arrival whse date], '1753-01-01'),
+        NULLIF(PH.[Expected ETA], '1753-01-01')
+        ) IS NOT NULL
+        AND
+        COALESCE(
+        NULLIF(PH.[Confirmed Arrival whse date], '1753-01-01'),
+        NULLIF(PH.[Expected ETA], '1753-01-01')
+        ) < CAST(GETDATE() AS DATE)
+        THEN 'EN RETARD'
+        ELSE ''
+    END AS STATUS
     ,PH.[Your Reference] as REF_INTERNE
 	,CAST(PL.[Outstanding Quantity] as float) AS QUANTITE
 	,PL.[Outstanding Amount] AS MONTANT_DEVISE
 	,PL.[Currency Code] AS DEVISE
     ,PL.[Outstanding Amount (LCY)] AS MONTANT_EUR
     ,PH.[Shipment Method Code] AS INCOTERM
-    ,PH.[Transport Method] AS MODE_TRANSPORT -- a mapper avec le fichier d'Adrien
+    ,CASE PH.[Transport Method]
+        WHEN 1 THEN 'Transport maritime - By Boat'
+        WHEN 2 THEN 'Transport par chemin de fer'
+        WHEN 3 THEN 'Transport par route - By Road'
+        WHEN 4 THEN 'Transport par air - By Air'
+        WHEN 5 THEN 'Envois postaux'
+        WHEN 7 THEN 'Installations de transport fixes'
+        WHEN 8 THEN 'Transport par navigation intérieure'
+        WHEN 9 THEN 'Propulsion propre'
+        WHEN 10 THEN 'Transport Maritime puis par Route (ex. Maroc)'
+        WHEN 11 THEN 'Sea Air'
+        WHEN 12 THEN 'Air frais du fournisseur - Air supplier costs'
+        WHEN 13 THEN 'Air au frais du fournisseur (diff Sea/Air)'
+        WHEN 14 THEN 'Sea aux frais du client - Sea at Customer costs'
+        WHEN 15 THEN 'Sea aux frais du fournisseur - Sea at Vendor costs'
+        WHEN 16 THEN 'Air frais du client - Air customer cost'
+        ELSE 'Autre'
+    END AS MODE_TRANSPORT
     ,PH.[Affect_ Sales Cust Name] AS CLIENT_CONCERNE
 
 FROM
