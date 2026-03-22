@@ -7,6 +7,7 @@ use App\Service\Dashboards\MainDashboard;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -19,6 +20,15 @@ final class HomeController extends AbstractController
     public function index(): Response
     {
         return $this->render('home/dashboard.html.twig');
+    }
+
+    private function getNetworkFromRequest(Request $request): string
+    {
+        $network = $request->query->get('network', 'global');
+
+        return in_array($network, ['global', 'boutique', 'ecom'], true)
+            ? $network
+            : 'global';
     }
 
     #[Route('/api/dashboard/exchange-rate/{currency}', name: 'api_dashboard_exchange_rate')]
@@ -47,49 +57,55 @@ final class HomeController extends AbstractController
     }
 
     #[Route('/api/dashboard/ca-par-mois', name: 'api_dashboard_ca_par_mois')]
-    public function getCaParMois(): JsonResponse
+    public function getCaParMois(Request $request): JsonResponse
     {
-        $dataAnnual = $this->mainDashboard->getSalesComparaisonYears();
-        $dataByMonth = $this->mainDashboard->getSalesComparaisonByMonths();
+        $network = $this->getNetworkFromRequest($request);
+
+        $dataAnnual = $this->mainDashboard->getSalesComparaisonYears($network);
+        $dataByMonth = $this->mainDashboard->getSalesComparaisonByMonths($network);
 
         $labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
         $caN = array_fill(0, 12, 0);
         $caN1 = array_fill(0, 12, 0);
 
         foreach ($dataByMonth as $row) {
-            $index = $row->mois - 1;
-            $caN[$index] = round($row->ca_n, 2);
-            $caN1[$index] = round($row->ca_n_1, 2);
+            $index = (int) $row->mois - 1;
+            if ($index >= 0 && $index < 12) {
+                $caN[$index] = round((float) $row->ca_n, 2);
+                $caN1[$index] = round((float) $row->ca_n_1, 2);
+            }
         }
 
         return new JsonResponse([
-            'ca_n' => round($dataAnnual[0]->ca_n, 2),
-            'variation' => $dataAnnual[0]->variation_pourcent,
+            'ca_n' => round((float) ($dataAnnual[0]->ca_n ?? 0), 2),
+            'variation' => $dataAnnual[0]->variation_pourcent ?? null,
             'labels' => $labels,
             'series' => [
                 ['name' => 'CA Année N', 'data' => $caN],
-                ['name' => 'CA Année N-1', 'data' => $caN1]
-            ]
+                ['name' => 'CA Année N-1', 'data' => $caN1],
+            ],
         ]);
     }
 
     #[Route('/api/dashboard/sales-current-month', name: 'api_dashboard_sales_current_month')]
-    public function getSalesCurrentMonthData(): JsonResponse
+    public function getSalesCurrentMonthData(Request $request): JsonResponse
     {
-        $dataByDay = $this->mainDashboard->getSalesComparaisonCurrentMonthByDay();
-        $summary = $this->mainDashboard->getSalesComparaisonCurrentMonth();
+        $network = $this->getNetworkFromRequest($request);
+
+        $dataByDay = $this->mainDashboard->getSalesComparaisonCurrentMonthByDay($network);
+        $summary = $this->mainDashboard->getSalesComparaisonCurrentMonth($network);
 
         $labels = [];
         $caN = [];
         $caN1 = [];
 
-        $month = (new \DateTime())->format('m'); // Mois courant, ex: "05"
+        $month = (new \DateTime())->format('m');
 
         foreach ($dataByDay as $row) {
-            $day = str_pad($row->jour, 2, '0', STR_PAD_LEFT); // "01", "02", ...
-            $labels[] = "$day/$month"; // ex: "01/05", "02/05"
-            $caN[] = round($row->ca_n, 2);
-            $caN1[] = round($row->ca_n_1, 2);
+            $day = str_pad((string) $row->jour, 2, '0', STR_PAD_LEFT);
+            $labels[] = $day . '/' . $month;
+            $caN[] = round((float) $row->ca_n, 2);
+            $caN1[] = round((float) $row->ca_n_1, 2);
         }
 
         return new JsonResponse([
@@ -98,23 +114,33 @@ final class HomeController extends AbstractController
                 ['name' => 'CA Mois N', 'data' => $caN],
                 ['name' => 'CA Mois N-1', 'data' => $caN1],
             ],
-            'ca_n' => round($summary[0]->ca_n, 2),
-            'variation' => $summary[0]->variation_pourcent,
+            'ca_n' => round((float) ($summary[0]->ca_n ?? 0), 2),
+            'variation' => $summary[0]->variation_pourcent ?? null,
         ]);
     }
 
     #[Route('/api/dashboard/top-clients', name: 'api_dashboard_top_clients')]
-    public function getTopClients(): JsonResponse
+    public function getTopClients(Request $request): JsonResponse
     {
-        $clients = $this->mainDashboard->getTopClients(); // appelle ta méthode SQL directe
+        $network = $this->getNetworkFromRequest($request);
+
+        $clients = $this->mainDashboard->getTopClients($network);
         $dataUtf8 = $this->helpers->convertArrayToUtf8($clients);
 
         $labels = [];
         $values = [];
 
         foreach ($dataUtf8 as $row) {
-            $labels[] = $row->CustomerName ?? mb_strimwidth($row['CustomerName'], 0, 25, '…');
-            $values[] = round($row->TotalCA_EUR ?? $row['TotalCA_EUR'], 2);
+            $customerName = is_array($row)
+                ? ($row['CustomerName'] ?? '')
+                : ($row->CustomerName ?? '');
+
+            $totalCa = is_array($row)
+                ? ($row['TotalCA_EUR'] ?? 0)
+                : ($row->TotalCA_EUR ?? 0);
+
+            $labels[] = mb_strimwidth((string) $customerName, 0, 25, '…');
+            $values[] = round((float) $totalCa, 2);
         }
 
         return new JsonResponse([
@@ -124,15 +150,16 @@ final class HomeController extends AbstractController
     }
 
     #[Route('/api/dashboard/top-family-sales', name: 'api_dashboard_top_family_sales')]
-    public function getTopFamilySales(): JsonResponse
+    public function getTopFamilySales(Request $request): JsonResponse
     {
-        $data = $this->mainDashboard->getTopFamilySales();
-        $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
+        $network = $this->getNetworkFromRequest($request);
 
+        $data = $this->mainDashboard->getTopFamilySales($network);
+        $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
         $dataArray = array_map(fn($item) => (array) $item, $dataUtf8);
 
         $labels = array_column($dataArray, 'ItemFamilyCode');
-        $values = array_column($dataArray, 'TotalSales');
+        $values = array_map(fn($value) => round((float) $value, 2), array_column($dataArray, 'TotalSales'));
 
         return new JsonResponse([
             'labels' => $labels,
@@ -141,20 +168,23 @@ final class HomeController extends AbstractController
     }
 
     #[Route('/api/dashboard/top-product-sales', name: 'api_dashboard_top_product_sales')]
-    public function getTopProductSales(): JsonResponse
+    public function getTopProductSales(Request $request): JsonResponse
     {
-        $data = $this->mainDashboard->getTopProductsBySales();
+        $network = $this->getNetworkFromRequest($request);
+
+        $data = $this->mainDashboard->getTopProductsBySales($network);
         $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);
     }
 
     #[Route('/api/dashboard/sales-evolution-5y', name: 'api_dashboard_sales_evolution_5y')]
-    public function getSalesEvolution5Years(): JsonResponse
+    public function getSalesEvolution5Years(Request $request): JsonResponse
     {
-        $rawData = $this->mainDashboard->getMonthlySalesEvolutionLast5Years();
-        $dataUtf8 = $this->helpers->convertArrayToUtf8($rawData);
+        $network = $this->getNetworkFromRequest($request);
 
+        $rawData = $this->mainDashboard->getMonthlySalesEvolutionLast5Years($network);
+        $dataUtf8 = $this->helpers->convertArrayToUtf8($rawData);
         $dataArray = array_map(fn($item) => (array) $item, $dataUtf8);
 
         $series = [];
@@ -169,12 +199,14 @@ final class HomeController extends AbstractController
                 $series[$annee] = array_fill(1, 12, 0.0);
             }
 
-            $series[$annee][$mois] = $ca;
+            if ($mois >= 1 && $mois <= 12) {
+                $series[$annee][$mois] = $ca;
+            }
         }
 
-        // Construction du format ApexCharts
         $seriesFormatted = [];
-        ksort($series); // pour avoir les années dans l'ordre
+        ksort($series);
+
         foreach ($series as $annee => $moisData) {
             $seriesFormatted[] = [
                 'name' => (string) $annee,
@@ -189,12 +221,14 @@ final class HomeController extends AbstractController
     }
 
     #[Route('/api/dashboard/ca-today', name: 'api_dashboard_ca_today')]
-    public function getSalesOfToday(): JsonResponse
+    public function getSalesOfToday(Request $request): JsonResponse
     {
-        $ca = $this->mainDashboard->getSalesOfToday();
+        $network = $this->getNetworkFromRequest($request);
+
+        $ca = $this->mainDashboard->getSalesOfToday($network);
 
         return new JsonResponse([
-            'ca_n_j_1' => round($ca, 2),
+            'ca_n_j_1' => round((float) $ca, 2),
         ]);
     }
 

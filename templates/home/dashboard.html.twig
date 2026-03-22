@@ -272,6 +272,7 @@
                     size: 0
                 }
             };
+
             const exchangeUrlEurUsd = "{{ path('api_dashboard_exchange_rate', { currency: 'EUR' }) }}";
 
             chargerConversionChart(exchangeUrlEurUsd, {
@@ -280,38 +281,33 @@
                 evolution: '#evolution-rate-eur-usd-text'
             }, '#bar-negative-chart-eur-usd', ['#2e62b9', '#fad050']);
 
-            renderSalesYearChart(
-                '{{ path("api_dashboard_ca_par_mois") }}',
-                '#ca_n',
-                '#variation',
-                '#primary-line-chart'
-            );
-
-            renderSalesMonthChart(
-                '{{ path("api_dashboard_sales_current_month") }}',
-                '#ca_nm',
-                '#variation_m',
-                '#warning-line-chart'
-            );
-
-            // Top clients
-            renderTopClientsChart('{{ path("api_dashboard_top_clients") }}', '#chart-top-clients');
-            // Top sociétés ca
-            renderTopCompanySalesChart('{{ path("api_dashboard_top_family_sales") }}', '#chart-top-family-sales', '#table-top-family-sales');
-            // Meilleurs ventes
-            renderTopProductSalesChart('{{ path("api_dashboard_top_product_sales") }}', '#chart-top-product-sales');
-            // CA Evolution sur 5 ans
-            renderSalesEvolutionChart('{{ path("api_dashboard_sales_evolution_5y") }}', '#userflow', '#apex-legend-sales');
-            // CA du Jour
-            chargerCaJour('{{ path("api_dashboard_ca_today") }}');
             renderBacklogClientChart(
                 '{{ path("api_dashboard_backlog_client") }}',
                 '#chart-backlog-client',
                 '#table-backlog-client'
             );
 
+            window.dashboardRoutes = {
+                caParMois: '{{ path("api_dashboard_ca_par_mois") }}',
+                salesCurrentMonth: '{{ path("api_dashboard_sales_current_month") }}',
+                topClients: '{{ path("api_dashboard_top_clients") }}',
+                topFamilySales: '{{ path("api_dashboard_top_family_sales") }}',
+                topProductSales: '{{ path("api_dashboard_top_product_sales") }}',
+                salesEvolution5y: '{{ path("api_dashboard_sales_evolution_5y") }}',
+                caToday: '{{ path("api_dashboard_ca_today") }}'
+            };
 
-        }); // End of use strict
+            const networkSelect = document.querySelector('#network-switcher select');
 
+            if (networkSelect) {
+                networkSelect.value = 'global';
+
+                networkSelect.addEventListener('change', function () {
+                    loadDashboardData();
+                });
+            }
+
+            loadDashboardData();
+        });
     </script>
 {% endblock %}

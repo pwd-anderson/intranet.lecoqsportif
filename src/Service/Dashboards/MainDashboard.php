@@ -25,87 +25,118 @@ class MainDashboard
         $this->mssqlMade2design = $this->mssqlManagerFactory->create($dbLcsSei);
     }
 
-    public function getSalesComparaisonYears(): array
+    private function normalizeNetworkFilter(?string $network): string
+    {
+        return in_array($network, ['global', 'boutique', 'ecom'], true)
+            ? $network
+            : 'global';
+    }
+
+    private function buildMainNetworkWhereClause(string $network, string $column = 'mainnetwork'): string
+    {
+        return match ($this->normalizeNetworkFilter($network)) {
+            'boutique' => " AND {$column} IN ('RETAIL FO', 'CLEARANCE', 'RETAIL CS')",
+            'ecom' => " AND {$column} IN ('RETAIL MARKET PLACE', 'RETAIL ESHOP')",
+            default => '',
+        };
+    }
+
+    public function getSalesComparaisonYears(string $network = 'global'): array
     {
         try {
+            $params = [];
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
+
             $query = "SELECT
-                        SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END) AS ca_n,
+                    SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END) AS ca_n,
 
-                        SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END) AS ca_n_1,
+                    SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END) AS ca_n_1,
 
-                        ROUND(
-                            CASE
-                                WHEN SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END) = 0
-                                    THEN NULL
-                                ELSE
-                                    (
-                                        SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END)
-                                        -
-                                        SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END)
-                                    )
-                                    /
+                    ROUND(
+                        CASE
+                            WHEN SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END) = 0
+                                THEN NULL
+                            ELSE
+                                (
+                                    SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END)
+                                    -
                                     SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END)
-                                    * 100
-                            END
-                        , 2) AS variation_pourcent
+                                )
+                                /
+                                SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END)
+                                * 100
+                        END
+                    , 2) AS variation_pourcent
 
-                    FROM MASTER_TABLES.INTRANET_SALES_DAILY
-                    WHERE
+                FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV
+                WHERE
+                    (
                         (mois < MONTH(GETDATE()))
-                        OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE()));";
+                        OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE()))
+                    )
+                    {$networkWhere};";
 
-            $dataGraph = $this->mssqlMade2design->executeQuery($query);
-            return $dataGraph;
+            return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ OGIER Erreur Dashboard : Récupération de données Conversion Rate', $e);
             $this->logger->error('Error Récupération de données Conversion Rate', ['exception' => $e]);
+            return [];
         }
     }
 
-    public function getSalesComparaisonByMonths(): array
+    public function getSalesComparaisonByMonths(string $network = 'global'): array
     {
         try {
+            $params = [];
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
+
             $query = "SELECT
                     mois,
                     SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END) AS ca_n,
                     SUM(CASE WHEN annee = YEAR(GETDATE())-1 THEN ca ELSE 0 END) AS ca_n_1
-                FROM MASTER_TABLES.INTRANET_SALES_DAILY
+                FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV
+                WHERE 1 = 1
+                {$networkWhere}
                 GROUP BY mois
                 ORDER BY mois;";
 
-            $dataGraph = $this->mssqlMade2design->executeQuery($query);
-            return $dataGraph;
+            return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ OGIER Erreur Dashboard : Récupération de données Conversion Rate', $e);
             $this->logger->error('Error Récupération de données Conversion Rate', ['exception' => $e]);
+            return [];
         }
     }
 
-    public function getSalesComparaisonCurrentMonthByDay(): array
+    public function getSalesComparaisonCurrentMonthByDay(string $network = 'global'): array
     {
         try {
+            $params = [];
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
+
             $query = "SELECT
-                        jour,
-                        SUM(CASE
-                                WHEN annee = YEAR(GETDATE())
-                                 AND jour <= DAY(GETDATE())
-                                THEN ca ELSE 0
-                            END) AS ca_n,
+                    jour,
+                    SUM(CASE
+                            WHEN annee = YEAR(GETDATE())
+                             AND jour <= DAY(GETDATE())
+                            THEN ca ELSE 0
+                        END) AS ca_n,
 
-                        SUM(CASE
-                                WHEN annee = YEAR(GETDATE()) - 1
-                                 AND jour <= DAY(GETDATE())
-                                THEN ca ELSE 0
-                            END) AS ca_n_1
+                    SUM(CASE
+                            WHEN annee = YEAR(GETDATE()) - 1
+                             AND jour <= DAY(GETDATE())
+                            THEN ca ELSE 0
+                        END) AS ca_n_1
 
-                    FROM MASTER_TABLES.INTRANET_SALES_DAILY
-                    WHERE
-                        mois = MONTH(GETDATE())
-                        AND jour <= DAY(GETDATE())
-                    GROUP BY jour
-                    ORDER BY jour;";
+                FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV
+                WHERE
+                    mois = MONTH(GETDATE())
+                    AND jour <= DAY(GETDATE())
+                    {$networkWhere}
+                GROUP BY jour
+                ORDER BY jour;";
 
             return $this->mssqlMade2design->executeQuery($query);
 
@@ -116,41 +147,45 @@ class MainDashboard
         }
     }
 
-    public function getSalesComparaisonCurrentMonth(): array
+    public function getSalesComparaisonCurrentMonth(string $network = 'global'): array
     {
         try {
+            $networkWhere = $this->buildMainNetworkWhereClause($network, 'd.mainnetwork');
+
             $query = "WITH bornes AS (
-    SELECT
-        DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS start_n,
-        DATEADD(DAY, -1, CAST(GETDATE() AS DATE)) AS end_n,
+                SELECT
+                    DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS start_n,
+                    DATEADD(DAY, -1, CAST(GETDATE() AS DATE)) AS end_n,
 
-        DATEFROMPARTS(YEAR(GETDATE()) - 1, MONTH(GETDATE()), 1) AS start_n1,
-        DATEADD(YEAR, -1, DATEADD(DAY, -1, CAST(GETDATE() AS DATE))) AS end_n1
-)
+                    DATEFROMPARTS(YEAR(GETDATE()) - 1, MONTH(GETDATE()), 1) AS start_n1,
+                    DATEADD(YEAR, -1, DATEADD(DAY, -1, CAST(GETDATE() AS DATE))) AS end_n1
+            )
 
-SELECT
-    SUM(CASE WHEN d.date BETWEEN b.start_n AND b.end_n THEN d.ca ELSE 0 END) AS ca_n,
+            SELECT
+                SUM(CASE WHEN d.date BETWEEN b.start_n AND b.end_n THEN d.ca ELSE 0 END) AS ca_n,
 
-    SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END) AS ca_n_1,
+                SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END) AS ca_n_1,
 
-    ROUND(
-        CASE
-            WHEN SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END) = 0
-                THEN NULL
-            ELSE
-                (
-                    SUM(CASE WHEN d.date BETWEEN b.start_n AND b.end_n THEN d.ca ELSE 0 END)
-                    -
-                    SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END)
-                )
-                /
-                SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END)
-                * 100
-        END
-    , 2) AS variation_pourcent
+                ROUND(
+                    CASE
+                        WHEN SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END) = 0
+                            THEN NULL
+                        ELSE
+                            (
+                                SUM(CASE WHEN d.date BETWEEN b.start_n AND b.end_n THEN d.ca ELSE 0 END)
+                                -
+                                SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END)
+                            )
+                            /
+                            SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END)
+                            * 100
+                    END
+                , 2) AS variation_pourcent
 
-FROM MASTER_TABLES.INTRANET_SALES_DAILY d
-CROSS JOIN bornes b;";
+            FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV d
+            CROSS JOIN bornes b
+            WHERE 1 = 1
+            {$networkWhere};";
 
             return $this->mssqlMade2design->executeQuery($query);
 
@@ -161,30 +196,37 @@ CROSS JOIN bornes b;";
         }
     }
 
-    public function getTopClients(): array
+    public function getTopClients(string $network = 'global'): array
     {
         try {
+            $params = [];
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
+
             $query = "
-                    SELECT TOP 10
-                        customer_name as CustomerName,
-                        SUM(ca) AS TotalCA_EUR
-                    FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
-                    WHERE annee = YEAR(GETDATE())
-                    GROUP BY customer_name
-                    ORDER BY TotalCA_EUR DESC;";
+            SELECT TOP 10
+                customer_name as CustomerName,
+                SUM(ca) AS TotalCA_EUR
+            FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR_DEV
+            WHERE annee = YEAR(GETDATE())
+            {$networkWhere}
+            GROUP BY customer_name
+            ORDER BY TotalCA_EUR DESC;";
 
             return $this->mssqlMade2design->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Dashboard : Top Clients', $e);
-            $this->logger->error(' LCS Erreur Top Clients', ['exception' => $e]);
+            $this->logger->error('LCS Erreur Top Clients', ['exception' => $e]);
             return [];
         }
     }
 
-    public function getTopFamilySales(): array
+    public function getTopFamilySales(string $network = 'global'): array
     {
         try {
+            $params = [];
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
+
             $query = "SELECT
                     CASE
                         WHEN item_family_code = 'FTW' THEN 'FOOTWEAR'
@@ -192,8 +234,9 @@ CROSS JOIN bornes b;";
                         WHEN item_family_code = 'HDW' THEN 'HARDWARE'
                     END AS ItemFamilyCode,
                     SUM(ca) AS TotalSales
-                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
+                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR_DEV
                 WHERE annee = YEAR(GETDATE())
+                {$networkWhere}
                 GROUP BY item_family_code
                 ORDER BY TotalSales DESC;";
 
@@ -206,23 +249,26 @@ CROSS JOIN bornes b;";
         }
     }
 
-    public function getTopProductsBySales(): array
+    public function getTopProductsBySales(string $network = 'global'): array
     {
         try {
+            $params = [];
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
+
             $query = "SELECT TOP 5
-                        item_no as ItemNo,
-                        item_description as ItemDescription,
-                        SUM(ca) AS TotalSales
-                    FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
-                    WHERE annee = YEAR(GETDATE())
-                    GROUP BY item_no, item_description
-                    ORDER BY TotalSales DESC;";
+                    item_no as ItemNo,
+                    item_description as ItemDescription,
+                    SUM(ca) AS TotalSales
+                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR_DEV
+                WHERE annee = YEAR(GETDATE())
+                {$networkWhere}
+                GROUP BY item_no, item_description
+                ORDER BY TotalSales DESC;";
 
             $rows = $this->mssqlMade2design->executeQuery($query);
 
             $out = [];
             foreach ($rows as $r) {
-
                 $itemNo = trim((string)($r->ItemNo ?? ''));
                 if ($itemNo === '') {
                     continue;
@@ -231,10 +277,10 @@ CROSS JOIN bornes b;";
                 $safeItemNo = rawurlencode($itemNo);
 
                 $out[] = [
-                    'image'  => "https://www.lecoqbiz.com/CMS/Images/Small/{$safeItemNo}.jpg",
-                    'code'   => $itemNo,
-                    'label'  => (string)($r->ItemDescription ?? ''),
-                    'value'  => (float)($r->TotalSales ?? 0),
+                    'image' => "https://www.lecoqbiz.com/CMS/Images/Small/{$safeItemNo}.jpg",
+                    'code'  => $itemNo,
+                    'label' => (string)($r->ItemDescription ?? ''),
+                    'value' => (float)($r->TotalSales ?? 0),
                 ];
             }
 
@@ -247,14 +293,24 @@ CROSS JOIN bornes b;";
         }
     }
 
-    public function getMonthlySalesEvolutionLast5Years(): array
+    public function getMonthlySalesEvolutionLast5Years(string $network = 'global'): array
     {
         try {
-            $query = "SELECT annee, mois, ca as ca_mensuel
-                    FROM MASTER_TABLES.INTRANET_SALES_AGG_MONTH
-                    ORDER BY annee, mois;";
+            $params = [];
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
+
+            $query = "SELECT
+                    annee,
+                    mois,
+                    SUM(ca) as ca_mensuel
+                FROM MASTER_TABLES.INTRANET_SALES_AGG_MONTH_DEV
+                WHERE 1 = 1
+                {$networkWhere}
+                GROUP BY annee, mois
+                ORDER BY annee, mois;";
 
             return $this->mssqlMade2design->executeQuery($query);
+
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur Dashboard : Évolution 5 ans', $e);
             $this->logger->error('Erreur CA mensuel 5 ans', ['exception' => $e]);
@@ -262,31 +318,36 @@ CROSS JOIN bornes b;";
         }
     }
 
-    public function getSalesOfToday(): ?float
+    public function getSalesOfToday(string $network = 'global'): ?float
     {
         try {
+            $params = [];
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
+
             $query = "
             SELECT
-            SUM(CASE
-                    WHEN annee = YEAR(GETDATE())
-                     AND mois = MONTH(GETDATE())
-                     AND jour = DAY(GETDATE()) - 1
-                    THEN ca ELSE 0
-                END) AS ca_n_j_1,
+                SUM(CASE
+                        WHEN annee = YEAR(GETDATE())
+                         AND mois = MONTH(GETDATE())
+                         AND jour = DAY(GETDATE()) - 1
+                        THEN ca ELSE 0
+                    END) AS ca_n_j_1,
 
-            SUM(CASE
-                    WHEN annee = YEAR(GETDATE()) - 1
-                     AND mois = MONTH(GETDATE())
-                     AND jour = DAY(GETDATE()) - 1
-                    THEN ca ELSE 0
-                END) AS ca_n_1_j_1
+                SUM(CASE
+                        WHEN annee = YEAR(GETDATE()) - 1
+                         AND mois = MONTH(GETDATE())
+                         AND jour = DAY(GETDATE()) - 1
+                        THEN ca ELSE 0
+                    END) AS ca_n_1_j_1
 
-        FROM MASTER_TABLES.INTRANET_SALES_DAILY;";
+            FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV
+            WHERE 1 = 1
+            {$networkWhere};";
 
             $result = $this->mssqlMade2design->executeQuery($query);
-            //dd($result[0]->ca_jour);
 
             return $result[0]->ca_n_j_1 ?? 0;
+
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Dashboard : CA du jour', $e);
             $this->logger->error('LCS Erreur CA du jour', ['exception' => $e]);
@@ -417,7 +478,8 @@ CROSS JOIN bornes b;";
             item_family_code,
             item_no,
             item_description,
-            ca
+            ca,
+            mainnetwork
         )
 
         SELECT
@@ -427,7 +489,8 @@ CROSS JOIN bornes b;";
             COLL.ITEMFAMILYCODE,
             I.ITEMNO,
             COLL.ITEMDESC,
-            SUM(I.AMOUNTEURTM) AS ca
+            SUM(I.AMOUNTEURTM) AS ca,
+            CUST.MAINNETWORK AS mainnetwork
 
         FROM SEI_X3_LCS.CONSO_INVOICES I
 
