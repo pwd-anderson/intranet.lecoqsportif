@@ -281,12 +281,6 @@
                 evolution: '#evolution-rate-eur-usd-text'
             }, '#bar-negative-chart-eur-usd', ['#2e62b9', '#fad050']);
 
-            renderBacklogClientChart(
-                '{{ path("api_dashboard_backlog_client") }}',
-                '#chart-backlog-client',
-                '#table-backlog-client'
-            );
-
             window.dashboardRoutes = {
                 caParMois: '{{ path("api_dashboard_ca_par_mois") }}',
                 salesCurrentMonth: '{{ path("api_dashboard_sales_current_month") }}',
@@ -294,7 +288,8 @@
                 topFamilySales: '{{ path("api_dashboard_top_family_sales") }}',
                 topProductSales: '{{ path("api_dashboard_top_product_sales") }}',
                 salesEvolution5y: '{{ path("api_dashboard_sales_evolution_5y") }}',
-                caToday: '{{ path("api_dashboard_ca_today") }}'
+                caToday: '{{ path("api_dashboard_ca_today") }}',
+                backlogClient: '{{ path("api_dashboard_backlog_client") }}'
             };
 
             const networkSelect = document.querySelector('#network-switcher select');

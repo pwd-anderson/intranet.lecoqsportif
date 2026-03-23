@@ -650,4 +650,5 @@ function loadDashboardData() {
     renderTopProductSalesChart(window.dashboardRoutes.topProductSales, '#chart-top-product-sales');
     renderSalesEvolutionChart(window.dashboardRoutes.salesEvolution5y, '#userflow', '#apex-legend-sales');
     chargerCaJour(window.dashboardRoutes.caToday);
+    renderBacklogClientChart(window.dashboardRoutes.backlogClient, '#chart-backlog-client', '#table-backlog-client');
 }
