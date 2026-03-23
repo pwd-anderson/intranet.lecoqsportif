@@ -68,7 +68,7 @@ class MainDashboard
                         END
                     , 2) AS variation_pourcent
 
-                FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV
+                FROM MASTER_TABLES.INTRANET_SALES_DAILY
                 WHERE
                     (
                         (mois < MONTH(GETDATE()))
@@ -95,7 +95,7 @@ class MainDashboard
                     mois,
                     SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END) AS ca_n,
                     SUM(CASE WHEN annee = YEAR(GETDATE())-1 THEN ca ELSE 0 END) AS ca_n_1
-                FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV
+                FROM MASTER_TABLES.INTRANET_SALES_DAILY
                 WHERE 1 = 1
                 {$networkWhere}
                 GROUP BY mois
@@ -130,7 +130,7 @@ class MainDashboard
                             THEN ca ELSE 0
                         END) AS ca_n_1
 
-                FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV
+                FROM MASTER_TABLES.INTRANET_SALES_DAILY
                 WHERE
                     mois = MONTH(GETDATE())
                     AND jour <= DAY(GETDATE())
@@ -182,7 +182,7 @@ class MainDashboard
                     END
                 , 2) AS variation_pourcent
 
-            FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV d
+            FROM MASTER_TABLES.INTRANET_SALES_DAILY d
             CROSS JOIN bornes b
             WHERE 1 = 1
             {$networkWhere};";
@@ -206,7 +206,7 @@ class MainDashboard
             SELECT TOP 10
                 customer_name as CustomerName,
                 SUM(ca) AS TotalCA_EUR
-            FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR_DEV
+            FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
             WHERE annee = YEAR(GETDATE())
             {$networkWhere}
             GROUP BY customer_name
@@ -234,7 +234,7 @@ class MainDashboard
                         WHEN item_family_code = 'HDW' THEN 'HARDWARE'
                     END AS ItemFamilyCode,
                     SUM(ca) AS TotalSales
-                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR_DEV
+                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
                 WHERE annee = YEAR(GETDATE())
                 {$networkWhere}
                 GROUP BY item_family_code
@@ -259,7 +259,7 @@ class MainDashboard
                     item_no as ItemNo,
                     item_description as ItemDescription,
                     SUM(ca) AS TotalSales
-                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR_DEV
+                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
                 WHERE annee = YEAR(GETDATE())
                 {$networkWhere}
                 GROUP BY item_no, item_description
@@ -303,7 +303,7 @@ class MainDashboard
                     annee,
                     mois,
                     SUM(ca) as ca_mensuel
-                FROM MASTER_TABLES.INTRANET_SALES_AGG_MONTH_DEV
+                FROM MASTER_TABLES.INTRANET_SALES_AGG_MONTH
                 WHERE 1 = 1
                 {$networkWhere}
                 GROUP BY annee, mois
@@ -340,7 +340,7 @@ class MainDashboard
                         THEN ca ELSE 0
                     END) AS ca_n_1_j_1
 
-            FROM MASTER_TABLES.INTRANET_SALES_DAILY_DEV
+            FROM MASTER_TABLES.INTRANET_SALES_DAILY
             WHERE 1 = 1
             {$networkWhere};";
 
@@ -355,15 +355,18 @@ class MainDashboard
         }
     }
 
-    public function getBacklogClientDonut(): array
+    public function getBacklogClientDonut(string $network = 'global'): array
     {
         try {
+            $networkWhere = $this->buildMainNetworkWhereClause($network);
             $query = "
             SELECT
                 retard,
                 SUM(quantite) AS quantite,
                 SUM(montant_ht_eur) AS montant
             FROM MASTER_TABLES.INTRANET_BACKLOG_CLI
+            where 1 = 1
+            {$networkWhere}
             GROUP BY retard
             ORDER BY
                 CASE retard
