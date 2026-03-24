@@ -64,7 +64,12 @@ window.AgGridCommon = (function () {
 
         // Initial load
         if (config.dataUrl) {
-            window.AgGridCommon.reloadData(gridOptions, config.dataUrl, config.totalColumns);
+            window.AgGridCommon.reloadData(
+                gridOptions,
+                config.dataUrl,
+                config.totalColumns,
+                config.stateKey
+            );
         }
 
         window.onBtExportExcel = function () {
@@ -78,28 +83,140 @@ window.AgGridCommon = (function () {
         return gridOptions;
     }
 
-    function reloadData(gridOptions, dataUrl, totalColumns) {
+    function showGridLoader() {
+        const loader = document.getElementById('gridCustomLoader');
+        const grid = document.getElementById('myGrid');
+
+        if (loader) {
+            loader.style.display = 'flex';
+        }
+
+        if (grid) {
+            grid.style.visibility = 'hidden';
+        }
+    }
+
+    function hideGridLoader() {
+        const loader = document.getElementById('gridCustomLoader');
+        const grid = document.getElementById('myGrid');
+
+        if (loader) {
+            loader.style.display = 'none';
+        }
+
+        if (grid) {
+            grid.style.visibility = 'visible';
+        }
+    }
+
+    function reloadData(gridOptions, dataUrl, totalColumns, stateKey) {
+        showGridLoader();
         gridOptions.api.showLoadingOverlay();
 
         fetch(dataUrl)
             .then(response => response.json())
             .then(data => {
                 gridOptions.api.setRowData(data);
-                gridOptions.api.hideOverlay();
-                updateRowCountAndTotals(gridOptions, totalColumns);
-                gridOptions.api.addEventListener('filterChanged', function () {
+
+                if (stateKey) {
+                    setTimeout(() => {
+                        loadGridState(gridOptions, stateKey);
+                        updateRowCountAndTotals(gridOptions, totalColumns);
+                        gridOptions.api.hideOverlay();
+                        hideGridLoader();
+                    }, 50);
+                } else {
+                    gridOptions.api.hideOverlay();
                     updateRowCountAndTotals(gridOptions, totalColumns);
-                });
+                    hideGridLoader();
+                }
+
+                if (!gridOptions._agGridCommonFilterListenerAdded) {
+                    gridOptions.api.addEventListener('filterChanged', function () {
+                        updateRowCountAndTotals(gridOptions, totalColumns);
+                    });
+
+                    gridOptions.api.addEventListener('sortChanged', function () {
+                        updateRowCountAndTotals(gridOptions, totalColumns);
+                    });
+
+                    gridOptions._agGridCommonFilterListenerAdded = true;
+                }
             })
             .catch(err => {
                 console.error(err);
                 gridOptions.api.showNoRowsOverlay();
+                hideGridLoader();
             });
+    }
+
+    function saveGridState(gridOptions, stateKey) {
+        if (!gridOptions || !gridOptions.api || !gridOptions.columnApi || !stateKey) {
+            return;
+        }
+
+        const state = {
+            columnState: gridOptions.columnApi.getColumnState(),
+            filterModel: gridOptions.api.getFilterModel(),
+            savedAt: new Date().toISOString()
+        };
+
+        localStorage.setItem(stateKey, JSON.stringify(state));
+    }
+
+    function loadGridState(gridOptions, stateKey) {
+        if (!gridOptions || !gridOptions.api || !gridOptions.columnApi || !stateKey) {
+            return;
+        }
+
+        const rawState = localStorage.getItem(stateKey);
+
+        if (!rawState) {
+            return;
+        }
+
+        try {
+            const state = JSON.parse(rawState);
+
+            if (state.columnState && Array.isArray(state.columnState)) {
+                gridOptions.columnApi.applyColumnState({
+                    state: state.columnState,
+                    applyOrder: true
+                });
+
+                const orderedColIds = state.columnState
+                    .map(col => col.colId)
+                    .filter(Boolean);
+
+                if (orderedColIds.length > 0) {
+                    gridOptions.columnApi.moveColumns(orderedColIds, 0);
+                }
+            }
+
+            if (state.filterModel) {
+                gridOptions.api.setFilterModel(state.filterModel);
+            }
+
+            gridOptions.api.refreshHeader();
+            gridOptions.api.onFilterChanged();
+
+        } catch (e) {
+            console.error('Erreur lors du chargement de la configuration ag-Grid :', e);
+        }
+    }
+
+    function clearGridState(stateKey) {
+        if (!stateKey) {
+            return;
+        }
+
+        localStorage.removeItem(stateKey);
     }
 
     function updateRowCountAndTotals(gridOptions, totalColumns = []) {
         const rowCount = gridOptions.api.getDisplayedRowCount();
         const rowCountElement = document.getElementById('rowCount');
+
         if (rowCountElement) {
             rowCountElement.textContent = `${rowCount} lignes`;
         }
@@ -223,6 +340,9 @@ window.AgGridCommon = (function () {
     return {
         initGrid: initGrid,
         reloadData: reloadData,
-        updateTotals: updateRowCountAndTotals
+        updateTotals: updateRowCountAndTotals,
+        saveGridState: saveGridState,
+        loadGridState: loadGridState,
+        clearGridState: clearGridState
     };
 })();
