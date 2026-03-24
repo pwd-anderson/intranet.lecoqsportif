@@ -67,3 +67,10 @@ WHERE
 	AND PL.Type = 2
     AND PL.[Outstanding Quantity] <> 0
     AND PH.CompanyCode = 'LCSI BV'
+    AND PL.Quantity <> 0
+    AND PL.No_ NOT LIKE 'F%'
+    AND PL.No_ NOT LIKE 'TB%'
+    AND PL.No_ NOT LIKE 'TT%'
+    AND PL.No_ NOT LIKE 'A-P%'
+    AND PL.No_ NOT LIKE 'A-C%'
+    AND PL.No_ NOT LIKE 'DIV%'
