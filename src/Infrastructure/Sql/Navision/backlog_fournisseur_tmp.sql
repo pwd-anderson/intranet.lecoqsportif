@@ -63,8 +63,7 @@ LEFT JOIN DB_Datalake.[nav].[Purchase Line] PL ON PH.No_ = PL.[Document No_] and
 LEFT JOIN DB_Datalake.[nav].Vendor V ON V.CompanyCode = PH.CompanyCode AND PH.[Buy-from Vendor No_] = V.No_
 LEFT JOIN BI.DWH.D_Item ITEM ON ITEM.ItemNo = PL.No_
 WHERE
-	PH.Status = 0
-	AND PH.[Document Type] = 1
+	PH.[Document Type] = 1
 	AND PL.Type = 2
     AND PL.[Outstanding Quantity] <> 0
     AND PH.CompanyCode = 'LCSI BV'
