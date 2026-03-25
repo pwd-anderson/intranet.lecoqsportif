@@ -33,9 +33,9 @@ SELECT distinct
     END AS STATUS
     ,PH.[Your Reference] as REF_INTERNE
 	,CAST(PL.[Outstanding Quantity] as float) AS QUANTITE
-	,PL.[Outstanding Amount] AS MONTANT_DEVISE
+	,ISNULL(PL.[Outstanding Quantity] * (PL.[Line Amount] / NULLIF(PL.Quantity, 0)), 0) AS MONTANT_DEVISE
 	,PL.[Currency Code] AS DEVISE
-    ,PL.[Outstanding Amount (LCY)] AS MONTANT_EUR
+    ,ISNULL(PL.[Outstanding Quantity] * (PL.[Line Amount (LCY)] / NULLIF(PL.Quantity, 0)), 0) AS MONTANT_EUR
     ,PH.[Shipment Method Code] AS INCOTERM
     ,CASE PH.[Transport Method]
         WHEN 1 THEN 'Transport maritime - By Boat'
