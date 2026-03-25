@@ -56,6 +56,19 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+
+        .grid-actions-hidden {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .grid-actions-visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.2s ease-in-out;
+        }
     </style>
 {% endblock %}
 
@@ -67,8 +80,7 @@
 
                     <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
                         <h3 class="box-title mb-0">{{ title }}</h3>
-                        <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
-                            </select>
+                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
                             {% if type == 'stock_composant' %}
                                 <select id="familleSelect"
                                         class="form-select form-select-sm"
@@ -106,7 +118,7 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.6"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.7"></script>
 
     <script>
         const currentYear = new Date().getFullYear();

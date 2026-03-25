@@ -64,6 +64,8 @@ window.AgGridCommon = (function () {
 
         // Initial load
         if (config.dataUrl) {
+            hideGridActions();
+
             window.AgGridCommon.reloadData(
                 gridOptions,
                 config.dataUrl,
@@ -109,7 +111,26 @@ window.AgGridCommon = (function () {
         }
     }
 
+    function hideGridActions() {
+        const actions = document.getElementById('gridActions');
+
+        if (actions) {
+            actions.classList.remove('grid-actions-visible');
+            actions.classList.add('grid-actions-hidden');
+        }
+    }
+
+    function showGridActions() {
+        const actions = document.getElementById('gridActions');
+
+        if (actions) {
+            actions.classList.remove('grid-actions-hidden');
+            actions.classList.add('grid-actions-visible');
+        }
+    }
+
     function reloadData(gridOptions, dataUrl, totalColumns, stateKey) {
+        hideGridActions();
         showGridLoader();
         gridOptions.api.showLoadingOverlay();
 
@@ -124,11 +145,13 @@ window.AgGridCommon = (function () {
                         updateRowCountAndTotals(gridOptions, totalColumns);
                         gridOptions.api.hideOverlay();
                         hideGridLoader();
+                        showGridActions();
                     }, 50);
                 } else {
                     gridOptions.api.hideOverlay();
                     updateRowCountAndTotals(gridOptions, totalColumns);
                     hideGridLoader();
+                    showGridActions();
                 }
 
                 if (!gridOptions._agGridCommonFilterListenerAdded) {
@@ -147,6 +170,7 @@ window.AgGridCommon = (function () {
                 console.error(err);
                 gridOptions.api.showNoRowsOverlay();
                 hideGridLoader();
+                showGridActions();
             });
     }
 
@@ -407,6 +431,8 @@ window.AgGridCommon = (function () {
         saveGridState: saveGridState,
         loadGridState: loadGridState,
         clearGridState: clearGridState,
-        patchSidebarCheckboxes: patchSidebarCheckboxes
+        patchSidebarCheckboxes: patchSidebarCheckboxes,
+        showGridActions: showGridActions,
+        hideGridActions: hideGridActions
     };
 })();
