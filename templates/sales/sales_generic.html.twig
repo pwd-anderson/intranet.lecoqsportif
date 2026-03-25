@@ -14,6 +14,42 @@
         .ag-text-field-input {
             color: #000000 !important;
         }
+
+        .grid-wrapper {
+            position: relative;
+            min-height: 1000px;
+        }
+
+        .grid-custom-loader {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            z-index: 10;
+        }
+
+        .grid-loader-spinner {
+            width: 42px;
+            height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        .grid-loader-text {
+            font-size: 14px;
+            color: #555;
+        }
+
+        @keyframes gridSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 {% endblock %}
 
@@ -27,15 +63,23 @@
                         <h3 class="box-title mb-0">{{ title }}</h3>
                         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
                             </select>
+                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-success" type="button">Save</button>
+                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-secondary" type="button">Reset</button>
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
-                            <button id="exportBtn" class="btn btn-info btn-sm" type="button" onclick="onBtnExportCSV()">CSV</button>
                             <span id="rowCount" class="text-muted small"></span>
                         </div>
                     </div>
                     <!-- /.box-header -->
                     <div class="box-body">
                         <div class="table-responsive-sm">
-                            <div id="myGrid" class="ag-theme-alpine" style="height: 1000px;"></div>
+                            <div id="myGridWrapper" class="grid-wrapper">
+                                <div id="gridCustomLoader" class="grid-custom-loader">
+                                    <div class="grid-loader-spinner"></div>
+                                    <div class="grid-loader-text">Chargement de la grille...</div>
+                                </div>
+
+                                <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -59,12 +103,44 @@
             dataUrl: '{{ dataUrl }}',
             numericColumns: {{ numericColumns|json_encode|raw }},
             integerColumns: {{ integerColumns|json_encode|raw }},
-            totalColumns: {{ totalColumns|json_encode|raw }}
+            totalColumns: {{ totalColumns|json_encode|raw }},
+            headerClass: 'excelHeaderBlue',
+            stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
+
+            excelStyles: [
+                {
+                    id: 'excelHeaderBlue',
+                    font: { bold: true, color: '#FFFFFF' },
+                    alignment: { horizontal: 'Center' },
+                    interior: { color: '#024185', pattern: 'Solid' }
+                }
+            ]
         };
 
         document.addEventListener('DOMContentLoaded', () => {
 
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+            window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+
+            const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
+            const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
+
+            window.onBtExportExcel = function () {
+                window.gridOptions.api.exportDataAsExcel({
+                    fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
+                    processHeaderCallback: p => p.column.getColDef().headerName,
+                });
+            };
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.saveGridState(window.gridOptions, agGridConfig.stateKey);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.clearGridState(agGridConfig.stateKey);
+                location.reload();
+            });
         });
     </script>
 {% endblock %}

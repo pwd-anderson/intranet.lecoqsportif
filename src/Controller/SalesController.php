@@ -123,6 +123,7 @@ final class SalesController extends AbstractController
             'integerColumns' => $grid['integerColumns'],
             'totalColumns'   => $grid['totalColumns'],
             'dataUrl'        => $this->generateUrl($gridConfig['jsonRoute']),
+            'type' => $type,
         ]);
     }
 
