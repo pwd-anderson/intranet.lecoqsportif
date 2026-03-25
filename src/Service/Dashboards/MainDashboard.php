@@ -420,19 +420,20 @@ class MainDashboard
 
             // 2️⃣ recalcul des données
             $insertQuery = "
-        INSERT INTO [MASTER_TABLES].[INTRANET_SALES_AGG_MONTH] (annee, mois, ca)
+        INSERT INTO [MASTER_TABLES].[INTRANET_SALES_AGG_MONTH] (annee, mois, mainnetwork, ca)
 
         SELECT
             YEAR(I.DOCUMENTPOSTINGDATE) AS annee,
             MONTH(I.DOCUMENTPOSTINGDATE) AS mois,
+            CUST.MAINNETWORK AS mainnetwork,
             SUM(I.AMOUNTEURTM) AS ca
-
         FROM SEI_X3_LCS.CONSO_INVOICES I
-
         LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
             ON I.ITEMNO = C.ITEM_ID
             AND I.SERIESNO = C.SERIESCODE
-
+        LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
+            ON I.COMPANYCODE = CUST.COMPANY_ID
+            AND I.CUSTOMERNO = CUST.CUSTOMER_ID
         WHERE
             I.ISBOHPERIMETERPRODUCT = 1
             AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
@@ -440,11 +441,11 @@ class MainDashboard
             AND I.SOURCE = 'LCS'
             AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
             AND YEAR(I.DOCUMENTPOSTINGDATE) > YEAR(GETDATE()) - 5
-
         GROUP BY
             YEAR(I.DOCUMENTPOSTINGDATE),
-            MONTH(I.DOCUMENTPOSTINGDATE)
-        ";
+            MONTH(I.DOCUMENTPOSTINGDATE),
+            CUST.MAINNETWORK;
+                ";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
@@ -519,7 +520,8 @@ class MainDashboard
             CUST.BILLTONAME,
             COLL.ITEMFAMILYCODE,
             I.ITEMNO,
-            COLL.ITEMDESC
+            COLL.ITEMDESC,
+            CUST.MAINNETWORK
         ";
 
             return $this->mssqlMade2design->insertData($insertQuery);
@@ -555,7 +557,8 @@ class MainDashboard
             annee,
             mois,
             jour,
-            ca
+            ca,
+            mainnetwork
         )
 
         SELECT
@@ -563,13 +566,18 @@ class MainDashboard
             YEAR(I.DOCUMENTPOSTINGDATE) AS annee,
             MONTH(I.DOCUMENTPOSTINGDATE) AS mois,
             DAY(I.DOCUMENTPOSTINGDATE) AS jour,
-            SUM(I.AMOUNTEURTM) AS ca
+            SUM(I.AMOUNTEURTM) AS ca,
+            CUST.MAINNETWORK
 
         FROM SEI_X3_LCS.CONSO_INVOICES I
 
         LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
             ON I.ITEMNO = C.ITEM_ID
             AND I.SERIESNO = C.SERIESCODE
+
+        LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
+    ON I.COMPANYCODE = CUST.COMPANY_ID
+    AND I.CUSTOMERNO = CUST.CUSTOMER_ID
 
         WHERE
             I.ISBOHPERIMETERPRODUCT = 1
@@ -583,7 +591,8 @@ class MainDashboard
             CAST(I.DOCUMENTPOSTINGDATE AS DATE),
             YEAR(I.DOCUMENTPOSTINGDATE),
             MONTH(I.DOCUMENTPOSTINGDATE),
-            DAY(I.DOCUMENTPOSTINGDATE)
+            DAY(I.DOCUMENTPOSTINGDATE),
+            CUST.MAINNETWORK
 
         ORDER BY [date]
         ";
@@ -619,16 +628,22 @@ class MainDashboard
         INSERT INTO MASTER_TABLES.INTRANET_BACKLOG_CLI (
             retard,
             quantite,
-            montant_ht_eur
+            montant_ht_eur,
+            date_refresh,
+            mainnetwork
         )
         SELECT
             retard,
             SUM(OUT_Quantity) AS quantite,
-            SUM(OUT_AmountEur) AS montant_ht_eur
+            SUM(OUT_AmountEur) AS montant_ht_eur,
+            getdate(),
+            mainnetwork
         FROM (
             SELECT
                 s.OUT_Quantity,
                 s.OUT_AmountEur,
+                s.CustomerNo,
+                CUST.MAINNETWORK as mainnetwork,
 
                 CASE
                     WHEN o.RequestedDeliveryDate_L <= EOMONTH(GETDATE()) THEN 'MOIS'
@@ -645,14 +660,17 @@ class MainDashboard
                 AND s.OrderDocumentLineNo = o.OrderDocumentLineNo
                 AND s.VariantCode = o.VariantCode
 
+            LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
+    ON s.CompanyCode = CUST.COMPANY_ID
+    AND s.CustomerNo = CUST.CUSTOMER_ID
+
             WHERE s.CompanyCode = 'LCSI BV'
               AND s.OUT_Quantity <> 0
               AND s.IsBohPerimeter = 1
               AND s.LocationCode IN ('DIRECT', 'DT-WHS-TH', 'LOGTXM-1', 'SF-WHS-CN1')
               AND s.SalesOrderType IN ('CO', 'OP', 'PS', 'RE')
-
-        ) t
-        GROUP BY retard
+            ) t
+        GROUP BY retard, mainnetwork
         ";
 
             return $this->mssqlMade2design->insertData($insertQuery);
