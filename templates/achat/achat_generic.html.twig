@@ -4,28 +4,12 @@
     {{ parent() }}
     {# Import ag-Grid CSS #}
     <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
-    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
 
     <style>
         .ag-theme-alpine {
             --ag-header-background-color: rgb(2, 65, 133) !important;
             --ag-header-foreground-color: #FFFFFF !important;
         }
-        .ag-text-field-input {
-            color: #000000 !important;
-        }
-
-        .statusLate {
-            background-color: #f8d7da !important;
-            color: #721c24 !important;
-            font-weight: bold;
-        }
-
-        .ag-theme-alpine {
-            --ag-header-background-color: rgb(2, 65, 133) !important;
-            --ag-header-foreground-color: #FFFFFF !important;
-        }
-
         .ag-text-field-input {
             color: #000000 !important;
         }
@@ -135,7 +119,7 @@
             integerColumns: {{ integerColumns|json_encode|raw }},
             totalColumns: {{ totalColumns|json_encode|raw }},
             headerClass: 'excelHeaderBlue',
-            stateKey: 'stats-achats-grid-config-user-ajacob-v1',
+            stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
 
             excelStyles: [
                 {
@@ -154,6 +138,10 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+            window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+
+            const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
+            const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
             window.onBtExportExcel = function () {
                 window.gridOptions.api.exportDataAsExcel({
@@ -164,7 +152,7 @@
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
                 window.AgGridCommon.saveGridState(window.gridOptions, agGridConfig.stateKey);
-                alert('Configuration enregistrée.');
+                saveConfigModal.show();
             });
 
             document.getElementById('resetGridConfigBtn').addEventListener('click', function () {

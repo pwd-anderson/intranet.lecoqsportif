@@ -326,6 +326,69 @@ window.AgGridCommon = (function () {
         return Number(a) - Number(b);
     }
 
+    function patchSidebarCheckboxes(gridSelector) {
+        const gridDiv = document.querySelector(gridSelector);
+
+        if (!gridDiv) {
+            return;
+        }
+
+        const patchOneCheckbox = function (wrapper) {
+            if (!wrapper || wrapper.dataset.checkboxPatched === '1') {
+                return;
+            }
+
+            const input = wrapper.querySelector('input');
+            const label = wrapper.querySelector('label');
+
+            if (!input) {
+                return;
+            }
+
+            wrapper.dataset.checkboxPatched = '1';
+            wrapper.style.cursor = 'pointer';
+
+            // Rend la zone entière cliquable immédiatement
+            wrapper.addEventListener('mousedown', function (e) {
+                // laisse le vrai input / label vivre normalement
+                if (
+                    e.target === input ||
+                    e.target === label ||
+                    (label && label.contains(e.target))
+                ) {
+                    return;
+                }
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                input.checked = !input.checked;
+
+                input.dispatchEvent(new Event('click', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }, true);
+        };
+
+        const bindAll = function () {
+            const checkboxes = gridDiv.querySelectorAll('.ag-column-select-checkbox');
+            checkboxes.forEach(patchOneCheckbox);
+        };
+
+        bindAll();
+
+        const observer = new MutationObserver(function () {
+            bindAll();
+        });
+
+        observer.observe(gridDiv, {
+            childList: true,
+            subtree: true
+        });
+
+        // Optionnel: stocker l'observer sur le DOM si un jour tu veux le couper
+        gridDiv._agSidebarCheckboxObserver = observer;
+    }
+
     window.dateFormatter = dateFormatter;
     window.dateComparator = dateComparator;
     window.dateFilterComparator = dateFilterComparator;
@@ -343,6 +406,7 @@ window.AgGridCommon = (function () {
         updateTotals: updateRowCountAndTotals,
         saveGridState: saveGridState,
         loadGridState: loadGridState,
-        clearGridState: clearGridState
+        clearGridState: clearGridState,
+        patchSidebarCheckboxes: patchSidebarCheckboxes
     };
 })();
