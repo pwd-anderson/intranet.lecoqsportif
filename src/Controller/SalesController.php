@@ -42,6 +42,15 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('commandes_a_facturer');
     }
 
+    #[Route('/sales/reassort', name: 'app_sales_reassort')]
+    public function reassort(): Response
+    {
+        return $this->render('sales/reassort.html.twig', [
+            'title' => 'Réassort Magasin',
+            'dataUrl' => $this->generateUrl('sales_reassort_json'),
+        ]);
+    }
+
     /*
     |--------------------------------------------------------------------------
     |  ROUTES JSON (inchangées)
@@ -66,6 +75,14 @@ final class SalesController extends AbstractController
     public function commandesAFacturerJson(Sales $sales, Helpers $helpers): JsonResponse
     {
         $data = $sales->getCommandesAFacturer();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/reassort_json', name: 'sales_reassort_json')]
+    public function reassortJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getReassort();
+
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 

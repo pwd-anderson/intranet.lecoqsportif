@@ -162,4 +162,27 @@ class Sales
         }
     }
 
+    public function getReassort(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Navision/reassort_tmp.sql');
+            $data = $this->mssqlLcs->executeQuery($query);
+
+            return $data;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError(
+                '❌ LCS Erreur Sales : Récupération de données Reassort clients',
+                $e
+            );
+
+            $this->logger->error(
+                'LCS Erreur Sales : Récupération de données Reassort clients',
+                ['exception' => $e]
+            );
+
+            return [];
+        }
+    }
+
 }
