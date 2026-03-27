@@ -42,6 +42,13 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('commandes_a_facturer');
     }
 
+    #[Route('/sales/commandes_a_facturer_x3', name: 'app_sales_commandes_a_facturer_x3')]
+    public function commandesAFacturerX3Alias(): Response
+    {
+        return $this->salesGeneric('commandes_a_facturer_x3');
+    }
+
+    // ################## Action customisés #####################
     #[Route('/sales/reassort', name: 'app_sales_reassort')]
     public function reassort(): Response
     {
@@ -51,12 +58,7 @@ final class SalesController extends AbstractController
         ]);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    |  ROUTES JSON (inchangées)
-    |--------------------------------------------------------------------------
-    */
-
+    // ################## ROUTES JSON (inchangées) #####################
     #[Route('/sales/livraison_non_facturees_json', name: 'livraison_non_facturees_json')]
     public function livraisonNonFactureesJson(Sales $sales, Helpers $helpers): JsonResponse
     {
@@ -86,6 +88,13 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/sales/commandes_a_facturer_x3_json', name: 'commandes_a_facturer_x3_json')]
+    public function commandesAFacturerX3Json(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getCommandesAFacturerX3();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
     /*
     |--------------------------------------------------------------------------
     |  ROUTE GENERIQUE
@@ -95,7 +104,7 @@ final class SalesController extends AbstractController
     #[Route(
         '/sales/{type}',
         name: 'app_sales_generic',
-        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer']
+        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|livraison_non_facturees_x3']
     )]
     public function salesGeneric(string $type): Response
     {
@@ -116,6 +125,12 @@ final class SalesController extends AbstractController
                 'gridName'  => 'commandes_a_facturer_grid',
                 'title'     => 'Commandes à Facturer (Vue Balance âgée)',
                 'jsonRoute' => 'commandes_a_facturer_json',
+                'template'  => 'sales/sales_generic.html.twig',
+            ],
+            'commandes_a_facturer_x3' => [
+                'gridName'  => 'commandes_a_facturer_x3_grid',
+                'title'     => 'Commandes à Facturer (Vue Balance âgée)',
+                'jsonRoute' => 'commandes_a_facturer_x3_json',
                 'template'  => 'sales/sales_generic.html.twig',
             ],
         ];

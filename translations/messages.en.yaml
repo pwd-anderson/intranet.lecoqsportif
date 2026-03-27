@@ -37,6 +37,7 @@ sidebar:
         backlog_clients: "Backlog Clients"
         kpi_deck_retail: "Retail KPI Deck"
         commandes_a_facturer: "Commandes à Facturer\n(Vue Balance âgée)"
+        commandes_a_facturer_x3: "Commandes à Facturer\n(Vue Balance âgée -> Data X3)"
         reassort_magasin: "Réassort Magasin"
     management:
         ca_marges: "Sales Margins"

@@ -26,6 +26,7 @@ class Sales
     )
     {
         $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
+        $this->mssqlSei = $this->mssqlManagerFactory->create($dbLcsSei);
     }
 
     public function getLivraisonsNonFacturees(): array
@@ -182,6 +183,19 @@ class Sales
             );
 
             return [];
+        }
+    }
+
+    public function getCommandesAFacturerX3(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/commandes_a_facturer_x3.sql');
+            $data = $this->mssqlSei->executeQuery($query);
+            return $data;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Commandes à Facturer X3 : Récupération de données Ventes LCS', $e);
+            $this->logger->error('LCS Erreur Commandes à Facturer X3 : Récupération de données Ventes LCS', ['exception' => $e]);
         }
     }
 
