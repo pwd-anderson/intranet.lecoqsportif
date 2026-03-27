@@ -70,11 +70,20 @@
             }
 
             function percentFormatter(params) {
-                if (params.value === null || params.value === undefined || params.value === '') {
+                if (params.node.rowPinned) {
                     return '';
                 }
 
-                return Number(params.value).toFixed(2) + ' %';
+                const value = Number(params.value);
+
+                if (!isFinite(value)) {
+                    return '0 %';
+                }
+
+                return value.toLocaleString('fr-CH', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2
+                }) + ' %';
             }
 
             function buildSeriesGroup(series) {
@@ -112,7 +121,7 @@
                             filter: 'agNumberColumnFilter',
                             sortable: true,
                             resizable: true,
-                            minWidth: 95,
+                            minWidth: 100,
                             valueFormatter: percentFormatter,
                             cellStyle: integerCellStyle,
                             cellClass: params => {
