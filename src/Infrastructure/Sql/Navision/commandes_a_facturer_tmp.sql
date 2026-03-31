@@ -7,7 +7,7 @@ WITH Base AS (
     C.[Customer Posting Group],
     SH.[Currency Code],
     DATEDIFF(DAY, GETDATE(), [Requested Delivery Date]) AS NbDays,
-    (SL.Quantity - SL.[Quantity Invoiced]) * SL.[Unit Price] AS LineAmount
+    (ISNULL(SL.Quantity,0) - ISNULL(SL.[Quantity Invoiced],0)) * (ISNULL(SL.[Line Amount],0)/ NULLIF(ISNULL(SL.Quantity,0),0)) AS LineAmount
 FROM DB_Datalake.nav.[Sales Line] SL
     LEFT JOIN DB_Datalake.nav.[Sales Header] SH
 ON SH.No_ = SL.[Document No_]
