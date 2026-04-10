@@ -8,14 +8,17 @@ use App\Service\Sales;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final class SalesController extends AbstractController
 {
     public function __construct(
         private AggridOptionRepository $aggridOptionRepository,
         private AgGridColumnBuilder $columnBuilder,
+        private HttpClientInterface $httpClient,
     ) {}
 
     /*
@@ -58,6 +61,16 @@ final class SalesController extends AbstractController
         ]);
     }
 
+    #[Route('/sales/excess_for_sales', name: 'app_sales_excess_for_sales')]
+    public function excessForSales(): Response
+    {
+        return $this->render('sales/excess_for_sales.html.twig', [
+            'title' => 'Excess for Sales',
+            'dataUrl' => $this->generateUrl('sales_excess_for_sales_json'),
+            'tariffGroupsUrl' => $this->generateUrl('sales_excess_for_sales_tariff_groups_json'),
+        ]);
+    }
+
     // ################## ROUTES JSON (inchangées) #####################
     #[Route('/sales/livraison_non_facturees_json', name: 'livraison_non_facturees_json')]
     public function livraisonNonFactureesJson(Sales $sales, Helpers $helpers): JsonResponse
@@ -93,6 +106,124 @@ final class SalesController extends AbstractController
     {
         $data = $sales->getCommandesAFacturerX3();
         return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/excess_for_sales_json', name: 'sales_excess_for_sales_json')]
+    public function excessForSalesJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $tariffGroup = $request->query->get('tariffGroup');
+        $family = $request->query->get('family');
+
+        $data = $sales->getExcessForSales($tariffGroup, $family);
+
+        return new JsonResponse([
+            'variants' => $data['variants'],
+            'rows' => $helpers->convertArrayToUtf8($data['rows']),
+        ]);
+    }
+
+    #[Route('/sales/excess_for_sales_tariff_groups_json', name: 'sales_excess_for_sales_tariff_groups_json')]
+    public function excessForSalesTariffGroupsJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getExcessForSalesTariffGroups();
+
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    ####################### Route Divers ####################
+    #[Route('/sales/excess_for_sales_image/{article}', name: 'sales_excess_for_sales_image', methods: ['GET'])]
+    public function excessForSalesImage(string $article): Response
+    {
+        $article = preg_replace('/[^A-Za-z0-9_-]/', '', $article);
+
+        if (!$article) {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+
+        $remoteUrls = [
+            sprintf('http://www.lecoqbiz.com/CMS/Images/Medium/%s.jpg', $article),
+            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.jpg', $article),
+            sprintf('http://www.lecoqbiz.com/CMS/Images/Medium/%s.png', $article),
+            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.png', $article),
+        ];
+
+        foreach ($remoteUrls as $remoteUrl) {
+            try {
+                $response = $this->httpClient->request('GET', $remoteUrl);
+
+                if ($response->getStatusCode() !== 200) {
+                    continue;
+                }
+
+                $headers = $response->getHeaders(false);
+                $contentType = $headers['content-type'][0] ?? 'image/jpeg';
+                $content = $response->getContent();
+
+                return new Response($content, Response::HTTP_OK, [
+                    'Content-Type' => $contentType,
+                    'Cache-Control' => 'public, max-age=86400',
+                ]);
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+
+        return new Response('', Response::HTTP_NOT_FOUND);
+    }
+
+    #[Route('/sales/excess_for_sales_image_base64/{article}', name: 'sales_excess_for_sales_image_base64', methods: ['GET'])]
+    public function excessForSalesImageBase64(string $article): JsonResponse
+    {
+        $article = preg_replace('/[^A-Za-z0-9_-]/', '', $article);
+
+        if (!$article) {
+            return new JsonResponse([
+                'success' => false,
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        $remoteUrls = [
+            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.jpg', $article),
+            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.jpg', $article),
+            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.png', $article),
+            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.png', $article),
+        ];
+
+        foreach ($remoteUrls as $remoteUrl) {
+            try {
+                $response = $this->httpClient->request('GET', $remoteUrl);
+
+                if ($response->getStatusCode() !== 200) {
+                    continue;
+                }
+
+                $headers = $response->getHeaders(false);
+                $contentType = $headers['content-type'][0] ?? 'image/jpeg';
+                $content = $response->getContent();
+                // On enlève tout risque de chunking ou de retour à la ligne
+                $b64 = base64_encode($content);
+                $b64 = str_replace(["\r", "\n", "\t"], '', $b64);
+
+                $imageType = 'jpg';
+                if (str_contains($contentType, 'png')) {
+                    $imageType = 'png';
+                } elseif (str_contains($contentType, 'gif')) {
+                    $imageType = 'gif';
+                }
+                return new JsonResponse([
+                    'success' => true,
+                    'imageType' => 'jpg',
+                    'base64' => $b64,
+                ]);
+
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+
+        return new JsonResponse([
+            'success' => false,
+        ], Response::HTTP_NOT_FOUND);
     }
 
     /*

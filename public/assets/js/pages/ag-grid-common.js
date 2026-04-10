@@ -39,6 +39,7 @@ window.AgGridCommon = (function () {
         const gridOptions = {
             columnDefs: config.columnDefs,
             excelStyles: config.excelStyles || [],
+            getRowHeight: config.getRowHeight || undefined,
             defaultColDef: {
                 sortable: true,
                 filter: true,

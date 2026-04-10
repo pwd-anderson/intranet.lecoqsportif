@@ -1,0 +1,631 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+
+        .ag-text-field-input {
+            color: #000000 !important;
+        }
+
+        .product-photo-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 2px;
+        }
+
+        .product-info-cell {
+            white-space: normal !important;
+            line-height: 1.1;
+            padding-top: 3px !important;
+            padding-bottom: 3px !important;
+            font-size: 12px;
+        }
+
+        .product-info-cell .product-lines > div {
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .availability-cell {
+            white-space: normal !important;
+            font-size: 12px;
+            line-height: 1.2;
+            padding-top: 3px !important;
+            padding-bottom: 3px !important;
+        }
+
+        .availability-lines > div {
+            margin: 0;
+            padding: 2px 6px;
+            line-height: 1.9;
+        }
+
+        /* On supprime le fond gris global et les paddings de la cellule ag-Grid */
+        .ag-theme-alpine .stock-term-cell {
+            background: transparent !important;
+            padding: 0 !important;
+        }
+
+        /* On crée le design de la petite boîte interne qui contiendra le chiffre */
+        .variant-inner-box {
+            background-color: #e9ecef; /* Ton fond gris */
+            padding: 2px 6px;
+            line-height: 1.9; /* Même hauteur de ligne que ton texte "Availability" */
+            text-align: center; /* Ou "right" si tu préfères */
+            border-bottom: 0.2px solid #CECECEFF;
+            width: 100%;
+            /* Si tu veux forcer environ 1/3 de la hauteur (sur 200px), décommente la ligne ci-dessous : */
+            /* height: 66px; display: flex; align-items: center; justify-content: center; */
+        }
+
+        .product-photo-cell img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 4px;
+
+            /* Image par défaut si le src est vide ou échoue */
+            background-image: url('/assets/images/no-image.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+
+            /* On force une taille minimale pour que le background soit visible même sans src */
+            min-width: 60px;
+            min-height: 60px;
+            display: block;
+        }
+
+        .grid-loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.65);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .grid-loading-box {
+            background: #024185;
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <h3 class="box-title mb-0">{{ title }}</h3>
+
+                        <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                            <select id="tariffGroupSelect" class="form-select form-select-sm" style="width: 220px;"></select>
+
+                            <select id="familySelect" class="form-select form-select-sm" style="width: 140px;">
+                                <option value="HDW">HDW</option>
+                                <option value="FTW">FTW</option>
+                                <option value="APL" selected>APL</option>
+                            </select>
+                            {#
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button">
+                                Excel
+                            </button>
+                            #}
+
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                    <div class="box-body pt-2 position-relative">
+                        <div id="gridLoadingOverlay" class="grid-loading-overlay" style="display: none;">
+                            <div class="grid-loading-box">
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                Chargement...
+                            </div>
+                        </div>
+
+                        <div id="excessForSalesGrid" class="ag-theme-alpine" style="height: 75vh; width: 100%;"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const gridSelector = '#excessForSalesGrid';
+            const tariffGroupSelect = document.getElementById('tariffGroupSelect');
+            const familySelect = document.getElementById('familySelect');
+
+            // ######### Export Excel ################
+            const imageBase64Cache = {};
+
+            async function fetchExcelImage(url) {
+                if (!url) return null;
+                if (imageBase64Cache[url]) return imageBase64Cache[url];
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) return null;
+
+                    const json = await response.json();
+                    if (!json || !json.success || !json.base64) return null;
+
+                    // --- NETTOYAGE STRICT ET RADICAL ---
+                    // 1. Supprime le préfixe data:image/...;base64, s'il existe
+                    let base64Data = json.base64.replace(/^data:image\/\w+;base64,/, "");
+
+                    // 2. Supprime TOUT caractère qui n'est pas dans l'alphabet Base64 standard.
+                    // Cela inclut les espaces, \n, \r, \t, et tout caractère de contrôle XML.
+                    base64Data = base64Data.replace(/[^A-Za-z0-9+/=]/g, "");
+
+                    // 3. Vérification optionnelle du padding (par sécurité)
+                    while (base64Data.length % 4 !== 0) {
+                        base64Data += '=';
+                    }
+                    // -----------------------------------
+
+                    // Test de validité local
+                    try {
+                        window.atob(base64Data);
+                    } catch (e) {
+                        console.warn("Base64 toujours invalide après nettoyage strict pour :", url);
+                        return null;
+                    }
+
+                    // Normalisation du type
+                    const imageType = String(json.imageType).toLowerCase() === 'jpeg' ? 'jpg' : json.imageType.toLowerCase();
+
+                    imageBase64Cache[url] = {
+                        base64: base64Data, // On stocke la version NETTOYÉE
+                        imageType: imageType
+                    };
+
+                    return imageBase64Cache[url];
+                } catch (e) {
+                    console.error("Erreur fetchExcelImage:", e);
+                    return null;
+                }
+            }
+
+            function sanitizeExcelBase64(base64) {
+                if (!base64 || typeof base64 !== 'string') {
+                    return null;
+                }
+
+                // enlève espaces, retours ligne, etc.
+                let cleaned = base64.replace(/\s+/g, '');
+
+                // enlève tout caractère non base64
+                cleaned = cleaned.replace(/[^A-Za-z0-9+/=]/g, '');
+
+                // repadding
+                const mod = cleaned.length % 4;
+                if (mod > 0) {
+                    cleaned += '='.repeat(4 - mod);
+                }
+
+                // validation forte
+                try {
+                    atob(cleaned);
+                } catch (e) {
+                    return null;
+                }
+
+                return cleaned;
+            }
+
+            async function exportGridWithImages() {
+                // 1. On prépare le cache des images
+                const imageMap = {};
+                const allNodes = [];
+                gridOptions.api.forEachNodeAfterFilterAndSort(node => {
+                    if (!node.rowPinned) allNodes.push(node);
+                });
+
+                for (const node of allNodes) {
+                    const url = node.data?.PHOTO_BASE64_URL;
+                    if (url && !imageMap[url]) {
+                        imageMap[url] = await fetchExcelImage(url);
+                    }
+                }
+
+                // 2. Lancement de l'export
+                gridOptions.api.exportDataAsExcel({
+                    fileName: 'excess_for_sales.xlsx',
+                    sheetName: 'Excess For Sales',
+                    rowHeight: 80,
+
+                    processCellCallback: (params) => {
+                        // Sécurité : on vide le texte de la colonne photo pour tout le monde (data et pinned)
+                        if (params.column.getColId() === 'PHOTO_URL') return "";
+                        return params.value;
+                    },
+
+                    addImageToCell: (rowIndex, column) => {
+                        if (column.getColId() !== 'PHOTO_URL') return;
+
+                        // MÉTHODE ROBUSTE : On demande à l'API quel node correspond à cet index
+                        // rowIndex 1 = Header, donc rowIndex - 1 est l'index 0-based des lignes affichées
+                        const node = gridOptions.api.getDisplayedRowAtIndex(rowIndex - 1);
+
+                        // SÉCURITÉ : On ignore les lignes vides, les lignes de total (Pinned) ou sans data
+                        if (!node || node.rowPinned || !node.data) {
+                            return;
+                        }
+
+                        const url = node.data.PHOTO_BASE64_URL;
+                        const imageData = imageMap[url];
+
+                        // Si on n'a pas d'image valide, on ne retourne rien (TRÈS IMPORTANT)
+                        if (!imageData || !imageData.base64) {
+                            return;
+                        }
+
+                        // Si on arrive ici, on a une image.
+                        return {
+                            image: {
+                                id: 'img_' + node.data.ARTICLE + '_' + rowIndex,
+                                base64: imageData.base64,
+                                imageType: imageData.imageType,
+                                fitCell: true
+                            }
+                        };
+                    }
+                });
+            }
+            // ##################### end Export Excel ####################
+
+            const gridLoadingOverlay = document.getElementById('gridLoadingOverlay');
+
+            function showGridLoading() {
+                if (gridLoadingOverlay) {
+                    gridLoadingOverlay.style.display = 'flex';
+                }
+            }
+
+            function hideGridLoading() {
+                if (gridLoadingOverlay) {
+                    gridLoadingOverlay.style.display = 'none';
+                }
+            }
+
+            function textCellStyle() {
+                return {
+                    borderRight: "0.2px solid #CECECEFF",
+                    borderBottom: "0.2px solid #CECECEFF",
+                    textAlign: 'left'
+                };
+            }
+
+            function integerCellStyle() {
+                return {
+                    borderRight: "0.2px solid #CECECEFF",
+                    borderBottom: "0.2px solid #CECECEFF",
+                    textAlign: 'right'
+                };
+            }
+
+            function buildDataUrl() {
+                const url = new URL('{{ dataUrl }}', window.location.origin);
+                const tariffGroup = tariffGroupSelect.value;
+                const family = familySelect.value;
+
+                if (tariffGroup) {
+                    url.searchParams.set('tariffGroup', tariffGroup);
+                }
+
+                if (family) {
+                    url.searchParams.set('family', family);
+                }
+
+                return url.toString();
+            }
+
+            function buildVariantColumns(variants) {
+                return variants
+                    .filter(variant => variant !== null && variant !== undefined && variant !== '')
+                    .map(function (variant) {
+                        const variantKey = String(variant);
+
+                        return {
+                            field: variantKey,
+                            headerName: variantKey,
+                            filter: false,
+                            sortable: true,
+                            resizable: true,
+                            minWidth: 85,
+                            valueFormatter: window.integerFormatter,
+                            comparator: window.integerComparator,
+                            cellStyle: integerCellStyle,
+                            cellClass: 'stock-term-cell',
+                            aggFunc: 'sum',
+                            cellDataType: false,
+                            cellRenderer: function(params) {
+                                if (params.node.rowPinned) {
+                                    return params.valueFormatted !== undefined
+                                        ? params.valueFormatted
+                                        : (params.value || '0');
+                                }
+
+                                let val = params.value;
+                                if (val === null || val === undefined || val === '') {
+                                    val = 0;
+                                }
+
+                                const bgColor = val > 0 ? '#7eed86' : '#e9ecef';
+                                const textColor = val > 0 ? '#155724' : '#000000';
+                                const fontWeight = val > 0 ? 'bold' : 'normal';
+
+                                let displayVal = params.valueFormatted !== undefined && params.valueFormatted !== null
+                                    ? params.valueFormatted
+                                    : val;
+
+                                if (displayVal === '' || displayVal === null) {
+                                    displayVal = '0';
+                                }
+
+                                return `
+                        <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+                            <div class="variant-inner-box"
+                                 style="background-color: ${bgColor} !important; color: ${textColor}; font-weight: ${fontWeight};">
+                                ${displayVal}
+                            </div>
+                        </div>
+                    `;
+                            }
+                        };
+                    });
+            }
+
+            function buildBaseColumns() {
+                return [
+                    {
+                        field: 'PHOTO_URL',
+                        headerName: 'Photo',
+                        minWidth: 110,
+                        maxWidth: 120,
+                        pinned: 'left',
+                        sortable: false,
+                        filter: false,
+                        cellStyle: textCellStyle,
+                        cellRenderer: function (params) {
+                            if (params.node.isRowPinned()) {
+                                return '';
+                            }
+
+                            const imageUrl = params.value ? params.value : '';
+
+                            return `
+                                <div class="product-photo-cell">
+                                    <img src="${imageUrl}" class="top-product-img" alt="">
+                                </div>
+                            `;
+                        }
+                    },
+                    {
+                        field: 'PRODUCT_INFO',
+                        headerName: 'Produit',
+                        minWidth: 260,
+                        pinned: 'left',
+                        sortable: false,
+                        filter: 'agTextColumnFilter',
+                        cellStyle: textCellStyle,
+                        valueGetter: function(params) {
+                            if (params.data) {
+                                return (params.data.ARTICLE || '') + ' ' +
+                                    (params.data.DESIGNATION_MODELE || '') + ' ' +
+                                    (params.data.COLLECTION || '');
+                            }
+                            return '';
+                        },
+                        cellClass: 'product-info-cell',
+                        autoHeight: true,
+                        cellRenderer: function (params) {
+                            if (params.node.isRowPinned()) {
+                                return '';
+                            }
+
+                            const d = params.data || {};
+
+                            return `
+                                <div class="product-lines">
+                                    <div><i>Article N°:</i> <strong>${d.ARTICLE ?? ''}</strong></div>
+                                    <div><i>Gender:</i> <strong>${d.GENRE ?? ''}</strong></div>
+                                    <div><i>Age group:</i> <strong>${d.AGE_GROUP ?? ''}</strong></div>
+                                    <div><i>Item group:</i> <strong>${d.ITEM_GROUP ?? ''}</strong></div>
+                                    <div><i>Color:</i> <strong>${d.DESIGNATION_MODELE ?? ''}</strong></div>
+                                    <div><i>RRP:</i> <strong>${d.PRIX ?? ''} ${d.DEVISE ?? ''}</strong></div>
+                                    <div><i>No series:</i> <strong>${d.COLLECTION ?? ''}</strong></div>
+                                </div>
+                            `;
+                        }
+                    },
+                    {
+                        field: 'AVAILABILITY_INFO',
+                        headerName: '',
+                        minWidth: 140,
+                        pinned: 'left',
+                        sortable: false,
+                        filter: false,
+                        cellStyle: textCellStyle,
+                        cellClass: 'availability-cell',
+                        autoHeight: true,
+                        cellRenderer: function (params) {
+                            if (params.node.isRowPinned()) {
+                                return '<div style="font-weight: bold; padding-top: 5px;">TOTAL</div>';
+                            }
+
+                            return `
+                                <div class="availability-lines">
+                                    <div><i>Availability</i></div>
+                                    <div><i>Order</i></div>
+                                </div>
+                            `;
+                        }
+                    }
+                ];
+            }
+
+            function setRowCount(gridOptions) {
+                const rowCountElement = document.getElementById('rowCount');
+                if (!rowCountElement) {
+                    return;
+                }
+
+                rowCountElement.textContent = `${gridOptions.api.getDisplayedRowCount()} lignes`;
+            }
+
+            function setPinnedTotals(gridOptions, totalColumns) {
+                const totals = {};
+
+                totalColumns.forEach(function(col) {
+                    totals[col] = 0;
+                });
+
+                gridOptions.api.forEachNodeAfterFilterAndSort(function(node) {
+                    totalColumns.forEach(function(col) {
+                        totals[col] += Number(node.data?.[col]) || 0;
+                    });
+                });
+
+                const totalRow = {};
+                totalColumns.forEach(function(col) {
+                    totalRow[col] = totals[col];
+                });
+
+                gridOptions.api.setPinnedBottomRowData([totalRow]);
+                setRowCount(gridOptions);
+            }
+
+            const agGridConfig = {
+                columnDefs: buildBaseColumns(),
+                dataUrl: null,
+                numericColumns: [],
+                integerColumns: [],
+                totalColumns: [],
+                getRowHeight: function(params) {
+                    if (params.node && params.node.rowPinned) {
+                        return 40;
+                    }
+                    return 150;
+                }
+            };
+
+            const gridOptions = window.AgGridCommon.initGrid(gridSelector, agGridConfig);
+
+            function loadGrid() {
+                showGridLoading();
+
+                fetch(buildDataUrl())
+                    .then(response => response.json())
+                    .then(response => {
+                        const variants = Array.isArray(response.variants)
+                            ? response.variants
+                                .filter(v => v !== null && v !== undefined && v !== '')
+                                .map(v => String(v))
+                            : [];
+
+                        const rows = Array.isArray(response.rows) ? response.rows : [];
+
+                        const columnDefs = [
+                            ...buildBaseColumns(),
+                            ...buildVariantColumns(variants)
+                        ];
+
+                        const totalColumns = variants;
+
+                        gridOptions.api.setColumnDefs(columnDefs);
+                        gridOptions.api.setRowData(rows);
+
+                        gridOptions._currentTotalColumns = totalColumns;
+                        setPinnedTotals(gridOptions, totalColumns);
+
+                        if (!gridOptions._customFilterHandler) {
+                            gridOptions._customFilterHandler = function () {
+                                setPinnedTotals(gridOptions, gridOptions._currentTotalColumns || []);
+                            };
+                            gridOptions.api.addEventListener('filterChanged', gridOptions._customFilterHandler);
+                        }
+
+                        if (!gridOptions._customSortHandler) {
+                            gridOptions._customSortHandler = function () {
+                                setPinnedTotals(gridOptions, gridOptions._currentTotalColumns || []);
+                            };
+                            gridOptions.api.addEventListener('sortChanged', gridOptions._customSortHandler);
+                        }
+
+                        hideGridLoading();
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        gridOptions.api.setColumnDefs(buildBaseColumns());
+                        gridOptions.api.setRowData([]);
+                        gridOptions.api.setPinnedBottomRowData([]);
+                        setRowCount(gridOptions);
+                        hideGridLoading();
+                    });
+            }
+
+            fetch('{{ tariffGroupsUrl }}')
+                .then(response => response.json())
+                .then(data => {
+                    tariffGroupSelect.innerHTML = '';
+
+                    data.forEach(function (row) {
+                        const option = document.createElement('option');
+                        option.value = row.GROUPE_TARIF;
+                        option.textContent = row.GROUPE_TARIF;
+
+                        if (row.GROUPE_TARIF === 'WSPEUR') {
+                            option.selected = true;
+                        }
+
+                        tariffGroupSelect.appendChild(option);
+                    });
+
+                    // sécurité : si WSPEUR n'existe pas, on prend le premier
+                    if (!tariffGroupSelect.value && tariffGroupSelect.options.length > 0) {
+                        tariffGroupSelect.selectedIndex = 0;
+                    }
+
+                    loadGrid();
+                })
+                .catch(console.error);
+
+            tariffGroupSelect.addEventListener('change', loadGrid);
+            familySelect.addEventListener('change', loadGrid);
+
+            {#  document.getElementById('exportBtn').addEventListener('click', async function () {
+                await exportGridWithImages();
+            });#}
+        });
+    </script>
+{% endblock %}
