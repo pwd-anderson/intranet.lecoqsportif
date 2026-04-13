@@ -331,9 +331,9 @@ class Sales
     {
         try {
             $query = "
-            select distinct SPL.PLICRI1_0 as GROUPE_TARIF from X3_LCS_TEST.SPRICLIST AS SPL
+            select distinct SPL.PLICRI1_0 as GROUPE_TARIF from X3_LCS.SPRICLIST AS SPL
             where SPL.PLI_0 = 'T10'";
-            return $this->mssqlLcs->executeQuery($query);
+            return $this->mssqlSei->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError(
