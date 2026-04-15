@@ -43,12 +43,9 @@ sidebar:
       management:
           ca_marges: "CA Marges"
       stock:
-          stock_a_terme: "Stock à terme"
-          stock_a_terme_x3: "Stock à terme (Data X3)"
-          stock_allocation: "Stock & Allocation (Data X3)"
-          stock_collection_logtex: "Stock LogTex  (Data X3)"
-          stock_composant: "Stock Composant  (Data X3)"
-          stock_a_terme_segmentation_produits: "Stock à terme Amazon"
+          stock_a_terme_x3: "Stock à terme"
+          stock_allocation: "Stock & Allocation"
+          stock_composant: "Stock par site et famille"
       purchase:
           backlog_fournisseur: "Backlog Fournisseur (Nav.)"
           backlog_fournisseur_x3: "Backlog Fournisseur"

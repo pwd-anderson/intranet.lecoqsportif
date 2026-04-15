@@ -145,7 +145,7 @@ final class StockController extends AbstractController
             ],
             'stock_composant' => [
                 'gridName' => 'stock_composant_grid',
-                'title' => 'Stock Composant',
+                'title' => 'Stock par site et famille',
                 'jsonRoute' => 'stock_composant_json',
             ],
             'stock_a_terme_segmentation_produits' => [
