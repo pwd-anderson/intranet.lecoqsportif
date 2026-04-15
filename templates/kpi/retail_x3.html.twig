@@ -1,0 +1,255 @@
+{% extends 'base.html.twig' %}
+{% block title %}KPI Boutiques{% endblock %}
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .bg-light-blue { background-color: #dbeff8; }
+        .bg-light-pink { background-color: #f8daee; }
+        .text-small { font-size: 0.85rem; }
+        .margin-adjust{
+            margin-left: 0.25rem !important;
+            margin-right: -0.2rem !important;
+        }
+    </style>
+
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+
+        <div class="box py-2 px-3">
+            <form method="get">
+                <div class="d-flex justify-content-between align-items-center flex-wrap">
+
+                    {# Select du slide / titre #}
+                    <div class="form-group mb-0 w-100 w-md-auto">
+                        <select name="view"
+                                class="form-control select2 fs-16 fw-bold text-uppercase"
+                                style="min-width: 280px;">
+                            {% for key, label in views %}
+                                <option value="{{ key }}" {{ key == view ? 'selected' : '' }}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3 mt-md-0">
+
+                        {# Select Année #}
+                        <div class="form-group mb-0 w-100">
+                            <select name="year" class="form-control select2 fs-18">
+                                {% for y in years %}
+                                    <option value="{{ y }}" {{ y == year ? 'selected' : '' }}>
+                                        {{ y }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        {# Select Semaine #}
+                        <div class="form-group mb-0 w-120">
+                            <select name="week" class="form-control select2 fs-18">
+                                {% for w in weeks %}
+                                    <option value="{{ w }}" {{ w == week ? 'selected' : '' }}>
+                                        Week {{ w }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        {# Bouton Valider #}
+                        <div class="form-group mb-0">
+                            <button type="submit" class="btn btn-sm btn-primary fs-14">
+                                Valider
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div id="retail-dashboard" class="row mb-2" style="margin-left: 0.05rem;">
+            {# Chargé dynamiquement en AJAX #}
+        </div>
+
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/vendor_components/select2/dist/js/select2.full.js') }}"></script>
+    {# sales by family #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+    <script>
+        $(document).ready(function () {
+            "use strict";
+            //Initialize Select2 Elements
+            $('.select2').select2();
+
+            $('.countnm').each(function () {
+                const $this = $(this);
+                // Remove spaces/formatting to get the number
+                const target = parseFloat($this.text().replace(/\s/g, '').replace(',', '.'));
+
+                if (isNaN(target)) return;
+
+                $this.prop('Counter', 0).animate({
+                    Counter: target
+                }, {
+                    duration: 1500,
+                    easing: 'swing',
+                    step: function (now) {
+                        // Pendant l'animation, arrondir sans format
+                        $this.text(Math.ceil(now));
+                    },
+                    complete: function () {
+                        // À la fin de l'animation : formater avec séparateur
+                        $this.text(new Intl.NumberFormat('fr-FR').format(target));
+                    }
+                });
+            });
+
+            function loadRetailData() {
+                const params = {
+                    view: $('select[name="view"]').val(),
+                    year: $('select[name="year"]').val(),
+                    week: $('select[name="week"]').val()
+                };
+
+                // Affichage du loading
+                $('#retail-dashboard').html(`
+                    <div class="col-12 text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <div class="mt-2 text-muted">Chargement des données…</div>
+                    </div>`);
+
+                $.get('{{ path("kpi_retail_x3_ajax") }}', params)
+                    .done(function (html) {
+                        $('#retail-dashboard').html(html);
+                        // ✅ rebind des events sur le nouveau HTML injecté : commentaire
+                        if (window.initKpiComments) {
+                            window.initKpiComments();
+                        }
+                    })
+                    .fail(function () {
+                        $('#retail-dashboard').html(
+                            '<div class="col-12 text-danger text-center">Erreur de chargement</div>'
+                        );
+                    });
+            }
+
+            // Chargement initial
+            loadRetailData();
+
+            // Bouton Valider
+            $('button[type="submit"]').on('click', function (e) {
+                e.preventDefault();
+                loadRetailData();
+            });
+
+            // Changement de slide
+            $('select[name="view"]').on('change', function () {
+                loadRetailData();
+            });
+
+            // block edition commentaire
+            function escapeHtml(s) {
+                return String(s)
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+            }
+
+            {# ##### BLOCK COMMENT ####### #}
+            (function () {
+                window.initKpiComments = function initKpiComments() {
+
+                    $(document).off('click.kpiComment', '{{ path('kpi_comment_save') }}');
+                    $(document).off('click.kpiComment', '[data-comment-display]');
+                    $(document).on('click.kpiComment', '[data-comment-display]', function () {
+                        const $display = $(this);
+                        const $wrap = $display.closest('.box');
+                        const $editorWrap = $wrap.find('[data-comment-editor-wrap]');
+                        const $editor = $wrap.find('[data-comment-editor]');
+
+                        const hasPlaceholder = $display.find('[data-comment-placeholder]').length > 0;
+                        const currentHtml = hasPlaceholder ? '' : $display.html().trim();
+
+                        $editor.html(currentHtml);
+
+                        $display.addClass('d-none');
+                        $editorWrap.removeClass('d-none');
+                        $editor.focus();
+                    });
+
+                    $(document).off('click.kpiCommentCancel', '[data-comment-cancel]');
+                    $(document).on('click.kpiCommentCancel', '[data-comment-cancel]', function () {
+                        const $wrap = $(this).closest('.box');
+                        const $display = $wrap.find('[data-comment-display]');
+                        const $editor = $wrap.find('[data-comment-editor]');
+                        const content = $editor.html().trim();
+
+                        if (!content) {
+                            $display.html('<p class="text-muted mb-0" data-comment-placeholder>Clique pour ajouter un commentaire…</p>');
+                        }
+
+                        $wrap.find('[data-comment-editor-wrap]').addClass('d-none');
+                        $display.removeClass('d-none');
+                    });
+
+                    $(document).off('click.kpiCommentSave', '[data-comment-save]');
+                    $(document).on('click.kpiCommentSave', '[data-comment-save]', function () {
+                        const $btn = $(this);
+                        const $wrap = $btn.closest('.box');
+                        const $display = $wrap.find('[data-comment-display]');
+                        const $editorWrap = $wrap.find('[data-comment-editor-wrap]');
+                        const $editor = $wrap.find('[data-comment-editor]');
+
+                        const content = $editor.html().trim();
+
+                        const payload = {
+                            view: $display.data('view'),
+                            year: $display.data('year'),
+                            week: $display.data('week'),
+                            store_key: $display.data('store') || 'GLOBAL',
+                            comment_html: content
+                        };
+
+                        $btn.prop('disabled', true).text('Sauvegarde…');
+
+                        const saveUrl = $display.data('save-url');
+                        $.post(saveUrl, payload)
+                            .done(function (response) {
+                                if (!response.success) {
+                                    alert('Erreur lors de la sauvegarde');
+                                    return;
+                                }
+
+                                $display.html(content || '<p class="text-muted mb-0" data-comment-placeholder>Clique pour ajouter un commentaire…</p>');
+
+                                $editorWrap.addClass('d-none');
+                                $display.removeClass('d-none');
+                            })
+                            .fail(function () {
+                                alert('Erreur réseau lors de la sauvegarde');
+                            })
+                            .always(function () {
+                                $btn.prop('disabled', false).text('Enregistrer');
+                            });
+                    });
+                };
+
+                // init au chargement initial
+                window.initKpiComments();
+            })();
+
+        });
+
+    </script>
+{% endblock %}
