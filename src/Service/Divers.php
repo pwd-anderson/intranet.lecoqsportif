@@ -46,4 +46,108 @@ class Divers
             $result
         );
     }
+
+    /**
+     * @param bool $arrayKeysCurrencies
+     * @param string $currency
+     * @param bool $sortedByReferenceCurrency
+     * @return array
+     */
+    public function getExchangeRates(bool $arrayKeysCurrencies = true, string $currency = 'EUR', bool $sortedByReferenceCurrency = false): array
+    {
+        $currency = trim($currency);
+
+        if ($currency === '') {
+            return [];
+        }
+
+        // Sécurisation minimale pour éviter de casser la requête SQL
+        $currency = str_replace("'", "''", $currency);
+
+        $query = "
+        SELECT
+            CHANGE.CUR_0 AS DEVISE_REFERENCE,
+            CHANGE.CURDEN_0 AS DEVISE,
+            CHANGE.CHGRAT_0 AS COURS,
+            CHANGE.CHGSTRDAT_0 AS DATE_COURS
+        FROM X3_LCS.TABCHANGE AS CHANGE
+        WHERE CHANGE.CUR_0 = '{$currency}'
+          AND CHANGE.CHGSTRDAT_0 = (
+              SELECT MAX(SUB_CHANGE.CHGSTRDAT_0)
+              FROM X3_LCS.TABCHANGE AS SUB_CHANGE
+              WHERE SUB_CHANGE.CUR_0 = '{$currency}'
+                AND SUB_CHANGE.CHGTYP_0 = 1
+          )
+          AND CHANGE.CHGTYP_0 = 1
+        ORDER BY CHANGE.CHGSTRDAT_0 DESC
+    ";
+
+        $exchangeRates = $this->mssqlSei->executeQuery($query);
+
+        if (empty($exchangeRates)) {
+            return [];
+        }
+
+        if (!$arrayKeysCurrencies) {
+            return $exchangeRates;
+        }
+
+        $processedResults = [];
+
+        foreach ($exchangeRates as $exchangeRate) {
+            if ($sortedByReferenceCurrency) {
+                $processedResults[$exchangeRate->DEVISE_REFERENCE][$exchangeRate->DEVISE] = $exchangeRate;
+            } else {
+                $processedResults[$exchangeRate->DEVISE] = $exchangeRate;
+            }
+        }
+
+        return $processedResults;
+    }
+
+    public function getExchangeRatesValues(): array
+    {
+        $exchangeRates = $this->getExchangeRates(false, 'EUR');
+
+        $rates = [
+            'EUR' => 1.0,
+        ];
+
+        foreach ($exchangeRates as $exchangeRate) {
+            $rates[$exchangeRate->DEVISE] = (float) $exchangeRate->COURS;
+        }
+
+        return $rates;
+    }
+
+    /**
+     * @return array
+     */
+    public function getSupplierReferences(): array
+    {
+        $query = "
+        SELECT
+            ITP.ITMREFBPS_0 AS REF_FOURNISSEUR,
+            ITM.ITMREF_0 AS ARTICLE,
+            ITM.TSICOD_0 AS MARQUE
+        FROM X3_LCS.ITMBPS AS ITP
+        INNER JOIN X3_LCS.ITMMASTER AS ITM
+            ON ITP.ITMREF_0 = ITM.ITMREF_0
+        WHERE ITM.ITMSTA_0 IN (1, 3, 4)
+    ";
+
+        $results = $this->mssqlSei->executeQuery($query);
+
+        if (empty($results)) {
+            return [];
+        }
+
+        $processedResults = [];
+
+        foreach ($results as $result) {
+            $processedResults[$result->MARQUE][$result->ARTICLE] = $result->REF_FOURNISSEUR;
+        }
+
+        return $processedResults;
+    }
 }

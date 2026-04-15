@@ -61,6 +61,7 @@
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
+                            <li class="{% if currentRoute == 'app_backlog_fournisseur_x3' %}active{% endif %}"><a href="{{ path('app_backlog_fournisseur_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.backlog_fournisseur_x3'|trans }}</a></li>
                             <li class="{% if currentRoute == 'app_backlog_fournisseur' %}active{% endif %}"><a href="{{ path('app_backlog_fournisseur') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.backlog_fournisseur'|trans }}</a></li>
                         </ul>
                     </li>

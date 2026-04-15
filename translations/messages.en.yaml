@@ -50,4 +50,5 @@ sidebar:
         stock_composant: "Stock Composant  (Data X3)"
         stock_a_terme_segmentation_produits: "Stock à terme Amazon"
     purchase:
-        backlog_fournisseur: "Backlog Supplier"
+        backlog_fournisseur: "Backlog Supplier (Nav.)"
+        backlog_fournisseur_x3: "Backlog Supplier"
