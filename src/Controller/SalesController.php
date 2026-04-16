@@ -51,6 +51,12 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('commandes_a_facturer_x3');
     }
 
+    #[Route('/sales/backlog_clients_x3', name: 'app_sales_backlog_clients_x3')]
+    public function backlogClientsX3Alias(): Response
+    {
+        return $this->salesGeneric('backlog_clients_x3');
+    }
+
     // ################## Action customisés #####################
     #[Route('/sales/reassort', name: 'app_sales_reassort')]
     public function reassort(): Response
@@ -127,6 +133,13 @@ final class SalesController extends AbstractController
     {
         $data = $sales->getExcessForSalesTariffGroups();
 
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/backlog_clients_x3_json', name: 'backlog_clients_x3_json')]
+    public function backlogClientsX3Json(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getBacklogClientsX3();
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
@@ -262,6 +275,12 @@ final class SalesController extends AbstractController
                 'gridName'  => 'commandes_a_facturer_x3_grid',
                 'title'     => 'Commandes à Facturer (Vue Balance âgée)',
                 'jsonRoute' => 'commandes_a_facturer_x3_json',
+                'template'  => 'sales/sales_generic.html.twig',
+            ],
+            'backlog_clients_x3' => [
+                'gridName'  => 'backlog_client_x3_grid',
+                'title'     => 'Backlog Clients',
+                'jsonRoute' => 'backlog_clients_x3_json',
                 'template'  => 'sales/sales_generic.html.twig',
             ],
         ];

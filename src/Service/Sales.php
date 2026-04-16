@@ -23,6 +23,7 @@ class Sales
         private SqlFileLoader $sqlFileLoader,
         private UrlGeneratorInterface $urlGenerator,
         private RequestStack $requestStack,
+        private Divers $divers,
         #[Autowire('%db.lcs%')]
         string $dbLcs,
         #[Autowire('%db.lcs_sei%')]
@@ -399,6 +400,43 @@ class Sales
         });
 
         return $variants;
+    }
+
+    public function getBacklogClientsX3(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/backlog_client.sql');
+            $data = $this->mssqlSei->executeQuery($query);
+
+            if (empty($data)) {
+                return [];
+            }
+
+            $taux = $this->divers->getExchangeRatesValues();
+
+            foreach ($data as $row) {
+
+                $row->PRIX = round((float) $row->PRICE_HT * (int) $row->QUANTITE, 2);
+                $row->PRIX_EUR = isset($taux[$row->CUR_0]) && (float) $taux[$row->CUR_0] > 0
+                    ? round(((float) $row->PRICE_HT / (float) $taux[$row->CUR_0]) * (int) $row->QUANTITE, 2)
+                    : 0.0;
+
+            }
+
+            return $data;
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError(
+                '❌ LCS Erreur Backlog Client X3 : Récupération de données ventes',
+                $e
+            );
+
+            $this->logger->error(
+                'LCS Erreur Backlog Client X3 : Récupération de données ventes',
+                ['exception' => $e]
+            );
+
+            return [];
+        }
     }
 
 }

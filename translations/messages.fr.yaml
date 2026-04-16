@@ -34,7 +34,8 @@ sidebar:
       sales:
           sales_by_year: "Ventes annuelles"
           delivery_without_invoice: "Livraisons non facturées"
-          backlog_clients: "Backlog Clients"
+          backlog_clients_x3: "Backlog Clients"
+          backlog_clients: "Backlog Clients Nav."
           kpi_deck_retail: "Retail KPI Deck"
           commandes_a_facturer: "Commandes à Facturer\n(Vue Balance âgée)"
           commandes_a_facturer_x3: "Commandes à Facturer\n(Vue Balance âgée -> Data X3)"
