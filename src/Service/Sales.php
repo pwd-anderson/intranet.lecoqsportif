@@ -413,14 +413,32 @@ class Sales
             }
 
             $taux = $this->divers->getExchangeRatesValues();
+            $stocks = $this->getStockPourBacklogClientsX3();
+
+            $stocksByArticle = [];
+            foreach ($stocks as $stock) {
+                $stocksByArticle[$stock->ARTICLE] = $stock;
+            }
 
             foreach ($data as $row) {
+                $quantity = (int) $row->QUANTITE;
+                $priceHt = (float) $row->PRICE_HT;
+                $currencyRate = $taux[$row->CUR_0] ?? null;
+                $stock = $stocksByArticle[$row->ARTICLE] ?? null;
 
-                $row->PRIX = round((float) $row->PRICE_HT * (int) $row->QUANTITE, 2);
-                $row->PRIX_EUR = isset($taux[$row->CUR_0]) && (float) $taux[$row->CUR_0] > 0
-                    ? round(((float) $row->PRICE_HT / (float) $taux[$row->CUR_0]) * (int) $row->QUANTITE, 2)
+                $row->PRIX = round($priceHt * $quantity, 2);
+                $row->PRIX_EUR = ($currencyRate !== null && (float) $currencyRate > 0)
+                    ? round(($priceHt / (float) $currencyRate) * $quantity, 2)
                     : 0.0;
 
+                $row->STOCK_REEL_WLOGM = $stock ? (float) $stock->STOCK_REEL_WLOGM : 0.0;
+                $row->STOCK_INTERNE_WLOGM = $stock ? (float) $stock->STOCK_INTERNE_WLOGM : 0.0;
+                $row->STOCK_REEL_WSFCN = $stock ? (float) $stock->STOCK_REEL_WSFCN : 0.0;
+                $row->STOCK_INTERNE_WSFCN = $stock ? (float) $stock->STOCK_INTERNE_WSFCN : 0.0;
+                $row->STOCK_REEL_WTAKH = $stock ? (float) $stock->STOCK_REEL_WTAKH : 0.0;
+                $row->STOCK_INTERNE_WTAKH = $stock ? (float) $stock->STOCK_INTERNE_WTAKH : 0.0;
+                $row->STOCK_REEL_WDTTH = $stock ? (float) $stock->STOCK_REEL_WDTTH : 0.0;
+                $row->STOCK_INTERNE_WDTTH = $stock ? (float) $stock->STOCK_INTERNE_WDTTH : 0.0;
             }
 
             return $data;
@@ -436,6 +454,46 @@ class Sales
             );
 
             return [];
+        }
+    }
+
+    public function getStockPourBacklogClientsX3(): array
+    {
+        try {
+            $query = "
+            SELECT
+                ARTICLE,
+
+                -- WLOGM
+                SUM(CASE WHEN SITE = 'WLOGM' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WLOGM,
+                SUM(CASE WHEN SITE = 'WLOGM' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WLOGM,
+
+                -- WSFCN
+                SUM(CASE WHEN SITE = 'WSFCN' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WSFCN,
+                SUM(CASE WHEN SITE = 'WSFCN' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WSFCN,
+
+                -- WTAKH
+                SUM(CASE WHEN SITE = 'WTAKH' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WTAKH,
+                SUM(CASE WHEN SITE = 'WTAKH' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WTAKH,
+
+                -- WDTTH
+                SUM(CASE WHEN SITE = 'WDTTH' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WDTTH,
+                SUM(CASE WHEN SITE = 'WDTTH' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WDTTH
+
+            FROM [SEICube].[MASTER_TABLES].[STOCK_ALLOCATION] s
+
+            WHERE
+                s.STATUS_STOCK = 'A1'
+                AND s.SITE IN ('WLOGM','WSFCN','WTAKH','WDTTH')
+
+            GROUP BY ARTICLE;
+            ";
+            $data = $this->mssqlSei->executeQuery($query);
+            return $data;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme X3 : Récupération de données stock', $e);
+            $this->logger->error('LCS Erreur Stock à Terme X3 : Récupération de données stock', ['exception' => $e]);
         }
     }
 
