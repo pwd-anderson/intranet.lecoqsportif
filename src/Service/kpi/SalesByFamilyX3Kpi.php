@@ -31,7 +31,7 @@ class SalesByFamilyX3Kpi
         $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcsSei);
     }
 
-    public function getData(int $year, int $week, string $businessType = 'CS'): array
+    public function getData(int $year, int $week, string $businessType = 'CONCEPT STORE'): array
     {
         // 1) CHART 1 : ventes par famille (K€) année N
         $familyTotalsK = $this->fetchFamilyTotalsK($year, $week, $businessType);
@@ -42,8 +42,8 @@ class SalesByFamilyX3Kpi
         $weeklyChart = $this->buildWeeklyChart3Datasets($dailyByFamilyK);
 
         // 3) TABLES : group code (N / N-1 / evolution) + total + LW
-        $apparel = $this->buildGroupBlock(self::FAMILY_TEXTILE, $year, $week, 'ItemGroupCode', $businessType);
-        $footwear = $this->buildGroupBlock(self::FAMILY_FOOTWEAR, $year, $week, 'GenusCode', $businessType);
+        $apparel = $this->buildGroupBlock(self::FAMILY_TEXTILE, $year, $week, 'TSICOD_1', $businessType);
+        $footwear = $this->buildGroupBlock(self::FAMILY_FOOTWEAR, $year, $week, 'TSICOD_0', $businessType);
 
         // 4) TOP produits : 5 textile + 5 footwear (en €)
         $topTextile = $this->fetchTopProductsEuro($year, $week, self::FAMILY_TEXTILE, 5, $businessType);
@@ -92,7 +92,7 @@ class SalesByFamilyX3Kpi
     private function fetchFamilyTotalsK(
         int $year,
         int $week,
-        string $businessType = 'CS'
+        string $businessType = 'CONCEPT STORE'
     ): array {
         $f1 = self::FAMILY_FOOTWEAR;
         $f2 = self::FAMILY_TEXTILE;
@@ -113,7 +113,7 @@ class SalesByFamilyX3Kpi
             AND DATEPART(ISO_WEEK, I.DOCUMENTPOSTINGDATE) = {$week}
             {$this->baseJoFilterSql()}
             AND ITM.TCLCOD_0 IN ('{$f1}', '{$f2}', '{$f3}')
-        GROUP BY iITM.TCLCOD_0;
+        GROUP BY ITM.TCLCOD_0;
     ";
 
         $rows = $this->mssqlLcs->executeQuery($sql);
@@ -134,7 +134,7 @@ class SalesByFamilyX3Kpi
     private function fetchDailyByFamilyK(
         int $year,
         int $week,
-        string $businessType = 'CS'
+        string $businessType = 'CONCEPT STORE'
     ): array {
         $f1 = self::FAMILY_FOOTWEAR;
         $f2 = self::FAMILY_TEXTILE;
@@ -156,7 +156,7 @@ class SalesByFamilyX3Kpi
             AND DATEPART(ISO_WEEK, I.DOCUMENTPOSTINGDATE) = {$week}
             {$this->baseJoFilterSql()}
             AND ITM.TCLCOD_0 IN ('{$f1}', '{$f2}', '{$f3}')
-        GROUP BY iITM.TCLCOD_0, DAY(I.DOCUMENTPOSTINGDATE)
+        GROUP BY ITM.TCLCOD_0, DAY(I.DOCUMENTPOSTINGDATE)
         order by jour ASC
     ";
 
@@ -236,7 +236,7 @@ class SalesByFamilyX3Kpi
         int $year,
         int $week,
         string $groupField,
-               $businessType = 'CS'
+               $businessType = 'CONCEPT STORE'
     ): array {
         $items = $this->fetchGroupByFamilyWithNAndN1(
             $family,
@@ -302,12 +302,12 @@ class SalesByFamilyX3Kpi
         int $year,
         int $week,
         string $groupField,
-        string $businessType = 'CS'
+        string $businessType = 'CONCEPT STORE'
     ): array {
         // Sécurité : champ dynamique autorisé uniquement
-        $allowed = ['ItemGroupCode', 'GenusCode'];
+        $allowed = ['TSICOD_1', 'TSICOD_0'];
         if (!in_array($groupField, $allowed, true)) {
-            $groupField = 'ItemGroupCode';
+            $groupField = 'TSICOD_1';
         }
 
         $yearN  = $year;
@@ -315,31 +315,25 @@ class SalesByFamilyX3Kpi
 
         $sql = "
         SELECT
-            co.$groupField AS grp,
-            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN}  THEN i.AmountEurTM ELSE 0 END) AS n,
-            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN1} THEN i.AmountEurTM ELSE 0 END) AS n1
-        FROM [BI].[DWH].[F_Invoices] i
-        LEFT JOIN [BI].[DWH].D_Location l
-            ON i.LocationCode = l.Code
-        LEFT JOIN [BI].[DWH].D_Item it
-            ON i.ItemNo = it.ItemNo
-        LEFT JOIN [BI].[DWH].D_Collection co
-            ON i.ItemNo = co.Code
-           AND i.SeriesNo = co.SeasonCode
-        LEFT JOIN [BI].[DWH].D_Customer c
-            ON i.CustomerNo = c.Code
-           AND i.CompanyCode = c.CompanyCode
+            ITM.$groupField AS grp,
+            SUM(CASE WHEN YEAR(I.DOCUMENTPOSTINGDATE) = {$yearN}  THEN I.AMOUNTEURTM ELSE 0 END) AS n,
+            SUM(CASE WHEN YEAR(I.DOCUMENTPOSTINGDATE) = {$yearN1} THEN I.AMOUNTEURTM ELSE 0 END) AS n1
+        FROM SEI_X3_LCS.CONSO_INVOICES I
+        LEFT JOIN X3_LCS.ITMMASTER ITM ON I.ITEMNO = ITM.ITMREF_0
+        LEFT JOIN X3_LCS.ZMODELE ZMO ON ITM.ZMODELCOD_0 = ZMO.ZMODCOD_0
+        LEFT JOIN X3_LCS.BPCUSTOMER BPC ON I.CUSTOMERNO = BPC.BPCNUM_0
+        LEFT JOIN X3_LCS.ATEXTRA ATX ON ATX.IDENT2_0 = BPC.TSCCOD_3 AND ATX.CODFIC_0 = 'ATABDIV' AND ATX.LANGUE_0 = 'FRA' AND ATX.ZONE_0 = 'LNGDES' AND ATX.IDENT1_0 = '33'
         WHERE
-            l.BusinessType = '{$businessType}'
-            AND YEAR(i.ExpectedInvoicingDate) IN ({$yearN}, {$yearN1})
-            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            ATX.TEXTE_0 = '{$businessType}'
+            AND YEAR(I.DOCUMENTPOSTINGDATE) IN ({$yearN}, {$yearN1})
+            AND DATEPART(ISO_WEEK, I.DOCUMENTPOSTINGDATE) = {$week}
             {$this->baseJoFilterSql()}
-            AND it.ItemFamilyCode = '{$family}'
-            AND co.$groupField IS NOT NULL
-        GROUP BY co.$groupField
+            AND ITM.TCLCOD_0 = '{$family}'
+            AND ITM.$groupField IS NOT NULL
+        GROUP BY ITM.$groupField
         HAVING
-            SUM(CASE WHEN YEAR(i.ExpectedInvoicingDate) = {$yearN} THEN i.AmountEurTM ELSE 0 END) <> 0
-        ORDER BY co.$groupField ASC
+            SUM(CASE WHEN YEAR(I.DOCUMENTPOSTINGDATE) = {$yearN} THEN I.AMOUNTEURTM ELSE 0 END) <> 0
+        ORDER BY ITM.$groupField ASC
     ";
 
         $rows = $this->mssqlLcs->executeQuery($sql);
@@ -371,21 +365,18 @@ class SalesByFamilyX3Kpi
     ): float {
         $sql = "
         SELECT
-            SUM(i.AmountEurTM) AS total_eur
-        FROM [BI].[DWH].[F_Invoices] i
-        LEFT JOIN [BI].[DWH].D_Location l
-            ON i.LocationCode = l.Code
-        LEFT JOIN [BI].[DWH].D_Item it
-            ON i.ItemNo = it.ItemNo
-        LEFT JOIN [BI].[DWH].D_Collection co
-            ON i.ItemNo = co.Code
-           AND i.SeriesNo = co.SeasonCode
+            SUM(I.AMOUNTEURTM) as total_eur
+        FROM SEI_X3_LCS.CONSO_INVOICES I
+        LEFT JOIN X3_LCS.ITMMASTER ITM ON I.ITEMNO = ITM.ITMREF_0
+        LEFT JOIN X3_LCS.ZMODELE ZMO ON ITM.ZMODELCOD_0 = ZMO.ZMODCOD_0
+        LEFT JOIN X3_LCS.BPCUSTOMER BPC ON I.CUSTOMERNO = BPC.BPCNUM_0
+        LEFT JOIN X3_LCS.ATEXTRA ATX ON ATX.IDENT2_0 = BPC.TSCCOD_3 AND ATX.CODFIC_0 = 'ATABDIV' AND ATX.LANGUE_0 = 'FRA' AND ATX.ZONE_0 = 'LNGDES' AND ATX.IDENT1_0 = '33'
         WHERE
-            l.BusinessType = 'CS'
-            AND YEAR(i.ExpectedInvoicingDate) = {$year}
-            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            ATX.TEXTE_0 = 'CONCEPT STORE'
+            AND YEAR(I.DOCUMENTPOSTINGDATE) = {$year}
+            AND DATEPART(ISO_WEEK, I.DOCUMENTPOSTINGDATE) = {$week}
             {$this->baseJoFilterSql()}
-            AND it.ItemFamilyCode = '{$family}'
+            AND ITM.TCLCOD_0 = '{$family}'
     ";
 
         $rows = $this->mssqlLcs->executeQuery($sql);
@@ -404,33 +395,30 @@ class SalesByFamilyX3Kpi
         int $week,
         string $family,
         int $limit = 5,
-        string $businessType = 'CS'
+        string $businessType = 'CONCEPT STORE'
     ): array {
         $sql = "
         SELECT TOP {$limit}
-            it.ItemNo AS itemno,
-            it.[Description] AS descr,
-            SUM(i.AmountEurTM) AS amount_eur,
-            SUM(i.Quantity) AS qty
-        FROM [BI].[DWH].[F_Invoices] i
-        LEFT JOIN [BI].[DWH].D_Location l
-            ON i.LocationCode = l.Code
-        LEFT JOIN [BI].[DWH].D_Item it
-            ON i.ItemNo = it.ItemNo
-        LEFT JOIN [BI].[DWH].D_Collection co
-            ON i.ItemNo = co.Code
-           AND i.SeriesNo = co.SeasonCode
+        ITM.ITMREF_0 AS itemno,
+        ITM.ITMDES1_0 AS descr,
+            SUM(I.AMOUNTEURTM) as amount_eur,
+            SUM(I.QUANTITY) AS qty
+        FROM SEI_X3_LCS.CONSO_INVOICES I
+        LEFT JOIN X3_LCS.ITMMASTER ITM ON I.ITEMNO = ITM.ITMREF_0
+        LEFT JOIN X3_LCS.ZMODELE ZMO ON ITM.ZMODELCOD_0 = ZMO.ZMODCOD_0
+        LEFT JOIN X3_LCS.BPCUSTOMER BPC ON I.CUSTOMERNO = BPC.BPCNUM_0
+        LEFT JOIN X3_LCS.ATEXTRA ATX ON ATX.IDENT2_0 = BPC.TSCCOD_3 AND ATX.CODFIC_0 = 'ATABDIV' AND ATX.LANGUE_0 = 'FRA' AND ATX.ZONE_0 = 'LNGDES' AND ATX.IDENT1_0 = '33'
         WHERE
-            l.BusinessType = '{$businessType}'
-            AND YEAR(i.ExpectedInvoicingDate) = {$year}
-            AND DATEPART(ISO_WEEK, i.ExpectedInvoicingDate) = {$week}
+            ATX.TEXTE_0 = '{$businessType}'
+            AND YEAR(I.DOCUMENTPOSTINGDATE) = {$year}
+            AND DATEPART(ISO_WEEK, I.DOCUMENTPOSTINGDATE) = {$week}
             {$this->baseJoFilterSql()}
-            AND it.ItemFamilyCode = '{$family}'
+            AND ITM.TCLCOD_0 = '{$family}'
         GROUP BY
-            it.ItemNo,
-            it.[Description]
+            ITM.ITMREF_0,
+            ITM.ITMDES1_0
         ORDER BY
-            SUM(i.AmountEurTM) DESC
+            SUM(I.AMOUNTEURTM) DESC
     ";
 
         $rows = $this->mssqlLcs->executeQuery($sql);

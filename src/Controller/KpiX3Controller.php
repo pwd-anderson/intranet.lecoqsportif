@@ -5,13 +5,11 @@ namespace App\Controller;
 use App\Entity\KpiDeckPresentation;
 use App\Repository\KpiDeckPresentationRepository;
 use App\Service\kpi\CategoriesByBoutiquesKpi;
-use App\Service\kpi\OverviewBoutiquesKpi;
 use App\Service\kpi\OverviewBoutiquesX3Kpi;
-use App\Service\kpi\SalesByBoutiquesKpi;
 use App\Service\kpi\SalesByBoutiquesX3Kpi;
-use App\Service\kpi\SalesByFamilyKpi;
-use App\Service\kpi\SalesFoKpi;
-use App\Service\kpi\SalesShopByGroupKpi;
+use App\Service\kpi\SalesByFamilyX3Kpi;
+use App\Service\kpi\SalesFoX3Kpi;
+use App\Service\kpi\SalesShopByGroupX3Kpi;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -60,9 +58,9 @@ final class KpiX3Controller extends AbstractController
         Request $request,
         OverviewBoutiquesX3Kpi $overviewBoutiques,
         SalesByBoutiquesX3Kpi $salesByBoutiques,
-        SalesByFamilyKpi $salesByFamily,
-        SalesShopByGroupKpi $salesShopByGroup,
-        SalesFoKpi $salesFoKpi,
+        SalesByFamilyX3Kpi $salesByFamily,
+        SalesShopByGroupX3Kpi $salesShopByGroup,
+        SalesFoX3Kpi $salesFoKpi,
         KpiDeckPresentationRepository $repository,
     ): Response {
         $year = (int) $request->query->get('year', (int) date('Y'));
@@ -108,7 +106,7 @@ final class KpiX3Controller extends AbstractController
                 ]);
             case 'overview_boutiques_fo':
                 return $this->render('kpi/_sales_by_boutiques_blocks.html.twig', [
-                    'sales_data' => $salesByBoutiques->getSalesByBoutique($year, $week, 'FO'),
+                    'sales_data' => $salesByBoutiques->getSalesByBoutique($year, $week, 'FACTORY OUTLET'),
                     'view' => $view,
                     'year' => $year,
                     'week' => $week,

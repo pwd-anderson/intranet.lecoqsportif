@@ -234,7 +234,7 @@ class SalesByBoutiquesX3Kpi
         SELECT
             ATX.TEXTE_0 as BusinessType,
             I.LOCATIONCODE as Code,
-            FCY.FCYNAM_0 as storeDescription,
+            I.LOCATIONCODE as StoreDescription,
 
             SUM(CASE WHEN YEAR(I.DOCUMENTPOSTINGDATE) = {$year}
                 THEN I.AMOUNTEURTM ELSE 0 END) AS Amount_N,
@@ -258,6 +258,7 @@ class SalesByBoutiquesX3Kpi
 
         WHERE
             ATX.TEXTE_0 = '{$businessTypeSql}'
+            AND I.LOCATIONCODE <> 'CASPER'
             -- AND ATX2.TEXTE_0 = 'RETAIL'
             AND (
                 CASE
@@ -283,8 +284,7 @@ class SalesByBoutiquesX3Kpi
         $sql .= "
         GROUP BY
             ATX.TEXTE_0,
-            I.LOCATIONCODE,
-            FCY.FCYNAM_0
+            I.LOCATIONCODE
         HAVING
             SUM(CASE WHEN YEAR(I.DOCUMENTPOSTINGDATE) = {$year}
                 THEN I.AMOUNTEURTM ELSE 0 END) <> 0
@@ -328,6 +328,7 @@ class SalesByBoutiquesX3Kpi
 
         WHERE 1=1
             -- and ATX2.TEXTE_0 = 'RETAIL'
+            AND I.LOCATIONCODE <> 'CASPER'
             AND ATX.TEXTE_0 <> ''
             AND (
                 CASE
@@ -394,6 +395,7 @@ class SalesByBoutiquesX3Kpi
         WHERE
             ATX.TEXTE_0 = '{$businessType}'
             -- AND ATX2.TEXTE_0 = 'RETAIL'
+            AND I.LOCATIONCODE <> 'CASPER'
             AND (
                 CASE
                     WHEN DATEPART(ISO_WEEK, I.DOCUMENTPOSTINGDATE) = 1
