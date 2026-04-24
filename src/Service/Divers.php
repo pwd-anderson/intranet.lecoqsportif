@@ -150,4 +150,56 @@ class Divers
 
         return $processedResults;
     }
+
+    public function getCollections(): array
+    {
+        try {
+            $query = "
+            SELECT DISTINCT
+                C.SERIESCODE AS COLLECTION
+            FROM SEI_X3_LCS.LCS_COLLECTION C
+            WHERE C.SERIESCODE >= '2023-01-SS'
+            ORDER BY C.SERIESCODE DESC
+        ";
+
+            $data = $this->mssqlSei->executeQuery($query);
+
+            return array_map(static function ($row) {
+                return $row->COLLECTION;
+            }, $data);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste collections', $e);
+            $this->logger->error('LCS Erreur Divers : Liste collections', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
+    public function getTypes(): array
+    {
+        try {
+            $query = "
+            SELECT DISTINCT
+                CASE
+                    WHEN C.AGEGROUP = 'ADULT' THEN C.GENUSCODE
+                    ELSE 'KIDS'
+                END AS TYPE
+            FROM SEI_X3_LCS.LCS_COLLECTION C
+            ORDER BY TYPE ASC
+        ";
+
+            $data = $this->mssqlSei->executeQuery($query);
+
+            return array_map(static function ($row) {
+                return $row->TYPE;
+            }, $data);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste types', $e);
+            $this->logger->error('LCS Erreur Divers : Liste types', ['exception' => $e]);
+
+            return [];
+        }
+    }
 }

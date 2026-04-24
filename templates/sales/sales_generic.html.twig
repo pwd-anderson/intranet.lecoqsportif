@@ -2,7 +2,6 @@
 
 {% block stylesheets %}
     {{ parent() }}
-    {# Import ag-Grid CSS #}
     <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
 
@@ -11,8 +10,28 @@
             --ag-header-background-color: rgb(2, 65, 133) !important;
             --ag-header-foreground-color: #FFFFFF !important;
         }
+
         .ag-text-field-input {
             color: #000000 !important;
+        }
+
+        .grid-outer-container {
+            width: 100%;
+        }
+
+        .grid-outer-container.grid-width-auto {
+            display: flex;
+            justify-content: center;
+        }
+
+        .grid-inner-container {
+            width: 100%;
+        }
+
+        .grid-outer-container.grid-width-auto .grid-inner-container {
+            width: auto;
+            min-width: 720px;
+            max-width: 100%;
         }
 
         .grid-wrapper {
@@ -71,30 +90,48 @@
         <div class="row">
             <div class="col-12">
                 <div class="box">
+                    <div id="gridOuterContainer" class="grid-outer-container {% if gridWidthMode == 'auto' %}grid-width-auto{% endif %}">
+                        <div id="gridInnerContainer" class="grid-inner-container">
+                            <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                                <h3 class="box-title mb-2">{{ title }}</h3>
 
-                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
-                        <h3 class="box-title mb-0">{{ title }}</h3>
-                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
-                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-success" type="button">Save</button>
-                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-secondary" type="button">Reset</button>
-                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
-                            <span id="rowCount" class="text-muted small"></span>
-                        </div>
-                    </div>
-                    <!-- /.box-header -->
-                    <div class="box-body">
-                        <div class="table-responsive-sm">
-                            <div id="myGridWrapper" class="grid-wrapper">
-                                <div id="gridCustomLoader" class="grid-custom-loader">
-                                    <div class="grid-loader-spinner"></div>
-                                    <div class="grid-loader-text">Chargement de la grille...</div>
+                                <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                                    {% if type == 'poid_famille_par_variant' %}
+                                        <select id="collectionSelect" class="form-select form-select-sm" style="width: 180px;">
+                                            <option value="">Toutes les collections</option>
+                                        </select>
+
+                                        <select id="familySelect" class="form-select form-select-sm" style="width: 140px;">
+                                            <option value="FTW" selected>FTW</option>
+                                            <option value="APL">APL</option>
+                                        </select>
+
+                                        <select id="typeSelect" class="form-select form-select-sm" style="width: 140px;">
+                                            <option value="">Tous les types</option>
+                                        </select>
+                                    {% endif %}
+
+                                    <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                                    <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                                    <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
+                                    <span id="rowCount" class="text-muted small"></span>
                                 </div>
+                            </div>
 
-                                <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
+                            <div class="box-body">
+                                <div class="table-responsive-sm">
+                                    <div id="myGridWrapper" class="grid-wrapper">
+                                        <div id="gridCustomLoader" class="grid-custom-loader">
+                                            <div class="grid-loader-spinner"></div>
+                                            <div class="grid-loader-text">Chargement de la grille...</div>
+                                        </div>
+
+                                        <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -103,16 +140,46 @@
 
 {% block javascripts %}
     {{ parent() }}
-    <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.7"></script>
 
     <script>
-        const currentYear = new Date().getFullYear();
+        const salesType = '{{ type }}';
+        const gridWidthMode = '{{ gridWidthMode|default("full") }}';
+
+        const columnDefs = {{ columns|json_encode|raw }};
+
+        columnDefs.forEach(col => {
+
+            // helper pour ajouter une classe sans écraser
+            function addCellClass(col, newClass) {
+
+                if (!col.cellClass) {
+                    col.cellClass = newClass;
+                    return;
+                }
+
+                if (Array.isArray(col.cellClass)) {
+                    col.cellClass.push(newClass);
+                } else {
+                    col.cellClass = [col.cellClass, newClass];
+                }
+            }
+
+            // Format % pour dépréciation
+            if (col.field === 'WEIGHT_PERCENT') {
+                col.valueFormatter = 'percentFormatter';
+                col.comparator = 'percentComparator';
+                addCellClass(col, 'excelPercentColumn');
+            }
+
+        });
 
         const agGridConfig = {
-            columnDefs: {{ columns|json_encode|raw }},
-            dataUrl: '{{ dataUrl }}',
+            columnDefs: columnDefs,
+            dataUrl: salesType === 'poid_famille_par_variant'
+                ? '{{ dataUrl }}?family=FTW'
+                : '{{ dataUrl }}',
             numericColumns: {{ numericColumns|json_encode|raw }},
             integerColumns: {{ integerColumns|json_encode|raw }},
             totalColumns: {{ totalColumns|json_encode|raw }},
@@ -125,12 +192,16 @@
                     font: { bold: true, color: '#FFFFFF' },
                     alignment: { horizontal: 'Center' },
                     interior: { color: '#024185', pattern: 'Solid' }
+                },
+                {
+                    id: 'excelPercentColumn',
+                    interior: { color: '#baedbc', pattern: 'Solid' },
+                    font: { color: '#1B5E20' }
                 }
             ]
         };
 
-        document.addEventListener('DOMContentLoaded', () => {
-
+        document.addEventListener('DOMContentLoaded', async () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
 
@@ -141,6 +212,18 @@
                 window.gridOptions.api.exportDataAsExcel({
                     fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
                     processHeaderCallback: p => p.column.getColDef().headerName,
+
+                    // ✅ Gestion spéciale pour le %
+                    processCellCallback: (p) => {
+                        const field = p.column.getColId();
+
+                        if (field === 'WEIGHT_PERCENT') {
+                            if (p.value == null || p.value === '') return '';
+                            return (Number(p.value) * 100).toFixed(0) + ' %';
+                        }
+
+                        return p.value;
+                    }
                 });
             };
 
@@ -153,6 +236,158 @@
                 window.AgGridCommon.clearGridState(agGridConfig.stateKey);
                 location.reload();
             });
+
+            if (salesType === 'poid_famille_par_variant') {
+                const collectionSelect = document.getElementById('collectionSelect');
+                const familySelect = document.getElementById('familySelect');
+                const typeSelect = document.getElementById('typeSelect');
+
+                if (collectionSelect) {
+                    fetch('{{ path("poid_famille_par_variant_collections_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(collection => {
+                                const option = document.createElement('option');
+                                option.value = collection;
+                                option.textContent = collection;
+                                collectionSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                if (typeSelect) {
+                    fetch('{{ path("poid_famille_par_variant_types_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(type => {
+                                const option = document.createElement('option');
+                                option.value = type;
+                                option.textContent = type;
+                                typeSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                [collectionSelect, familySelect, typeSelect].forEach(select => {
+                    if (select) {
+                        select.addEventListener('change', reloadGridWithFilters);
+                    }
+                });
+            }
+
+            bindAutoWidthEvents();
+            adjustGridContainerWidth();
+            window.addEventListener('resize', debounce(adjustGridContainerWidth, 150));
         });
+
+        function bindAutoWidthEvents() {
+            if (gridWidthMode !== 'auto' || !window.gridOptions?.api) {
+                return;
+            }
+
+            const api = window.gridOptions.api;
+
+            api.addEventListener('firstDataRendered', function () {
+                setTimeout(adjustGridContainerWidth, 50);
+            });
+
+            api.addEventListener('modelUpdated', function () {
+                setTimeout(adjustGridContainerWidth, 50);
+            });
+
+            api.addEventListener('columnResized', function () {
+                setTimeout(adjustGridContainerWidth, 0);
+            });
+
+            api.addEventListener('columnVisible', function () {
+                setTimeout(adjustGridContainerWidth, 0);
+            });
+
+            api.addEventListener('columnMoved', function () {
+                setTimeout(adjustGridContainerWidth, 0);
+            });
+
+            api.addEventListener('columnPinned', function () {
+                setTimeout(adjustGridContainerWidth, 0);
+            });
+        }
+
+        function adjustGridContainerWidth() {
+            const outer = document.getElementById('gridOuterContainer');
+            const inner = document.getElementById('gridInnerContainer');
+
+            if (!outer || !inner) {
+                return;
+            }
+
+            if (gridWidthMode !== 'auto') {
+                inner.style.width = '100%';
+                inner.style.maxWidth = '100%';
+                return;
+            }
+
+            if (!window.gridOptions?.columnApi) {
+                return;
+            }
+
+            const displayedColumns = window.gridOptions.columnApi.getAllDisplayedColumns() || [];
+
+            if (!displayedColumns.length) {
+                return;
+            }
+
+            let totalWidth = 0;
+            displayedColumns.forEach(col => {
+                totalWidth += col.getActualWidth();
+            });
+
+            // marge de sécurité pour paddings / bordures / scrollbar / toolbar visuellement cohérente
+            const extraSpace = 58;
+            const calculatedWidth = totalWidth + extraSpace;
+
+            inner.style.width = calculatedWidth + 'px';
+            inner.style.maxWidth = '100%';
+        }
+
+        function reloadGridWithFilters() {
+            if (salesType !== 'poid_famille_par_variant') {
+                return;
+            }
+
+            const collection = document.getElementById('collectionSelect')?.value || '';
+            const family = document.getElementById('familySelect')?.value || '';
+            const type = document.getElementById('typeSelect')?.value || '';
+
+            const url = new URL('{{ dataUrl }}', window.location.origin);
+
+            if (collection) {
+                url.searchParams.set('collection', collection);
+            }
+
+            if (family) {
+                url.searchParams.set('family', family);
+            }
+
+            if (type) {
+                url.searchParams.set('type', type);
+            }
+
+            window.AgGridCommon.reloadData(
+                window.gridOptions,
+                url.toString(),
+                {{ totalColumns|json_encode|raw }}
+            );
+
+            setTimeout(adjustGridContainerWidth, 150);
+        }
+
+        function debounce(fn, delay) {
+            let timer = null;
+
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
     </script>
 {% endblock %}

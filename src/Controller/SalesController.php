@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Repository\AggridOptionRepository;
 use App\Service\AgGrid\AgGridColumnBuilder;
+use App\Service\Divers;
 use App\Service\Sales;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -55,6 +56,12 @@ final class SalesController extends AbstractController
     public function backlogClientsX3Alias(): Response
     {
         return $this->salesGeneric('backlog_clients_x3');
+    }
+
+    #[Route('/sales/sales_poid_famille_par_variant', name: 'app_sales_poid_famille_par_variant')]
+    public function poidFamileParVariantAlias(): Response
+    {
+        return $this->salesGeneric('poid_famille_par_variant');
     }
 
     // ################## Action customisés #####################
@@ -136,6 +143,18 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/sales/poid_famille_par_variant_json', name: 'poid_famille_par_variant_json')]
+    public function poidFamilleParVariantJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $collection = $request->query->get('collection');
+        $family = $request->query->get('family');
+        $type = $request->query->get('type');
+
+        $data = $sales->getPoidFamilleParVariant($collection, $family, $type);
+
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
     #[Route('/sales/backlog_clients_x3_json', name: 'backlog_clients_x3_json')]
     public function backlogClientsX3Json(Sales $sales, Helpers $helpers): JsonResponse
     {
@@ -143,7 +162,7 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
-    ####################### Route Divers ####################
+    ####################### Route non généric ####################
     #[Route('/sales/excess_for_sales_image/{article}', name: 'sales_excess_for_sales_image', methods: ['GET'])]
     public function excessForSalesImage(string $article): Response
     {
@@ -239,6 +258,23 @@ final class SalesController extends AbstractController
         ], Response::HTTP_NOT_FOUND);
     }
 
+    ####################### Route divers ####################
+    #[Route('/sales/poid_famille_par_variant_collections_json', name: 'poid_famille_par_variant_collections_json')]
+    public function poidFamilleParVariantCollectionsJson(Divers $divers, Helpers $helpers): JsonResponse
+    {
+        $data = $divers->getCollections();
+
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/poid_famille_par_variant_types_json', name: 'poid_famille_par_variant_types_json')]
+    public function poidFamilleParVariantTypesJson(Divers $divers, Helpers $helpers): JsonResponse
+    {
+        $data = $divers->getTypes();
+
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
     /*
     |--------------------------------------------------------------------------
     |  ROUTE GENERIQUE
@@ -248,40 +284,52 @@ final class SalesController extends AbstractController
     #[Route(
         '/sales/{type}',
         name: 'app_sales_generic',
-        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|livraison_non_facturees_x3']
+        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|poid_famille_par_variant']
     )]
     public function salesGeneric(string $type): Response
     {
         $config = [
             'livraison_non_facturees' => [
-                'gridName'  => 'liv_non_facturees_grid',
-                'title'     => 'Livraisons non facturées',
-                'jsonRoute' => 'livraison_non_facturees_json',
-                'template'  => 'sales/sales_generic.html.twig',
+                'gridName'      => 'liv_non_facturees_grid',
+                'title'         => 'Livraisons non facturées',
+                'jsonRoute'     => 'livraison_non_facturees_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
             ],
             'backlog_clients' => [
-                'gridName'  => 'backlog_clients_grid',
-                'title'     => 'Backlog clients',
-                'jsonRoute' => 'backlog_clients_json',
-                'template'  => 'sales/sales_generic.html.twig',
+                'gridName'      => 'backlog_clients_grid',
+                'title'         => 'Backlog clients',
+                'jsonRoute'     => 'backlog_clients_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
             ],
             'commandes_a_facturer' => [
-                'gridName'  => 'commandes_a_facturer_grid',
-                'title'     => 'Commandes à Facturer (Vue Balance âgée)',
-                'jsonRoute' => 'commandes_a_facturer_json',
-                'template'  => 'sales/sales_generic.html.twig',
+                'gridName'      => 'commandes_a_facturer_grid',
+                'title'         => 'Commandes à Facturer (Vue Balance âgée)',
+                'jsonRoute'     => 'commandes_a_facturer_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
             ],
             'commandes_a_facturer_x3' => [
-                'gridName'  => 'commandes_a_facturer_x3_grid',
-                'title'     => 'Commandes à Facturer (Vue Balance âgée)',
-                'jsonRoute' => 'commandes_a_facturer_x3_json',
-                'template'  => 'sales/sales_generic.html.twig',
+                'gridName'      => 'commandes_a_facturer_x3_grid',
+                'title'         => 'Commandes à Facturer (Vue Balance âgée)',
+                'jsonRoute'     => 'commandes_a_facturer_x3_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
             ],
             'backlog_clients_x3' => [
-                'gridName'  => 'backlog_client_x3_grid',
-                'title'     => 'Backlog Clients',
-                'jsonRoute' => 'backlog_clients_x3_json',
-                'template'  => 'sales/sales_generic.html.twig',
+                'gridName'      => 'backlog_client_x3_grid',
+                'title'         => 'Backlog Clients',
+                'jsonRoute'     => 'backlog_clients_x3_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
+            ],
+            'poid_famille_par_variant' => [
+                'gridName'      => 'poid_famille_par_variant_grid',
+                'title'         => 'Poids des tailles',
+                'jsonRoute'     => 'poid_famille_par_variant_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'auto',
             ],
         ];
 
@@ -305,7 +353,8 @@ final class SalesController extends AbstractController
             'integerColumns' => $grid['integerColumns'],
             'totalColumns'   => $grid['totalColumns'],
             'dataUrl'        => $this->generateUrl($gridConfig['jsonRoute']),
-            'type' => $type,
+            'type'           => $type,
+            'gridWidthMode'  => $gridConfig['gridWidthMode'] ?? 'full',
         ]);
     }
 

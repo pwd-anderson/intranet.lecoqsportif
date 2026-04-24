@@ -42,6 +42,7 @@ sidebar:
         commandes_a_facturer_x3: "Commandes à Facturer\n(Vue Balance âgée -> Data X3)"
         reassort_magasin: "Réassort Magasin"
         excess_for_sales: "Excess for Sales"
+        poids_tailles: "Weight of sizes"
     management:
         ca_marges: "Sales Margins"
     stock:
