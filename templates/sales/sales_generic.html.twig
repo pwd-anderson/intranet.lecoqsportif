@@ -82,6 +82,30 @@
             pointer-events: auto;
             transition: opacity 0.2s ease-in-out;
         }
+
+        .best-demand-photo-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 0 !important;
+        }
+
+        .ag-theme-alpine .ag-cell.best-demand-photo-cell {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .best-demand-photo-cell img {
+            width: 118px;
+            height: 85px;
+            object-fit: contain;
+            display: block;
+        }
+        .ag-theme-alpine .ag-cell.best-demand-photo-cell {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
     </style>
 {% endblock %}
 
@@ -96,14 +120,20 @@
                                 <h3 class="box-title mb-2">{{ title }}</h3>
 
                                 <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
-                                    {% if type == 'poid_famille_par_variant' %}
+                                    {% if type in ['poid_famille_par_variant', 'best_demand_per_style'] %}
                                         <select id="collectionSelect" class="form-select form-select-sm" style="width: 180px;">
                                             <option value="">Toutes les collections</option>
                                         </select>
 
                                         <select id="familySelect" class="form-select form-select-sm" style="width: 140px;">
-                                            <option value="FTW" selected>FTW</option>
-                                            <option value="APL">APL</option>
+                                            {% if type == 'poid_famille_par_variant' %}
+                                                <option value="FTW" selected>FTW</option>
+                                                <option value="APL">APL</option>
+                                            {% elseif type == 'best_demand_per_style' %}
+                                                <option value="" selected>Toutes les familles</option>
+                                                <option value="FTW">FTW</option>
+                                                <option value="APL">APL</option>
+                                            {% endif %}
                                         </select>
 
                                         <select id="typeSelect" class="form-select form-select-sm" style="width: 140px;">
@@ -151,9 +181,7 @@
 
         columnDefs.forEach(col => {
 
-            // helper pour ajouter une classe sans écraser
             function addCellClass(col, newClass) {
-
                 if (!col.cellClass) {
                     col.cellClass = newClass;
                     return;
@@ -166,13 +194,60 @@
                 }
             }
 
-            // Format % pour dépréciation
             if (col.field === 'WEIGHT_PERCENT') {
                 col.valueFormatter = 'percentFormatter';
                 col.comparator = 'percentComparator';
                 addCellClass(col, 'excelPercentColumn');
             }
 
+            if (salesType === 'best_demand_per_style' && col.field === 'DESCRIPTION') {
+                col.wrapText = true;
+                col.autoHeight = true;
+                col.cellStyle = {
+                    whiteSpace: 'normal',
+                    lineHeight: '1.3',
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderRight: '0.2px solid #CECECEFF',
+                    borderBottom: '0.2px solid #CECECEFF'
+                };
+            }
+
+            if (salesType === 'best_demand_per_style' && col.field === 'PHOTO') {
+                col.width = 120;
+                col.minWidth = 120;
+                col.maxWidth = 120;
+                col.sortable = false;
+                col.filter = false;
+                col.resizable = false;
+                col.cellClass = 'best-demand-photo-cell';
+
+                col.cellRenderer = function (params) {
+                    if (!params.value) {
+                        return '';
+                    }
+
+                    const escapedUrl = String(params.value).replace(/"/g, '&quot;');
+
+                    return `
+        <img
+            src="${escapedUrl}"
+            alt="photo article"
+            width="200"
+            height="85"
+            style="width:200px; height:85px; object-fit:contain; display:block;"
+            onerror="
+                if (!this.dataset.fallbackTried) {
+                    this.dataset.fallbackTried = '1';
+                    this.src = this.src.replace('_2.jpg', '_1.jpg');
+                } else {
+                    this.style.display = 'none';
+                }
+            "
+        />
+    `;
+                };
+            }
         });
 
         const agGridConfig = {
@@ -185,6 +260,9 @@
             totalColumns: {{ totalColumns|json_encode|raw }},
             headerClass: 'excelHeaderBlue',
             stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
+            getRowHeight: function () {
+                return salesType === 'best_demand_per_style' ? 90 : 42;
+            },
 
             excelStyles: [
                 {
@@ -203,6 +281,9 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+            if (salesType === 'best_demand_per_style') {
+                window.gridOptions.api.resetRowHeights();
+            }
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
 
             const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
@@ -237,7 +318,7 @@
                 location.reload();
             });
 
-            if (salesType === 'poid_famille_par_variant') {
+            if (['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
                 const collectionSelect = document.getElementById('collectionSelect');
                 const familySelect = document.getElementById('familySelect');
                 const typeSelect = document.getElementById('typeSelect');
@@ -350,7 +431,7 @@
         }
 
         function reloadGridWithFilters() {
-            if (salesType !== 'poid_famille_par_variant') {
+            if (!['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
                 return;
             }
 

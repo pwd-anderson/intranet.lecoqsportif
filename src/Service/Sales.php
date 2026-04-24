@@ -542,4 +542,47 @@ class Sales
         }
     }
 
+    public function getBestDemandPerStyle(?string $collection = null, ?string $family = null, ?string $type = null): array
+    {
+        try {
+            $sql = $this->sqlFileLoader->load('Sei/best_demand_per_style.sql');
+
+            $collection = $collection !== null ? trim($collection) : null;
+            $collection = $collection !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $collection) : null;
+
+            $family = $family !== null ? trim($family) : null;
+            $family = $family !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $family) : null;
+
+            $type = $type !== null ? trim($type) : null;
+            $type = $type !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $type) : null;
+
+            $collectionWhere = '';
+            if ($collection) {
+                $collectionWhere = " AND C.SERIESCODE = '{$collection}'";
+            }
+
+            $familyWhere = '';
+            if ($family) {
+                $familyWhere = " AND C.ITEMFAMILYCODE = '{$family}'";
+            }
+
+            $typeWhere = '';
+            if ($type) {
+                $typeWhere = " AND (CASE WHEN C.AGEGROUP = 'ADULT' THEN C.GENUSCODE ELSE 'KIDS' END) = '{$type}'";
+            }
+
+            $sql = str_replace('{{COLLECTION_WHERE}}', $collectionWhere, $sql);
+            $sql = str_replace('{{FAMILY_WHERE}}', $familyWhere, $sql);
+            $sql = str_replace('{{TYPE_WHERE}}', $typeWhere, $sql);
+
+            return $this->mssqlSei->executeQuery($sql);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Best Demand per Style : Récupération de données sales', $e);
+            $this->logger->error('LCS Erreur Best Demand per Style : Récupération de données sales', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
 }

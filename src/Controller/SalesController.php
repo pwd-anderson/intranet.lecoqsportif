@@ -58,6 +58,12 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('backlog_clients_x3');
     }
 
+    #[Route('/sales/sales_best_demand_per_style', name: 'app_sales_best_demand_per_style')]
+    public function bestDemandPerStyleAlias(): Response
+    {
+        return $this->salesGeneric('best_demand_per_style');
+    }
+
     #[Route('/sales/sales_poid_famille_par_variant', name: 'app_sales_poid_famille_par_variant')]
     public function poidFamileParVariantAlias(): Response
     {
@@ -151,6 +157,18 @@ final class SalesController extends AbstractController
         $type = $request->query->get('type');
 
         $data = $sales->getPoidFamilleParVariant($collection, $family, $type);
+
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/best_demand_per_style_json', name: 'best_demand_per_style_json')]
+    public function bestDemandPerStyleJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $collection = $request->query->get('collection');
+        $family = $request->query->get('family');
+        $type = $request->query->get('type');
+
+        $data = $sales->getBestDemandPerStyle($collection, $family, $type);
 
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
@@ -284,7 +302,7 @@ final class SalesController extends AbstractController
     #[Route(
         '/sales/{type}',
         name: 'app_sales_generic',
-        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|poid_famille_par_variant']
+        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|poid_famille_par_variant|best_demand_per_style']
     )]
     public function salesGeneric(string $type): Response
     {
@@ -328,6 +346,13 @@ final class SalesController extends AbstractController
                 'gridName'      => 'poid_famille_par_variant_grid',
                 'title'         => 'Poids des tailles',
                 'jsonRoute'     => 'poid_famille_par_variant_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'auto',
+            ],
+            'best_demand_per_style' => [
+                'gridName'      => 'best_demand_per_style_grid',
+                'title'         => '10 Best Demand per Style',
+                'jsonRoute'     => 'best_demand_per_style_json',
                 'template'      => 'sales/sales_generic.html.twig',
                 'gridWidthMode' => 'auto',
             ],
