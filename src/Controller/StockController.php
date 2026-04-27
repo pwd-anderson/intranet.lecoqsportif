@@ -70,9 +70,14 @@ final class StockController extends AbstractController
     }
 
     #[Route('/stock/stock_allocation_json', name: 'stock_allocation_json')]
-    public function stockAllocationJson(Stock $stock, Helpers $helpers): JsonResponse
-    {
-        $data = $stock->getStockAllocation();
+    public function stockAllocationJson(
+        Request $request,
+        Stock $stock,
+        Helpers $helpers
+    ): JsonResponse {
+        $siteGroup = $request->query->get('siteGroup');
+
+        $data = $stock->getStockAllocation($siteGroup);
         $dataUtf8 = $helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);

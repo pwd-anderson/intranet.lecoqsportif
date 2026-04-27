@@ -56,16 +56,74 @@ class Stock
         }
     }
 
-    public function getStockAllocation(): array
+    public function getStockAllocation(?string $siteGroup = null): array
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/stock_allocation.sql');
-            $data = $this->mssqlSei->executeQuery($query);
-            return $data;
+
+            $sitesByGroup = [
+                'central' => [
+                    'WDTTH',
+                    'WLOGM',
+                    'WSFCN',
+                ],
+                'magasins' => [
+                    'RBBAY',
+                    'RBCAB',
+                    'RBCAG',
+                    'RBCIT',
+                    'RBORL',
+                    'RBSJL',
+                    'RBSTG',
+                    'RFMIR',
+                    'RFROP',
+                    'RFROU',
+                    'RFTRO',
+                    'RFVIL',
+                ],
+                'concept_stores' => [
+                    'RBBAY',
+                    'RBCAB',
+                    'RBCAG',
+                    'RBCIT',
+                    'RBORL',
+                    'RBSJL',
+                    'RBSTG',
+                ],
+                'factory_outlets' => [
+                    'RFMIR',
+                    'RFROP',
+                    'RFROU',
+                    'RFTRO',
+                    'RFVIL',
+                ],
+            ];
+
+            if ($siteGroup && isset($sitesByGroup[$siteGroup])) {
+                $sites = $sitesByGroup[$siteGroup];
+
+                $quotedSites = array_map(static function ($site) {
+                    return "'" . str_replace("'", "''", $site) . "'";
+                }, $sites);
+
+                $sitesSql = implode(',', $quotedSites);
+
+                $query = str_replace(
+                    '/*SITE_FILTER*/',
+                    "AND s.STOFCY_0 IN ($sitesSql)",
+                    $query
+                );
+            } else {
+                $query = str_replace('/*SITE_FILTER*/', '', $query);
+            }
+
+            return $this->mssqlSei->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Stock Allocation : Récupération de données stock', $e);
             $this->logger->error('LCS Erreur Stock Allocation : Récupération de données stock', ['exception' => $e]);
+
+            return [];
         }
     }
 

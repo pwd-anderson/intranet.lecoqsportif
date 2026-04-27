@@ -94,3 +94,5 @@ FROM sto_agg s
          LEFT JOIN CollectionRecente CR
                    ON i.ITMREF_0 = CR.ITMREF_0
                        AND CR.rn = 1
+WHERE 1 = 1
+/*SITE_FILTER*/

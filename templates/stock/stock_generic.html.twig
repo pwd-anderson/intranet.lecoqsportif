@@ -88,6 +88,17 @@
                                     <option value="">Toutes les familles</option>
                                 </select>
                             {% endif %}
+                            {% if type == 'stock_allocation' %}
+                                <select id="siteGroupSelect"
+                                        class="form-select form-select-sm"
+                                        style="width:220px;">
+                                    <option value="">Global</option>
+                                    <option value="central">Entrepôts centraux</option>
+                                    <option value="magasins">Magasins</option>
+                                    <option value="concept_stores">Concept Stores</option>
+                                    <option value="factory_outlets">Factory Outlets</option>
+                                </select>
+                            {% endif %}
                             <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-success" type="button">Save</button>
                             <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-secondary" type="button">Reset</button>
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
@@ -239,6 +250,14 @@
                     reloadGridWithFamille(this.value);
                 });
             }
+
+            const siteGroupSelect = document.getElementById('siteGroupSelect');
+
+            if (siteGroupSelect) {
+                siteGroupSelect.addEventListener('change', function () {
+                    reloadGridWithSiteGroup(this.value);
+                });
+            }
         });
 
         function reloadGridWithFamille(famille) {
@@ -247,6 +266,21 @@
 
             if (famille) {
                 url += '?famille=' + encodeURIComponent(famille);
+            }
+
+            window.AgGridCommon.reloadData(
+                window.gridOptions,
+                url,
+                {{ totalColumns|json_encode|raw }}
+            );
+        }
+
+        function reloadGridWithSiteGroup(siteGroup) {
+
+            let url = '{{ dataUrl }}';
+
+            if (siteGroup) {
+                url += '?siteGroup=' + encodeURIComponent(siteGroup);
             }
 
             window.AgGridCommon.reloadData(
