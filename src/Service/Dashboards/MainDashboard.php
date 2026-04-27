@@ -438,7 +438,6 @@ class MainDashboard
             I.ISBOHPERIMETERPRODUCT = 1
             AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
             AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
-            AND I.SOURCE = 'LCS'
             AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
             AND YEAR(I.DOCUMENTPOSTINGDATE) > YEAR(GETDATE()) - 5
         GROUP BY
@@ -510,7 +509,6 @@ class MainDashboard
             I.ISBOHPERIMETERPRODUCT = 1
             AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
             AND COLL.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
-            AND I.SOURCE = 'LCS'
             AND I.COMPANYCODE = 'LCSI'
             AND I.DOCUMENTPOSTINGDATE >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
 
@@ -583,7 +581,6 @@ class MainDashboard
             I.ISBOHPERIMETERPRODUCT = 1
             AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
             AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
-            AND I.SOURCE = 'LCS'
             AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
             AND I.DOCUMENTPOSTINGDATE >= DATEADD(YEAR, -2, GETDATE())
 
