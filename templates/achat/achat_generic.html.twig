@@ -4,6 +4,7 @@
     {{ parent() }}
     {# Import ag-Grid CSS #}
     <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
 
     <style>
         .ag-theme-alpine {
@@ -68,6 +69,29 @@
             pointer-events: auto;
             transition: opacity 0.2s ease-in-out;
         }
+
+        {# ##### Grid loader avec % ##### #}
+        .grid-loader-bar-track {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .grid-loader-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #024185;
+            border-radius: 99px;
+            transition: width 0.3s ease;
+        }
+
+        .grid-loader-percent-text {
+            font-size: 13px;
+            color: #024185;
+            font-weight: 600;
+            margin-top: 6px;
+        }
     </style>
 {% endblock %}
 
@@ -93,6 +117,10 @@
                                 <div id="gridCustomLoader" class="grid-custom-loader">
                                     <div class="grid-loader-spinner"></div>
                                     <div class="grid-loader-text">Chargement de la grille...</div>
+                                    <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                        <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                    </div>
+                                    <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
                                 </div>
 
                                 <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
@@ -103,6 +131,7 @@
                 </div>
             </div>
         </div>
+        {{ include('components/_excel_loader.html.twig') }}
     </section>
 {% endblock %}
 
@@ -111,6 +140,7 @@
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.7"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
 
     <script>
         const currentYear = new Date().getFullYear();
@@ -156,11 +186,12 @@
             const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
-            window.onBtExportExcel = function () {
-                window.gridOptions.api.exportDataAsExcel({
-                    fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
-                    processHeaderCallback: p => p.column.getColDef().headerName,
-                });
+            // Export simple sans options
+            window.onBtExportExcel = async function () {
+                await ExcelExportStandard.export(
+                    window.gridOptions,
+                    '{{ title|replace({" ": "_"}) }}.xlsx'
+                );
             };
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', function () {

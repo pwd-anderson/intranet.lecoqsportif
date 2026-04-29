@@ -4,6 +4,7 @@
     {{ parent() }}
     <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
 
     <style>
         .ag-theme-alpine {
@@ -106,6 +107,29 @@
             padding-left: 0 !important;
             padding-right: 0 !important;
         }
+
+        {# ##### Grid loader avec % ##### #}
+        .grid-loader-bar-track {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .grid-loader-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #024185;
+            border-radius: 99px;
+            transition: width 0.3s ease;
+        }
+
+        .grid-loader-percent-text {
+            font-size: 13px;
+            color: #024185;
+            font-weight: 600;
+            margin-top: 6px;
+        }
     </style>
 {% endblock %}
 
@@ -154,6 +178,10 @@
                                         <div id="gridCustomLoader" class="grid-custom-loader">
                                             <div class="grid-loader-spinner"></div>
                                             <div class="grid-loader-text">Chargement de la grille...</div>
+                                            <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                                <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                            </div>
+                                            <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
                                         </div>
 
                                         <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
@@ -165,6 +193,7 @@
                 </div>
             </div>
         </div>
+        {{ include('components/_excel_loader.html.twig') }}
     </section>
 {% endblock %}
 
@@ -172,6 +201,10 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.7"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-with-photo.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
 
     <script>
         const salesType = '{{ type }}';
@@ -289,23 +322,45 @@
             const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
-            window.onBtExportExcel = function () {
-                window.gridOptions.api.exportDataAsExcel({
-                    fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
-                    processHeaderCallback: p => p.column.getColDef().headerName,
-
-                    // ✅ Gestion spéciale pour le %
-                    processCellCallback: (p) => {
-                        const field = p.column.getColId();
-
-                        if (field === 'WEIGHT_PERCENT') {
-                            if (p.value == null || p.value === '') return '';
-                            return (Number(p.value) * 100).toFixed(0) + ' %';
+            window.onBtExportExcel = async function () {
+                if (salesType !== 'best_demand_per_style') {
+                    await ExcelExportStandard.export(
+                        window.gridOptions,
+                        '{{ title|replace({" ": "_"}) }}.xlsx',
+                        {
+                            processCellCallback: (p) => {
+                                const field = p.column.getColId();
+                                if (field === 'WEIGHT_PERCENT') {
+                                    if (p.value == null || p.value === '') return '';
+                                    return (Number(p.value) * 100).toFixed(0) + ' %';
+                                }
+                                return p.value;
+                            }
                         }
+                    );
+                    return;
+                }
 
-                        return p.value;
+                await ExcelExportWithPhoto.export(
+                    window.gridOptions,
+                    window.gridOptions.columnApi,
+                    {
+                        fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
+                        photoColumn: 'PHOTO',
+                        articleColumn: 'ARTICLE',
+                        imageBaseUrl: '/fr/sales/best_demand_per_style_image_base64',
+                        rowHeight: 70,
+                        headerColor: '024185',
+                        onProgress: (p) => {
+                            const percent = document.getElementById('excelLoaderPercent');
+                            const fill = document.getElementById('excelLoaderBarFill');
+                            const sub = document.getElementById('excelLoaderSub');
+                            if (percent) percent.textContent = p + '%';
+                            if (fill) fill.style.width = p + '%';
+                            if (sub && p === 100) sub.textContent = 'Génération du fichier...';
+                        }
                     }
-                });
+                );
             };
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', function () {

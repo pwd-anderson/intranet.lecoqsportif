@@ -86,30 +86,93 @@ window.AgGridCommon = (function () {
         return gridOptions;
     }
 
+    let _loaderTimer = null;
+    let _loaderPercent = 0;
+
+    function startLoaderProgress() {
+        const fill = document.getElementById('gridLoaderBarFill');
+        const text = document.getElementById('gridLoaderPercent');
+
+        _loaderPercent = 0;
+        _updateLoaderUI(fill, text, 0);
+
+        const steps = [
+            { target: 30, duration: 300 },
+            { target: 60, duration: 500 },
+            { target: 80, duration: 800 },
+            { target: 85, duration: 1200 },
+        ];
+
+        let stepIndex = 0;
+
+        function runStep() {
+            if (stepIndex >= steps.length) return;
+
+            const step = steps[stepIndex];
+            const start = _loaderPercent;
+            const delta = step.target - start;
+            const startTime = performance.now();
+
+            function animate(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / step.duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 2);
+                const current = Math.round(start + delta * eased);
+
+                _loaderPercent = current;
+                _updateLoaderUI(fill, text, current);
+
+                if (progress < 1) {
+                    _loaderTimer = requestAnimationFrame(animate);
+                } else {
+                    stepIndex++;
+                    runStep();
+                }
+            }
+
+            _loaderTimer = requestAnimationFrame(animate);
+        }
+
+        runStep();
+    }
+
+    function completeLoaderProgress() {
+        if (_loaderTimer) {
+            cancelAnimationFrame(_loaderTimer);
+            _loaderTimer = null;
+        }
+
+        const fill = document.getElementById('gridLoaderBarFill');
+        const text = document.getElementById('gridLoaderPercent');
+
+        _updateLoaderUI(fill, text, 100);
+    }
+
+    function _updateLoaderUI(fill, text, percent) {
+        if (fill) fill.style.width = percent + '%';
+        if (text) text.textContent = percent + '%';
+    }
+
     function showGridLoader() {
         const loader = document.getElementById('gridCustomLoader');
         const grid = document.getElementById('myGrid');
 
-        if (loader) {
-            loader.style.display = 'flex';
-        }
+        if (loader) loader.style.display = 'flex';
+        if (grid) grid.style.visibility = 'hidden';
 
-        if (grid) {
-            grid.style.visibility = 'hidden';
-        }
+        startLoaderProgress();
     }
 
     function hideGridLoader() {
         const loader = document.getElementById('gridCustomLoader');
         const grid = document.getElementById('myGrid');
 
-        if (loader) {
-            loader.style.display = 'none';
-        }
+        completeLoaderProgress();
 
-        if (grid) {
-            grid.style.visibility = 'visible';
-        }
+        setTimeout(() => {
+            if (loader) loader.style.display = 'none';
+            if (grid) grid.style.visibility = 'visible';
+        }, 350);
     }
 
     function hideGridActions() {

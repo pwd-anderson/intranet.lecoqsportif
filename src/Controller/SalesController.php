@@ -180,6 +180,49 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    ####################### Route Divers ####################
+
+    #[Route('/sales/best_demand_per_style_image_base64/{article}', name: 'best_demand_per_style_image_base64')]
+    public function bestDemandPerStyleImageBase64(string $article): JsonResponse
+    {
+        $article = preg_replace('/[^A-Za-z0-9_-]/', '', $article);
+
+        if (!$article) {
+            return new JsonResponse(['success' => false]);
+        }
+
+        $urls = [
+            'https://www.lecoqsportif.com/cdn/shop/files/' . $article . '_2.jpg',
+            'https://www.lecoqsportif.com/cdn/shop/files/' . $article . '_1.jpg',
+        ];
+
+        foreach ($urls as $url) {
+            try {
+                $response = $this->httpClient->request('GET', $url);
+
+                if ($response->getStatusCode() !== 200) {
+                    continue;
+                }
+
+                $content = $response->getContent();
+                $b64 = str_replace(["\r", "\n", "\t"], '', base64_encode($content));
+
+                return new JsonResponse([
+                    'success'   => true,
+                    'base64'    => $b64,
+                    'extension' => 'jpg',
+                ]);
+
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+
+        $this->logger->warning('Image introuvable pour article: ' . $article);
+
+        return new JsonResponse(['success' => false]);
+    }
+
     ####################### Route non généric ####################
     #[Route('/sales/excess_for_sales_image/{article}', name: 'sales_excess_for_sales_image', methods: ['GET'])]
     public function excessForSalesImage(string $article): Response

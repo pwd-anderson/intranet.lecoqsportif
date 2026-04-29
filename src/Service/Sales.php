@@ -15,6 +15,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 class Sales
 {
     private MssqlManager $mssqlLcs;
+    private MssqlManager $mssqlSei;
 
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
