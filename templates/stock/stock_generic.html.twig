@@ -122,66 +122,72 @@
         <div class="row">
             <div class="col-12">
                 <div class="box">
+                    <div id="gridOuterContainer" class="grid-outer-container">
+                        <div id="gridInnerContainer" class="grid-inner-container">
 
-                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
-                        <h3 class="box-title mb-0">{{ title }}</h3>
-                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
-                            {% if type == 'stock_composant' %}
-                                <select id="familleSelect"
-                                        class="form-select form-select-sm"
-                                        style="width:200px;">
-                                    <option value="">Toutes les familles</option>
-                                </select>
-                            {% endif %}
-                            {% if type == 'stock_allocation' %}
-                                <select id="siteGroupSelect"
-                                        class="form-select form-select-sm"
-                                        style="width:220px;">
-                                    <option value="">Global</option>
-                                    <option value="central">Entrepôts centraux</option>
-                                    <option value="magasins">Magasins</option>
-                                    <option value="concept_stores">Concept Stores</option>
-                                    <option value="factory_outlets">Factory Outlets</option>
-                                </select>
-                            {% endif %}
-                            {% if type == 'stock_produits' %}
-                                <select id="collectionSelect" class="form-select form-select-sm" style="width:160px;">
-                                    <option value="">Toutes les collections</option>
-                                </select>
+                            <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                                <h3 class="box-title mb-0">{{ title }}</h3>
+                                <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                                    {% if type == 'stock_composant' %}
+                                        <select id="familleSelect"
+                                                class="form-select form-select-sm"
+                                                style="width:200px;">
+                                            <option value="">Toutes les familles</option>
+                                        </select>
+                                    {% endif %}
+                                    {% if type == 'stock_allocation' %}
+                                        <select id="siteGroupSelect"
+                                                class="form-select form-select-sm"
+                                                style="width:220px;">
+                                            <option value="">Global</option>
+                                            <option value="central">Entrepôts centraux</option>
+                                            <option value="magasins">Magasins</option>
+                                            <option value="concept_stores">Concept Stores</option>
+                                            <option value="factory_outlets">Factory Outlets</option>
+                                        </select>
+                                    {% endif %}
+                                    {% if type == 'stock_produits' %}
+                                        <select id="collectionSelect" class="form-select form-select-sm" style="width:160px;">
+                                            <option value="">Toutes les collections</option>
+                                        </select>
 
-                                <select id="familleSelect" class="form-select form-select-sm" style="width:160px;">
-                                    <option value="">Toutes les familles</option>
-                                </select>
+                                        <select id="familleSelect" class="form-select form-select-sm" style="width:160px;">
+                                            <option value="">Toutes les familles</option>
+                                        </select>
 
-                                <select id="genreSelect" class="form-select form-select-sm" style="width:160px;">
-                                    <option value="">Tous les genres</option>
-                                </select>
-                            {% endif %}
-                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-success" type="button">Save</button>
-                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-secondary" type="button">Reset</button>
-                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
-                            <span id="rowCount" class="text-muted small"></span>
-                        </div>
-                    </div>
-                    <!-- /.box-header -->
-                    <div class="box-body">
-                        <div class="table-responsive-sm">
-                            <div id="myGridWrapper" class="grid-wrapper">
-                                <div id="gridCustomLoader" class="grid-custom-loader">
-                                    <div class="grid-loader-spinner"></div>
-                                    <div class="grid-loader-text">Chargement de la grille...</div>
-                                    <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
-                                        <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
-                                    </div>
-                                    <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                                        <select id="genreSelect" class="form-select form-select-sm" style="width:160px;">
+                                            <option value="">Tous les genres</option>
+                                        </select>
+                                    {% endif %}
+                                    <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-success" type="button">Save</button>
+                                    <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-secondary" type="button">Reset</button>
+                                    <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
+                                    <span id="rowCount" class="text-muted small"></span>
                                 </div>
-
-                                <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
                             </div>
-                        </div>
-                    </div>
+                            <!-- /.box-header -->
 
-                </div>
+                            <div class="box-body">
+                                <div class="table-responsive-sm">
+                                    <div id="myGridWrapper" class="grid-wrapper">
+                                        <div id="gridCustomLoader" class="grid-custom-loader">
+                                            <div class="grid-loader-spinner"></div>
+                                            <div class="grid-loader-text">Chargement de la grille...</div>
+                                            <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                                <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                            </div>
+                                            <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                                        </div>
+
+                                        <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>  {# /gridInnerContainer #}
+                    </div>  {# /gridOuterContainer #}
+
+                </div>  {# /box #}
             </div>
         </div>
         {{ include('components/_excel_loader.html.twig') }}
@@ -192,7 +198,7 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.8"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.9"></script>
     <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
@@ -200,6 +206,7 @@
 
     <script>
         const currentYear = new Date().getFullYear();
+        const gridWidthMode = '{{ gridWidthMode|default("full") }}';
 
         const columnDefs = {{ columns|json_encode|raw }};
 
@@ -250,18 +257,23 @@
 
                     return `
             <img
-                src="${escapedUrl}"
-                alt="photo article"
-                style="width:118px; height:85px; object-fit:contain; display:block;"
-                onerror="
-                    if (!this.dataset.fallbackTried) {
-                        this.dataset.fallbackTried = '1';
-                        this.src = this.src.replace('_2.jpg', '_1.jpg');
-                    } else {
-                        this.style.display = 'none';
-                    }
-                "
-            />
+            src="${escapedUrl}"
+            alt="photo article"
+            style="width:118px; height:85px; object-fit:contain; display:block;"
+            data-fallback-step="0"
+            onerror="
+                const step = parseInt(this.dataset.fallbackStep, 10);
+                if (step === 0) {
+                    this.dataset.fallbackStep = '1';
+                    this.src = this.src.replace('_2.jpg', '_new_1.jpg');
+                } else if (step === 1) {
+                    this.dataset.fallbackStep = '2';
+                    this.src = this.src.replace('_new_1.jpg', '_1.jpg');
+                } else {
+                    this.style.display = 'none';
+                }
+            "
+        />
         `;
                 };
             }
@@ -277,7 +289,7 @@
             headerClass: 'excelHeaderBlue',
             stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
             getRowHeight: function () {
-                return '{{ type }}' === 'best_demand_per_style' ? 90 : 42;
+                return '{{ type }}' === 'stock_produits' ? 90 : 42;
             },
 
             excelStyles: [
@@ -442,6 +454,10 @@
                     reloadGridWithSiteGroup(this.value);
                 });
             }
+
+            window.AgGridCommon.setupAutoWidth(window.gridOptions, {
+                widthMode: gridWidthMode,
+            });
         });
 
         function reloadGridWithFamille(famille) {

@@ -477,6 +477,97 @@ window.AgGridCommon = (function () {
         gridDiv._agSidebarCheckboxObserver = observer;
     }
 
+    /**
+     * Active le mode "auto-width" sur une grille AG Grid.
+     * La grille s'adapte à la largeur cumulée des colonnes affichées
+     * (utile pour les grilles avec peu de colonnes).
+     *
+     * @param {Object} gridOptions - Les gridOptions retournés par initGrid
+     * @param {Object} options
+     * @param {string} options.widthMode - 'auto' | 'full' (défaut: 'full')
+     * @param {string} options.outerSelector - sélecteur du conteneur externe (défaut: '#gridOuterContainer')
+     * @param {string} options.innerSelector - sélecteur du conteneur interne (défaut: '#gridInnerContainer')
+     * @param {number} options.extraSpace - marge additionnelle en px (défaut: 58)
+     * @returns {Function|null} Fonction adjust() pour forcer un re-calcul manuel, ou null si désactivé
+     */
+    function setupAutoWidth(gridOptions, options = {}) {
+        const widthMode = options.widthMode || 'full';
+        const outerSelector = options.outerSelector || '#gridOuterContainer';
+        const innerSelector = options.innerSelector || '#gridInnerContainer';
+        const extraSpace = options.extraSpace ?? 58;
+
+        const outer = document.querySelector(outerSelector);
+        const inner = document.querySelector(innerSelector);
+
+        if (!outer || !inner) {
+            console.warn('[AgGridCommon.setupAutoWidth] Conteneurs introuvables :', outerSelector, innerSelector);
+            return null;
+        }
+
+        // Mode 'full' : on s'assure que le conteneur prend toute la largeur et on ne fait rien de plus
+        if (widthMode !== 'auto') {
+            outer.classList.remove('grid-width-auto');
+            inner.style.width = '100%';
+            inner.style.maxWidth = '100%';
+            return null;
+        }
+
+        // Mode 'auto' : on active la classe CSS et on calcule dynamiquement la largeur
+        outer.classList.add('grid-width-auto');
+
+        function adjust() {
+            if (!gridOptions?.columnApi) {
+                return;
+            }
+
+            const displayedColumns = gridOptions.columnApi.getAllDisplayedColumns() || [];
+            if (!displayedColumns.length) {
+                return;
+            }
+
+            let totalWidth = 0;
+            displayedColumns.forEach(col => {
+                totalWidth += col.getActualWidth();
+            });
+
+            inner.style.width = (totalWidth + extraSpace) + 'px';
+            inner.style.maxWidth = '100%';
+        }
+
+        function debounce(fn, delay) {
+            let timer = null;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        // Bind sur les événements AG Grid qui peuvent changer la largeur
+        const api = gridOptions.api;
+        if (api) {
+            const events = [
+                'firstDataRendered',
+                'modelUpdated',
+                'columnResized',
+                'columnVisible',
+                'columnMoved',
+                'columnPinned',
+            ];
+
+            events.forEach(eventName => {
+                api.addEventListener(eventName, () => setTimeout(adjust, 50));
+            });
+        }
+
+        // Re-calculer aussi sur le redimensionnement de la fenêtre
+        window.addEventListener('resize', debounce(adjust, 150));
+
+        // Premier ajustement immédiat
+        adjust();
+
+        return adjust;
+    }
+
     window.dateFormatter = dateFormatter;
     window.dateComparator = dateComparator;
     window.dateFilterComparator = dateFilterComparator;
@@ -497,6 +588,7 @@ window.AgGridCommon = (function () {
         clearGridState: clearGridState,
         patchSidebarCheckboxes: patchSidebarCheckboxes,
         showGridActions: showGridActions,
-        hideGridActions: hideGridActions
+        hideGridActions: hideGridActions,
+        setupAutoWidth: setupAutoWidth
     };
 })();

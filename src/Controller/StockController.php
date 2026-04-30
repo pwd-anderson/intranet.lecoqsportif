@@ -208,7 +208,7 @@ final class StockController extends AbstractController
     #[Route(
         '/stock/{type}',
         name: 'app_stock_generic',
-        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3||stock_produits']
+        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3|stock_produits']
     )]
     public function stockGeneric(string $type): Response
     {
@@ -217,31 +217,37 @@ final class StockController extends AbstractController
                 'gridName' => 'stock_a_terme_grid',
                 'title' => 'Stock à terme',
                 'jsonRoute' => 'stock_a_terme_json',
+                'gridWidthMode' => 'full',
             ],
             'stock_allocation' => [
                 'gridName' => 'stock_allocation_grid',
                 'title' => 'Stock allocation',
                 'jsonRoute' => 'stock_allocation_json',
+                'gridWidthMode' => 'full',
             ],
             'stock_composant' => [
                 'gridName' => 'stock_composant_grid',
                 'title' => 'Stock par site et famille',
                 'jsonRoute' => 'stock_composant_json',
+                'gridWidthMode' => 'full',
             ],
             'stock_a_terme_segmentation_produits' => [
                 'gridName' => 'stock_a_terme_segmentation_produits_grid',
                 'title' => 'Stock à terme Amazon',
                 'jsonRoute' => 'stock_a_terme_segmentation_produits_json',
+                'gridWidthMode' => 'full',
             ],
             'stock_a_terme_x3' => [
                 'gridName' => 'stock_a_terme_x3_grid',
                 'title' => 'Stock à terme',
                 'jsonRoute' => 'stock_a_terme_x3_json',
+                'gridWidthMode' => 'full',
             ],
             'stock_produits' => [
                 'gridName'  => 'stock_produits_grid',
                 'title'     => 'Produits',
                 'jsonRoute' => 'stock_produits_json',
+                'gridWidthMode' => 'auto',
             ],
         ];
 
@@ -258,14 +264,22 @@ final class StockController extends AbstractController
 
         $grid = $this->columnBuilder->build($agridOptions);
 
+        // Construction du dataUrl avec valeurs par défaut éventuelles
+        $dataUrl = $this->generateUrl($gridConfig['jsonRoute']);
+
+        if ($type === 'stock_produits') {
+            $dataUrl .= '?collection=2026-01-SS';
+        }
+
         return $this->render('stock/stock_generic.html.twig', [
             'title' => $gridConfig['title'],
             'columns' => $grid['columns'],
             'numericColumns' => $grid['numericColumns'],
             'integerColumns' => $grid['integerColumns'],
             'totalColumns' => $grid['totalColumns'],
-            'dataUrl' => $this->generateUrl($gridConfig['jsonRoute']),
+            'dataUrl' => $dataUrl,
             'type' => $type,
+            'gridWidthMode' => $gridConfig['gridWidthMode'] ?? 'full',
         ]);
     }
 }
