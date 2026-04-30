@@ -35,8 +35,8 @@ class MainDashboard
     private function buildMainNetworkWhereClause(string $network, string $column = 'mainnetwork'): string
     {
         return match ($this->normalizeNetworkFilter($network)) {
-            'boutique' => " AND {$column} IN ('RETAIL FO', 'CLEARANCE', 'RETAIL CS')",
-            'ecom' => " AND {$column} IN ('RETAIL MARKET PLACE', 'RETAIL ESHOP')",
+            'boutique' => " AND {$column} IN ('RETAIL FO', 'CLEARANCE', 'RETAIL CS', 'CONCEPT STORE', 'FACTORY OUTLET')",
+            'ecom' => " AND {$column} IN ('RETAIL MARKET PLACE', 'RETAIL ESHOP','E BUSINESS DIRECT','E BUSINESS MARKET PLACE')",
             default => '',
         };
     }
