@@ -50,6 +50,7 @@ sidebar:
           stock_a_terme_x3: "Stock à terme"
           stock_allocation: "Stock & Allocation"
           stock_composant: "Stock par site et famille"
+          stock_produits: "Produits"
       purchase:
           backlog_fournisseur: "Backlog Fournisseur (Nav.)"
           backlog_fournisseur_x3: "Backlog Fournisseur"

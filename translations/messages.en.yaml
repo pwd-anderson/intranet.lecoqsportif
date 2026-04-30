@@ -50,6 +50,7 @@ sidebar:
         stock_a_terme_x3: "Future Stock"
         stock_allocation: "Stock & Allocation"
         stock_composant: "Stock by Site & Family"
+        stock_produits: "Produits"
     purchase:
         backlog_fournisseur: "Backlog Supplier (Nav.)"
         backlog_fournisseur_x3: "Backlog Supplier"
