@@ -202,4 +202,29 @@ class Divers
             return [];
         }
     }
+
+    public function getGenres(): array
+    {
+        try {
+            $query = "
+            SELECT DISTINCT ITM.TSICOD_0 AS GENRE
+            FROM X3_LCS.ITMMASTER ITM
+            WHERE ITM.TSICOD_0 IS NOT NULL
+              AND ITM.TSICOD_0 <> ''
+            ORDER BY ITM.TSICOD_0
+        ";
+
+            $data = $this->mssqlSei->executeQuery($query);
+
+            return array_map(static function ($row) {
+                return $row->GENRE;
+            }, $data);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock : Liste genres', $e);
+            $this->logger->error('LCS Erreur Stock : Liste genres', ['exception' => $e]);
+
+            return [];
+        }
+    }
 }

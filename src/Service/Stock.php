@@ -188,4 +188,49 @@ class Stock
         }
     }
 
+    public function getStockProduits(?string $collection = null, ?string $famille = null, ?string $genre = null): array
+    {
+        try {
+            $sql = $this->sqlFileLoader->load('Sei/stock_produits.sql');
+
+            // Nettoyage strict (anti-injection)
+            $collection = $collection !== null ? trim($collection) : null;
+            $collection = $collection !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $collection) : null;
+
+            $famille = $famille !== null ? trim($famille) : null;
+            $famille = $famille !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $famille) : null;
+
+            $genre = $genre !== null ? trim($genre) : null;
+            $genre = $genre !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $genre) : null;
+
+            // Construction des clauses WHERE
+            $collectionWhere = '';
+            if ($collection) {
+                $collectionWhere = " AND CR.YCOLLECT_0 = '{$collection}'";
+            }
+
+            $familleWhere = '';
+            if ($famille) {
+                $familleWhere = " AND ITM.TCLCOD_0 = '{$famille}'";
+            }
+
+            $genreWhere = '';
+            if ($genre) {
+                $genreWhere = " AND ITM.TSICOD_0 = '{$genre}'";
+            }
+
+            $sql = str_replace('{{COLLECTION_WHERE}}', $collectionWhere, $sql);
+            $sql = str_replace('{{FAMILLE_WHERE}}', $familleWhere, $sql);
+            $sql = str_replace('{{GENRE_WHERE}}', $genreWhere, $sql);
+
+            return $this->mssqlSei->executeQuery($sql);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock Produits : Récupération de données', $e);
+            $this->logger->error('LCS Erreur Stock Produits : Récupération de données', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
 }

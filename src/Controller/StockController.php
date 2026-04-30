@@ -12,12 +12,14 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final class StockController extends AbstractController
 {
     public function __construct(
         private AggridOptionRepository $aggridOptionRepository,
         private AgGridColumnBuilder $columnBuilder,
+        private HttpClientInterface $httpClient,
     ) {}
 
     #[Route('/stock/stock_a_terme', name: 'app_stock_a_terme')]
@@ -59,7 +61,14 @@ final class StockController extends AbstractController
         return $this->stockGeneric('stock_a_terme_x3');
     }
 
-    // Routes JSON
+    #[Route('/stock/stock_produits', name: 'app_stock_produits')]
+    public function stockProduitsAlias(): Response
+    {
+        return $this->stockGeneric('stock_produits');
+    }
+
+    // ################## ROUTES JSON (inchangées) #####################
+
     #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
     public function stockAtermeJson(Stock $stock, Helpers $helpers): JsonResponse
     {
@@ -130,10 +139,76 @@ final class StockController extends AbstractController
         return new JsonResponse($divers->getFamilles());
     }
 
+    #[Route('/stock/stock_produits_json', name: 'stock_produits_json')]
+    public function stockProduitsJson(Request $request, Stock $stock, Helpers $helpers): JsonResponse
+    {
+        $collection = $request->query->get('collection');
+        $famille    = $request->query->get('famille');
+        $genre      = $request->query->get('genre');
+
+        $data = $stock->getStockProduits($collection, $famille, $genre);
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
+    ####################### Route Divers ####################
+
+    #[Route('/stock/collections_json', name: 'stock_collections_json')]
+    public function stockCollectionsJson(Divers $divers): JsonResponse
+    {
+        return new JsonResponse($divers->getCollections());
+    }
+
+    #[Route('/stock/genres_json', name: 'stock_genres_json')]
+    public function stockGenresJson(Divers $divers): JsonResponse
+    {
+        return new JsonResponse($divers->getGenres());
+    }
+
+    #[Route('/stock/stock_produits_image_base64/{article}', name: 'stock_produits_image_base64')]
+    public function stockProduitsImageBase64(string $article): JsonResponse
+    {
+        $article = preg_replace('/[^A-Za-z0-9_-]/', '', $article);
+
+        if (!$article) {
+            return new JsonResponse(['success' => false]);
+        }
+
+        $urls = [
+            'https://www.lecoqsportif.com/cdn/shop/files/' . $article . '_2.jpg',
+            'https://www.lecoqsportif.com/cdn/shop/files/' . $article . '_1.jpg',
+        ];
+
+        foreach ($urls as $url) {
+            try {
+                $response = $this->httpClient->request('GET', $url);
+
+                if ($response->getStatusCode() !== 200) {
+                    continue;
+                }
+
+                $content = $response->getContent();
+                $b64 = str_replace(["\r", "\n", "\t"], '', base64_encode($content));
+
+                return new JsonResponse([
+                    'success'   => true,
+                    'base64'    => $b64,
+                    'extension' => 'jpg',
+                ]);
+
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+
+        return new JsonResponse(['success' => false]);
+    }
+
     #[Route(
         '/stock/{type}',
         name: 'app_stock_generic',
-        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3']
+        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3||stock_produits']
     )]
     public function stockGeneric(string $type): Response
     {
@@ -162,7 +237,12 @@ final class StockController extends AbstractController
                 'gridName' => 'stock_a_terme_x3_grid',
                 'title' => 'Stock à terme',
                 'jsonRoute' => 'stock_a_terme_x3_json',
-            ]
+            ],
+            'stock_produits' => [
+                'gridName'  => 'stock_produits_grid',
+                'title'     => 'Produits',
+                'jsonRoute' => 'stock_produits_json',
+            ],
         ];
 
         if (!isset($config[$type])) {

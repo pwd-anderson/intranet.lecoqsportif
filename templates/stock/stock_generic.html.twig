@@ -93,6 +93,27 @@
             font-weight: 600;
             margin-top: 6px;
         }
+
+        {# colonne photo #}
+        .best-demand-photo-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 0 !important;
+        }
+
+        .ag-theme-alpine .ag-cell.best-demand-photo-cell {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .best-demand-photo-cell img {
+            width: 118px;
+            height: 85px;
+            object-fit: contain;
+            display: block;
+        }
     </style>
 {% endblock %}
 
@@ -121,6 +142,19 @@
                                     <option value="magasins">Magasins</option>
                                     <option value="concept_stores">Concept Stores</option>
                                     <option value="factory_outlets">Factory Outlets</option>
+                                </select>
+                            {% endif %}
+                            {% if type == 'stock_produits' %}
+                                <select id="collectionSelect" class="form-select form-select-sm" style="width:160px;">
+                                    <option value="">Toutes les collections</option>
+                                </select>
+
+                                <select id="familleSelect" class="form-select form-select-sm" style="width:160px;">
+                                    <option value="">Toutes les familles</option>
+                                </select>
+
+                                <select id="genreSelect" class="form-select form-select-sm" style="width:160px;">
+                                    <option value="">Tous les genres</option>
                                 </select>
                             {% endif %}
                             <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-success" type="button">Save</button>
@@ -159,7 +193,10 @@
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.8"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-with-photo.js') }}"></script>
 
     <script>
         const currentYear = new Date().getFullYear();
@@ -195,6 +232,40 @@
                 addCellClass(col, 'excelReevalColumn');
             }
 
+            if (col.field === 'PHOTO') {
+                col.width = 120;
+                col.minWidth = 120;
+                col.maxWidth = 120;
+                col.sortable = false;
+                col.filter = false;
+                col.resizable = false;
+                col.cellClass = 'best-demand-photo-cell';
+
+                col.cellRenderer = function (params) {
+                    if (!params.value) {
+                        return '';
+                    }
+
+                    const escapedUrl = String(params.value).replace(/"/g, '&quot;');
+
+                    return `
+            <img
+                src="${escapedUrl}"
+                alt="photo article"
+                style="width:118px; height:85px; object-fit:contain; display:block;"
+                onerror="
+                    if (!this.dataset.fallbackTried) {
+                        this.dataset.fallbackTried = '1';
+                        this.src = this.src.replace('_2.jpg', '_1.jpg');
+                    } else {
+                        this.style.display = 'none';
+                    }
+                "
+            />
+        `;
+                };
+            }
+
         });
 
         const agGridConfig = {
@@ -205,6 +276,9 @@
             totalColumns: {{ totalColumns|json_encode|raw }},
             headerClass: 'excelHeaderBlue',
             stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
+            getRowHeight: function () {
+                return '{{ type }}' === 'best_demand_per_style' ? 90 : 42;
+            },
 
             excelStyles: [
                 {
@@ -230,6 +304,30 @@
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
             window.onBtExportExcel = async function () {
+                if ('{{ type }}' === 'stock_produits') {
+                    await ExcelExportWithPhoto.export(
+                        window.gridOptions,
+                        window.gridOptions.columnApi,
+                        {
+                            fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
+                            photoColumn: 'PHOTO',
+                            articleColumn: 'CODE_ARTICLE',
+                            imageBaseUrl: '/fr/stock/stock_produits_image_base64',
+                            rowHeight: 70,
+                            headerColor: '024185',
+                            onProgress: (p) => {
+                                const percent = document.getElementById('excelLoaderPercent');
+                                const fill = document.getElementById('excelLoaderBarFill');
+                                const sub = document.getElementById('excelLoaderSub');
+                                if (percent) percent.textContent = p + '%';
+                                if (fill) fill.style.width = p + '%';
+                                if (sub && p === 100) sub.textContent = 'Génération du fichier...';
+                            }
+                        }
+                    );
+                    return;
+                }
+
                 await ExcelExportStandard.export(
                     window.gridOptions,
                     '{{ title|replace({" ": "_"}) }}.xlsx',
@@ -256,24 +354,85 @@
                 location.reload();
             });
 
-            const familleSelect = document.getElementById('familleSelect');
+            // === Init filtres stock_produits ===
+            if ('{{ type }}' === 'stock_produits') {
+                const collectionSelect = document.getElementById('collectionSelect');
+                const familleSelectSP  = document.getElementById('familleSelect');
+                const genreSelect      = document.getElementById('genreSelect');
 
-            if (familleSelect) {
-
-                fetch('{{ path("stock_familles_json") }}')
-                    .then(res => res.json())
-                    .then(data => {
-                        data.forEach(famille => {
-                            const option = document.createElement('option');
-                            option.value = famille;
-                            option.textContent = famille;
-                            familleSelect.appendChild(option);
+                // Charger les collections
+                if (collectionSelect) {
+                    fetch('{{ path("stock_collections_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(collection => {
+                                const option = document.createElement('option');
+                                option.value = collection;
+                                option.textContent = collection;
+                                if (collection === '2026-01-SS') {
+                                    option.selected = true;
+                                }
+                                collectionSelect.appendChild(option);
+                            });
                         });
-                    });
+                }
 
-                familleSelect.addEventListener('change', function () {
-                    reloadGridWithFamille(this.value);
+                // Charger les familles (réutilise stock_familles_json existant)
+                if (familleSelectSP) {
+                    fetch('{{ path("stock_familles_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(famille => {
+                                const option = document.createElement('option');
+                                option.value = famille;
+                                option.textContent = famille;
+                                familleSelectSP.appendChild(option);
+                            });
+                        });
+                }
+
+                // Charger les genres
+                if (genreSelect) {
+                    fetch('{{ path("stock_genres_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(genre => {
+                                const option = document.createElement('option');
+                                option.value = genre;
+                                option.textContent = genre;
+                                genreSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                // Recharger la grille avec les filtres
+                [collectionSelect, familleSelectSP, genreSelect].forEach(select => {
+                    if (select) {
+                        select.addEventListener('change', reloadGridWithProduitsFilters);
+                    }
                 });
+            }
+
+            // Existant — à scoper :
+            if ('{{ type }}' === 'stock_composant') {
+                const familleSelect = document.getElementById('familleSelect');
+
+                if (familleSelect) {
+                    fetch('{{ path("stock_familles_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(famille => {
+                                const option = document.createElement('option');
+                                option.value = famille;
+                                option.textContent = famille;
+                                familleSelect.appendChild(option);
+                            });
+                        });
+
+                    familleSelect.addEventListener('change', function () {
+                        reloadGridWithFamille(this.value);
+                    });
+                }
             }
 
             const siteGroupSelect = document.getElementById('siteGroupSelect');
@@ -311,6 +470,24 @@
             window.AgGridCommon.reloadData(
                 window.gridOptions,
                 url,
+                {{ totalColumns|json_encode|raw }}
+            );
+        }
+
+        function reloadGridWithProduitsFilters() {
+            const collection = document.getElementById('collectionSelect')?.value || '';
+            const famille    = document.getElementById('familleSelect')?.value || '';
+            const genre      = document.getElementById('genreSelect')?.value || '';
+
+            const url = new URL('{{ dataUrl }}', window.location.origin);
+
+            if (collection) url.searchParams.set('collection', collection);
+            if (famille)    url.searchParams.set('famille', famille);
+            if (genre)      url.searchParams.set('genre', genre);
+
+            window.AgGridCommon.reloadData(
+                window.gridOptions,
+                url.toString(),
                 {{ totalColumns|json_encode|raw }}
             );
         }

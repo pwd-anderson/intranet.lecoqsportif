@@ -1,0 +1,29 @@
+WITH CollectionRecente AS (
+    SELECT
+        YIL.ITMREF_0,
+        YCO.YCOLLECT_0,
+        YCO.YDATDEB_0,
+        ROW_NUMBER() OVER (
+            PARTITION BY YIL.ITMREF_0
+            ORDER BY YCO.YDATDEB_0 DESC
+        ) AS rn
+    FROM X3_LCS.YITMCOLLECT YIL
+             INNER JOIN X3_LCS.YCOLLECTION YCO
+                        ON YIL.YCOLLECT_0 = YCO.YCOLLECT_0
+)
+
+SELECT
+    'https://www.lecoqsportif.com/cdn/shop/files/' + LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0 + '_') - 1) + '_2.jpg' AS PHOTO,
+    ITM.ITMREF_0 AS CODE_ARTICLE,
+    CR.YCOLLECT_0 AS COLLECTION,
+    ITM.TCLCOD_0 AS FAMILLE,
+    ITM.TSICOD_0 AS GENRE,
+    ITM.CUSREF_0 AS CODE_DOUANIER
+
+FROM X3_LCS.ITMMASTER ITM
+    LEFT JOIN CollectionRecente CR ON ITM.ITMREF_0 = CR.ITMREF_0 AND CR.rn = 1
+WHERE 1=1
+  AND ITM.ITMREF_0 LIKE '%[_]%'
+    {{COLLECTION_WHERE}}
+    {{FAMILLE_WHERE}}
+    {{GENRE_WHERE}}
