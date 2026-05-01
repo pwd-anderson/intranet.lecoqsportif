@@ -161,7 +161,7 @@
                                     {% endif %}
                                     <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-success" type="button">Save</button>
                                     <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-secondary" type="button">Reset</button>
-                                    {# <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button> #}
+                                    <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
                                     <span id="rowCount" class="text-muted small"></span>
                                 </div>
                             </div>
@@ -316,29 +316,6 @@
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
             window.onBtExportExcel = async function () {
-                if ('{{ type }}' === 'stock_produits') {
-                    await ExcelExportWithPhoto.export(
-                        window.gridOptions,
-                        window.gridOptions.columnApi,
-                        {
-                            fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
-                            photoColumn: 'PHOTO',
-                            articleColumn: 'CODE_ARTICLE',
-                            imageBaseUrl: '/fr/stock/stock_produits_image_base64',
-                            rowHeight: 70,
-                            headerColor: '024185',
-                            onProgress: (p) => {
-                                const percent = document.getElementById('excelLoaderPercent');
-                                const fill = document.getElementById('excelLoaderBarFill');
-                                const sub = document.getElementById('excelLoaderSub');
-                                if (percent) percent.textContent = p + '%';
-                                if (fill) fill.style.width = p + '%';
-                                if (sub && p === 100) sub.textContent = 'Génération du fichier...';
-                            }
-                        }
-                    );
-                    return;
-                }
 
                 await ExcelExportStandard.export(
                     window.gridOptions,
