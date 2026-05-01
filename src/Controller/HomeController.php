@@ -93,28 +93,29 @@ final class HomeController extends AbstractController
         $network = $this->getNetworkFromRequest($request);
 
         $dataByDay = $this->mainDashboard->getSalesComparaisonCurrentMonthByDay($network);
-        $summary = $this->mainDashboard->getSalesComparaisonCurrentMonth($network);
+        $summary   = $this->mainDashboard->getSalesComparaisonCurrentMonth($network);
 
         $labels = [];
-        $caN = [];
-        $caN1 = [];
+        $caN    = [];
+        $caN1   = [];
 
-        $month = (new \DateTime())->format('m');
+        // Mois de J-1, pas mois courant
+        $month = (new \DateTime('yesterday'))->format('m');
 
         foreach ($dataByDay as $row) {
             $day = str_pad((string) $row->jour, 2, '0', STR_PAD_LEFT);
             $labels[] = $day . '/' . $month;
-            $caN[] = round((float) $row->ca_n, 2);
-            $caN1[] = round((float) $row->ca_n_1, 2);
+            $caN[]    = round((float) $row->ca_n, 2);
+            $caN1[]   = round((float) $row->ca_n_1, 2);
         }
 
         return new JsonResponse([
             'labels' => $labels,
             'series' => [
-                ['name' => 'CA Mois N', 'data' => $caN],
+                ['name' => 'CA Mois N',   'data' => $caN],
                 ['name' => 'CA Mois N-1', 'data' => $caN1],
             ],
-            'ca_n' => round((float) ($summary[0]->ca_n ?? 0), 2),
+            'ca_n'      => round((float) ($summary[0]->ca_n ?? 0), 2),
             'variation' => $summary[0]->variation_pourcent ?? null,
         ]);
     }

@@ -113,30 +113,35 @@ class MainDashboard
     public function getSalesComparaisonCurrentMonthByDay(string $network = 'global'): array
     {
         try {
-            $params = [];
             $networkWhere = $this->buildMainNetworkWhereClause($network);
 
-            $query = "SELECT
-                    jour,
-                    SUM(CASE
-                            WHEN annee = YEAR(GETDATE())
-                             AND jour <= DAY(GETDATE())
-                            THEN ca ELSE 0
-                        END) AS ca_n,
+            $j_1   = new \DateTime('yesterday');
+            $year  = (int) $j_1->format('Y');
+            $month = (int) $j_1->format('n');
+            $day   = (int) $j_1->format('j');
+            $year_n_1 = $year - 1;
 
-                    SUM(CASE
-                            WHEN annee = YEAR(GETDATE()) - 1
-                             AND jour <= DAY(GETDATE())
-                            THEN ca ELSE 0
-                        END) AS ca_n_1
+            $query = "
+            SELECT
+                jour,
+                SUM(CASE
+                        WHEN annee = {$year}
+                        THEN ca ELSE 0
+                    END) AS ca_n,
 
-                FROM MASTER_TABLES.INTRANET_SALES_DAILY
-                WHERE
-                    mois = MONTH(GETDATE())
-                    AND jour <= DAY(GETDATE())
-                    {$networkWhere}
-                GROUP BY jour
-                ORDER BY jour;";
+                SUM(CASE
+                        WHEN annee = {$year_n_1}
+                        THEN ca ELSE 0
+                    END) AS ca_n_1
+
+            FROM MASTER_TABLES.INTRANET_SALES_DAILY
+            WHERE mois = {$month}
+              AND jour <= {$day}
+              AND annee IN ({$year}, {$year_n_1})
+              {$networkWhere}
+            GROUP BY jour
+            ORDER BY jour;
+        ";
 
             return $this->mssqlMade2design->executeQuery($query);
 
@@ -152,18 +157,21 @@ class MainDashboard
         try {
             $networkWhere = $this->buildMainNetworkWhereClause($network, 'd.mainnetwork');
 
-            $query = "WITH bornes AS (
-                SELECT
-                    DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) AS start_n,
-                    DATEADD(DAY, -1, CAST(GETDATE() AS DATE)) AS end_n,
+            $j_1     = (new \DateTime('yesterday'))->format('Y-m-d');
+            $j_1_n_1 = (new \DateTime('yesterday -1 year'))->format('Y-m-d');
 
-                    DATEFROMPARTS(YEAR(GETDATE()) - 1, MONTH(GETDATE()), 1) AS start_n1,
-                    DATEADD(YEAR, -1, DATEADD(DAY, -1, CAST(GETDATE() AS DATE))) AS end_n1
+            $query = "
+            WITH bornes AS (
+                SELECT
+                    DATEFROMPARTS(YEAR('{$j_1}'),     MONTH('{$j_1}'), 1) AS start_n,
+                    CAST('{$j_1}' AS DATE)                                AS end_n,
+
+                    DATEFROMPARTS(YEAR('{$j_1_n_1}'), MONTH('{$j_1_n_1}'), 1) AS start_n1,
+                    CAST('{$j_1_n_1}' AS DATE)                               AS end_n1
             )
 
             SELECT
-                SUM(CASE WHEN d.date BETWEEN b.start_n AND b.end_n THEN d.ca ELSE 0 END) AS ca_n,
-
+                SUM(CASE WHEN d.date BETWEEN b.start_n  AND b.end_n  THEN d.ca ELSE 0 END) AS ca_n,
                 SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END) AS ca_n_1,
 
                 ROUND(
@@ -172,7 +180,7 @@ class MainDashboard
                             THEN NULL
                         ELSE
                             (
-                                SUM(CASE WHEN d.date BETWEEN b.start_n AND b.end_n THEN d.ca ELSE 0 END)
+                                SUM(CASE WHEN d.date BETWEEN b.start_n  AND b.end_n  THEN d.ca ELSE 0 END)
                                 -
                                 SUM(CASE WHEN d.date BETWEEN b.start_n1 AND b.end_n1 THEN d.ca ELSE 0 END)
                             )
@@ -185,7 +193,8 @@ class MainDashboard
             FROM MASTER_TABLES.INTRANET_SALES_DAILY d
             CROSS JOIN bornes b
             WHERE 1 = 1
-            {$networkWhere};";
+            {$networkWhere};
+        ";
 
             return $this->mssqlMade2design->executeQuery($query);
 
@@ -439,10 +448,11 @@ class MainDashboard
             AND I.CUSTOMERNO = CUST.CUSTOMER_ID
         WHERE
             I.ISBOHPERIMETERPRODUCT = 1
-            AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
+            AND (I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO') OR (I.DOCUMENTTYPE IN ('ORDER') AND I.ORDERSTATUS = 3 AND I.ALLSTA IN (2,3)))
             AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
             AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
             AND YEAR(I.DOCUMENTPOSTINGDATE) > YEAR(GETDATE()) - 5
+            AND CUST.MAINNETWORK IS NOT NULL
         GROUP BY
             YEAR(I.DOCUMENTPOSTINGDATE),
             MONTH(I.DOCUMENTPOSTINGDATE),
@@ -510,10 +520,11 @@ class MainDashboard
 
         WHERE
             I.ISBOHPERIMETERPRODUCT = 1
-            AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
+            AND (I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO') OR (I.DOCUMENTTYPE IN ('ORDER') AND I.ORDERSTATUS = 3 AND I.ALLSTA IN (2,3)))
             AND COLL.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
             AND I.COMPANYCODE = 'LCSI'
             AND I.DOCUMENTPOSTINGDATE >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
+            AND CUST.MAINNETWORK IS NOT NULL
 
         GROUP BY
             YEAR(I.DOCUMENTPOSTINGDATE),
@@ -582,10 +593,11 @@ class MainDashboard
 
         WHERE
             I.ISBOHPERIMETERPRODUCT = 1
-            AND I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
+            AND (I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO') OR (I.DOCUMENTTYPE IN ('ORDER') AND I.ORDERSTATUS = 3 AND I.ALLSTA IN (2,3)))
             AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
             AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
             AND I.DOCUMENTPOSTINGDATE >= DATEADD(YEAR, -2, GETDATE())
+            AND CUST.MAINNETWORK IS NOT NULL
 
         GROUP BY
             CAST(I.DOCUMENTPOSTINGDATE AS DATE),
