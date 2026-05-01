@@ -321,28 +321,31 @@ class MainDashboard
     public function getSalesOfToday(string $network = 'global'): ?float
     {
         try {
-            $params = [];
             $networkWhere = $this->buildMainNetworkWhereClause($network);
+
+            $j_1     = (new \DateTime('yesterday'))->format('Y-m-d');
+            $j_1_n_1 = (new \DateTime('yesterday -1 year'))->format('Y-m-d');
 
             $query = "
             SELECT
                 SUM(CASE
-                        WHEN annee = YEAR(GETDATE())
-                         AND mois = MONTH(GETDATE())
-                         AND jour = DAY(GETDATE()) - 1
+                        WHEN annee = YEAR('{$j_1}')
+                         AND mois  = MONTH('{$j_1}')
+                         AND jour  = DAY('{$j_1}')
                         THEN ca ELSE 0
                     END) AS ca_n_j_1,
 
                 SUM(CASE
-                        WHEN annee = YEAR(GETDATE()) - 1
-                         AND mois = MONTH(GETDATE())
-                         AND jour = DAY(GETDATE()) - 1
+                        WHEN annee = YEAR('{$j_1_n_1}')
+                         AND mois  = MONTH('{$j_1_n_1}')
+                         AND jour  = DAY('{$j_1_n_1}')
                         THEN ca ELSE 0
                     END) AS ca_n_1_j_1
 
             FROM MASTER_TABLES.INTRANET_SALES_DAILY
             WHERE 1 = 1
-            {$networkWhere};";
+            {$networkWhere}
+        ";
 
             $result = $this->mssqlMade2design->executeQuery($query);
 
