@@ -163,6 +163,11 @@
                                         <select id="typeSelect" class="form-select form-select-sm" style="width: 140px;">
                                             <option value="">Tous les types</option>
                                         </select>
+                                        {% if type == 'best_demand_per_style' %}
+                                            <select id="itemGroupSelect" class="form-select form-select-sm" style="width: 160px;">
+                                                <option value="">Tous les groupes</option>
+                                            </select>
+                                        {% endif %}
                                     {% endif %}
 
                                     <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
@@ -377,6 +382,7 @@
                 const collectionSelect = document.getElementById('collectionSelect');
                 const familySelect = document.getElementById('familySelect');
                 const typeSelect = document.getElementById('typeSelect');
+                const itemGroupSelect = document.getElementById('itemGroupSelect');
 
                 if (collectionSelect) {
                     fetch('{{ path("poid_famille_par_variant_collections_json") }}')
@@ -404,7 +410,20 @@
                         });
                 }
 
-                [collectionSelect, familySelect, typeSelect].forEach(select => {
+                if (itemGroupSelect && salesType === 'best_demand_per_style') {
+                    fetch('{{ path("best_demand_per_style_item_groups_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(itemGroup => {
+                                const option = document.createElement('option');
+                                option.value = itemGroup;
+                                option.textContent = itemGroup;
+                                itemGroupSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                [collectionSelect, familySelect, typeSelect, itemGroupSelect].forEach(select => {
                     if (select) {
                         select.addEventListener('change', reloadGridWithFilters);
                     }
@@ -491,22 +510,16 @@
             }
 
             const collection = document.getElementById('collectionSelect')?.value || '';
-            const family = document.getElementById('familySelect')?.value || '';
-            const type = document.getElementById('typeSelect')?.value || '';
+            const family     = document.getElementById('familySelect')?.value || '';
+            const type       = document.getElementById('typeSelect')?.value || '';
+            const itemGroup  = document.getElementById('itemGroupSelect')?.value || '';
 
             const url = new URL('{{ dataUrl }}', window.location.origin);
 
-            if (collection) {
-                url.searchParams.set('collection', collection);
-            }
-
-            if (family) {
-                url.searchParams.set('family', family);
-            }
-
-            if (type) {
-                url.searchParams.set('type', type);
-            }
+            if (collection) url.searchParams.set('collection', collection);
+            if (family)     url.searchParams.set('family', family);
+            if (type)       url.searchParams.set('type', type);
+            if (itemGroup)  url.searchParams.set('itemGroup', itemGroup);
 
             window.AgGridCommon.reloadData(
                 window.gridOptions,

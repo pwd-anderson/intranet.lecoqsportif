@@ -227,4 +227,30 @@ class Divers
             return [];
         }
     }
+
+    public function getItemGroups(): array
+    {
+        try {
+            $query = "
+            SELECT DISTINCT
+                C.ITEMGROUPCODE
+            FROM SEI_X3_LCS.LCS_COLLECTION C
+            WHERE C.ITEMGROUPCODE IS NOT NULL
+              AND C.ITEMGROUPCODE <> ''
+            ORDER BY C.ITEMGROUPCODE ASC
+        ";
+
+            $data = $this->mssqlSei->executeQuery($query);
+
+            return array_map(static function ($row) {
+                return $row->ITEMGROUPCODE;
+            }, $data);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste item groups', $e);
+            $this->logger->error('LCS Erreur Divers : Liste item groups', ['exception' => $e]);
+
+            return [];
+        }
+    }
 }

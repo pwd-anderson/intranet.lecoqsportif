@@ -543,7 +543,12 @@ class Sales
         }
     }
 
-    public function getBestDemandPerStyle(?string $collection = null, ?string $family = null, ?string $type = null): array
+    public function getBestDemandPerStyle(
+        ?string $collection = null,
+        ?string $family = null,
+        ?string $type = null,
+        ?string $itemGroup = null
+    ): array
     {
         try {
             $sql = $this->sqlFileLoader->load('Sei/best_demand_per_style.sql');
@@ -556,6 +561,9 @@ class Sales
 
             $type = $type !== null ? trim($type) : null;
             $type = $type !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $type) : null;
+
+            $itemGroup = $itemGroup !== null ? trim($itemGroup) : null;
+            $itemGroup = $itemGroup !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $itemGroup) : null;
 
             $collectionWhere = '';
             if ($collection) {
@@ -572,9 +580,15 @@ class Sales
                 $typeWhere = " AND (CASE WHEN C.AGEGROUP = 'ADULT' THEN C.GENUSCODE ELSE 'KIDS' END) = '{$type}'";
             }
 
+            $itemGroupWhere = '';
+            if ($itemGroup) {
+                $itemGroupWhere = " AND C.ITEMGROUPCODE = '{$itemGroup}'";
+            }
+
             $sql = str_replace('{{COLLECTION_WHERE}}', $collectionWhere, $sql);
             $sql = str_replace('{{FAMILY_WHERE}}', $familyWhere, $sql);
             $sql = str_replace('{{TYPE_WHERE}}', $typeWhere, $sql);
+            $sql = str_replace('{{ITEMGROUP_WHERE}}', $itemGroupWhere, $sql);
 
             return $this->mssqlSei->executeQuery($sql);
 

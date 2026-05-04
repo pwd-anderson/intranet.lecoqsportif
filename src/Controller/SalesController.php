@@ -165,10 +165,11 @@ final class SalesController extends AbstractController
     public function bestDemandPerStyleJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
     {
         $collection = $request->query->get('collection');
-        $family = $request->query->get('family');
-        $type = $request->query->get('type');
+        $family     = $request->query->get('family');
+        $type       = $request->query->get('type');
+        $itemGroup  = $request->query->get('itemGroup');
 
-        $data = $sales->getBestDemandPerStyle($collection, $family, $type);
+        $data = $sales->getBestDemandPerStyle($collection, $family, $type, $itemGroup);
 
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
@@ -177,6 +178,14 @@ final class SalesController extends AbstractController
     public function backlogClientsX3Json(Sales $sales, Helpers $helpers): JsonResponse
     {
         $data = $sales->getBacklogClientsX3();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/best_demand_per_style_item_groups_json', name: 'best_demand_per_style_item_groups_json')]
+    public function bestDemandPerStyleItemGroupsJson(Divers $divers, Helpers $helpers): JsonResponse
+    {
+        $data = $divers->getItemGroups();
+
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
