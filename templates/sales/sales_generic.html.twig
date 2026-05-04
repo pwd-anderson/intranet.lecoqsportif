@@ -430,79 +430,10 @@
                 });
             }
 
-            bindAutoWidthEvents();
-            adjustGridContainerWidth();
-            window.addEventListener('resize', debounce(adjustGridContainerWidth, 150));
+            window.AgGridCommon.setupAutoWidth(window.gridOptions, {
+                widthMode: gridWidthMode,
+            });
         });
-
-        function bindAutoWidthEvents() {
-            if (gridWidthMode !== 'auto' || !window.gridOptions?.api) {
-                return;
-            }
-
-            const api = window.gridOptions.api;
-
-            api.addEventListener('firstDataRendered', function () {
-                setTimeout(adjustGridContainerWidth, 50);
-            });
-
-            api.addEventListener('modelUpdated', function () {
-                setTimeout(adjustGridContainerWidth, 50);
-            });
-
-            api.addEventListener('columnResized', function () {
-                setTimeout(adjustGridContainerWidth, 0);
-            });
-
-            api.addEventListener('columnVisible', function () {
-                setTimeout(adjustGridContainerWidth, 0);
-            });
-
-            api.addEventListener('columnMoved', function () {
-                setTimeout(adjustGridContainerWidth, 0);
-            });
-
-            api.addEventListener('columnPinned', function () {
-                setTimeout(adjustGridContainerWidth, 0);
-            });
-        }
-
-        function adjustGridContainerWidth() {
-            const outer = document.getElementById('gridOuterContainer');
-            const inner = document.getElementById('gridInnerContainer');
-
-            if (!outer || !inner) {
-                return;
-            }
-
-            if (gridWidthMode !== 'auto') {
-                inner.style.width = '100%';
-                inner.style.maxWidth = '100%';
-                return;
-            }
-
-            if (!window.gridOptions?.columnApi) {
-                return;
-            }
-
-            const displayedColumns = window.gridOptions.columnApi.getAllDisplayedColumns() || [];
-
-            if (!displayedColumns.length) {
-                return;
-            }
-
-            let totalWidth = 0;
-            displayedColumns.forEach(col => {
-                totalWidth += col.getActualWidth();
-            });
-
-            // marge de sécurité pour paddings / bordures / scrollbar / toolbar visuellement cohérente
-            const extraSpace = 58;
-            const calculatedWidth = totalWidth + extraSpace;
-
-            inner.style.width = calculatedWidth + 'px';
-            inner.style.maxWidth = '100%';
-        }
 
         function reloadGridWithFilters() {
             if (!['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
@@ -526,8 +457,6 @@
                 url.toString(),
                 {{ totalColumns|json_encode|raw }}
             );
-
-            setTimeout(adjustGridContainerWidth, 150);
         }
 
         function debounce(fn, delay) {
