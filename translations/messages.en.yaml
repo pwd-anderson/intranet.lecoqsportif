@@ -44,6 +44,9 @@ sidebar:
         excess_for_sales: "Excess for Sales"
         poids_tailles: "Weight of sizes"
         best_demand_per_style: "Best Demand per Style"
+        commandes_allouees_sans_bp: "Commandes allouées sans BP"
+        commandes_bp_sans_livraison: "Commandes avec BP sans livraison"
+        commandes_non_soldees_par_date: "Suivi des commandes non soldées"
     management:
         ca_marges: "Sales Margins"
     stock:

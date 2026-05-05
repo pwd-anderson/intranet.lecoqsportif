@@ -600,4 +600,46 @@ class Sales
         }
     }
 
+    public function getCommandesAlloueesSansBp(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/commandes_allouees_sans_bp.sql');
+            return $this->mssqlSei->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Commandes allouées sans BP', $e);
+            $this->logger->error('LCS Erreur Sales : Commandes allouées sans BP', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
+    public function getCommandesBpSansLivraison(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/commandes_bp_sans_livraison.sql');
+            return $this->mssqlSei->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Commandes avec BP sans livraison', $e);
+            $this->logger->error('LCS Erreur Sales : Commandes avec BP sans livraison', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
+    public function getCommandesNonSoldeesParDate(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/commandes_non_soldees_par_date.sql');
+            return $this->mssqlSei->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Commandes non soldées par date', $e);
+            $this->logger->error('LCS Erreur Sales : Commandes non soldées par date', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
 }

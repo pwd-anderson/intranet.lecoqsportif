@@ -70,6 +70,24 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('poid_famille_par_variant');
     }
 
+    #[Route('/sales/commandes_allouees_sans_bp', name: 'app_sales_commandes_allouees_sans_bp')]
+    public function commandesAlloueesSansBpAlias(): Response
+    {
+        return $this->salesGeneric('commandes_allouees_sans_bp');
+    }
+
+    #[Route('/sales/commandes_bp_sans_livraison', name: 'app_sales_commandes_bp_sans_livraison')]
+    public function commandesBpSansLivraisonAlias(): Response
+    {
+        return $this->salesGeneric('commandes_bp_sans_livraison');
+    }
+
+    #[Route('/sales/commandes_non_soldees_par_date', name: 'app_sales_commandes_non_soldees_par_date')]
+    public function commandesNonSoldeesParDateAlias(): Response
+    {
+        return $this->salesGeneric('commandes_non_soldees_par_date');
+    }
+
     // ################## Action customisés #####################
     #[Route('/sales/reassort', name: 'app_sales_reassort')]
     public function reassort(): Response
@@ -186,6 +204,27 @@ final class SalesController extends AbstractController
     {
         $data = $divers->getItemGroups();
 
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/commandes_allouees_sans_bp_json', name: 'commandes_allouees_sans_bp_json')]
+    public function commandesAlloueesSansBpJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getCommandesAlloueesSansBp();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/commandes_bp_sans_livraison_json', name: 'commandes_bp_sans_livraison_json')]
+    public function commandesBpSansLivraisonJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getCommandesBpSansLivraison();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/commandes_non_soldees_par_date_json', name: 'commandes_non_soldees_par_date_json')]
+    public function commandesNonSoldeesParDateJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getCommandesNonSoldeesParDate();
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
@@ -354,7 +393,7 @@ final class SalesController extends AbstractController
     #[Route(
         '/sales/{type}',
         name: 'app_sales_generic',
-        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|poid_famille_par_variant|best_demand_per_style']
+        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|poid_famille_par_variant|best_demand_per_style|commandes_allouees_sans_bp|commandes_bp_sans_livraison|commandes_non_soldees_par_date']
     )]
     public function salesGeneric(string $type): Response
     {
@@ -405,6 +444,27 @@ final class SalesController extends AbstractController
                 'gridName'      => 'best_demand_per_style_grid',
                 'title'         => '10 Best Demand per Style',
                 'jsonRoute'     => 'best_demand_per_style_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'auto',
+            ],
+            'commandes_allouees_sans_bp' => [
+                'gridName'      => 'commandes_allouees_sans_bp_grid',
+                'title'         => 'Commandes allouées sans BP',
+                'jsonRoute'     => 'commandes_allouees_sans_bp_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
+            ],
+            'commandes_bp_sans_livraison' => [
+                'gridName'      => 'commandes_bp_sans_livraison_grid',
+                'title'         => 'Commandes avec BP sans livraison',
+                'jsonRoute'     => 'commandes_bp_sans_livraison_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
+            ],
+            'commandes_non_soldees_par_date' => [
+                'gridName'      => 'commandes_non_soldees_par_date_grid',
+                'title'         => 'Suivi des commandes non soldées',
+                'jsonRoute'     => 'commandes_non_soldees_par_date_json',
                 'template'      => 'sales/sales_generic.html.twig',
                 'gridWidthMode' => 'auto',
             ],
