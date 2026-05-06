@@ -205,7 +205,11 @@ class Sales
         }
     }
 
-    public function getExcessForSales(?string $tariffGroup = null, ?string $family = null): array
+    public function getExcessForSales(
+        ?string $tariffGroup = null,
+        ?string $family = null,
+        ?string $collection = null
+    ): array
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/excess_for_sales.sql');
@@ -220,9 +224,15 @@ class Sales
                 $conditions[] = "FAMILLE = '" . str_replace("'", "''", $family) . "'";
             }
 
+            if ($collection) {
+                $conditions[] = "COLLECTION = '" . str_replace("'", "''", $collection) . "'";
+            }
+
             if (!empty($conditions)) {
                 $query .= ' WHERE ' . implode(' AND ', $conditions);
             }
+
+            // ... reste de la méthode INCHANGÉ ...
 
             $rows = $this->mssqlSei->executeQuery($query);
 
@@ -245,21 +255,14 @@ class Sales
                 ]);
 
                 if (!isset($grouped[$key])) {
-                    $photoUrl = $this->urlGenerator->generate(
-                        'sales_excess_for_sales_image',
-                        [
-                            '_locale' => $locale,
-                            'article' => $articleBase,
-                        ]
-                    );
+                    // URL directe vers lecoqsportif.com (cascade _2 → _new_1 → _1 gérée côté front via <img onerror>)
+                    $photoUrl = 'https://www.lecoqsportif.com/cdn/shop/files/' . $articleBase . '_2.jpg';
 
-                    $photoBase64Url = $this->urlGenerator->generate(
-                        'sales_excess_for_sales_image_base64',
-                        [
-                            '_locale' => $locale,
-                            'article' => $articleBase,
-                        ]
-                    );
+                    // URL base64 pour l'export Excel (cascade gérée côté backend)
+                    $photoBase64Url = $this->urlGenerator->generate('lecoqsportif_image_base64', [
+                        '_locale' => $locale,
+                        'article' => $articleBase,
+                    ]);
 
                     $grouped[$key] = [
                         'PHOTO_URL' => $photoUrl,

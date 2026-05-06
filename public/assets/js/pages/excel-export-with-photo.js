@@ -14,6 +14,10 @@
  */
 const ExcelExportWithPhoto = (function () {
 
+    // ➕ État partagé pour l'annulation
+    let _currentAbortController = null;
+    let _isCancelled = false;
+
     function showLoader() {
         const overlay = document.getElementById('excelLoaderOverlay');
         const percent = document.getElementById('excelLoaderPercent');
@@ -42,11 +46,33 @@ const ExcelExportWithPhoto = (function () {
         if (sub && p === 100) sub.textContent = 'Génération du fichier...';
     }
 
-    async function fetchImage(imageBaseUrl, article) {
+    // ➕ Annulation : déclenchée par la croix
+    function cancelExport() {
+        _isCancelled = true;
+        if (_currentAbortController) {
+            _currentAbortController.abort();
+        }
+        hideLoader();
+    }
+
+    // ➕ Bind du bouton fermer (une seule fois, dès le chargement du script)
+    function bindCloseButton() {
+        const btn = document.getElementById('excelLoaderCloseBtn');
+        if (btn && !btn.dataset.bound) {
+            btn.dataset.bound = '1';
+            btn.addEventListener('click', cancelExport);
+        }
+    }
+
+    // ✏️ MODIFIÉ : prend un signal AbortController
+    async function fetchImage(imageBaseUrl, article, signal) {
         if (!article) return null;
 
         try {
-            const response = await fetch(`${imageBaseUrl}/${encodeURIComponent(article)}`);
+            const response = await fetch(
+                `${imageBaseUrl}/${encodeURIComponent(article)}`,
+                { signal }   // ← AJOUT
+            );
             const data = await response.json();
 
             if (!data.success || !data.base64) return null;
@@ -71,6 +97,10 @@ const ExcelExportWithPhoto = (function () {
             };
 
         } catch (e) {
+            // ➕ Si annulation, on remonte silencieusement
+            if (e.name === 'AbortError') {
+                throw e;
+            }
             console.error('Erreur fetch image pour', article, e);
             return null;
         }
@@ -86,9 +116,18 @@ const ExcelExportWithPhoto = (function () {
             headerColor = '024185',
             headerFontColor = 'FFFFFF',
             onProgress = null,
+            customCellValue = {},
+            articleTransform = null,
         } = options;
 
-        // Afficher le loader
+        // ➕ Réinitialisation de l'état d'annulation
+        _isCancelled = false;
+        _currentAbortController = new AbortController();
+        const signal = _currentAbortController.signal;
+
+        // ➕ Bind la croix (au cas où le DOM n'était pas prêt avant)
+        bindCloseButton();
+
         showLoader();
 
         try {
@@ -106,7 +145,6 @@ const ExcelExportWithPhoto = (function () {
                     : Math.max(10, Math.round(col.getActualWidth() / 7))
             }));
 
-            // Style header
             worksheet.getRow(1).eachCell(cell => {
                 cell.fill = {
                     type: 'pattern',
@@ -118,27 +156,40 @@ const ExcelExportWithPhoto = (function () {
             });
             worksheet.getRow(1).height = 20;
 
-            // Collecter les nodes
             const rowNodes = [];
             gridOptions.api.forEachNodeAfterFilterAndSort(node => {
                 if (!node.group) rowNodes.push(node);
             });
 
-            // Dédupliquer les articles pour ne pas charger 2x la même image
             const uniqueArticles = [...new Set(
-                rowNodes.map(n => n.data?.[articleColumn]).filter(Boolean)
+                rowNodes
+                    .map(n => {
+                        const raw = n.data?.[articleColumn];
+                        if (!raw) return null;
+                        return typeof articleTransform === 'function' ? articleTransform(raw) : raw;
+                    })
+                    .filter(Boolean)
             )];
             const total = uniqueArticles.length;
 
-            // Pré-charger toutes les images avec progression
             const imageCache = {};
             for (let i = 0; i < uniqueArticles.length; i++) {
+                // ➕ Vérification d'annulation à chaque itération
+                if (_isCancelled) {
+                    return;
+                }
+
                 const article = uniqueArticles[i];
-                imageCache[article] = await fetchImage(imageBaseUrl, article);
+                imageCache[article] = await fetchImage(imageBaseUrl, article, signal);
 
                 const p = Math.round(((i + 1) / total) * 100);
                 updateLoader(p);
                 if (onProgress) onProgress(p);
+            }
+
+            // ➕ Vérification après la phase 1 (avant ExcelJS)
+            if (_isCancelled) {
+                return;
             }
 
             // Ajouter toutes les lignes SANS image d'abord
@@ -147,13 +198,19 @@ const ExcelExportWithPhoto = (function () {
                 const rowData = {};
 
                 colIds.forEach(colId => {
-                    rowData[colId] = colId === photoColumn ? '' : (node.data?.[colId] ?? '');
+                    if (colId === photoColumn) {
+                        rowData[colId] = '';
+                    } else if (typeof customCellValue[colId] === 'function') {
+                        rowData[colId] = customCellValue[colId](node.data ?? {}) ?? '';
+                    } else {
+                        rowData[colId] = node.data?.[colId] ?? '';
+                    }
                 });
 
                 const excelRow = worksheet.addRow(rowData);
                 excelRow.height = rowHeight;
                 excelRow.eachCell(cell => {
-                    cell.alignment = { vertical: 'middle' };
+                    cell.alignment = { vertical: 'middle', wrapText: true };
                 });
             }
 
@@ -162,7 +219,15 @@ const ExcelExportWithPhoto = (function () {
 
             if (photoColIndex !== -1 && imageBaseUrl) {
                 for (let i = 0; i < rowNodes.length; i++) {
-                    const article = rowNodes[i].data?.[articleColumn];
+                    // ➕ Vérification d'annulation pendant insertion images
+                    if (_isCancelled) {
+                        return;
+                    }
+
+                    const rawArticle = rowNodes[i].data?.[articleColumn];
+                    const article = rawArticle && typeof articleTransform === 'function'
+                        ? articleTransform(rawArticle)
+                        : rawArticle;
                     const img = article ? imageCache[article] : null;
 
                     if (!img?.base64) {
@@ -187,19 +252,29 @@ const ExcelExportWithPhoto = (function () {
                 }
             }
 
-            // Téléchargement
+            // ➕ Vérification finale avant écriture du fichier
+            if (_isCancelled) {
+                return;
+            }
+
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             });
             saveAs(blob, fileName);
 
+        } catch (e) {
+            // ➕ Annulation = silence. Autres erreurs = log
+            if (e.name === 'AbortError' || _isCancelled) {
+                return;
+            }
+            console.error('Erreur exportExcel:', e);
         } finally {
-            // Ferme le loader dans tous les cas (succès ou erreur)
             hideLoader();
+            _currentAbortController = null;
         }
     }
 
-    return { export: exportExcel };
+    return { export: exportExcel, cancel: cancelExport };
 
 })();

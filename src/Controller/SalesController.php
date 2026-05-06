@@ -149,9 +149,10 @@ final class SalesController extends AbstractController
     public function excessForSalesJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
     {
         $tariffGroup = $request->query->get('tariffGroup');
-        $family = $request->query->get('family');
+        $family      = $request->query->get('family');
+        $collection  = $request->query->get('collection');
 
-        $data = $sales->getExcessForSales($tariffGroup, $family);
+        $data = $sales->getExcessForSales($tariffGroup, $family, $collection);
 
         return new JsonResponse([
             'variants' => $data['variants'],
@@ -230,142 +231,7 @@ final class SalesController extends AbstractController
 
     ####################### Route Divers ####################
 
-    #[Route('/sales/best_demand_per_style_image_base64/{article}', name: 'best_demand_per_style_image_base64')]
-    public function bestDemandPerStyleImageBase64(string $article): JsonResponse
-    {
-        $article = preg_replace('/[^A-Za-z0-9_-]/', '', $article);
-
-        if (!$article) {
-            return new JsonResponse(['success' => false]);
-        }
-
-        $urls = [
-            'https://www.lecoqsportif.com/cdn/shop/files/' . $article . '_2.jpg',
-            'https://www.lecoqsportif.com/cdn/shop/files/' . $article . '_1.jpg',
-        ];
-
-        foreach ($urls as $url) {
-            try {
-                $response = $this->httpClient->request('GET', $url);
-
-                if ($response->getStatusCode() !== 200) {
-                    continue;
-                }
-
-                $content = $response->getContent();
-                $b64 = str_replace(["\r", "\n", "\t"], '', base64_encode($content));
-
-                return new JsonResponse([
-                    'success'   => true,
-                    'base64'    => $b64,
-                    'extension' => 'jpg',
-                ]);
-
-            } catch (\Throwable $e) {
-                continue;
-            }
-        }
-
-        $this->logger->warning('Image introuvable pour article: ' . $article);
-
-        return new JsonResponse(['success' => false]);
-    }
-
     ####################### Route non généric ####################
-    #[Route('/sales/excess_for_sales_image/{article}', name: 'sales_excess_for_sales_image', methods: ['GET'])]
-    public function excessForSalesImage(string $article): Response
-    {
-        $article = preg_replace('/[^A-Za-z0-9_-]/', '', $article);
-
-        if (!$article) {
-            return new Response('', Response::HTTP_NOT_FOUND);
-        }
-
-        $remoteUrls = [
-            sprintf('http://www.lecoqbiz.com/CMS/Images/Medium/%s.jpg', $article),
-            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.jpg', $article),
-            sprintf('http://www.lecoqbiz.com/CMS/Images/Medium/%s.png', $article),
-            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.png', $article),
-        ];
-
-        foreach ($remoteUrls as $remoteUrl) {
-            try {
-                $response = $this->httpClient->request('GET', $remoteUrl);
-
-                if ($response->getStatusCode() !== 200) {
-                    continue;
-                }
-
-                $headers = $response->getHeaders(false);
-                $contentType = $headers['content-type'][0] ?? 'image/jpeg';
-                $content = $response->getContent();
-
-                return new Response($content, Response::HTTP_OK, [
-                    'Content-Type' => $contentType,
-                    'Cache-Control' => 'public, max-age=86400',
-                ]);
-            } catch (\Throwable $e) {
-                continue;
-            }
-        }
-
-        return new Response('', Response::HTTP_NOT_FOUND);
-    }
-
-    #[Route('/sales/excess_for_sales_image_base64/{article}', name: 'sales_excess_for_sales_image_base64', methods: ['GET'])]
-    public function excessForSalesImageBase64(string $article): JsonResponse
-    {
-        $article = preg_replace('/[^A-Za-z0-9_-]/', '', $article);
-
-        if (!$article) {
-            return new JsonResponse([
-                'success' => false,
-            ], Response::HTTP_NOT_FOUND);
-        }
-
-        $remoteUrls = [
-            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.jpg', $article),
-            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.jpg', $article),
-            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.png', $article),
-            sprintf('http://www.lecoqbiz.com/CMS/Images/Small/%s.png', $article),
-        ];
-
-        foreach ($remoteUrls as $remoteUrl) {
-            try {
-                $response = $this->httpClient->request('GET', $remoteUrl);
-
-                if ($response->getStatusCode() !== 200) {
-                    continue;
-                }
-
-                $headers = $response->getHeaders(false);
-                $contentType = $headers['content-type'][0] ?? 'image/jpeg';
-                $content = $response->getContent();
-                // On enlève tout risque de chunking ou de retour à la ligne
-                $b64 = base64_encode($content);
-                $b64 = str_replace(["\r", "\n", "\t"], '', $b64);
-
-                $imageType = 'jpg';
-                if (str_contains($contentType, 'png')) {
-                    $imageType = 'png';
-                } elseif (str_contains($contentType, 'gif')) {
-                    $imageType = 'gif';
-                }
-                return new JsonResponse([
-                    'success' => true,
-                    'imageType' => 'jpg',
-                    'base64' => $b64,
-                ]);
-
-            } catch (\Throwable $e) {
-                continue;
-            }
-        }
-
-        return new JsonResponse([
-            'success' => false,
-        ], Response::HTTP_NOT_FOUND);
-    }
 
     ####################### Route divers ####################
     #[Route('/sales/poid_famille_par_variant_collections_json', name: 'poid_famille_par_variant_collections_json')]

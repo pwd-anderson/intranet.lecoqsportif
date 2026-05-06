@@ -153,9 +153,9 @@ window.AgGridCommon = (function () {
         if (text) text.textContent = percent + '%';
     }
 
-    function showGridLoader() {
+    function showGridLoader(gridSelector = '#myGrid') {
         const loader = document.getElementById('gridCustomLoader');
-        const grid = document.getElementById('myGrid');
+        const grid = document.querySelector(gridSelector);
 
         if (loader) loader.style.display = 'flex';
         if (grid) grid.style.visibility = 'hidden';
@@ -163,9 +163,9 @@ window.AgGridCommon = (function () {
         startLoaderProgress();
     }
 
-    function hideGridLoader() {
+    function hideGridLoader(gridSelector = '#myGrid') {
         const loader = document.getElementById('gridCustomLoader');
-        const grid = document.getElementById('myGrid');
+        const grid = document.querySelector(gridSelector);
 
         completeLoaderProgress();
 
@@ -589,6 +589,8 @@ window.AgGridCommon = (function () {
         patchSidebarCheckboxes: patchSidebarCheckboxes,
         showGridActions: showGridActions,
         hideGridActions: hideGridActions,
-        setupAutoWidth: setupAutoWidth
+        setupAutoWidth: setupAutoWidth,
+        showGridLoader: showGridLoader,
+        hideGridLoader: hideGridLoader
     };
 })();

@@ -1,6 +1,9 @@
 {# templates/components/_excel_loader.html.twig #}
 <div id="excelLoaderOverlay" class="excel-loader-overlay">
     <div class="excel-loader-box">
+        <button id="excelLoaderCloseBtn" type="button" class="excel-loader-close" aria-label="Annuler">
+            &times;
+        </button>
         <div class="excel-loader-title">Génération de l'export Excel</div>
         <div class="excel-loader-percent" id="excelLoaderPercent">0%</div>
         <div class="excel-loader-bar-track">

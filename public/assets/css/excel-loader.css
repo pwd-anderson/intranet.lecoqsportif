@@ -49,3 +49,34 @@
     font-size: 12px;
     color: #888;
 }
+
+/* On rend la box positionnable pour que la croix s'ancre dedans */
+.excel-loader-box {
+    position: relative;
+}
+
+/* La croix de fermeture */
+.excel-loader-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: #024185;          /* ← bleu cohérent avec ta charte */
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.excel-loader-close:hover {
+    background-color: rgba(2, 65, 133, 0.1);
+    color: #024185;
+}

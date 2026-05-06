@@ -12,14 +12,12 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final class StockController extends AbstractController
 {
     public function __construct(
         private AggridOptionRepository $aggridOptionRepository,
         private AgGridColumnBuilder $columnBuilder,
-        private HttpClientInterface $httpClient,
     ) {}
 
     #[Route('/stock/stock_a_terme', name: 'app_stock_a_terme')]
@@ -164,45 +162,6 @@ final class StockController extends AbstractController
     public function stockGenresJson(Divers $divers): JsonResponse
     {
         return new JsonResponse($divers->getGenres());
-    }
-
-    #[Route('/stock/stock_produits_image_base64/{article}', name: 'stock_produits_image_base64')]
-    public function stockProduitsImageBase64(string $article): JsonResponse
-    {
-        $article = preg_replace('/[^A-Za-z0-9_-]/', '', $article);
-
-        if (!$article) {
-            return new JsonResponse(['success' => false]);
-        }
-
-        $urls = [
-            'https://www.lecoqsportif.com/cdn/shop/files/' . $article . '_2.jpg',
-            'https://www.lecoqsportif.com/cdn/shop/files/' . $article . '_1.jpg',
-        ];
-
-        foreach ($urls as $url) {
-            try {
-                $response = $this->httpClient->request('GET', $url);
-
-                if ($response->getStatusCode() !== 200) {
-                    continue;
-                }
-
-                $content = $response->getContent();
-                $b64 = str_replace(["\r", "\n", "\t"], '', base64_encode($content));
-
-                return new JsonResponse([
-                    'success'   => true,
-                    'base64'    => $b64,
-                    'extension' => 'jpg',
-                ]);
-
-            } catch (\Throwable $e) {
-                continue;
-            }
-        }
-
-        return new JsonResponse(['success' => false]);
     }
 
     #[Route(
