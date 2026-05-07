@@ -568,6 +568,98 @@ window.AgGridCommon = (function () {
         return adjust;
     }
 
+    /**
+     * Active le mode "auto-height avec plafond" sur une grille AG Grid.
+     * La grille s'adapte au contenu (pas d'espace blanc) mais ne dépasse pas maxHeight.
+     * Au-delà de maxHeight, on bascule en hauteur fixe avec scroll interne.
+     *
+     * @param {Object} gridOptions - Les gridOptions retournés par initGrid
+     * @param {Object} options
+     * @param {string} options.gridSelector - sélecteur du div grid (défaut: '#myGrid')
+     * @param {number} options.maxHeight - hauteur maximale en px (défaut: 1000)
+     * @returns {Function|null} Fonction adjust() pour forcer un re-calcul manuel
+     */
+    function setupAutoHeight(gridOptions, options = {}) {
+        const gridSelector = options.gridSelector || '#myGrid';
+        const maxHeight = options.maxHeight ?? 1000;
+
+        const gridDiv = document.querySelector(gridSelector);
+
+        if (!gridDiv) {
+            console.warn('[AgGridCommon.setupAutoHeight] Grille introuvable :', gridSelector);
+            return null;
+        }
+
+        let currentLayout = null; // 'autoHeight' | 'normal'
+
+        function adjust() {
+            if (!gridOptions?.api) {
+                return;
+            }
+
+            // Hauteur estimée du contenu
+            const headerHeight = 40 + 32; // header AG Grid + filtres flottants
+            const rowCount = gridOptions.api.getDisplayedRowCount() || 0;
+
+            // Pour estimer la hauteur, on additionne la hauteur de chaque ligne
+            let dataHeight = 0;
+            gridOptions.api.forEachNodeAfterFilterAndSort((node) => {
+                dataHeight += node.rowHeight || 42;
+            });
+
+            // Hauteur ligne pinned bottom (totaux) si présente
+            const pinnedNode = gridOptions.api.getPinnedBottomRow(0);
+            const pinnedHeight = pinnedNode ? (pinnedNode.rowHeight || 42) : 0;
+
+            const totalContentHeight = headerHeight + dataHeight + pinnedHeight + 4; // +4 marge sécurité
+
+            if (totalContentHeight <= maxHeight) {
+                // Mode autoHeight : la grille fait exactement la hauteur de son contenu
+                if (currentLayout !== 'autoHeight') {
+                    gridOptions.api.setDomLayout('autoHeight');
+                    currentLayout = 'autoHeight';
+                }
+                // En mode autoHeight, AG Grid exige height: '' sur le conteneur
+                gridDiv.style.height = '';
+            } else {
+                // Mode normal : hauteur fixe avec scroll interne
+                if (currentLayout !== 'normal') {
+                    gridOptions.api.setDomLayout('normal');
+                    currentLayout = 'normal';
+                }
+                gridDiv.style.height = maxHeight + 'px';
+            }
+        }
+
+        function debounce(fn, delay) {
+            let timer = null;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        // Bind sur les events qui peuvent changer le nombre/hauteur de lignes
+        const api = gridOptions.api;
+        if (api) {
+            const events = [
+                'firstDataRendered',
+                'modelUpdated',       // changement de filtre, tri, données
+                'rowDataUpdated',
+                'rowHeightChanged',
+            ];
+
+            events.forEach(eventName => {
+                api.addEventListener(eventName, () => setTimeout(adjust, 50));
+            });
+        }
+
+        // Recalculer aussi au resize (au cas où maxHeight serait dynamique un jour)
+        window.addEventListener('resize', debounce(adjust, 150));
+
+        return adjust;
+    }
+
     window.dateFormatter = dateFormatter;
     window.dateComparator = dateComparator;
     window.dateFilterComparator = dateFilterComparator;
@@ -590,6 +682,7 @@ window.AgGridCommon = (function () {
         showGridActions: showGridActions,
         hideGridActions: hideGridActions,
         setupAutoWidth: setupAutoWidth,
+        setupAutoHeight: setupAutoHeight,
         showGridLoader: showGridLoader,
         hideGridLoader: hideGridLoader
     };

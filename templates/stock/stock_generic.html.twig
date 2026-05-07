@@ -198,7 +198,7 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.9"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
     <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
@@ -434,6 +434,11 @@
 
             window.AgGridCommon.setupAutoWidth(window.gridOptions, {
                 widthMode: gridWidthMode,
+            });
+
+            window.AgGridCommon.setupAutoHeight(window.gridOptions, {
+                gridSelector: '#myGrid',
+                maxHeight: 1000,
             });
         });
 

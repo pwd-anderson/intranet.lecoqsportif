@@ -562,12 +562,6 @@ class Sales
             $family = $family !== null ? trim($family) : null;
             $family = $family !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $family) : null;
 
-            $type = $type !== null ? trim($type) : null;
-            $type = $type !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $type) : null;
-
-            $itemGroup = $itemGroup !== null ? trim($itemGroup) : null;
-            $itemGroup = $itemGroup !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $itemGroup) : null;
-
             $collectionWhere = '';
             if ($collection) {
                 $collectionWhere = " AND C.SERIESCODE = '{$collection}'";
@@ -578,20 +572,8 @@ class Sales
                 $familyWhere = " AND C.ITEMFAMILYCODE = '{$family}'";
             }
 
-            $typeWhere = '';
-            if ($type) {
-                $typeWhere = " AND (CASE WHEN C.AGEGROUP = 'ADULT' THEN C.GENUSCODE ELSE 'KIDS' END) = '{$type}'";
-            }
-
-            $itemGroupWhere = '';
-            if ($itemGroup) {
-                $itemGroupWhere = " AND C.ITEMGROUPCODE = '{$itemGroup}'";
-            }
-
             $sql = str_replace('{{COLLECTION_WHERE}}', $collectionWhere, $sql);
             $sql = str_replace('{{FAMILY_WHERE}}', $familyWhere, $sql);
-            $sql = str_replace('{{TYPE_WHERE}}', $typeWhere, $sql);
-            $sql = str_replace('{{ITEMGROUP_WHERE}}', $itemGroupWhere, $sql);
 
             return $this->mssqlSei->executeQuery($sql);
 

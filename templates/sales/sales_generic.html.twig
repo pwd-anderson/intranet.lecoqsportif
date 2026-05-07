@@ -159,13 +159,9 @@
                                                 <option value="APL">APL</option>
                                             {% endif %}
                                         </select>
-
-                                        <select id="typeSelect" class="form-select form-select-sm" style="width: 140px;">
-                                            <option value="">Tous les types</option>
-                                        </select>
-                                        {% if type == 'best_demand_per_style' %}
-                                            <select id="itemGroupSelect" class="form-select form-select-sm" style="width: 160px;">
-                                                <option value="">Tous les groupes</option>
+                                        {% if type == 'poid_famille_par_variant' %}
+                                            <select id="typeSelect" class="form-select form-select-sm" style="width: 140px;">
+                                                <option value="">Tous les types</option>
                                             </select>
                                         {% endif %}
                                     {% endif %}
@@ -205,7 +201,7 @@
 {% block javascripts %}
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.8"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
     <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-with-photo.js') }}"></script>
@@ -238,54 +234,6 @@
                 addCellClass(col, 'excelPercentColumn');
             }
 
-            if (salesType === 'best_demand_per_style' && col.field === 'DESCRIPTION') {
-                col.wrapText = true;
-                col.autoHeight = true;
-                col.cellStyle = {
-                    whiteSpace: 'normal',
-                    lineHeight: '1.3',
-                    display: 'flex',
-                    alignItems: 'center',
-                    borderRight: '0.2px solid #CECECEFF',
-                    borderBottom: '0.2px solid #CECECEFF'
-                };
-            }
-
-            if (salesType === 'best_demand_per_style' && col.field === 'PHOTO') {
-                col.width = 120;
-                col.minWidth = 120;
-                col.maxWidth = 120;
-                col.sortable = false;
-                col.filter = false;
-                col.resizable = false;
-                col.cellClass = 'best-demand-photo-cell';
-
-                col.cellRenderer = function (params) {
-                    if (!params.value) {
-                        return '';
-                    }
-
-                    const escapedUrl = String(params.value).replace(/"/g, '&quot;');
-
-                    return `
-        <img
-            src="${escapedUrl}"
-            alt="photo article"
-            width="200"
-            height="85"
-            style="width:200px; height:85px; object-fit:contain; display:block;"
-            onerror="
-                if (!this.dataset.fallbackTried) {
-                    this.dataset.fallbackTried = '1';
-                    this.src = this.src.replace('_2.jpg', '_1.jpg');
-                } else {
-                    this.style.display = 'none';
-                }
-            "
-        />
-    `;
-                };
-            }
         });
 
         const agGridConfig = {
@@ -298,9 +246,6 @@
             totalColumns: {{ totalColumns|json_encode|raw }},
             headerClass: 'excelHeaderBlue',
             stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
-            getRowHeight: function () {
-                return salesType === 'best_demand_per_style' ? 90 : 42;
-            },
 
             excelStyles: [
                 {
@@ -328,44 +273,22 @@
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
             window.onBtExportExcel = async function () {
-                if (salesType !== 'best_demand_per_style') {
-                    await ExcelExportStandard.export(
-                        window.gridOptions,
-                        '{{ title|replace({" ": "_"}) }}.xlsx',
-                        {
-                            processCellCallback: (p) => {
-                                const field = p.column.getColId();
-                                if (field === 'WEIGHT_PERCENT') {
-                                    if (p.value == null || p.value === '') return '';
-                                    return (Number(p.value) * 100).toFixed(0) + ' %';
-                                }
-                                return p.value;
-                            }
-                        }
-                    );
-                    return;
-                }
 
-                await ExcelExportWithPhoto.export(
+                await ExcelExportStandard.export(
                     window.gridOptions,
-                    window.gridOptions.columnApi,
+                    '{{ title|replace({" ": "_"}) }}.xlsx',
                     {
-                        fileName: '{{ title|replace({" ": "_"}) }}.xlsx',
-                        photoColumn: 'PHOTO',
-                        articleColumn: 'ARTICLE',
-                        imageBaseUrl: '/fr/images/lecoqsportif_base64',
-                        rowHeight: 70,
-                        headerColor: '024185',
-                        onProgress: (p) => {
-                            const percent = document.getElementById('excelLoaderPercent');
-                            const fill = document.getElementById('excelLoaderBarFill');
-                            const sub = document.getElementById('excelLoaderSub');
-                            if (percent) percent.textContent = p + '%';
-                            if (fill) fill.style.width = p + '%';
-                            if (sub && p === 100) sub.textContent = 'Génération du fichier...';
+                        processCellCallback: (p) => {
+                            const field = p.column.getColId();
+                            if (field === 'WEIGHT_PERCENT') {
+                                if (p.value == null || p.value === '') return '';
+                                return (Number(p.value) * 100).toFixed(0) + ' %';
+                            }
+                            return p.value;
                         }
                     }
                 );
+                return;
             };
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
@@ -432,6 +355,10 @@
 
             window.AgGridCommon.setupAutoWidth(window.gridOptions, {
                 widthMode: gridWidthMode,
+            });
+            window.AgGridCommon.setupAutoHeight(window.gridOptions, {
+                gridSelector: '#myGrid',
+                maxHeight: 1000,
             });
         });
 

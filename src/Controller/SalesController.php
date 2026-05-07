@@ -185,10 +185,8 @@ final class SalesController extends AbstractController
     {
         $collection = $request->query->get('collection');
         $family     = $request->query->get('family');
-        $type       = $request->query->get('type');
-        $itemGroup  = $request->query->get('itemGroup');
 
-        $data = $sales->getBestDemandPerStyle($collection, $family, $type, $itemGroup);
+        $data = $sales->getBestDemandPerStyle($collection, $family);
 
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
@@ -308,7 +306,7 @@ final class SalesController extends AbstractController
             ],
             'best_demand_per_style' => [
                 'gridName'      => 'best_demand_per_style_grid',
-                'title'         => '10 Best Demand per Style',
+                'title'         => 'Best Demand per Style',
                 'jsonRoute'     => 'best_demand_per_style_json',
                 'template'      => 'sales/sales_generic.html.twig',
                 'gridWidthMode' => 'auto',

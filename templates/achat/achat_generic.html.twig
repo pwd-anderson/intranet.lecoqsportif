@@ -139,13 +139,15 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.8"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
     <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
 
     <script>
         const currentYear = new Date().getFullYear();
 
         const columnDefs = {{ columns|json_encode|raw }};
+
+        const gridWidthMode = '{{ gridWidthMode|default("full") }}';
 
         columnDefs.forEach(col => {
             if (col.field === 'STATUS') {
@@ -202,6 +204,14 @@
             document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
                 window.AgGridCommon.clearGridState(agGridConfig.stateKey);
                 location.reload();
+            });
+
+            window.AgGridCommon.setupAutoWidth(window.gridOptions, {
+                widthMode: gridWidthMode,
+            });
+            window.AgGridCommon.setupAutoHeight(window.gridOptions, {
+                gridSelector: '#myGrid',
+                maxHeight: 1000,
             });
         });
     </script>
