@@ -65,6 +65,12 @@ final class StockController extends AbstractController
         return $this->stockGeneric('stock_produits');
     }
 
+    #[Route('/stock/stock_produits_shop_non_coches', name: 'app_stock_produits_shop_non_coches')]
+    public function stockProduitsShopNonCochesAlias(): Response
+    {
+        return $this->stockGeneric('stock_produits_shop_non_coches');
+    }
+
     // ################## ROUTES JSON (inchangées) #####################
 
     #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
@@ -130,6 +136,15 @@ final class StockController extends AbstractController
         return new JsonResponse($dataUtf8);
     }
 
+    #[Route('/stock/stock_produits_shop_non_coches_json', name: 'stock_produits_shop_non_coches_json')]
+    public function stockProduitsShopNonCochesJson(Stock $stock, Helpers $helpers): JsonResponse
+    {
+        $data = $stock->getStockProduitsShopifyNonCoches();
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
     // Appel divers
     #[Route('/stock/familles_json', name: 'stock_familles_json')]
     public function stockFamillesJson(Divers $divers): JsonResponse
@@ -167,7 +182,7 @@ final class StockController extends AbstractController
     #[Route(
         '/stock/{type}',
         name: 'app_stock_generic',
-        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3|stock_produits']
+        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3|stock_produits|stock_produits_shop_non_coches']
     )]
     public function stockGeneric(string $type): Response
     {
@@ -206,6 +221,12 @@ final class StockController extends AbstractController
                 'gridName'  => 'stock_produits_grid',
                 'title'     => 'Produits',
                 'jsonRoute' => 'stock_produits_json',
+                'gridWidthMode' => 'auto',
+            ],
+            'stock_produits_shop_non_coches' => [
+                'gridName'  => 'stock_produits_shop_non_coches_grid',
+                'title'     => 'Produits en stock mais pas sur Shopify',
+                'jsonRoute' => 'stock_produits_shop_non_coches_json',
                 'gridWidthMode' => 'auto',
             ],
         ];

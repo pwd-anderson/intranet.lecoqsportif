@@ -233,4 +233,78 @@ class Stock
         }
     }
 
+    public function getStockProduitsShopifyNonCoches(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/produits_shopify_non_coches.sql');
+            $data = $this->mssqlSei->executeQuery($query);
+
+            if (empty($data)) {
+                return [];
+            }
+
+            $stocks = $this->getStockInterneLogtexEtMagasins();
+
+            $stocksByArticle = [];
+            foreach ($stocks as $stock) {
+                $stocksByArticle[$stock->ARTICLE] = $stock;
+            }
+
+            $result = [];
+            foreach ($data as $row) {
+                $stock = $stocksByArticle[$row->ARTICLE] ?? null;
+
+                // Si l'article n'est pas dans la liste des stocks (donc déjà filtré
+                // par le HAVING SQL), on l'exclut
+                if ($stock === null) {
+                    continue;
+                }
+
+                $row->STOCK_INTERNE_LOGTEX  = (float) $stock->STOCK_INTERNE_LOGTEX;
+                $row->STOCK_INTERNE_MAGASIN = (float) $stock->STOCK_INTERNE_MAGASIN;
+
+                // Sécurité : si jamais les deux sont à 0, on exclut aussi
+                if ($row->STOCK_INTERNE_LOGTEX == 0.0 && $row->STOCK_INTERNE_MAGASIN == 0.0) {
+                    continue;
+                }
+
+                $result[] = $row;
+            }
+
+            return $result;
+
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError(
+                '❌ LCS Erreur Stock Produits Shop non Cochés: Récupération de données stock',
+                $e
+            );
+
+            $this->logger->error(
+                'LCS Erreur Stock Produits Shop non Cochés: Récupération de données stock',
+                ['exception' => $e]
+            );
+
+            return [];
+        }
+    }
+
+    public function getStockInterneLogtexEtMagasins(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/stock_interne_mag_et_logtex.sql');
+            $data = $this->mssqlSei->executeQuery($query);
+
+            if (empty($data)) {
+                return [];
+            }
+            return $data;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme X3 : Récupération de données stock', $e);
+            $this->logger->error('LCS Erreur Stock à Terme X3 : Récupération de données stock', ['exception' => $e]);
+        }
+    }
+
+
+
 }
