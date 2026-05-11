@@ -155,10 +155,16 @@ final class SalesController extends AbstractController
     public function excessForSalesJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
     {
         $tariffGroup = $request->query->get('tariffGroup');
-        $family      = $request->query->get('family');
-        $collection  = $request->query->get('collection');
 
-        $data = $sales->getExcessForSales($tariffGroup, $family, $collection);
+        // Récupère un tableau (Symfony gère le format ?family[]=X&family[]=Y)
+        $families = $request->query->all('family');
+        $collections = $request->query->all('collection');
+
+        // Sécurité : forcer en array de strings
+        $families = is_array($families) ? array_values(array_filter($families, 'is_string')) : [];
+        $collections = is_array($collections) ? array_values(array_filter($collections, 'is_string')) : [];
+
+        $data = $sales->getExcessForSales($tariffGroup, $families, $collections);
 
         return new JsonResponse([
             'variants' => $data['variants'],

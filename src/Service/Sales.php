@@ -210,8 +210,8 @@ class Sales
 
     public function getExcessForSales(
         ?string $tariffGroup = null,
-        ?string $family = null,
-        ?string $collection = null
+        array $families = [],
+        array $collections = []
     ): array
     {
         try {
@@ -223,19 +223,31 @@ class Sales
                 $conditions[] = "GROUPE_TARIF = '" . str_replace("'", "''", $tariffGroup) . "'";
             }
 
-            if ($family) {
-                $conditions[] = "FAMILLE = '" . str_replace("'", "''", $family) . "'";
+            if (!empty($families)) {
+                $escaped = array_map(
+                    fn($f) => "'" . str_replace("'", "''", trim($f)) . "'",
+                    array_filter($families, fn($f) => is_string($f) && trim($f) !== '')
+                );
+
+                if (!empty($escaped)) {
+                    $conditions[] = 'FAMILLE IN (' . implode(', ', $escaped) . ')';
+                }
             }
 
-            if ($collection) {
-                $conditions[] = "COLLECTION = '" . str_replace("'", "''", $collection) . "'";
+            if (!empty($collections)) {
+                $escaped = array_map(
+                    fn($c) => "'" . str_replace("'", "''", trim($c)) . "'",
+                    array_filter($collections, fn($c) => is_string($c) && trim($c) !== '')
+                );
+
+                if (!empty($escaped)) {
+                    $conditions[] = 'COLLECTION IN (' . implode(', ', $escaped) . ')';
+                }
             }
 
             if (!empty($conditions)) {
                 $query .= ' WHERE ' . implode(' AND ', $conditions);
             }
-
-            // ... reste de la méthode INCHANGÉ ...
 
             $rows = $this->mssqlSei->executeQuery($query);
 

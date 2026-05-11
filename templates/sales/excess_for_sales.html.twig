@@ -5,6 +5,7 @@
     <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/excel-loader.css') }}?v=1.1" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 
     <style>
         .ag-theme-alpine {
@@ -177,6 +178,32 @@
             pointer-events: auto;
             transition: opacity 0.2s ease-in-out;
         }
+
+        /* TomSelect inputs */
+        .ts-wrapper.form-select-sm {
+            min-height: 31px;
+            font-size: 13px;
+        }
+
+        .ts-wrapper .ts-control {
+            padding: 2px 8px;
+            min-height: 31px;
+        }
+
+        /* Tags des éléments sélectionnés */
+        .ts-wrapper .ts-control > .item {
+            background: #024185;
+            color: #fff;
+            border-radius: 4px;
+            padding: 1px 6px;
+            margin: 1px 4px 1px 0;
+            font-size: 12px;
+        }
+
+        .ts-wrapper .ts-control > .item .remove {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
     </style>
 {% endblock %}
 
@@ -190,16 +217,15 @@
                         <h3 class="box-title mb-0">{{ title }}</h3>
 
                         <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
-                            <select id="collectionSelect" class="form-select form-select-sm" style="width: 160px;">
-                                {# Pas d'option vide — choix obligatoire #}
+                            <select id="collectionSelect" class="form-select form-select-sm" multiple style="min-width: 220px;">
                             </select>
 
                             <select id="tariffGroupSelect" class="form-select form-select-sm" style="width: 220px;"></select>
 
-                            <select id="familySelect" class="form-select form-select-sm" style="width: 140px;">
+                            <select id="familySelect" class="form-select form-select-sm" multiple style="min-width: 200px;">
                                 <option value="HDW">HDW</option>
                                 <option value="FTW">FTW</option>
-                                <option value="APL" selected>APL</option>
+                                <option value="APL">APL</option>
                             </select>
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button">
                                 Excel
@@ -237,6 +263,7 @@
     <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-with-photo.js') }}?v=1.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -245,6 +272,15 @@
             const tariffGroupSelect = document.getElementById('tariffGroupSelect');
             const familySelect = document.getElementById('familySelect');
             const collectionSelect = document.getElementById('collectionSelect');
+
+            let collectionTomSelect = null;
+            let familyTomSelect = null;
+
+            familyTomSelect = window.AgGridCommon.setupMultiSelect('#familySelect', {
+                placeholder: 'Toutes les familles',
+                defaultValues: ['APL'],
+                onChange: () => loadGrid(),
+            });
 
             function textCellStyle() {
                 return {
@@ -264,21 +300,19 @@
 
             function buildDataUrl() {
                 const url = new URL('{{ dataUrl }}', window.location.origin);
-                const tariffGroup = tariffGroupSelect.value;
-                const family = familySelect.value;
-                const collection = collectionSelect.value;
 
+                const tariffGroup = tariffGroupSelect.value;
                 if (tariffGroup) {
                     url.searchParams.set('tariffGroup', tariffGroup);
                 }
 
-                if (family) {
-                    url.searchParams.set('family', family);
-                }
+                // Familles : tableau de valeurs cochées
+                const families = familyTomSelect ? familyTomSelect.getValue() : [];
+                families.forEach(f => url.searchParams.append('family[]', f));
 
-                if (collection) {
-                    url.searchParams.set('collection', collection);
-                }
+                // Collections : tableau de valeurs cochées
+                const collections = collectionTomSelect ? collectionTomSelect.getValue() : [];
+                collections.forEach(c => url.searchParams.append('collection[]', c));
 
                 return url.toString();
             }
@@ -587,19 +621,15 @@
                         const option = document.createElement('option');
                         option.value = collection;
                         option.textContent = collection;
-
-                        // Sélection par défaut sur la collection courante
-                        if (collection === '2026-01-SS') {
-                            option.selected = true;
-                        }
-
                         collectionSelect.appendChild(option);
                     });
 
-                    // Sécurité : si 2026-01-SS n'existe pas, on prend la première
-                    if (!collectionSelect.value && collectionSelect.options.length > 0) {
-                        collectionSelect.selectedIndex = 0;
-                    }
+                    // Initialise TomSelect avec 2026-01-SS sélectionné par défaut
+                    collectionTomSelect = window.AgGridCommon.setupMultiSelect('#collectionSelect', {
+                        placeholder: 'Toutes les collections',
+                        defaultValues: ['2026-01-SS'],
+                        onChange: () => loadGrid(),
+                    });
                 });
 
             // On attend les 2 avant de charger la grille
@@ -610,8 +640,6 @@
                 .catch(console.error);
 
             tariffGroupSelect.addEventListener('change', loadGrid);
-            familySelect.addEventListener('change', loadGrid);
-            collectionSelect.addEventListener('change', loadGrid);
 
             document.getElementById('exportBtn').addEventListener('click', async function () {
                 await ExcelExportWithPhoto.export(

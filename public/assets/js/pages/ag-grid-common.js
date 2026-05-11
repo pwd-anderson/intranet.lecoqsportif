@@ -723,6 +723,66 @@ window.AgGridCommon = (function () {
         return adjust;
     }
 
+    /**
+     * Initialise un multi-select TomSelect sur un <select multiple>.
+     * Le helper retourne l'instance pour que le caller puisse récupérer/définir les valeurs.
+     *
+     * @param {string} selector - Sélecteur du <select> (ex: '#collectionSelect')
+     * @param {Object} options
+     * @param {string} options.placeholder - Texte affiché quand rien n'est sélectionné
+     * @param {Array<string>} options.defaultValues - Valeurs sélectionnées par défaut
+     * @param {Function} options.onChange - Callback appelé à chaque changement (debouncé)
+     * @param {number} options.changeDebounce - Délai en ms du debounce (défaut 300)
+     * @returns {Object|null} Instance TomSelect ou null si introuvable
+     */
+    function setupMultiSelect(selector, options = {}) {
+        const el = document.querySelector(selector);
+
+        if (!el) {
+            console.warn('[AgGridCommon.setupMultiSelect] Élément introuvable :', selector);
+            return null;
+        }
+
+        if (typeof TomSelect === 'undefined') {
+            console.error('[AgGridCommon.setupMultiSelect] TomSelect n\'est pas chargé.');
+            return null;
+        }
+
+        const placeholder = options.placeholder || 'Sélectionner...';
+        const defaultValues = options.defaultValues || [];
+        const onChange = options.onChange || null;
+        const changeDebounce = options.changeDebounce ?? 300;
+
+        let timer = null;
+
+        const tomSelect = new TomSelect(el, {
+            plugins: ['remove_button', 'checkbox_options'],
+            persist: false,
+            placeholder: placeholder,
+            hideSelected: false,
+            closeAfterSelect: false,
+            maxOptions: null,
+            onChange: function () {
+                if (typeof onChange !== 'function') {
+                    return;
+                }
+
+                // Debounce : évite de spammer le backend si l'utilisateur coche/décoche vite
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    onChange(tomSelect.getValue());
+                }, changeDebounce);
+            }
+        });
+
+        // Application des valeurs par défaut
+        if (defaultValues.length > 0) {
+            tomSelect.setValue(defaultValues, true); // 2e param = silent (ne déclenche pas onChange)
+        }
+
+        return tomSelect;
+    }
+
     window.dateFormatter = dateFormatter;
     window.dateComparator = dateComparator;
     window.dateFilterComparator = dateFilterComparator;
@@ -747,6 +807,7 @@ window.AgGridCommon = (function () {
         hideGridActions: hideGridActions,
         setupAutoWidth: setupAutoWidth,
         setupAutoHeight: setupAutoHeight,
+        setupMultiSelect: setupMultiSelect,
         showGridLoader: showGridLoader,
         hideGridLoader: hideGridLoader
     };
