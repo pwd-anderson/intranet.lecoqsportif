@@ -203,7 +203,10 @@
         // Marquer visuellement les cellules éditables
         columnDefs.forEach(col => {
             if (editableFields.includes(col.field)) {
-                // Classe statique (toujours présente)
+                // Bypass la détection auto de type d'AG Grid 30+
+                col.cellDataType = false;
+
+                // Classe statique
                 const existing = col.cellClass;
                 const editableClass = 'editable-cell';
                 if (!existing) {
@@ -214,7 +217,6 @@
                     col.cellClass = [existing, editableClass];
                 }
 
-                // Règle dynamique : "cell-pending" si une modif est en attente pour cette cellule
                 col.cellClassRules = {
                     'cell-pending': (params) => {
                         if (!params.data) return false;
@@ -223,6 +225,19 @@
                         return pendingChanges.has(key);
                     }
                 };
+
+                // Parser la valeur dans le bon type après édition
+                if (col.field === 'FORECAST' || col.field === 'TARGET') {
+                    col.valueParser = (params) => {
+                        if (params.newValue === '' || params.newValue == null) {
+                            return 0;
+                        }
+                        const n = Number(params.newValue);
+                        return isNaN(n) ? params.oldValue : n;
+                    };
+                } else if (col.field === 'SIMPLE_STATUS') {
+                    col.valueParser = (params) => String(params.newValue ?? '');
+                }
             }
         });
 
