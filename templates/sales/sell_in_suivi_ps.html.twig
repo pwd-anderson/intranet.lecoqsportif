@@ -1,0 +1,469 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+
+    <style>
+
+        .grid-outer-container {
+            width: 100%;
+        }
+
+        .grid-outer-container.grid-width-auto {
+            display: flex;
+            justify-content: center;
+        }
+
+        .grid-inner-container {
+            width: 100%;
+        }
+
+        .grid-outer-container.grid-width-auto .grid-inner-container {
+            width: auto;
+            min-width: 720px;
+            max-width: 100%;
+        }
+
+        .grid-actions-hidden {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .grid-actions-visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        /* Loader avec % */
+        .grid-loader-bar-track {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .grid-loader-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #024185;
+            border-radius: 99px;
+            transition: width 0.3s ease;
+        }
+
+        .grid-loader-percent-text {
+            font-size: 13px;
+            color: #024185;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+
+        .ag-text-field-input { color: #000000 !important; }
+
+        .grid-wrapper { position: relative; min-height: 1000px; }
+
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        .grid-loader-text { font-size: 14px; color: #555; }
+
+        @keyframes gridSpin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+
+        /* Cellules éditables : fond légèrement coloré pour les distinguer */
+        .ag-theme-alpine .ag-cell.editable-cell {
+            background-color: #fff7e6;
+        }
+
+        /* Feedback save */
+        .ag-theme-alpine .ag-cell.cell-save-ok {
+            background-color: #d4edda !important;
+            transition: background-color 0.3s ease;
+        }
+        .ag-theme-alpine .ag-cell.cell-save-ko {
+            background-color: #f8d7da !important;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Toast simple */
+        #saveToast {
+            position: fixed; top: 20px; right: 20px;
+            padding: 10px 18px; border-radius: 6px;
+            color: #fff; font-size: 14px;
+            z-index: 9999;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #saveToast.toast-ok { background-color: #28a745; }
+        #saveToast.toast-ko { background-color: #dc3545; }
+        #saveToast.visible  { opacity: 1; }
+
+        /* Cellules modifiées mais non encore enregistrées */
+        .ag-theme-alpine .ag-cell.cell-pending {
+            background-color: #ffe7a8 !important;
+            font-weight: 600;
+            box-shadow: inset -3px 0 0 #d97706;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+                    <div id="gridOuterContainer" class="grid-outer-container">
+                        <div id="gridInnerContainer" class="grid-inner-container">
+                            <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                                <h3 class="box-title mb-2">{{ title }}</h3>
+
+                                <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                                    <button id="saveChangesBtn" class="btn btn-warning btn-sm" type="button" disabled>
+                                        💾 Enregistrer
+                                        <span id="pendingCount" class="badge bg-dark ms-1" style="display:none;">0</span>
+                                    </button>
+
+                                    <button id="saveGridConfigBtn"  class="waves-effect waves-light btn btn-sm bg-gradient-success"  type="button">Save</button>
+                                    <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                                    <button id="exportBtn"          class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
+                                    <span id="rowCount" class="text-muted small"></span>
+                                </div>
+                            </div>
+
+                            <div class="box-body">
+                                <div class="table-responsive-sm">
+                                    <div id="myGridWrapper" class="grid-wrapper">
+                                        <div id="gridCustomLoader" class="grid-custom-loader">
+                                            <div class="grid-loader-spinner"></div>
+                                            <div class="grid-loader-text">Chargement de la grille...</div>
+                                            <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                                <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                            </div>
+                                            <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                                        </div>
+
+                                        <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="saveToast"></div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
+
+    <script>
+        const columnDefs = {{ columns|json_encode|raw }};
+        const editableFields = ['SIMPLE_STATUS', 'FORECAST', 'TARGET'];
+        const saveUrl = '{{ saveUrl }}';
+        const dataUrl = '{{ dataUrl }}';
+
+        // Stocke les modifications en attente
+        // Clé = CUSTOMER_CODE|CITY|FAMILY|GENDER|SERIESNO|field, valeur = payload complet
+        const pendingChanges = new Map();
+
+        // Marquer visuellement les cellules éditables
+        columnDefs.forEach(col => {
+            if (editableFields.includes(col.field)) {
+                // Classe statique (toujours présente)
+                const existing = col.cellClass;
+                const editableClass = 'editable-cell';
+                if (!existing) {
+                    col.cellClass = editableClass;
+                } else if (Array.isArray(existing)) {
+                    col.cellClass = [...existing, editableClass];
+                } else {
+                    col.cellClass = [existing, editableClass];
+                }
+
+                // Règle dynamique : "cell-pending" si une modif est en attente pour cette cellule
+                col.cellClassRules = {
+                    'cell-pending': (params) => {
+                        if (!params.data) return false;
+                        const key = buildPendingKey(params.data, params.colDef.field);
+                        if (key === null) return false;
+                        return pendingChanges.has(key);
+                    }
+                };
+            }
+        });
+
+        const agGridConfig = {
+            columnDefs: columnDefs,
+            dataUrl: dataUrl,
+            numericColumns: {{ numericColumns|json_encode|raw }},
+            integerColumns: {{ integerColumns|json_encode|raw }},
+            totalColumns:   {{ totalColumns|json_encode|raw }},
+            headerClass: 'excelHeaderBlue',
+            stateKey: 'aggrid-state-sell_in_suivi_ps-user-{{ app.user.id|default("local") }}-v1',
+
+            excelStyles: [
+                {
+                    id: 'excelHeaderBlue',
+                    font: { bold: true, color: '#FFFFFF' },
+                    alignment: { horizontal: 'Center' },
+                    interior: { color: '#024185', pattern: 'Solid' }
+                }
+            ],
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+            window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+
+            // Branche le hook d'édition après init
+            if (window.gridOptions && window.gridOptions.api) {
+                window.gridOptions.api.addEventListener('cellValueChanged', handleCellValueChanged);
+            } else if (window.gridOptions) {
+                const checkInterval = setInterval(() => {
+                    if (window.gridOptions.api) {
+                        window.gridOptions.api.addEventListener('cellValueChanged', handleCellValueChanged);
+                        clearInterval(checkInterval);
+                    }
+                }, 100);
+            }
+
+            const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
+            const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
+
+            window.onBtExportExcel = async function () {
+                await ExcelExportStandard.export(
+                    window.gridOptions,
+                    '{{ title|replace({" ": "_"}) }}.xlsx'
+                );
+            };
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.saveGridState(window.gridOptions, agGridConfig.stateKey);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
+                if (pendingChanges.size > 0) {
+                    if (!confirm(`Vous avez ${pendingChanges.size} modification(s) non enregistrée(s). Continuer quand même ?`)) {
+                        return;
+                    }
+                }
+                window.AgGridCommon.clearGridState(agGridConfig.stateKey);
+                location.reload();
+            });
+
+            // Bouton "Enregistrer" : déclenche le batch
+            document.getElementById('saveChangesBtn').addEventListener('click', saveAllChanges);
+
+            // Prévenir l'utilisateur s'il quitte la page avec des modifs non enregistrées
+            window.addEventListener('beforeunload', (e) => {
+                if (pendingChanges.size > 0) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+
+            window.AgGridCommon.setupAutoWidth(window.gridOptions, { widthMode: 'full' });
+            window.AgGridCommon.setupAutoHeight(window.gridOptions, {
+                gridSelector: '#myGrid',
+                maxHeight: 1000,
+            });
+        });
+
+        function buildPendingKey(row, field) {
+            // La ligne pinned bottom n'a pas de CUSTOMER_CODE -> on ne génère pas de clé valide
+            if (!row || !row.CUSTOMER_CODE) {
+                return null;
+            }
+            return [
+                row.CUSTOMER_CODE,
+                row.CITY ?? '',
+                row.FAMILY,
+                row.GENDER ?? '',
+                row.SERIESNO,
+                field,
+            ].join('|');
+        }
+
+        function handleCellValueChanged(params) {
+            const field = params.colDef.field;
+
+            if (!editableFields.includes(field)) {
+                return;
+            }
+
+            if (params.oldValue === params.newValue) {
+                return;
+            }
+
+            const row = params.data;
+            let value = params.newValue;
+
+            if (field === 'SIMPLE_STATUS') {
+                if (!['OPEN', 'COMPLETE'].includes(value)) {
+                    showToast('Valeur invalide pour SIMPLE_STATUS', false);
+                    params.node.setDataValue(field, params.oldValue);
+                    return;
+                }
+            } else {
+                const num = Number(value);
+                if (isNaN(num)) {
+                    showToast(`Valeur numérique attendue pour ${field}`, false);
+                    params.node.setDataValue(field, params.oldValue);
+                    return;
+                }
+                value = num;
+            }
+
+            const key = buildPendingKey(row, field);
+
+            pendingChanges.set(key, {
+                CUSTOMER_CODE: row.CUSTOMER_CODE,
+                CITY:          row.CITY ?? '',
+                FAMILY:        row.FAMILY,
+                GENDER:        row.GENDER ?? '',
+                SERIESNO:      row.SERIESNO,
+                field:         field,
+                value:         value,
+            });
+
+            // Force AG Grid à réévaluer la cellClassRules sur cette cellule
+            params.api.refreshCells({
+                rowNodes: [params.node],
+                columns:  [field],
+                force:    true,
+            });
+
+            updatePendingUI();
+        }
+
+        function updatePendingUI() {
+            const btn   = document.getElementById('saveChangesBtn');
+            const badge = document.getElementById('pendingCount');
+
+            if (pendingChanges.size > 0) {
+                btn.disabled = false;
+                badge.textContent = pendingChanges.size;
+                badge.style.display = 'inline-block';
+            } else {
+                btn.disabled = true;
+                badge.style.display = 'none';
+            }
+        }
+
+        async function saveAllChanges() {
+            if (pendingChanges.size === 0) return;
+
+            const btn = document.getElementById('saveChangesBtn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Enregistrement...';
+
+            const changes = Array.from(pendingChanges.values());
+            let okCount = 0;
+            let koCount = 0;
+            const failedKeys = [];
+
+            // Envoi séquentiel (plus simple à logger côté serveur)
+            // Si tu veux du parallèle, on peut passer en Promise.all
+            for (const [key, change] of pendingChanges) {
+                const payload = change;
+
+                try {
+                    const res = await fetch(saveUrl, {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body:    JSON.stringify(payload),
+                    });
+
+                    const json = await res.json();
+
+                    if (res.ok && json.success) {
+                        okCount++;
+                    } else {
+                        koCount++;
+                        failedKeys.push(key);
+                        console.error('Échec save :', payload, json);
+                    }
+                } catch (err) {
+                    koCount++;
+                    failedKeys.push(key);
+                    console.error('Erreur réseau save :', payload, err);
+                }
+            }
+
+            // Retire de la map uniquement ce qui a réussi
+            for (const [key] of pendingChanges) {
+                if (!failedKeys.includes(key)) {
+                    pendingChanges.delete(key);
+                }
+            }
+
+            // Feedback utilisateur
+            if (koCount === 0) {
+                showToast(`✅ ${okCount} modification(s) enregistrée(s)`, true);
+
+                // La map est déjà vide, donc cellClassRules retournera false partout
+                // Le reloadData va régénérer toute la grille
+                window.AgGridCommon.reloadData(
+                    window.gridOptions,
+                    dataUrl,
+                    {{ totalColumns|json_encode|raw }}
+                );
+            } else {
+                showToast(`⚠️ ${okCount} OK, ${koCount} échec(s). Les lignes en échec restent en attente.`, false);
+
+                // Refresh des cellules pour mettre à jour la coloration
+                // (celles qui ont réussi perdent leur classe, les autres la gardent)
+                window.gridOptions.api.refreshCells({ force: true });
+            }
+
+            btn.innerHTML = '💾 Enregistrer <span id="pendingCount" class="badge bg-dark ms-1"></span>';
+            updatePendingUI();
+        }
+
+        function showToast(message, success) {
+            const toast = document.getElementById('saveToast');
+            toast.textContent = message;
+            toast.classList.remove('toast-ok', 'toast-ko', 'visible');
+            toast.classList.add(success ? 'toast-ok' : 'toast-ko', 'visible');
+
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 3000);
+        }
+    </script>
+{% endblock %}

@@ -59,7 +59,16 @@ class AggridOption
     private ?string $valueFormatter = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $compatator = null;
+    private ?string $comparator = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $editable = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $cellEditor = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?array $cellEditorParams = null;
 
     public function getId(): ?int
     {
@@ -246,14 +255,50 @@ class AggridOption
         return $this;
     }
 
-    public function getCompatator(): ?string
+    public function getComparator(): ?string
     {
-        return $this->compatator;
+        return $this->comparator;
     }
 
-    public function setCompatator(?string $compatator): static
+    public function setComparator(?string $comparator): static
     {
-        $this->compatator = $compatator;
+        $this->comparator = $comparator;
+
+        return $this;
+    }
+
+    public function isEditable(): ?bool
+    {
+        return $this->editable;
+    }
+
+    public function setEditable(?bool $editable): static
+    {
+        $this->editable = $editable;
+
+        return $this;
+    }
+
+    public function getCellEditor(): ?string
+    {
+        return $this->cellEditor;
+    }
+
+    public function setCellEditor(?string $cellEditor): static
+    {
+        $this->cellEditor = $cellEditor;
+
+        return $this;
+    }
+
+    public function getCellEditorParams(): ?array
+    {
+        return $this->cellEditorParams;
+    }
+
+    public function setCellEditorParams(?array $cellEditorParams): static
+    {
+        $this->cellEditorParams = $cellEditorParams;
 
         return $this;
     }

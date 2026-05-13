@@ -627,4 +627,116 @@ class Sales
         }
     }
 
+    public function getSellInSuiviPs(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/sell_in_suivi_ps.sql');
+            return $this->mssqlSei->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Récupération de données Sell In Suivi PS', $e);
+            $this->logger->error('LCS Erreur Sales : Récupération de données Sell In Suivi PS', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
+    public function saveSellInSuiviPs(
+        string $customerCode,
+        string $city,
+        string $family,
+        string $gender,
+        string $seriesNo,
+        string $field,
+        mixed  $value,
+        string $updatedBy,
+    ): bool
+    {
+        $allowedFields = ['SIMPLE_STATUS', 'FORECAST', 'TARGET'];
+        if (!in_array($field, $allowedFields, true)) {
+            throw new \InvalidArgumentException("Champ '$field' non autorisé");
+        }
+
+        if ($field === 'SIMPLE_STATUS') {
+            if (!in_array($value, ['OPEN', 'COMPLETE'], true)) {
+                throw new \InvalidArgumentException('Valeur SIMPLE_STATUS invalide');
+            }
+            $valueSql = "'" . $value . "'";
+        } else {
+            if (!is_numeric($value)) {
+                throw new \InvalidArgumentException("Valeur numérique attendue pour $field");
+            }
+            $valueSql = (string) (float) $value;
+        }
+
+        $escape = fn (string $s) => str_replace("'", "''", $s);
+
+        $customerCodeEsc = $escape($customerCode);
+        $cityEsc         = $escape($city);
+        $familyEsc       = $escape($family);
+        $genderEsc       = $escape($gender);
+        $seriesNoEsc     = $escape($seriesNo);
+        $updatedByEsc    = $escape($updatedBy);
+
+        $defaultStatus   = ($field === 'SIMPLE_STATUS') ? $valueSql : "'OPEN'";
+        $defaultForecast = ($field === 'FORECAST')      ? $valueSql : '0';
+        $defaultTarget   = ($field === 'TARGET')        ? $valueSql : '0';
+
+        $sql = <<<SQL
+        MERGE [SEICube].[MASTER_TABLES].[SELL_IN_SUIVI_PS] AS target
+        USING (SELECT
+                  '{$customerCodeEsc}' AS CUSTOMER_CODE,
+                  '{$cityEsc}'         AS CITY,
+                  '{$familyEsc}'       AS FAMILY,
+                  '{$genderEsc}'       AS GENDER,
+                  '{$seriesNoEsc}'     AS SERIESNO
+              ) AS src
+        ON  target.CUSTOMER_CODE = src.CUSTOMER_CODE
+        AND target.CITY          = src.CITY
+        AND target.FAMILY        = src.FAMILY
+        AND target.GENDER        = src.GENDER
+        AND target.SERIESNO      = src.SERIESNO
+        WHEN MATCHED THEN
+            UPDATE SET
+                {$field} = {$valueSql},
+                UPDATED_AT = SYSUTCDATETIME(),
+                UPDATED_BY = '{$updatedByEsc}'
+        WHEN NOT MATCHED THEN
+            INSERT (CUSTOMER_CODE, CITY, FAMILY, GENDER, SERIESNO, SIMPLE_STATUS, FORECAST, TARGET, UPDATED_BY)
+            VALUES (
+                '{$customerCodeEsc}',
+                '{$cityEsc}',
+                '{$familyEsc}',
+                '{$genderEsc}',
+                '{$seriesNoEsc}',
+                {$defaultStatus},
+                {$defaultForecast},
+                {$defaultTarget},
+                '{$updatedByEsc}'
+            );
+        SQL;
+
+        try {
+            $affectedRows = $this->mssqlSei->insertData($sql);
+
+            if ($affectedRows < 1) {
+                $this->logger->warning('Sell In Suivi PS : MERGE exécuté mais 0 ligne affectée', [
+                    'params' => compact('customerCode', 'city', 'family', 'gender', 'seriesNo', 'field', 'value'),
+                ]);
+                return false;
+            }
+
+            return true;
+
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Sauvegarde Sell In Suivi PS', $e);
+            $this->logger->error('LCS Erreur Sales : Sauvegarde Sell In Suivi PS', [
+                'exception' => $e,
+                'params'    => compact('customerCode', 'city', 'family', 'gender', 'seriesNo', 'field', 'value'),
+            ]);
+
+            return false;
+        }
+    }
+
 }

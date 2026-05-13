@@ -108,6 +108,29 @@ final class SalesController extends AbstractController
         ]);
     }
 
+    #[Route('/sales/sell_in_suivi_ps', name: 'app_sales_sell_in_suivi_ps')]
+    public function sellInSuiviPs(): Response
+    {
+        $gridName = 'sell_in_suivi_ps_grid';
+
+        $agridOptions = $this->aggridOptionRepository->findBy(
+            ['gridName' => $gridName],
+            ['orderIndex' => 'ASC']
+        );
+
+        $grid = $this->columnBuilder->build($agridOptions);
+
+        return $this->render('sales/sell_in_suivi_ps.html.twig', [
+            'title'          => 'Sell-In : Suivi PS',
+            'columns'        => $grid['columns'],
+            'numericColumns' => $grid['numericColumns'],
+            'integerColumns' => $grid['integerColumns'],
+            'totalColumns'   => $grid['totalColumns'],
+            'dataUrl'        => $this->generateUrl('sales_sell_in_suivi_ps_json'),
+            'saveUrl'        => $this->generateUrl('sales_sell_in_suivi_ps_save'),
+        ]);
+    }
+
     // ################## ROUTES JSON (inchangées) #####################
     #[Route('/sales/livraison_non_facturees_json', name: 'livraison_non_facturees_json')]
     public function livraisonNonFactureesJson(Sales $sales, Helpers $helpers): JsonResponse
@@ -227,6 +250,13 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/sales/sell_in_suivi_ps_json', name: 'sales_sell_in_suivi_ps_json')]
+    public function sellInSuiviPsJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getSellInSuiviPs();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
     ####################### Route Divers ####################
 
     ####################### Route non généric ####################
@@ -246,6 +276,50 @@ final class SalesController extends AbstractController
         $data = $divers->getTypes();
 
         return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/sell_in_suivi_ps_save', name: 'sales_sell_in_suivi_ps_save', methods: ['POST'])]
+    public function sellInSuiviPsSave(Request $request, Sales $sales): JsonResponse
+    {
+        $payload = json_decode($request->getContent(), true);
+
+        if (!is_array($payload)) {
+            return new JsonResponse(['success' => false, 'message' => 'Payload invalide'], 400);
+        }
+
+        $required = ['CUSTOMER_CODE', 'CITY', 'FAMILY', 'GENDER', 'SERIESNO', 'field', 'value'];
+        foreach ($required as $key) {
+            if (!array_key_exists($key, $payload)) {
+                return new JsonResponse(['success' => false, 'message' => "Champ '$key' manquant"], 400);
+            }
+        }
+
+        $allowedFields = ['SIMPLE_STATUS', 'FORECAST', 'TARGET'];
+        if (!in_array($payload['field'], $allowedFields, true)) {
+            return new JsonResponse(['success' => false, 'message' => 'Champ non éditable'], 403);
+        }
+
+        $userIdentifier = $this->getUser()?->getUserIdentifier() ?? 'unknown';
+
+        try {
+            $ok = $sales->saveSellInSuiviPs(
+                customerCode: (string) $payload['CUSTOMER_CODE'],
+                city:         (string) ($payload['CITY'] ?? ''),
+                family:       (string) $payload['FAMILY'],
+                gender:       (string) ($payload['GENDER'] ?? ''),
+                seriesNo:     (string) $payload['SERIESNO'],
+                field:        (string) $payload['field'],
+                value:        $payload['value'],
+                updatedBy:    $userIdentifier,
+            );
+
+            return new JsonResponse(['success' => $ok]);
+
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['success' => false, 'message' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['success' => false, 'message' => 'Erreur serveur'], 500);
+        }
     }
 
     /*

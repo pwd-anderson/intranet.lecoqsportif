@@ -57,8 +57,20 @@ class AgGridColumnBuilder
                 $column['valueFormatter'] = $option->getValueFormatter();
             }
 
-            if ($option->getCompatator()) {
-                $column['comparator'] = $option->getCompatator();
+            if ($option->getComparator()) {
+                $column['comparator'] = $option->getComparator();
+            }
+
+            if ($option->isEditable()) {
+                $column['editable'] = true;
+            }
+
+            if ($option->getCellEditor()) {
+                $column['cellEditor'] = $option->getCellEditor();
+            }
+
+            if ($option->getCellEditorParams()) {
+                $column['cellEditorParams'] = $option->getCellEditorParams();
             }
 
             $columns[] = $column;
