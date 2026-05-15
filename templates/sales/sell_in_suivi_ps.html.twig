@@ -256,6 +256,11 @@
                     font: { bold: true, color: '#FFFFFF' },
                     alignment: { horizontal: 'Center' },
                     interior: { color: '#024185', pattern: 'Solid' }
+                },
+                {
+                    id: 'excelPercentColumn',
+                    interior: { color: '#baedbc', pattern: 'Solid' },
+                    font: { color: '#1B5E20' }
                 }
             ],
         };
@@ -280,9 +285,21 @@
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
             window.onBtExportExcel = async function () {
+                const percentFields = ['VS_LY_TD', 'COMPLETE_VS_LY_LFL_EOS', 'VS_SS26_EOS', 'FCST_SALES_VS_EOS_SS26', 'EVO_COMPLETE_VS_LY'];
+
                 await ExcelExportStandard.export(
                     window.gridOptions,
-                    '{{ title|replace({" ": "_"}) }}.xlsx'
+                    '{{ title|replace({" ": "_"}) }}.xlsx',
+                    {
+                        processCellCallback: (p) => {
+                            const field = p.column.getColId();
+                            if (percentFields.includes(field)) {
+                                if (p.value == null || p.value === '') return '';
+                                return (Number(p.value) * 100).toFixed(0) + ' %';
+                            }
+                            return p.value;
+                        }
+                    }
                 );
             };
 

@@ -35,11 +35,9 @@ sidebar:
         sales_by_year: "Annual Sales"
         delivery_without_invoice: "Deliveries Without Invoice"
         backlog_clients_x3: "Backlog Clients"
-        backlog_clients: "Backlog Clients Nav."
         kpi_deck_retail: "Retail KPI Deck"
         kpi_deck_retail_x3: "Retail KPI X3"
-        commandes_a_facturer: "Commandes à Facturer\n(Vue Balance âgée)"
-        commandes_a_facturer_x3: "Commandes à Facturer\n(Vue Balance âgée -> Data X3)"
+        commandes_a_facturer_x3: "Commandes à Facturer\n(Vue Balance âgée)"
         reassort_magasin: "Réassort Magasin"
         excess_for_sales: "Excess for Sales"
         poids_tailles: "Weight of sizes"
@@ -47,6 +45,7 @@ sidebar:
         commandes_allouees_sans_bp: "Commandes allouées sans BP"
         commandes_bp_sans_livraison: "Commandes avec BP sans livraison"
         commandes_non_soldees_par_date: "Suivi des commandes non soldées"
+        sell_in_suivi_ps: "Sell-In : Suivi PS"
     management:
         ca_marges: "Sales Margins"
     stock:
@@ -56,5 +55,4 @@ sidebar:
         stock_produits: "Produits"
         stock_produits_shop_non_coches: "Produits en stock mais\npas sur Shopify"
     purchase:
-        backlog_fournisseur: "Backlog Supplier (Nav.)"
         backlog_fournisseur_x3: "Backlog Supplier"
