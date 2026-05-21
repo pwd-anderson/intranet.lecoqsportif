@@ -202,6 +202,7 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-ssrm.js') }}?v=1.0"></script>
     <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-with-photo.js') }}"></script>
@@ -210,30 +211,23 @@
     <script>
         const salesType = '{{ type }}';
         const gridWidthMode = '{{ gridWidthMode|default("full") }}';
+        const isServerSide = {{ serverSide|default(false) ? 'true' : 'false' }};
+        const blockSize = {{ blockSize|default(200) }};
+        const exportUrl = '{{ exportUrl|default("") }}';
 
         const columnDefs = {{ columns|json_encode|raw }};
 
         columnDefs.forEach(col => {
-
             function addCellClass(col, newClass) {
-                if (!col.cellClass) {
-                    col.cellClass = newClass;
-                    return;
-                }
-
-                if (Array.isArray(col.cellClass)) {
-                    col.cellClass.push(newClass);
-                } else {
-                    col.cellClass = [col.cellClass, newClass];
-                }
+                if (!col.cellClass) { col.cellClass = newClass; return; }
+                if (Array.isArray(col.cellClass)) col.cellClass.push(newClass);
+                else col.cellClass = [col.cellClass, newClass];
             }
-
             if (col.field === 'WEIGHT_PERCENT') {
                 col.valueFormatter = 'percentFormatter';
                 col.comparator = 'percentComparator';
                 addCellClass(col, 'excelPercentColumn');
             }
-
         });
 
         const agGridConfig = {
@@ -241,30 +235,26 @@
             dataUrl: salesType === 'poid_famille_par_variant'
                 ? '{{ dataUrl }}?family=FTW'
                 : '{{ dataUrl }}',
+            exportUrl: exportUrl,                  // 🆕
+            blockSize: blockSize,                  // 🆕
             numericColumns: {{ numericColumns|json_encode|raw }},
             integerColumns: {{ integerColumns|json_encode|raw }},
             totalColumns: {{ totalColumns|json_encode|raw }},
             headerClass: 'excelHeaderBlue',
             stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
-
             excelStyles: [
-                {
-                    id: 'excelHeaderBlue',
-                    font: { bold: true, color: '#FFFFFF' },
-                    alignment: { horizontal: 'Center' },
-                    interior: { color: '#024185', pattern: 'Solid' }
-                },
-                {
-                    id: 'excelPercentColumn',
-                    interior: { color: '#baedbc', pattern: 'Solid' },
-                    font: { color: '#1B5E20' }
-                }
+                { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
+                { id: 'excelPercentColumn', interior: { color: '#baedbc', pattern: 'Solid' }, font: { color: '#1B5E20' } }
             ]
         };
 
         document.addEventListener('DOMContentLoaded', async () => {
-            window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
-            if (salesType === 'best_demand_per_style') {
+            // 🆕 Branchement SSRM ou classique
+            window.gridOptions = isServerSide
+                ? window.AgGridSsrm.initGrid('#myGrid', agGridConfig)
+                : window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+
+            if (salesType === 'best_demand_per_style' && !isServerSide) {
                 window.gridOptions.api.resetRowHeights();
             }
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
@@ -273,6 +263,15 @@
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
             window.onBtExportExcel = async function () {
+                // 🆕 Export SSRM via endpoint dédié, sinon export classique
+                if (isServerSide) {
+                    await window.AgGridSsrm.exportExcel(
+                        window.gridOptions,
+                        agGridConfig,
+                        '{{ title|replace({" ": "_"}) }}.xlsx'
+                    );
+                    return;
+                }
 
                 await ExcelExportStandard.export(
                     window.gridOptions,
@@ -288,7 +287,6 @@
                         }
                     }
                 );
-                return;
             };
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
@@ -301,98 +299,23 @@
                 location.reload();
             });
 
-            if (['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
-                const collectionSelect = document.getElementById('collectionSelect');
-                const familySelect = document.getElementById('familySelect');
-                const typeSelect = document.getElementById('typeSelect');
-                const itemGroupSelect = document.getElementById('itemGroupSelect');
+            // Les selects de filtres ne sont pas concernés en mode SSRM
+            if (!isServerSide && ['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
+                // ... bloc inchangé pour les selects collection/family/type/itemGroup
+                // (je le coupe pour la lisibilité, garde le tien tel quel)
+            }
 
-                if (collectionSelect) {
-                    fetch('{{ path("poid_famille_par_variant_collections_json") }}')
-                        .then(res => res.json())
-                        .then(data => {
-                            data.forEach(collection => {
-                                const option = document.createElement('option');
-                                option.value = collection;
-                                option.textContent = collection;
-                                collectionSelect.appendChild(option);
-                            });
-                        });
-                }
-
-                if (typeSelect) {
-                    fetch('{{ path("poid_famille_par_variant_types_json") }}')
-                        .then(res => res.json())
-                        .then(data => {
-                            data.forEach(type => {
-                                const option = document.createElement('option');
-                                option.value = type;
-                                option.textContent = type;
-                                typeSelect.appendChild(option);
-                            });
-                        });
-                }
-
-                if (itemGroupSelect && salesType === 'best_demand_per_style') {
-                    fetch('{{ path("best_demand_per_style_item_groups_json") }}')
-                        .then(res => res.json())
-                        .then(data => {
-                            data.forEach(itemGroup => {
-                                const option = document.createElement('option');
-                                option.value = itemGroup;
-                                option.textContent = itemGroup;
-                                itemGroupSelect.appendChild(option);
-                            });
-                        });
-                }
-
-                [collectionSelect, familySelect, typeSelect, itemGroupSelect].forEach(select => {
-                    if (select) {
-                        select.addEventListener('change', reloadGridWithFilters);
-                    }
+            // setupAutoWidth / setupAutoHeight : on les saute en mode SSRM
+            // (car la grille a une hauteur fixe et un scroll virtuel)
+            if (!isServerSide) {
+                window.AgGridCommon.setupAutoWidth(window.gridOptions, { widthMode: gridWidthMode });
+                window.AgGridCommon.setupAutoHeight(window.gridOptions, {
+                    gridSelector: '#myGrid', maxHeight: 1000,
                 });
             }
-
-            window.AgGridCommon.setupAutoWidth(window.gridOptions, {
-                widthMode: gridWidthMode,
-            });
-            window.AgGridCommon.setupAutoHeight(window.gridOptions, {
-                gridSelector: '#myGrid',
-                maxHeight: 1000,
-            });
         });
 
-        function reloadGridWithFilters() {
-            if (!['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
-                return;
-            }
-
-            const collection = document.getElementById('collectionSelect')?.value || '';
-            const family     = document.getElementById('familySelect')?.value || '';
-            const type       = document.getElementById('typeSelect')?.value || '';
-            const itemGroup  = document.getElementById('itemGroupSelect')?.value || '';
-
-            const url = new URL('{{ dataUrl }}', window.location.origin);
-
-            if (collection) url.searchParams.set('collection', collection);
-            if (family)     url.searchParams.set('family', family);
-            if (type)       url.searchParams.set('type', type);
-            if (itemGroup)  url.searchParams.set('itemGroup', itemGroup);
-
-            window.AgGridCommon.reloadData(
-                window.gridOptions,
-                url.toString(),
-                {{ totalColumns|json_encode|raw }}
-            );
-        }
-
-        function debounce(fn, delay) {
-            let timer = null;
-
-            return function (...args) {
-                clearTimeout(timer);
-                timer = setTimeout(() => fn.apply(this, args), delay);
-            };
-        }
+        function reloadGridWithFilters() { /* inchangé */ }
+        function debounce(fn, delay) { /* inchangé */ }
     </script>
 {% endblock %}

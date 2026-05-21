@@ -4,6 +4,9 @@ namespace App\Service;
 
 use App\Factory\MssqlManagerFactory;
 use App\Infrastructure\Sql\SqlFileLoader;
+use App\Service\AgGrid\Ssrm\AgGridSqlBuilder;
+use App\Service\AgGrid\Ssrm\SsrmRequest;
+use App\Service\AgGrid\Ssrm\SsrmResponse;
 use App\Service\Tools\GraphMailer;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -736,6 +739,226 @@ class Sales
             ]);
 
             return false;
+        }
+    }
+
+    /**
+     * Mapping centralisé : field Ag-Grid → colonne SQL.
+     * Une seule source de vérité, utilisée par les méthodes paginate + full.
+     */
+    private function getBacklogClientsX3FieldMap(): array
+    {
+        return [
+            'PAYS'                  => 'SOH.BPCCRYNAM_0',
+            'SITE'                  => 'SOH.STOFCY_0',
+            'MAINNETWORK'           => 'ATX.TEXTE_0',
+            'CLIENT'                => 'SOH.BPCINV_0',
+            'NOM_CLIENT'            => 'BPC_INV.BPCNAM_0',
+            'CLIENT_COMMANDE'       => 'SOH.BPCORD_0',
+            'NOM_CLIENT_COMMANDE'   => 'SOH.BPCNAM_0',
+            'PAIEMENT'              => 'SOH.PTE_0',
+            'NUM_COMMANDE'          => 'SOQ.SOHNUM_0',
+            'REF_CLIENT'            => 'SOH.CUSORDREF_0',
+            'CODE_MARQUE'           => 'ITM.TSICOD_0',
+            'ADRESSE_LIVRAISON'     => 'SOH.BPAADD_0',
+            'FAMILLE'               => 'ITM.TCLCOD_0',
+            'COLLECTION'            => 'SOH.ZCOLLECT_0',
+            'ARTICLE'               => 'SOQ.ITMREF_0',
+            'ITMDES1_0'             => 'ITM.ITMDES1_0',
+            'EAN'                   => 'ITM.EANCOD_0',
+            'DATE_COMMANDE'         => 'CONVERT(varchar(10), SOH.ORDDAT_0, 23)',
+            'DATE_LIVRAISON'        => 'CONVERT(varchar(10), SOQ.DEMDLVDAT_0, 23)',
+            'REP1'                  => 'REP2.REPNAM_0',
+            'REP2'                  => 'REP1.REPNAM_0',
+            'STATUT_ARTICLE'        => 'ITM.ITMSTA_0',
+            'QUANTITE'              => '(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0))',
+            'CUR_0'                 => 'SOH.CUR_0',
+            'PRICE_HT'              => 'SOP.NETPRINOT_0',
+            'CLIENT_LIVRE'          => 'SOH.BPDNAM_0',
+            'INDEPENDANT_GROUPMENT' => 'ATX4.TEXTE_0',
+            'VILLE'                 => 'BPA.CTY_0',
+            'ZCLASSE_0'             => 'SOH.ZCLASSE_0',
+        ];
+    }
+
+    /**
+     * Version paginée (SSRM) : 1 bloc de lignes + total pour la scrollbar.
+     */
+    public function getBacklogClientsX3Paginated(SsrmRequest $request): SsrmResponse
+    {
+        try {
+            $builder = new AgGridSqlBuilder(
+                $request,
+                $this->getBacklogClientsX3FieldMap()
+            );
+
+            $whereClause = $builder->buildWhereClause();
+            $orderBy     = $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC');
+            $pagination  = $builder->buildPaginationClause();
+
+            // COUNT + TOTAUX uniquement au premier bloc (offset=0)
+            $totalRows = 0;
+            $totals = [];
+
+            if ($request->getOffset() === 0) {
+                $aggregateSql = $this->buildBacklogClientsX3AggregateSql($whereClause);
+                $aggregateResult = $this->mssqlSei->executeQuery($aggregateSql);
+
+                if (!empty($aggregateResult)) {
+                    // Total lignes (1ère ligne du resultset = ligne sans devise)
+                    // En réalité on récupère plusieurs lignes (1 par devise) → on agrège
+                    $totalRows = 0;
+                    $totalQuantite = 0.0;
+                    $totalPrixEur = 0.0;
+
+                    $taux = $this->divers->getExchangeRatesValues();
+
+                    foreach ($aggregateResult as $row) {
+                        $totalRows     += (int)   ($row->NB_ROWS  ?? 0);
+                        $totalQuantite += (float) ($row->QUANTITE ?? 0);
+
+                        $devise    = $row->DEVISE ?? null;
+                        $totalPrix = (float) ($row->TOTAL_PRIX ?? 0);
+                        $rate      = ($devise !== null) ? ($taux[$devise] ?? null) : null;
+
+                        if ($rate !== null && (float) $rate > 0) {
+                            $totalPrixEur += $totalPrix / (float) $rate;
+                        }
+                    }
+
+                    $totals = [
+                        'QUANTITE' => (int) round($totalQuantite),
+                        'PRIX_EUR' => round($totalPrixEur, 2),
+                    ];
+                }
+            }
+
+            if ($request->getOffset() === 0 && $totalRows === 0) {
+                return new SsrmResponse(rows: [], lastRow: 0, totals: []);
+            }
+
+            // Requête paginée
+            $sql = $this->sqlFileLoader->load('Sei/backlog_client.sql');
+            $sql = str_replace('{{WHERE_CLAUSE}}', $whereClause, $sql);
+            $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
+            $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
+
+            $rows = $this->mssqlSei->executeQuery($sql);
+            $this->enrichBacklogClientsX3Rows($rows);
+
+            return new SsrmResponse(
+                rows: $rows,
+                lastRow: $request->getOffset() === 0 ? $totalRows : null,
+                totals: $totals,
+            );
+
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Backlog Client X3 SSRM', $e);
+            $this->logger->error('LCS Erreur Backlog Client X3 SSRM', ['exception' => $e]);
+            return new SsrmResponse(rows: [], lastRow: 0, totals: []);
+        }
+    }
+
+    /**
+     * Requête agrégée groupée par devise.
+     * - NB_ROWS : compte global (on aura le total lignes en sommant)
+     * - QUANTITE : somme des quantités
+     * - TOTAL_PRIX : somme PRIX_HT * QUANTITE dans la devise d'origine
+     * - DEVISE : pour appliquer le taux côté PHP
+     */
+    private function buildBacklogClientsX3AggregateSql(string $whereClause): string
+    {
+        return "
+        SELECT
+            SOH.CUR_0 AS DEVISE,
+            COUNT(*) AS NB_ROWS,
+            SUM(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) AS QUANTITE,
+            SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0))) AS TOTAL_PRIX
+        FROM X3_LCS.SORDERQ SOQ
+        INNER JOIN X3_LCS.SORDER SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
+        INNER JOIN X3_LCS.SORDERP SOP ON SOQ.SOHNUM_0 = SOP.SOHNUM_0 AND SOQ.ITMREF_0 = SOP.ITMREF_0 AND SOQ.SOPLIN_0 = SOP.SOPLIN_0
+        INNER JOIN X3_LCS.ITMMASTER ITM ON SOQ.ITMREF_0 = ITM.ITMREF_0
+        INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
+        LEFT  JOIN X3_LCS.BPCUSTOMER BPC_INV ON SOH.BPCINV_0 = BPC_INV.BPCNUM_0
+        INNER JOIN X3_LCS.BPADDRESS BPA ON BPC.BPCNUM_0 = BPA.BPANUM_0 AND BPA.BPAADD_0 = SOH.BPAADD_0
+        LEFT  JOIN X3_LCS.SALESREP REP1 ON BPC.REP_0 = REP1.REPNUM_0
+        LEFT  JOIN X3_LCS.SALESREP REP2 ON BPC.REP_1 = REP2.REPNUM_0
+        LEFT  JOIN X3_LCS.ATEXTRA ATX  ON ATX.IDENT2_0  = BPC.TSCCOD_2     AND ATX.CODFIC_0  = 'ATABDIV' AND ATX.LANGUE_0  = 'FRA' AND ATX.ZONE_0  = 'LNGDES' AND ATX.IDENT1_0  = '32'
+        LEFT  JOIN X3_LCS.ATEXTRA ATX4 ON ATX4.IDENT2_0 = BPC.ZGROUPIND_0 AND ATX4.CODFIC_0 = 'ATABDIV' AND ATX4.LANGUE_0 = 'FRA' AND ATX4.ZONE_0 = 'LNGDES' AND ATX4.IDENT1_0 = '6021'
+        WHERE
+            SOQ.SOQSTA_0 <> 3
+            AND BPC.BCGCOD_0 <> 'INTER'
+            $whereClause
+        GROUP BY SOH.CUR_0
+    ";
+    }
+
+    /**
+     * Version full (export Excel) : toutes les lignes filtrées/triées.
+     */
+    public function getBacklogClientsX3Full(\App\Service\AgGrid\Ssrm\SsrmRequest $request): array
+    {
+        try {
+            $builder = new \App\Service\AgGrid\Ssrm\AgGridSqlBuilder(
+                $request,
+                $this->getBacklogClientsX3FieldMap()
+            );
+
+            $whereClause = $builder->buildWhereClause();
+            $orderBy     = $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC');
+
+            $sql = $this->sqlFileLoader->load('Sei/backlog_client.sql');
+            $sql = str_replace('{{WHERE_CLAUSE}}', $whereClause, $sql);
+            $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
+            $sql = str_replace('{{PAGINATION}}',  '', $sql); // pas de pagination
+
+            $rows = $this->mssqlSei->executeQuery($sql);
+            $this->enrichBacklogClientsX3Rows($rows);
+
+            return $rows;
+
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Backlog Client X3 Export', $e);
+            $this->logger->error('LCS Erreur Backlog Client X3 Export', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    /**
+     * Enrichissement commun : taux de change + stock par site.
+     * (extrait de l'ancienne getBacklogClientsX3 pour mutualiser)
+     */
+    private function enrichBacklogClientsX3Rows(array &$rows): void
+    {
+        if ($rows === []) return;
+
+        $taux = $this->divers->getExchangeRatesValues();
+        $stocks = $this->getStockPourBacklogClientsX3();
+
+        $stocksByArticle = [];
+        foreach ($stocks as $stock) {
+            $stocksByArticle[$stock->ARTICLE] = $stock;
+        }
+
+        foreach ($rows as $row) {
+            $quantity = (int) $row->QUANTITE;
+            $priceHt = (float) $row->PRICE_HT;
+            $currencyRate = $taux[$row->CUR_0] ?? null;
+            $stock = $stocksByArticle[$row->ARTICLE] ?? null;
+
+            $row->PRIX = round($priceHt * $quantity, 2);
+            $row->PRIX_EUR = ($currencyRate !== null && (float) $currencyRate > 0)
+                ? round(($priceHt / (float) $currencyRate) * $quantity, 2)
+                : 0.0;
+
+            $row->STOCK_REEL_WLOGM    = $stock ? (float) $stock->STOCK_REEL_WLOGM    : 0.0;
+            $row->STOCK_INTERNE_WLOGM = $stock ? (float) $stock->STOCK_INTERNE_WLOGM : 0.0;
+            $row->STOCK_REEL_WSFCN    = $stock ? (float) $stock->STOCK_REEL_WSFCN    : 0.0;
+            $row->STOCK_INTERNE_WSFCN = $stock ? (float) $stock->STOCK_INTERNE_WSFCN : 0.0;
+            $row->STOCK_REEL_WTAKH    = $stock ? (float) $stock->STOCK_REEL_WTAKH    : 0.0;
+            $row->STOCK_INTERNE_WTAKH = $stock ? (float) $stock->STOCK_INTERNE_WTAKH : 0.0;
+            $row->STOCK_REEL_WDTTH    = $stock ? (float) $stock->STOCK_REEL_WDTTH    : 0.0;
+            $row->STOCK_INTERNE_WDTTH = $stock ? (float) $stock->STOCK_INTERNE_WDTTH : 0.0;
         }
     }
 
