@@ -99,4 +99,90 @@ class Achat
         }
     }
 
+    public function getReceptionFournisseur(): array
+    {
+        try {
+            // 1. Requête principale : réceptions
+            $query = $this->sqlFileLoader->load('Sei/reception_fournisseur.sql');
+            $data = $this->mssqlSei->executeQuery($query);
+
+            if (empty($data)) {
+                return [];
+            }
+
+            // 2. Données annexes
+            /*$supplierReferences = $this->divers->getSupplierReferences();
+            $brands = $this->divers->getBrandTranslations();*/
+            $supplierReferences = [];
+            $brands = [];
+
+            // 3. Prix unitaires depuis la réception
+            $queryPrixReception = $this->sqlFileLoader->load('Sei/reception_fournisseur_prix_reception.sql');
+            $resultsPrixReception = $this->mssqlSei->executeQuery($queryPrixReception);
+
+            $prixDataReception = [];
+            foreach ($resultsPrixReception as $prixReception) {
+                $prixDataReception[$prixReception->POHNUM_0][$prixReception->ITMREF_0] = [
+                    'PRIX'   => $prixReception->PRIX_UNI,
+                    'DEVISE' => $prixReception->NETCUR_0,
+                ];
+            }
+
+            // 4. Prix unitaires depuis la facture (prioritaires)
+            $queryPrixFacture = $this->sqlFileLoader->load('Sei/reception_fournisseur_prix_facture.sql');
+            $resultsPrixFacture = $this->mssqlSei->executeQuery($queryPrixFacture);
+
+            $prixDataFacture = [];
+            foreach ($resultsPrixFacture as $prixFacture) {
+                $prixDataFacture[$prixFacture->POHNUM_0][$prixFacture->ITMREF_0] = [
+                    'PRIX'   => $prixFacture->GROPRI_0,
+                    'DEVISE' => $prixFacture->NETCUR_0,
+                ];
+            }
+
+            // 5. Enrichissement des lignes
+            foreach ($data as $row) {
+                $row->QUANTITE = (int) round((float) $row->QUANTITE);
+
+                // Référence fournisseur
+                $row->REF_FOURNISSEUR = $supplierReferences[$row->CODE_MARQUE][$row->ARTICLE] ?? '';
+
+                // Marque (code + libellé si dispo)
+                $row->MARQUE = isset($brands[$row->CODE_MARQUE])
+                    ? $row->CODE_MARQUE . ' - ' . $brands[$row->CODE_MARQUE]
+                    : $row->CODE_MARQUE;
+
+                // Prix unitaire : on cherche d'abord dans la facture, sinon dans la réception
+                if (isset($prixDataFacture[$row->NUM_POP][$row->ARTICLE])) {
+                    $row->PRIX_UNITAIRE = round((float) $prixDataFacture[$row->NUM_POP][$row->ARTICLE]['PRIX'], 2);
+                    $row->DEVISE = $prixDataFacture[$row->NUM_POP][$row->ARTICLE]['DEVISE'];
+                } elseif (isset($prixDataReception[$row->NUM_POP][$row->ARTICLE])) {
+                    $row->PRIX_UNITAIRE = round((float) $prixDataReception[$row->NUM_POP][$row->ARTICLE]['PRIX'], 2);
+                    $row->DEVISE = $prixDataReception[$row->NUM_POP][$row->ARTICLE]['DEVISE'];
+                } else {
+                    $row->PRIX_UNITAIRE = 0.0;
+                    $row->DEVISE = '';
+                }
+
+                // Montant total ligne
+                $row->MONTANT_TOT_LIGNE = round($row->PRIX_UNITAIRE * $row->QUANTITE, 2);
+            }
+
+            return $data;
+
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError(
+                '❌ LCS Erreur Réception Fournisseur : Récupération de données achat',
+                $e
+            );
+
+            $this->logger->error(
+                'LCS Erreur Réception Fournisseur : Récupération de données achat',
+                ['exception' => $e]
+            );
+
+            return [];
+        }
+    }
+
 }

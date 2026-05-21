@@ -31,6 +31,12 @@ final class AchatController extends AbstractController
         return $this->achatGeneric('backlog_fournisseur_x3');
     }
 
+    #[Route('/achat/reception_fournisseur', name: 'app_reception_fournisseur')]
+    public function receptionFournisseurAlias(): Response
+    {
+        return $this->achatGeneric('reception_fournisseur');
+    }
+
     // ################## ROUTES JSON (inchangées) #####################
 
     // Routes JSON
@@ -52,11 +58,20 @@ final class AchatController extends AbstractController
         return new JsonResponse($dataUtf8);
     }
 
+    #[Route('/achat/reception_fournisseur_json', name: 'reception_fournisseur_json')]
+    public function receptionFournisseurJson(Achat $achat, Helpers $helpers): JsonResponse
+    {
+        $data = $achat->getReceptionFournisseur();
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
 
     #[Route(
         '/achat/{type}',
         name: 'app_achat_generic',
-        requirements: ['type' => 'backlog_fournisseur']
+        requirements: ['type' => 'backlog_fournisseur|backlog_fournisseur_x3|reception_fournisseur']
     )]
     public function achatGeneric(string $type): Response
     {
@@ -70,6 +85,11 @@ final class AchatController extends AbstractController
                 'gridName' => 'backlog_fournisseur_x3_grid',
                 'title' => 'Backlog Fournisseur',
                 'jsonRoute' => 'backlog_fournisseur_x3_json',
+            ],
+            'reception_fournisseur' => [
+                'gridName' => 'reception_fournisseur_grid',
+                'title' => 'Réception Fournisseur',
+                'jsonRoute' => 'reception_fournisseur_json',
             ],
         ];
 
