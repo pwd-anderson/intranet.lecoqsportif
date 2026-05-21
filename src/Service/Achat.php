@@ -144,21 +144,13 @@ class Achat
             foreach ($data as $row) {
                 $row->QUANTITE = (int) round((float) $row->QUANTITE);
 
-                // Référence fournisseur
-                $row->REF_FOURNISSEUR = $supplierReferences[$row->CODE_MARQUE][$row->ARTICLE] ?? '';
-
-                // Marque (code + libellé si dispo)
-                $row->MARQUE = isset($brands[$row->CODE_MARQUE])
-                    ? $row->CODE_MARQUE . ' - ' . $brands[$row->CODE_MARQUE]
-                    : $row->CODE_MARQUE;
-
                 // Prix unitaire : on cherche d'abord dans la facture, sinon dans la réception
-                if (isset($prixDataFacture[$row->NUM_POP][$row->ARTICLE])) {
-                    $row->PRIX_UNITAIRE = round((float) $prixDataFacture[$row->NUM_POP][$row->ARTICLE]['PRIX'], 2);
-                    $row->DEVISE = $prixDataFacture[$row->NUM_POP][$row->ARTICLE]['DEVISE'];
-                } elseif (isset($prixDataReception[$row->NUM_POP][$row->ARTICLE])) {
-                    $row->PRIX_UNITAIRE = round((float) $prixDataReception[$row->NUM_POP][$row->ARTICLE]['PRIX'], 2);
-                    $row->DEVISE = $prixDataReception[$row->NUM_POP][$row->ARTICLE]['DEVISE'];
+                if (isset($prixDataFacture[$row->POHNUM_0][$row->ARTICLE])) {
+                    $row->PRIX_UNITAIRE = round((float) $prixDataFacture[$row->POHNUM_0][$row->ARTICLE]['PRIX'], 2);
+                    $row->DEVISE = $prixDataFacture[$row->POHNUM_0][$row->ARTICLE]['DEVISE'];
+                } elseif (isset($prixDataReception[$row->POHNUM_0][$row->ARTICLE])) {
+                    $row->PRIX_UNITAIRE = round((float) $prixDataReception[$row->POHNUM_0][$row->ARTICLE]['PRIX'], 2);
+                    $row->DEVISE = $prixDataReception[$row->POHNUM_0][$row->ARTICLE]['DEVISE'];
                 } else {
                     $row->PRIX_UNITAIRE = 0.0;
                     $row->DEVISE = '';
