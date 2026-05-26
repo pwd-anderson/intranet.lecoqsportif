@@ -151,11 +151,11 @@ window.AgGridSsrm = (function () {
             onGridReady: function (params) {
                 _restoreGridState(params, config.stateKey);
 
-                // Datasource assignée APRÈS la restauration du state
-                // → le 1er appel SSRM partira directement avec le bon filtre/tri
-                params.api.setServerSideDatasource(_createDatasource(config, gridOptions));
-
+                // Cache le loader custom de la page (#gridCustomLoader) → la grille devient visible
                 _hideLoader();
+
+                // Le datasource va déclencher _showInitialLoader (popup) tout seul au 1er getRows
+                params.api.setServerSideDatasource(_createDatasource(config, gridOptions));
             }
         };
 
@@ -216,6 +216,58 @@ window.AgGridSsrm = (function () {
     function _hideExcelLoader() {
         const overlay = document.getElementById('excelLoaderOverlay');
         if (overlay) overlay.classList.remove('active');
+    }
+
+    /**
+     * Loader popup au chargement initial de la grille.
+     * Réutilise le composant _excel_loader.html.twig (overlay + barre de progression).
+     */
+    function _showInitialLoader(title) {
+        const overlay = document.getElementById('excelLoaderOverlay');
+        const percent = document.getElementById('excelLoaderPercent');
+        const fill    = document.getElementById('excelLoaderBarFill');
+        const sub     = document.getElementById('excelLoaderSub');
+        const titleEl = document.querySelector('.excel-loader-title');
+
+        if (!overlay) return;
+
+        if (percent) percent.textContent = '0%';
+        if (fill)    fill.style.width = '0%';
+        if (sub)     sub.textContent = title || 'Chargement des données...';
+        if (titleEl) titleEl.textContent = 'Chargement de la grille';
+
+        overlay.classList.add('active');
+
+        // Progression simulée (incrément aléatoire jusqu'à 85%)
+        let current = 0;
+        _initialLoaderTimer = setInterval(() => {
+            if (current < 85) {
+                current = Math.min(current + Math.random() * 10, 85);
+                if (percent) percent.textContent = Math.round(current) + '%';
+                if (fill)    fill.style.width = Math.round(current) + '%';
+            }
+        }, 200);
+    }
+
+    function _hideInitialLoader() {
+        const overlay = document.getElementById('excelLoaderOverlay');
+        const percent = document.getElementById('excelLoaderPercent');
+        const fill    = document.getElementById('excelLoaderBarFill');
+        const titleEl = document.querySelector('.excel-loader-title');
+
+        if (_initialLoaderTimer) {
+            clearInterval(_initialLoaderTimer);
+            _initialLoaderTimer = null;
+        }
+
+        if (percent) percent.textContent = '100%';
+        if (fill)    fill.style.width = '100%';
+
+        setTimeout(() => {
+            if (overlay) overlay.classList.remove('active');
+            // Restaure le titre original pour ne pas perturber l'export Excel ensuite
+            if (titleEl) titleEl.textContent = "Génération de l'export Excel";
+        }, 400);
     }
 
     function _updateExcelLoader(percent, subText) {
