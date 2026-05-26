@@ -51,6 +51,8 @@ window.AgGridSsrm = (function () {
     }
 
     function _createDatasource(config, gridOptionsRef) {
+        let isFirstLoad = true;   // 🆕 drapeau
+
         return {
             getRows: function (params) {
                 const body = {
@@ -59,6 +61,11 @@ window.AgGridSsrm = (function () {
                     filterModel: params.request.filterModel || {},
                     sortModel:   params.request.sortModel   || [],
                 };
+
+                // 🆕 Loader popup au premier chargement uniquement
+                if (isFirstLoad) {
+                    _showInitialLoader('Chargement des données...');
+                }
 
                 fetch(config.dataUrl, {
                     method: 'POST',
@@ -83,14 +90,26 @@ window.AgGridSsrm = (function () {
                             el.textContent = lastRow.toLocaleString('fr-FR') + ' lignes';
                         }
 
-                        // 🆕 Pinned bottom row (totaux) : uniquement renvoyés au premier bloc
+                        // Pinned bottom row (totaux)
                         if (data.totals && Object.keys(data.totals).length > 0 && gridOptionsRef.api) {
                             gridOptionsRef.api.setPinnedBottomRowData([data.totals]);
+                        }
+
+                        // 🆕 Cache le loader popup après le premier chargement
+                        if (isFirstLoad) {
+                            _hideInitialLoader();
+                            isFirstLoad = false;
                         }
                     })
                     .catch(err => {
                         console.error('SSRM getRows error:', err);
                         params.fail();
+
+                        // 🆕 Cache le loader même en cas d'erreur
+                        if (isFirstLoad) {
+                            _hideInitialLoader();
+                            isFirstLoad = false;
+                        }
                     });
             }
         };
@@ -118,7 +137,6 @@ window.AgGridSsrm = (function () {
                 floatingFilter: true,
                 headerClass: config.headerClass || 'excelHeader',
             },
-            // 🆕 Style ligne pinned bleue (cohérent AgGridCommon)
             getRowStyle: function (params) {
                 if (params.node.rowPinned) {
                     return {
@@ -128,18 +146,53 @@ window.AgGridSsrm = (function () {
                     };
                 }
             },
-            onGridReady: function () {
+
+            // 🆕 onGridReady : restaure le state PUIS assigne le datasource
+            onGridReady: function (params) {
+                _restoreGridState(params, config.stateKey);
+
+                // Datasource assignée APRÈS la restauration du state
+                // → le 1er appel SSRM partira directement avec le bon filtre/tri
+                params.api.setServerSideDatasource(_createDatasource(config, gridOptions));
+
                 _hideLoader();
             }
         };
-
-        // 🆕 Datasource assignée APRÈS pour pouvoir référencer gridOptions
-        gridOptions.serverSideDatasource = _createDatasource(config, gridOptions);
 
         const gridDiv = document.querySelector(gridSelector);
         new agGrid.Grid(gridDiv, gridOptions);
 
         return gridOptions;
+    }
+
+    /**
+     * Restaure depuis localStorage : ordre/largeur des colonnes + filtres + tri.
+     * À appeler AVANT setServerSideDatasource pour éviter un double appel SQL.
+     */
+    function _restoreGridState(params, stateKey) {
+        if (!stateKey) return;
+
+        const rawState = localStorage.getItem(stateKey);
+        if (!rawState) return;
+
+        try {
+            const state = JSON.parse(rawState);
+
+            // Ordre/largeur des colonnes
+            if (state.columnState && Array.isArray(state.columnState)) {
+                params.columnApi.applyColumnState({
+                    state: state.columnState,
+                    applyOrder: true,
+                });
+            }
+
+            // Filtres (Ag-Grid déclenchera le datasource avec ces filtres)
+            if (state.filterModel) {
+                params.api.setFilterModel(state.filterModel);
+            }
+        } catch (e) {
+            console.error('Erreur lors du chargement du state SSRM :', e);
+        }
     }
 
     /**
