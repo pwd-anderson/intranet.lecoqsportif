@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use App\Service\AgGrid\Ssrm\SsrmRequest;
 
 final class SalesController extends AbstractController
 {
@@ -221,6 +222,32 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/sales/backlog_clients_x3_ssrm_json', name: 'backlog_clients_x3_ssrm_json', methods: ['POST'])]
+    public function backlogClientsX3SsrmJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $payload = json_decode($request->getContent(), true) ?? [];
+        $ssrmRequest = SsrmRequest::fromArray($payload);
+
+        $response = $sales->getBacklogClientsX3Paginated($ssrmRequest);
+
+        return new JsonResponse([
+            'rows'    => $helpers->convertArrayToUtf8($response->rows),
+            'lastRow' => $response->lastRow,
+            'totals'  => $response->totals,   // 🆕
+        ]);
+    }
+
+    #[Route('/sales/backlog_clients_x3_export_json', name: 'backlog_clients_x3_export_json', methods: ['POST'])]
+    public function backlogClientsX3ExportJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $payload = json_decode($request->getContent(), true) ?? [];
+        $ssrmRequest = SsrmRequest::fromArray($payload);
+
+        $rows = $sales->getBacklogClientsX3Full($ssrmRequest);
+
+        return new JsonResponse($helpers->convertArrayToUtf8($rows));
+    }
+
     #[Route('/sales/best_demand_per_style_item_groups_json', name: 'best_demand_per_style_item_groups_json')]
     public function bestDemandPerStyleItemGroupsJson(Divers $divers, Helpers $helpers): JsonResponse
     {
@@ -256,10 +283,6 @@ final class SalesController extends AbstractController
         $data = $sales->getSellInSuiviPs();
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
-
-    ####################### Route Divers ####################
-
-    ####################### Route non généric ####################
 
     ####################### Route divers ####################
     #[Route('/sales/poid_famille_par_variant_collections_json', name: 'poid_famille_par_variant_collections_json')]
@@ -322,11 +345,9 @@ final class SalesController extends AbstractController
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    |  ROUTE GENERIQUE
-    |--------------------------------------------------------------------------
-    */
+####################### Route NON généric ####################
+
+####################### Route généric ####################
 
     #[Route(
         '/sales/{type}',
@@ -367,9 +388,12 @@ final class SalesController extends AbstractController
             'backlog_clients_x3' => [
                 'gridName'      => 'backlog_client_x3_grid',
                 'title'         => 'Backlog Clients',
-                'jsonRoute'     => 'backlog_clients_x3_json',
+                'jsonRoute'     => 'backlog_clients_x3_ssrm_json',          // 🆕 route SSRM
+                'exportRoute'   => 'backlog_clients_x3_export_json',        // 🆕 route export
                 'template'      => 'sales/sales_generic.html.twig',
                 'gridWidthMode' => 'full',
+                'serverSide'    => true,                                     // 🆕 flag SSRM
+                'blockSize'     => 200,                                      // 🆕 taille bloc
             ],
             'poid_famille_par_variant' => [
                 'gridName'      => 'poid_famille_par_variant_grid',
@@ -428,6 +452,11 @@ final class SalesController extends AbstractController
             'integerColumns' => $grid['integerColumns'],
             'totalColumns'   => $grid['totalColumns'],
             'dataUrl'        => $this->generateUrl($gridConfig['jsonRoute']),
+            'exportUrl'      => isset($gridConfig['exportRoute'])           // 🆕
+                ? $this->generateUrl($gridConfig['exportRoute'])
+                : null,
+            'serverSide'     => $gridConfig['serverSide'] ?? false,         // 🆕
+            'blockSize'      => $gridConfig['blockSize'] ?? 200,            // 🆕
             'type'           => $type,
             'gridWidthMode'  => $gridConfig['gridWidthMode'] ?? 'full',
         ]);
