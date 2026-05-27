@@ -787,8 +787,9 @@ class Sales
     public function getBacklogClientsX3Paginated(SsrmRequest $request): SsrmResponse
     {
         try {
-            // 🆕 Option : inclure les stocks ou non
             $includeStock = (bool) $request->getOption('includeStock', true);
+            // 🆕 Mode export : skip COUNT + totaux
+            $isExport     = (bool) $request->getOption('isExport', false);
 
             $builder = new AgGridSqlBuilder(
                 $request,
@@ -799,11 +800,11 @@ class Sales
             $orderBy     = $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC');
             $pagination  = $builder->buildPaginationClause();
 
-            // COUNT + TOTAUX au premier bloc
             $totalRows = 0;
             $totals = [];
 
-            if ($request->getOffset() === 0) {
+            // 🆕 Agrégats UNIQUEMENT pour la grille (pas pour l'export)
+            if ($request->getOffset() === 0 && !$isExport) {
                 $aggregateSql = $this->buildBacklogClientsX3AggregateSql($whereClause);
                 $aggregateResult = $this->mssqlSei->executeQuery($aggregateSql);
 
@@ -833,19 +834,18 @@ class Sales
                 }
             }
 
-            if ($request->getOffset() === 0 && $totalRows === 0) {
+            // 🆕 Pour la grille uniquement : si total=0 on s'arrête
+            if (!$isExport && $request->getOffset() === 0 && $totalRows === 0) {
                 return new SsrmResponse(rows: [], lastRow: 0, totals: []);
             }
 
-            // Requête paginée
+            // Requête paginée principale
             $sql = $this->sqlFileLoader->load('Sei/backlog_client.sql');
             $sql = str_replace('{{WHERE_CLAUSE}}', $whereClause, $sql);
             $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
             $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
 
             $rows = $this->mssqlSei->executeQuery($sql);
-
-            // 🆕 Enrichissement conditionnel
             $this->enrichBacklogClientsX3Rows($rows, $includeStock);
 
             return new SsrmResponse(

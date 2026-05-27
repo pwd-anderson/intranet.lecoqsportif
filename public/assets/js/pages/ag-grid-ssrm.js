@@ -324,7 +324,10 @@ window.AgGridSsrm = (function () {
                     endRow: 999999,         // sentinel "toutes les lignes"
                     filterModel,
                     sortModel,
-                    options: { includeStock },   // 🆕 transmise au backend
+                    options: {
+                        includeStock,
+                        isExport: true,
+                    },
                 }),
             });
 
