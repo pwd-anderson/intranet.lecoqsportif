@@ -787,6 +787,9 @@ class Sales
     public function getBacklogClientsX3Paginated(SsrmRequest $request): SsrmResponse
     {
         try {
+            // 🆕 Option : inclure les stocks ou non
+            $includeStock = (bool) $request->getOption('includeStock', true);
+
             $builder = new AgGridSqlBuilder(
                 $request,
                 $this->getBacklogClientsX3FieldMap()
@@ -796,7 +799,7 @@ class Sales
             $orderBy     = $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC');
             $pagination  = $builder->buildPaginationClause();
 
-            // COUNT + TOTAUX uniquement au premier bloc (offset=0)
+            // COUNT + TOTAUX au premier bloc
             $totalRows = 0;
             $totals = [];
 
@@ -805,12 +808,9 @@ class Sales
                 $aggregateResult = $this->mssqlSei->executeQuery($aggregateSql);
 
                 if (!empty($aggregateResult)) {
-                    // Total lignes (1ère ligne du resultset = ligne sans devise)
-                    // En réalité on récupère plusieurs lignes (1 par devise) → on agrège
                     $totalRows = 0;
                     $totalQuantite = 0.0;
                     $totalPrixEur = 0.0;
-
                     $taux = $this->divers->getExchangeRatesValues();
 
                     foreach ($aggregateResult as $row) {
@@ -844,7 +844,9 @@ class Sales
             $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
 
             $rows = $this->mssqlSei->executeQuery($sql);
-            $this->enrichBacklogClientsX3Rows($rows);
+
+            // 🆕 Enrichissement conditionnel
+            $this->enrichBacklogClientsX3Rows($rows, $includeStock);
 
             return new SsrmResponse(
                 rows: $rows,
@@ -925,40 +927,45 @@ class Sales
     }
 
     /**
-     * Enrichissement commun : taux de change + stock par site.
-     * (extrait de l'ancienne getBacklogClientsX3 pour mutualiser)
+     * Enrichissement : prix + (optionnellement) stocks.
+     * Le stock est coûteux (1 requête lourde sur SEICube) → option pour l'export.
      */
-    private function enrichBacklogClientsX3Rows(array &$rows): void
+    private function enrichBacklogClientsX3Rows(array &$rows, bool $includeStock = true): void
     {
         if ($rows === []) return;
 
         $taux = $this->divers->getExchangeRatesValues();
-        $stocks = $this->getStockPourBacklogClientsX3();
 
+        // 🆕 Stock chargé uniquement si demandé
         $stocksByArticle = [];
-        foreach ($stocks as $stock) {
-            $stocksByArticle[$stock->ARTICLE] = $stock;
+        if ($includeStock) {
+            $stocks = $this->getStockPourBacklogClientsX3();
+            foreach ($stocks as $stock) {
+                $stocksByArticle[$stock->ARTICLE] = $stock;
+            }
         }
 
         foreach ($rows as $row) {
             $quantity = (int) $row->QUANTITE;
             $priceHt = (float) $row->PRICE_HT;
             $currencyRate = $taux[$row->CUR_0] ?? null;
-            $stock = $stocksByArticle[$row->ARTICLE] ?? null;
 
             $row->PRIX = round($priceHt * $quantity, 2);
             $row->PRIX_EUR = ($currencyRate !== null && (float) $currencyRate > 0)
                 ? round(($priceHt / (float) $currencyRate) * $quantity, 2)
                 : 0.0;
 
-            $row->STOCK_REEL_WLOGM    = $stock ? (float) $stock->STOCK_REEL_WLOGM    : 0.0;
-            $row->STOCK_INTERNE_WLOGM = $stock ? (float) $stock->STOCK_INTERNE_WLOGM : 0.0;
-            $row->STOCK_REEL_WSFCN    = $stock ? (float) $stock->STOCK_REEL_WSFCN    : 0.0;
-            $row->STOCK_INTERNE_WSFCN = $stock ? (float) $stock->STOCK_INTERNE_WSFCN : 0.0;
-            $row->STOCK_REEL_WTAKH    = $stock ? (float) $stock->STOCK_REEL_WTAKH    : 0.0;
-            $row->STOCK_INTERNE_WTAKH = $stock ? (float) $stock->STOCK_INTERNE_WTAKH : 0.0;
-            $row->STOCK_REEL_WDTTH    = $stock ? (float) $stock->STOCK_REEL_WDTTH    : 0.0;
-            $row->STOCK_INTERNE_WDTTH = $stock ? (float) $stock->STOCK_INTERNE_WDTTH : 0.0;
+            if ($includeStock) {
+                $stock = $stocksByArticle[$row->ARTICLE] ?? null;
+                $row->STOCK_REEL_WLOGM    = $stock ? (float) $stock->STOCK_REEL_WLOGM    : 0.0;
+                $row->STOCK_INTERNE_WLOGM = $stock ? (float) $stock->STOCK_INTERNE_WLOGM : 0.0;
+                $row->STOCK_REEL_WSFCN    = $stock ? (float) $stock->STOCK_REEL_WSFCN    : 0.0;
+                $row->STOCK_INTERNE_WSFCN = $stock ? (float) $stock->STOCK_INTERNE_WSFCN : 0.0;
+                $row->STOCK_REEL_WTAKH    = $stock ? (float) $stock->STOCK_REEL_WTAKH    : 0.0;
+                $row->STOCK_INTERNE_WTAKH = $stock ? (float) $stock->STOCK_INTERNE_WTAKH : 0.0;
+                $row->STOCK_REEL_WDTTH    = $stock ? (float) $stock->STOCK_REEL_WDTTH    : 0.0;
+                $row->STOCK_INTERNE_WDTTH = $stock ? (float) $stock->STOCK_INTERNE_WDTTH : 0.0;
+            }
         }
     }
 

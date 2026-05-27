@@ -283,9 +283,9 @@ window.AgGridSsrm = (function () {
     /**
      * Export Excel SSRM : POST endpoint full → ExcelJS côté client.
      */
-    async function exportExcel(gridOptions, config, fileName) {
-        if (!config.exportUrl) {
-            console.error('AgGridSsrm.exportExcel : exportUrl manquant');
+    async function exportExcel(gridOptions, config, fileName, exportOptions = {}) {
+        if (!config.dataUrl) {
+            console.error('AgGridSsrm.exportExcel : dataUrl manquant');
             return;
         }
 
@@ -296,54 +296,61 @@ window.AgGridSsrm = (function () {
             .sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0))
             .map(s => ({ colId: s.colId, sort: s.sort }));
 
-        // 1. Affiche le loader
-        _showExcelLoader('Récupération des données...');
+        // 🆕 Options custom passées au backend
+        const includeStock = exportOptions.includeStock ?? false;
 
-        // 2. Progression simulée (comme ExcelExportStandard)
+        _showExcelLoader('Récupération des données...');
+        _updateExcelLoader(0, includeStock
+            ? 'Récupération des données + stocks (peut être long)...'
+            : 'Récupération des données...');
+
+        // Progression simulée
         let current = 0;
         const progressTimer = setInterval(() => {
             if (current < 85) {
-                current = Math.min(current + Math.random() * 10, 85);
+                current = Math.min(current + Math.random() * 8, 85);
                 _updateExcelLoader(Math.round(current));
             }
         }, 200);
 
-        // Laisse le DOM afficher le loader avant la requête
         await new Promise(resolve => setTimeout(resolve, 50));
 
         try {
-            // 3. POST full export
-            const response = await fetch(config.exportUrl, {
+            const response = await fetch(config.dataUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     startRow: 0,
-                    endRow: 0,
+                    endRow: 999999,         // sentinel "toutes les lignes"
                     filterModel,
                     sortModel,
+                    options: { includeStock },   // 🆕 transmise au backend
                 }),
             });
 
             if (!response.ok) throw new Error('HTTP ' + response.status);
-            const rows = await response.json();
+            const data = await response.json();
+            const rows = data.rows || [];
 
-            // 4. Génération du fichier
-            _updateExcelLoader(90, 'Génération du fichier Excel...');
-            await _exportRowsToExcel(rows, config.columnDefs, fileName);
-
-            // 5. Finalisation
             clearInterval(progressTimer);
-            _updateExcelLoader(100, 'Téléchargement en cours...');
+            _updateExcelLoader(90, `Génération du fichier Excel (${rows.length.toLocaleString('fr-FR')} lignes)...`);
+            await new Promise(r => setTimeout(r, 50));
 
-            setTimeout(() => {
-                _hideExcelLoader();
-            }, 600);
+            // 🆕 Filtre les colonnes stock si non demandées
+            const columnDefs = includeStock
+                ? config.columnDefs
+                : config.columnDefs.filter(c => !c.field || !c.field.startsWith('STOCK_'));
+
+            await _exportRowsToExcel(rows, columnDefs, fileName);
+
+            _updateExcelLoader(100, 'Téléchargement en cours...');
+            setTimeout(() => _hideExcelLoader(), 600);
 
         } catch (err) {
             clearInterval(progressTimer);
             _hideExcelLoader();
             console.error('Export Excel SSRM error:', err);
-            alert("Erreur lors de l'export Excel.");
+            alert("Erreur lors de l'export Excel.\n" + err.message);
         }
     }
 

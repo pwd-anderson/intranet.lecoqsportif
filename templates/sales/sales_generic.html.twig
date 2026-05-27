@@ -196,6 +196,34 @@
         </div>
         {{ include('components/_excel_loader.html.twig') }}
     </section>
+
+    {% if serverSide|default(false) %}
+        <div class="modal fade" id="modal-export-options" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Options d'export Excel</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">
+                            L'export avec les stocks est plus long. Décochez pour un export plus rapide sans les colonnes de stock.
+                        </p>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="exportIncludeStock">
+                            <label class="form-check-label" for="exportIncludeStock">
+                                Inclure les colonnes de stock par site
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                        <button type="button" id="confirmExportBtn" class="btn btn-primary btn-sm">Exporter</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
 {% endblock %}
 
 {% block javascripts %}
@@ -263,16 +291,15 @@
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
 
             window.onBtExportExcel = async function () {
-                // 🆕 Export SSRM via endpoint dédié, sinon export classique
                 if (isServerSide) {
-                    await window.AgGridSsrm.exportExcel(
-                        window.gridOptions,
-                        agGridConfig,
-                        '{{ title|replace({" ": "_"}) }}.xlsx'
-                    );
+                    // 🆕 Ouvre la modale au lieu d'exporter direct
+                    const modalEl = document.getElementById('modal-export-options');
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
                     return;
                 }
 
+                // Mode classique inchangé
                 await ExcelExportStandard.export(
                     window.gridOptions,
                     '{{ title|replace({" ": "_"}) }}.xlsx',
@@ -288,6 +315,27 @@
                     }
                 );
             };
+
+// 🆕 Bouton "Exporter" de la modale
+            if (isServerSide) {
+                document.getElementById('confirmExportBtn')?.addEventListener('click', async () => {
+                    const includeStock = document.getElementById('exportIncludeStock').checked;
+
+                    // Ferme la modale
+                    const modalEl = document.getElementById('modal-export-options');
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+
+                    // Petit délai pour que la modale se ferme avant l'overlay du loader
+                    await new Promise(r => setTimeout(r, 200));
+
+                    await window.AgGridSsrm.exportExcel(
+                        window.gridOptions,
+                        agGridConfig,
+                        '{{ title|replace({" ": "_"}) }}.xlsx',
+                        { includeStock }
+                    );
+                });
+            }
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
                 window.AgGridCommon.saveGridState(window.gridOptions, agGridConfig.stateKey);
