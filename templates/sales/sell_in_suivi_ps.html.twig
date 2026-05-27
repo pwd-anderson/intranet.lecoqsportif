@@ -267,6 +267,57 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+
+            // Injecte le mot "Total" dans la première colonne du footer
+// après chaque mise à jour de la pinned bottom row
+            function injectTotalLabel() {
+                const api = window.gridOptions.api;
+                if (!api) return;
+
+                const pinnedNode = api.getPinnedBottomRow(0);
+                if (!pinnedNode || !pinnedNode.data) return;
+
+                // Récupère la première colonne actuellement visible (utilise getColId pour respecter
+                // l'ordre que l'utilisateur a éventuellement choisi)
+                const displayedColumns = window.gridOptions.columnApi.getAllDisplayedColumns();
+                if (displayedColumns.length === 0) return;
+
+                const firstColField = displayedColumns[0].getColId();
+
+                // Si la première colonne n'est PAS une colonne sum (sinon on écraserait son total),
+                // on y met "Total"
+                const totalColumns = {{ totalColumns|json_encode|raw }};
+                if (!totalColumns.includes(firstColField)) {
+                    pinnedNode.data[firstColField] = 'Total';
+                    // Force le refresh de la cellule pour que la valeur s'affiche
+                    api.refreshCells({
+                        rowNodes: [pinnedNode],
+                        columns: [firstColField],
+                        force: true,
+                    });
+                }
+            }
+
+// Branche le listener sur les events qui modifient la pinned bottom row
+            if (window.gridOptions && window.gridOptions.api) {
+                window.gridOptions.api.addEventListener('filterChanged', () => setTimeout(injectTotalLabel, 50));
+                window.gridOptions.api.addEventListener('sortChanged',   () => setTimeout(injectTotalLabel, 50));
+                window.gridOptions.api.addEventListener('modelUpdated',  () => setTimeout(injectTotalLabel, 50));
+                window.gridOptions.api.addEventListener('columnMoved',   () => setTimeout(injectTotalLabel, 50));
+                window.gridOptions.api.addEventListener('columnVisible', () => setTimeout(injectTotalLabel, 50));
+            } else {
+                const checkInterval = setInterval(() => {
+                    if (window.gridOptions && window.gridOptions.api) {
+                        window.gridOptions.api.addEventListener('filterChanged', () => setTimeout(injectTotalLabel, 50));
+                        window.gridOptions.api.addEventListener('sortChanged',   () => setTimeout(injectTotalLabel, 50));
+                        window.gridOptions.api.addEventListener('modelUpdated',  () => setTimeout(injectTotalLabel, 50));
+                        window.gridOptions.api.addEventListener('columnMoved',   () => setTimeout(injectTotalLabel, 50));
+                        window.gridOptions.api.addEventListener('columnVisible', () => setTimeout(injectTotalLabel, 50));
+                        clearInterval(checkInterval);
+                    }
+                }, 100);
+            }
+
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
 
             // Branche le hook d'édition après init
