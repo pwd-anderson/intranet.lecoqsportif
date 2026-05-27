@@ -477,6 +477,69 @@ window.AgGridCommon = (function () {
         gridDiv._agSidebarCheckboxObserver = observer;
     }
 
+    function patchSetFilterCheckboxes() {
+        // Le filtre AG Grid est rendu dans un popup hors du gridDiv,
+        // donc on observe document.body pour capter les popups au moment de leur affichage
+
+        const patchOneCheckbox = function (wrapper) {
+            if (!wrapper || wrapper.dataset.checkboxPatched === '1') {
+                return;
+            }
+
+            const input = wrapper.querySelector('input');
+            const label = wrapper.querySelector('label, .ag-set-filter-item-value, .ag-checkbox-label');
+
+            if (!input) {
+                return;
+            }
+
+            wrapper.dataset.checkboxPatched = '1';
+            wrapper.style.cursor = 'pointer';
+
+            wrapper.addEventListener('mousedown', function (e) {
+                // Laisse l'input/label natif gérer son propre clic
+                if (
+                    e.target === input ||
+                    e.target === label ||
+                    (label && label.contains(e.target))
+                ) {
+                    return;
+                }
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                input.checked = !input.checked;
+                input.dispatchEvent(new Event('click',  { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }, true);
+        };
+
+        const bindAll = function () {
+            // Cible toutes les lignes du Set Filter ouvert (popup)
+            const items = document.querySelectorAll('.ag-set-filter-item');
+            items.forEach(patchOneCheckbox);
+        };
+
+        bindAll();
+
+        // Observer le body pour capter les popups de filtre qui apparaissent dynamiquement
+        if (window._agSetFilterObserverInstalled) {
+            return;
+        }
+
+        const observer = new MutationObserver(function () {
+            bindAll();
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree:   true,
+        });
+
+        window._agSetFilterObserverInstalled = true;
+    }
+
     /**
      * Active le mode "auto-width" sur une grille AG Grid.
      * La grille s'adapte à la largeur cumulée des colonnes affichées
@@ -679,6 +742,7 @@ window.AgGridCommon = (function () {
         loadGridState: loadGridState,
         clearGridState: clearGridState,
         patchSidebarCheckboxes: patchSidebarCheckboxes,
+        patchSetFilterCheckboxes: patchSetFilterCheckboxes,
         showGridActions: showGridActions,
         hideGridActions: hideGridActions,
         setupAutoWidth: setupAutoWidth,

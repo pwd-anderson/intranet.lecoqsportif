@@ -185,7 +185,7 @@
 {% block javascripts %}
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.2"></script>
     <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
@@ -319,6 +319,7 @@
             }
 
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+            window.AgGridCommon.patchSetFilterCheckboxes();
 
             // Branche le hook d'édition après init
             if (window.gridOptions && window.gridOptions.api) {
