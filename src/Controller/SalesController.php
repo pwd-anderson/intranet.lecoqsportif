@@ -215,13 +215,6 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
-    #[Route('/sales/backlog_clients_x3_json', name: 'backlog_clients_x3_json')]
-    public function backlogClientsX3Json(Sales $sales, Helpers $helpers): JsonResponse
-    {
-        $data = $sales->getBacklogClientsX3();
-        return new JsonResponse($helpers->convertArrayToUtf8($data));
-    }
-
     #[Route('/sales/backlog_clients_x3_ssrm_json', name: 'backlog_clients_x3_ssrm_json', methods: ['POST'])]
     public function backlogClientsX3SsrmJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
     {
@@ -235,17 +228,6 @@ final class SalesController extends AbstractController
             'lastRow' => $response->lastRow,
             'totals'  => $response->totals,   // 🆕
         ]);
-    }
-
-    #[Route('/sales/backlog_clients_x3_export_json', name: 'backlog_clients_x3_export_json', methods: ['POST'])]
-    public function backlogClientsX3ExportJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
-    {
-        $payload = json_decode($request->getContent(), true) ?? [];
-        $ssrmRequest = SsrmRequest::fromArray($payload);
-
-        $rows = $sales->getBacklogClientsX3Full($ssrmRequest);
-
-        return new JsonResponse($helpers->convertArrayToUtf8($rows));
     }
 
     #[Route('/sales/best_demand_per_style_item_groups_json', name: 'best_demand_per_style_item_groups_json')]
@@ -389,7 +371,6 @@ final class SalesController extends AbstractController
                 'gridName'      => 'backlog_client_x3_grid',
                 'title'         => 'Backlog Clients',
                 'jsonRoute'     => 'backlog_clients_x3_ssrm_json',          // 🆕 route SSRM
-                'exportRoute'   => 'backlog_clients_x3_export_json',        // 🆕 route export
                 'template'      => 'sales/sales_generic.html.twig',
                 'gridWidthMode' => 'full',
                 'serverSide'    => true,                                     // 🆕 flag SSRM
@@ -452,9 +433,6 @@ final class SalesController extends AbstractController
             'integerColumns' => $grid['integerColumns'],
             'totalColumns'   => $grid['totalColumns'],
             'dataUrl'        => $this->generateUrl($gridConfig['jsonRoute']),
-            'exportUrl'      => isset($gridConfig['exportRoute'])           // 🆕
-                ? $this->generateUrl($gridConfig['exportRoute'])
-                : null,
             'serverSide'     => $gridConfig['serverSide'] ?? false,         // 🆕
             'blockSize'      => $gridConfig['blockSize'] ?? 200,            // 🆕
             'type'           => $type,

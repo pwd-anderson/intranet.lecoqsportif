@@ -409,61 +409,6 @@ class Sales
         return $variants;
     }
 
-    public function getBacklogClientsX3(): array
-    {
-        try {
-            $query = $this->sqlFileLoader->load('Sei/backlog_client.sql');
-            $data = $this->mssqlSei->executeQuery($query);
-
-            if (empty($data)) {
-                return [];
-            }
-
-            $taux = $this->divers->getExchangeRatesValues();
-            $stocks = $this->getStockPourBacklogClientsX3();
-
-            $stocksByArticle = [];
-            foreach ($stocks as $stock) {
-                $stocksByArticle[$stock->ARTICLE] = $stock;
-            }
-
-            foreach ($data as $row) {
-                $quantity = (int) $row->QUANTITE;
-                $priceHt = (float) $row->PRICE_HT;
-                $currencyRate = $taux[$row->CUR_0] ?? null;
-                $stock = $stocksByArticle[$row->ARTICLE] ?? null;
-
-                $row->PRIX = round($priceHt * $quantity, 2);
-                $row->PRIX_EUR = ($currencyRate !== null && (float) $currencyRate > 0)
-                    ? round(($priceHt / (float) $currencyRate) * $quantity, 2)
-                    : 0.0;
-
-                $row->STOCK_REEL_WLOGM = $stock ? (float) $stock->STOCK_REEL_WLOGM : 0.0;
-                $row->STOCK_INTERNE_WLOGM = $stock ? (float) $stock->STOCK_INTERNE_WLOGM : 0.0;
-                $row->STOCK_REEL_WSFCN = $stock ? (float) $stock->STOCK_REEL_WSFCN : 0.0;
-                $row->STOCK_INTERNE_WSFCN = $stock ? (float) $stock->STOCK_INTERNE_WSFCN : 0.0;
-                $row->STOCK_REEL_WTAKH = $stock ? (float) $stock->STOCK_REEL_WTAKH : 0.0;
-                $row->STOCK_INTERNE_WTAKH = $stock ? (float) $stock->STOCK_INTERNE_WTAKH : 0.0;
-                $row->STOCK_REEL_WDTTH = $stock ? (float) $stock->STOCK_REEL_WDTTH : 0.0;
-                $row->STOCK_INTERNE_WDTTH = $stock ? (float) $stock->STOCK_INTERNE_WDTTH : 0.0;
-            }
-
-            return $data;
-        } catch (\Throwable $e) {
-            $this->graphMailer->notifyError(
-                '❌ LCS Erreur Backlog Client X3 : Récupération de données ventes',
-                $e
-            );
-
-            $this->logger->error(
-                'LCS Erreur Backlog Client X3 : Récupération de données ventes',
-                ['exception' => $e]
-            );
-
-            return [];
-        }
-    }
-
     public function getStockPourBacklogClientsX3(): array
     {
         try {
@@ -845,8 +790,24 @@ class Sales
             $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
             $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
 
+            $t0 = microtime(true);
             $rows = $this->mssqlSei->executeQuery($sql);
+            $tQuery = microtime(true) - $t0;
+
+            $t1 = microtime(true);
             $this->enrichBacklogClientsX3Rows($rows, $includeStock);
+            $tEnrich = microtime(true) - $t1;
+
+            $this->logger->info(sprintf(
+                '[Backlog X3 PERF] isExport=%s includeStock=%s | query=%.1fs | enrich=%.1fs | nbRows=%d | offset=%d | limit=%d',
+                $isExport ? 'Y' : 'N',
+                $includeStock ? 'Y' : 'N',
+                $tQuery,
+                $tEnrich,
+                count($rows),
+                $request->getOffset(),
+                $request->getLimit()
+            ));
 
             return new SsrmResponse(
                 rows: $rows,
@@ -893,37 +854,6 @@ class Sales
             $whereClause
         GROUP BY SOH.CUR_0
     ";
-    }
-
-    /**
-     * Version full (export Excel) : toutes les lignes filtrées/triées.
-     */
-    public function getBacklogClientsX3Full(\App\Service\AgGrid\Ssrm\SsrmRequest $request): array
-    {
-        try {
-            $builder = new \App\Service\AgGrid\Ssrm\AgGridSqlBuilder(
-                $request,
-                $this->getBacklogClientsX3FieldMap()
-            );
-
-            $whereClause = $builder->buildWhereClause();
-            $orderBy     = $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC');
-
-            $sql = $this->sqlFileLoader->load('Sei/backlog_client.sql');
-            $sql = str_replace('{{WHERE_CLAUSE}}', $whereClause, $sql);
-            $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
-            $sql = str_replace('{{PAGINATION}}',  '', $sql); // pas de pagination
-
-            $rows = $this->mssqlSei->executeQuery($sql);
-            $this->enrichBacklogClientsX3Rows($rows);
-
-            return $rows;
-
-        } catch (\Throwable $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Backlog Client X3 Export', $e);
-            $this->logger->error('LCS Erreur Backlog Client X3 Export', ['exception' => $e]);
-            return [];
-        }
     }
 
     /**
