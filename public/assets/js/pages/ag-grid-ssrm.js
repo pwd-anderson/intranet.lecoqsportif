@@ -296,64 +296,75 @@ window.AgGridSsrm = (function () {
             .sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0))
             .map(s => ({ colId: s.colId, sort: s.sort }));
 
-        // 🆕 Options custom passées au backend
         const includeStock = exportOptions.includeStock ?? false;
+        const CHUNK_SIZE = config.exportChunkSize || 40000;
+
+        let allRows = [];
+        let totalRows = 0;
+        let startRow = 0;
+        let chunkIndex = 0;
 
         _showExcelLoader('Récupération des données...');
-        _updateExcelLoader(0, includeStock
-            ? 'Récupération des données + stocks (peut être long)...'
-            : 'Récupération des données...');
-
-        // Progression simulée
-        let current = 0;
-        const progressTimer = setInterval(() => {
-            if (current < 85) {
-                current = Math.min(current + Math.random() * 8, 85);
-                _updateExcelLoader(Math.round(current));
-            }
-        }, 200);
-
+        _updateExcelLoader(0, 'Préparation de l\'export...');
         await new Promise(resolve => setTimeout(resolve, 50));
 
         try {
-            const response = await fetch(config.dataUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    startRow: 0,
-                    endRow: 999999,         // sentinel "toutes les lignes"
-                    filterModel,
-                    sortModel,
-                    options: {
-                        includeStock,
-                        isExport: true,
-                    },
-                }),
-            });
+            while (true) {
+                const t0 = performance.now();
 
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            const data = await response.json();
-            const rows = data.rows || [];
+                const response = await fetch(config.dataUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        startRow: startRow,
+                        endRow: startRow + CHUNK_SIZE,
+                        filterModel,
+                        sortModel,
+                        options: {
+                            includeStock,
+                            isExport: true,   // skip COUNT + totaux
+                        },
+                    }),
+                });
 
-            clearInterval(progressTimer);
-            _updateExcelLoader(90, `Génération du fichier Excel (${rows.length.toLocaleString('fr-FR')} lignes)...`);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+                const rows = data.rows || [];
+
+                allRows = allRows.concat(rows);
+
+                const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+
+                _updateExcelLoader(
+                    Math.min(85, (chunkIndex + 1) * 8),
+                    `Bloc ${chunkIndex + 1} — ${allRows.length.toLocaleString('fr-FR')} lignes (${elapsed}s)`
+                );
+
+                // Conditions d'arrêt : on a reçu moins que demandé = dernière page
+                if (rows.length < CHUNK_SIZE) break;
+
+                startRow += CHUNK_SIZE;
+                chunkIndex++;
+
+                await new Promise(r => setTimeout(r, 0));
+            }
+
+            _updateExcelLoader(90, `Génération du fichier Excel (${allRows.length.toLocaleString('fr-FR')} lignes)...`);
             await new Promise(r => setTimeout(r, 50));
 
-            // 🆕 Filtre les colonnes stock si non demandées
             const columnDefs = includeStock
                 ? config.columnDefs
                 : config.columnDefs.filter(c => !c.field || !c.field.startsWith('STOCK_'));
 
-            await _exportRowsToExcel(rows, columnDefs, fileName);
+            await _exportRowsToExcel(allRows, columnDefs, fileName);
 
             _updateExcelLoader(100, 'Téléchargement en cours...');
             setTimeout(() => _hideExcelLoader(), 600);
 
         } catch (err) {
-            clearInterval(progressTimer);
             _hideExcelLoader();
             console.error('Export Excel SSRM error:', err);
-            alert("Erreur lors de l'export Excel.\n" + err.message);
+            alert("Erreur lors de l'export après " + allRows.length.toLocaleString('fr-FR') + " lignes.\n" + err.message);
         }
     }
 
