@@ -790,24 +790,8 @@ class Sales
             $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
             $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
 
-            $t0 = microtime(true);
             $rows = $this->mssqlSei->executeQuery($sql);
-            $tQuery = microtime(true) - $t0;
-
-            $t1 = microtime(true);
             $this->enrichBacklogClientsX3Rows($rows, $includeStock);
-            $tEnrich = microtime(true) - $t1;
-
-            $this->logger->info(sprintf(
-                '[Backlog X3 PERF] isExport=%s includeStock=%s | query=%.1fs | enrich=%.1fs | nbRows=%d | offset=%d | limit=%d',
-                $isExport ? 'Y' : 'N',
-                $includeStock ? 'Y' : 'N',
-                $tQuery,
-                $tEnrich,
-                count($rows),
-                $request->getOffset(),
-                $request->getLimit()
-            ));
 
             return new SsrmResponse(
                 rows: $rows,
