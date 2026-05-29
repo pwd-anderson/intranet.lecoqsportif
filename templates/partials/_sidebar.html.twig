@@ -77,6 +77,18 @@
                         </ul>
                     </li>
 
+                    <li class="treeview  {% if path starts with '/it' %}active{% endif %}">
+                        <a href="#">
+                            <img src="{{ asset('assets/images/svg-icon/it.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.menu.it'|trans }}</span>
+                            <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+                        </a>
+                        <ul class="treeview-menu">
+                            <li class="{% if currentRoute == 'app_it_tcd_cmd_non_soldees' %}active{% endif %}"><a href="{{ path('app_it_tcd_cmd_non_soldees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.it.tcd_cmd_non_soldees'|trans }}</a></li>
+                            <li class="{% if currentRoute == 'app_it_detail_tcd' %}active{% endif %}"><a href="{{ path('app_it_detail_tcd') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.it.detail_tcd'|trans }}</a></li>
+                         </ul>
+                    </li>
+
                 </ul>
 
                 <div class="sidebar-widgets">
