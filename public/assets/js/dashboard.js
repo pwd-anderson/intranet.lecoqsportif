@@ -395,23 +395,39 @@ function renderTopProductSalesChart(apiUrl, selector) {
             const percent = maxValue > 0 ? (p.value / maxValue) * 100 : 0;
 
             el.innerHTML += `
-                <div class="top-product-row">
-                    <img src="${p.image}"
-                         class="top-product-img"
-                         onerror="this.src='/assets/images/no-image.png';">
+    <div class="top-product-row">
+        <img src="${p.image}"
+             class="top-product-img"
+             alt=""
+             data-fallback-step="0"
+             onerror="
+                 const step = parseInt(this.dataset.fallbackStep, 10);
+                 if (step === 0) {
+                     this.dataset.fallbackStep = '1';
+                     this.src = this.src.replace('_2.jpg', '_new_1.jpg');
+                 } else if (step === 1) {
+                     this.dataset.fallbackStep = '2';
+                     this.src = this.src.replace('_new_1.jpg', '_1.jpg');
+                 } else if (step === 2) {
+                     this.dataset.fallbackStep = '3';
+                     this.src = '/assets/images/no-image.png';
+                 } else {
+                     this.onerror = null;
+                 }
+             ">
 
-                    <div class="top-product-info">
-                        <div class="top-product-label">${p.label}</div>
-                        <div class="top-product-bar-container">
-                            <div class="top-product-bar" style="width:${percent}%"></div>
-                        </div>
-                    </div>
+        <div class="top-product-info">
+            <div class="top-product-label">${p.label}</div>
+            <div class="top-product-bar-container">
+                <div class="top-product-bar" style="width:${percent}%"></div>
+            </div>
+        </div>
 
-                    <div class="top-product-value">
-                        ${formatNumber(p.value, 0)} €
-                    </div>
-                </div>
-            `;
+        <div class="top-product-value">
+            ${formatNumber(p.value, 0)} €
+        </div>
+    </div>
+`;
         });
     });
 }

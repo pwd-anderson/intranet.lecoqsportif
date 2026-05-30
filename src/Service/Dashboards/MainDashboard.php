@@ -283,10 +283,15 @@ class MainDashboard
                     continue;
                 }
 
-                $safeItemNo = rawurlencode($itemNo);
+                // Extraction de l'article "base" (avant le premier _) pour les URLs lecoqsportif.com
+                // Ex: "2520908_BR" → "2520908"
+                $articleParts = explode('_', $itemNo);
+                $articleBase = $articleParts[0] ?? $itemNo;
+
+                $safeArticleBase = rawurlencode($articleBase);
 
                 $out[] = [
-                    'image' => "https://www.lecoqbiz.com/CMS/Images/Small/{$safeItemNo}.jpg",
+                    'image' => "https://www.lecoqsportif.com/cdn/shop/files/{$safeArticleBase}_2.jpg",
                     'code'  => $itemNo,
                     'label' => (string)($r->ItemDescription ?? ''),
                     'value' => (float)($r->TotalSales ?? 0),
