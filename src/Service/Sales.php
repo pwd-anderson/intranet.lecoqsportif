@@ -666,9 +666,19 @@ class Sales
             'ADRESSE_LIVRAISON'     => 'SOH.BPAADD_0',
             'FAMILLE'               => 'ITM.TCLCOD_0',
             'COLLECTION'            => 'SOH.ZCOLLECT_0',
-            'ARTICLE'               => 'SOQ.ITMREF_0',
+
+            // 🆕 SKU complet (123456_L)
+            'SKU'                   => 'ITM.ITMREF_0',
+            // 🆕 ARTICLE = partie avant '_' (123456)
+            'ARTICLE'               => 'SPLIT.ARTICLE_BASE',
+            // 🆕 VARIANT = partie après '_' (L)
+            'VARIANT'               => 'SPLIT.VARIANT_VAL',
+
             'ITMDES1_0'             => 'ITM.ITMDES1_0',
             'EAN'                   => 'ITM.EANCOD_0',
+            // 🆕 DROPPE = OUI/NON depuis ZITMCOL
+            'DROPPE'                => "CASE WHEN ITC.ZDROPPED_0 = 2 THEN 'OUI' ELSE 'NON' END",
+
             'DATE_COMMANDE'         => 'CONVERT(varchar(10), SOH.ORDDAT_0, 23)',
             'DATE_LIVRAISON'        => 'CONVERT(varchar(10), SOQ.DEMDLVDAT_0, 23)',
             'REP1'                  => 'REP2.REPNAM_0',
@@ -783,6 +793,17 @@ class Sales
         INNER JOIN X3_LCS.SORDER SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
         INNER JOIN X3_LCS.SORDERP SOP ON SOQ.SOHNUM_0 = SOP.SOHNUM_0 AND SOQ.ITMREF_0 = SOP.ITMREF_0 AND SOQ.SOPLIN_0 = SOP.SOPLIN_0
         INNER JOIN X3_LCS.ITMMASTER ITM ON SOQ.ITMREF_0 = ITM.ITMREF_0
+        CROSS APPLY (
+            SELECT
+                CASE WHEN CHARINDEX('_', ITM.ITMREF_0) > 0
+                     THEN LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0) - 1)
+                     ELSE ITM.ITMREF_0
+                END AS ARTICLE_BASE,
+                CASE WHEN CHARINDEX('_', ITM.ITMREF_0) > 0
+                     THEN SUBSTRING(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0) + 1, 50)
+                     ELSE NULL
+                END AS VARIANT_VAL
+        ) AS SPLIT
         INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
         LEFT  JOIN X3_LCS.BPCUSTOMER BPC_INV ON SOH.BPCINV_0 = BPC_INV.BPCNUM_0
         INNER JOIN X3_LCS.BPADDRESS BPA ON BPC.BPCNUM_0 = BPA.BPANUM_0 AND BPA.BPAADD_0 = SOH.BPAADD_0
@@ -790,6 +811,7 @@ class Sales
         LEFT  JOIN X3_LCS.SALESREP REP2 ON BPC.REP_1 = REP2.REPNUM_0
         LEFT  JOIN X3_LCS.ATEXTRA ATX  ON ATX.IDENT2_0  = BPC.TSCCOD_2     AND ATX.CODFIC_0  = 'ATABDIV' AND ATX.LANGUE_0  = 'FRA' AND ATX.ZONE_0  = 'LNGDES' AND ATX.IDENT1_0  = '32'
         LEFT  JOIN X3_LCS.ATEXTRA ATX4 ON ATX4.IDENT2_0 = BPC.ZGROUPIND_0 AND ATX4.CODFIC_0 = 'ATABDIV' AND ATX4.LANGUE_0 = 'FRA' AND ATX4.ZONE_0 = 'LNGDES' AND ATX4.IDENT1_0 = '6021'
+        LEFT  JOIN X3_LCS.ZITMCOL  ITC ON ITC.ITMREF_0 = SPLIT.ARTICLE_BASE AND ITC.YCOLLECT_0 = SOH.ZCOLLECT_0
         WHERE
             SOQ.SOQSTA_0 <> 3
             AND BPC.BCGCOD_0 <> 'INTER'
@@ -808,7 +830,6 @@ class Sales
 
         $taux = $this->divers->getExchangeRatesValues();
 
-        // 🆕 Stock chargé uniquement si demandé
         $stocksByArticle = [];
         if ($includeStock) {
             $stocks = $this->getStockPourBacklogClientsX3();
@@ -828,7 +849,9 @@ class Sales
                 : 0.0;
 
             if ($includeStock) {
-                $stock = $stocksByArticle[$row->ARTICLE] ?? null;
+                // 🆕 Lookup sur SKU (123456_L) au lieu d'ARTICLE (qui est maintenant 123456)
+                $stock = $stocksByArticle[$row->SKU] ?? null;
+
                 $row->STOCK_REEL_WLOGM    = $stock ? (float) $stock->STOCK_REEL_WLOGM    : 0.0;
                 $row->STOCK_INTERNE_WLOGM = $stock ? (float) $stock->STOCK_INTERNE_WLOGM : 0.0;
                 $row->STOCK_REEL_WSFCN    = $stock ? (float) $stock->STOCK_REEL_WSFCN    : 0.0;
