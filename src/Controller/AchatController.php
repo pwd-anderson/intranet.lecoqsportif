@@ -58,6 +58,15 @@ final class AchatController extends AbstractController
         return new JsonResponse($dataUtf8);
     }
 
+    #[Route('/achat/backlog_fournisseur_intersites_json', name: 'backlog_fournisseur_intersites_json')]
+    public function backlogFournisseurIntersitesJson(Achat $achat, Helpers $helpers): JsonResponse
+    {
+        $data = $achat->getBacklogFournisseurIntersites();
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
     #[Route('/achat/reception_fournisseur_json', name: 'reception_fournisseur_json')]
     public function receptionFournisseurJson(Achat $achat, Helpers $helpers): JsonResponse
     {
@@ -113,6 +122,9 @@ final class AchatController extends AbstractController
             'integerColumns' => $grid['integerColumns'],
             'totalColumns' => $grid['totalColumns'],
             'dataUrl' => $this->generateUrl($gridConfig['jsonRoute']),
+            'intersitesUrl' => $type === 'backlog_fournisseur_x3'   // 🆕
+                ? $this->generateUrl('backlog_fournisseur_intersites_json')
+                : null,
             'type' => $type,
         ]);
     }

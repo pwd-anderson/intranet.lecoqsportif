@@ -104,8 +104,18 @@
                     <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
                         <h3 class="box-title mb-0">{{ title }}</h3>
                         <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
-                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-success" type="button">Save</button>
-                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm  bg-gradient-secondary" type="button">Reset</button>
+
+                            {% if type == 'backlog_fournisseur_x3' %}
+                                <div class="form-check form-check-inline me-2 mb-0">
+                                    <input class="form-check-input" type="checkbox" id="includeIntersitesChk">
+                                    <label class="form-check-label small" for="includeIntersitesChk">
+                                        Inclure intersites
+                                    </label>
+                                </div>
+                            {% endif %}
+
+                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
                             <span id="rowCount" class="text-muted small"></span>
                         </div>
@@ -146,6 +156,9 @@
         const currentYear = new Date().getFullYear();
 
         const columnDefs = {{ columns|json_encode|raw }};
+        const statType = '{{ type }}';
+        const isBacklogFournisseurX3 = statType === 'backlog_fournisseur_x3';
+        const intersitesUrl = '{{ intersitesUrl|default("") }}';
 
         const gridWidthMode = '{{ gridWidthMode|default("full") }}';
 
@@ -184,6 +197,71 @@
         document.addEventListener('DOMContentLoaded', () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+            window.AgGridCommon.patchSetFilterCheckboxes();
+            // =========================================================
+            // Case "Inclure intersites" : 2e fetch à la demande
+            // - Coché   = fetch + ajout des lignes intersites à la grille
+            // - Décoché = retrait des lignes intersites
+            // Refait l'appel à chaque cochage (données toujours fraîches)
+            // =========================================================
+            if (isBacklogFournisseurX3 && intersitesUrl) {
+                const includeChk = document.getElementById('includeIntersitesChk');
+
+                async function fetchAndAddIntersites() {
+                    includeChk.disabled = true;
+                    const label = includeChk.nextElementSibling;
+                    const originalText = label.textContent;
+                    label.textContent = 'Chargement intersites...';
+
+                    try {
+                        const response = await fetch(intersitesUrl);
+                        if (!response.ok) throw new Error('HTTP ' + response.status);
+                        const intersitesRows = await response.json();
+
+                        window.gridOptions.api.applyTransaction({
+                            add: intersitesRows
+                        });
+
+                        // 🆕 Met à jour le compteur de lignes et les totaux pinned
+                        window.AgGridCommon.updateTotals(window.gridOptions, agGridConfig.totalColumns);
+
+                    } catch (err) {
+                        console.error('Erreur chargement intersites:', err);
+                        alert("Erreur lors du chargement des intersites.\n" + err.message);
+                        includeChk.checked = false;
+                    } finally {
+                        includeChk.disabled = false;
+                        label.textContent = originalText;
+                    }
+                }
+
+                function removeIntersites() {
+                    const toRemove = [];
+                    window.gridOptions.api.forEachNode(node => {
+                        if (node.data && node.data.INTERSITE === 'OUI') {
+                            toRemove.push(node.data);
+                        }
+                    });
+
+                    if (toRemove.length > 0) {
+                        window.gridOptions.api.applyTransaction({
+                            remove: toRemove
+                        });
+
+                        // 🆕 Met à jour le compteur et les totaux pinned
+                        window.AgGridCommon.updateTotals(window.gridOptions, agGridConfig.totalColumns);
+                    }
+                }
+
+                includeChk.addEventListener('change', async (e) => {
+                    if (e.target.checked) {
+                        await fetchAndAddIntersites();
+                    } else {
+                        removeIntersites();
+                    }
+                });
+            }
+
 
             const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
