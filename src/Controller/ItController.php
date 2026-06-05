@@ -85,14 +85,14 @@ final class ItController extends AbstractController
         $config = [
             'tcd_cmd_non_soldees' => [
                 'gridName'      => 'tcd_cmd_non_soldees_grid',
-                'title'         => 'TCD Commandes non Soldées',
+                'title'         => 'TCD Commandes web non Soldées',
                 'jsonRoute'     => 'it_tcd_cmd_non_soldees_json',
                 'template'      => 'it/it_generic.html.twig',
                 'gridWidthMode' => 'auto',
             ],
             'detail_tcd' => [
                 'gridName'      => 'detail_tcd_grid',
-                'title'         => 'Détail du TCD',
+                'title'         => 'Détail du TCD web',
                 'jsonRoute'     => 'it_detail_tcd_json',
                 'template'      => 'it/it_generic.html.twig',
                 'gridWidthMode' => 'full',

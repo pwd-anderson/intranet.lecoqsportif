@@ -59,7 +59,7 @@ sidebar:
           backlog_fournisseur_x3: "Backlog Fournisseur"
           reception_fournisseur: "Réception Fournisseur"
       it:
-          tcd_cmd_non_soldees: "TCD Commandes non Soldées"
-          detail_tcd: "Détail du TCD"
+          tcd_cmd_non_soldees: "TCD Commandes web non Soldées"
+          detail_tcd: "Détail du TCD web"
           suivi_commandes_web_sav: "Suivi Commandes web pour SAV"
 
