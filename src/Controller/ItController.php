@@ -36,6 +36,12 @@ final class ItController extends AbstractController
         return $this->itGeneric('detail_tcd');
     }
 
+    #[Route('/it/suivi_commandes_web_sav', name: 'app_it_suivi_commandes_web_sav')]
+    public function suiviCommandesWebSavAlias(): Response
+    {
+        return $this->itGeneric('suivi_commandes_web_sav');
+    }
+
     /*
     |--------------------------------------------------------------------------
     |  ROUTES JSON
@@ -56,6 +62,13 @@ final class ItController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/it/suivi_commandes_web_sav_json', name: 'it_suivi_commandes_web_sav_json')]
+    public function suiviCommandesWebSavJson(It $it, Helpers $helpers): JsonResponse
+    {
+        $data = $it->getSuiviCommandesWebSav();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
     /*
     |--------------------------------------------------------------------------
     |  ROUTE GENERIQUE
@@ -65,7 +78,7 @@ final class ItController extends AbstractController
     #[Route(
         '/it/{type}',
         name: 'app_it_generic',
-        requirements: ['type' => 'tcd_cmd_non_soldees|detail_tcd']
+        requirements: ['type' => 'tcd_cmd_non_soldees|detail_tcd|suivi_commandes_web_sav']
     )]
     public function itGeneric(string $type): Response
     {
@@ -81,6 +94,13 @@ final class ItController extends AbstractController
                 'gridName'      => 'detail_tcd_grid',
                 'title'         => 'Détail du TCD',
                 'jsonRoute'     => 'it_detail_tcd_json',
+                'template'      => 'it/it_generic.html.twig',
+                'gridWidthMode' => 'full',
+            ],
+            'suivi_commandes_web_sav' => [
+                'gridName'      => 'suivi_commandes_web_sav_grid',
+                'title'         => 'Suivi Commandes web pour SAV',
+                'jsonRoute'     => 'it_suivi_commandes_web_sav_json',
                 'template'      => 'it/it_generic.html.twig',
                 'gridWidthMode' => 'full',
             ],

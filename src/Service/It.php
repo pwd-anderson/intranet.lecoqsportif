@@ -52,4 +52,18 @@ class It
             return [];
         }
     }
+
+    public function getSuiviCommandesWebSav(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/suivi_commandes_web_sav.sql');
+            return $this->mssqlSei->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur IT : Suivi Commandes web pour SAV', $e);
+            $this->logger->error('LCS Erreur IT : Suivi Commandes web pour SAV', ['exception' => $e]);
+
+            return [];
+        }
+    }
 }

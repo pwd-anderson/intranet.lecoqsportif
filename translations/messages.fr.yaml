@@ -61,4 +61,5 @@ sidebar:
       it:
           tcd_cmd_non_soldees: "TCD Commandes non Soldées"
           detail_tcd: "Détail du TCD"
+          suivi_commandes_web_sav: "Suivi Commandes web pour SAV"
 
