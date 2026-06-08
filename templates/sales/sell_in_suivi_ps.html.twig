@@ -129,6 +129,58 @@
             font-weight: 600;
             box-shadow: inset -3px 0 0 #d97706;
         }
+
+        /* ===== RECAP PANEL ===== */
+        .recap-panel-body {
+            padding: 8px 0 12px;
+        }
+        .recap-table {
+            font-size: 11.5px;
+            white-space: nowrap;
+            border-collapse: collapse;
+        }
+        .recap-table thead th {
+            background-color: #024185;
+            color: #fff;
+            padding: 5px 10px;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid #01316a;
+        }
+        .recap-table tbody td {
+            padding: 3px 10px;
+            border: 1px solid #dee2e6;
+        }
+        .recap-th-label { min-width: 110px; }
+        .recap-td-label { min-width: 110px; font-weight: inherit; }
+        .recap-th-num, .recap-td-num { min-width: 90px; text-align: right !important; }
+        .recap-row-total td {
+            font-weight: 700;
+            background-color: #1a3c6e;
+            color: #fff;
+        }
+        .recap-row-family td {
+            font-weight: 600;
+            background-color: #d6e4f7;
+            color: #024185;
+        }
+        .recap-row-gender td {
+            background-color: #fff;
+        }
+        .recap-row-gender .recap-td-label {
+            padding-left: 22px;
+        }
+        .recap-positive { color: #155724 !important; background-color: #c3e6cb !important; }
+        .recap-negative { color: #721c24 !important; background-color: #f5c6cb !important; }
+        #recapToggleBtn .recap-caret {
+            display: inline-block;
+            transition: transform 0.2s ease;
+            font-size: 10px;
+            margin-left: 2px;
+        }
+        #recapToggleBtn[aria-expanded="true"] .recap-caret {
+            transform: rotate(180deg);
+        }
     </style>
 {% endblock %}
 
@@ -151,7 +203,21 @@
                                     <button id="saveGridConfigBtn"  class="waves-effect waves-light btn btn-sm bg-gradient-success"  type="button">Save</button>
                                     <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
                                     <button id="exportBtn"          class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
+                                    <button id="recapToggleBtn" class="btn btn-outline-secondary btn-sm" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#recapPanel" aria-expanded="false"
+                                            title="Afficher / masquer le récapitulatif">
+                                        Récap <span class="recap-caret">&#9660;</span>
+                                    </button>
                                     <span id="rowCount" class="text-muted small"></span>
+                                </div>
+                            </div>
+
+                            <!-- RECAP PANEL (collapsible) -->
+                            <div id="recapPanel" class="collapse">
+                                <div class="recap-panel-body px-3">
+                                    <div class="overflow-auto">
+                                        <table id="recapTable" class="recap-table"></table>
+                                    </div>
                                 </div>
                             </div>
 
@@ -261,9 +327,209 @@
                     id: 'excelPercentColumn',
                     interior: { color: '#baedbc', pattern: 'Solid' },
                     font: { color: '#1B5E20' }
-                }
+                },
+                // Styles recap Excel
+                { id: 'recapHeader',  font: { bold: true, color: '#FFFFFF' }, interior: { color: '#024185', pattern: 'Solid' }, alignment: { horizontal: 'Center' } },
+                { id: 'recapTotal',   font: { bold: true, color: '#FFFFFF' }, interior: { color: '#1a3c6e', pattern: 'Solid' } },
+                { id: 'recapFamily',  font: { bold: true, color: '#024185' }, interior: { color: '#d6e4f7', pattern: 'Solid' } },
+                { id: 'recapGender',  font: { color: '#000000' },             interior: { color: '#FFFFFF',  pattern: 'Solid' } },
+                { id: 'recapPctPos',  font: { color: '#155724' },             interior: { color: '#c3e6cb',  pattern: 'Solid' } },
+                { id: 'recapPctNeg',  font: { color: '#721c24' },             interior: { color: '#f5c6cb',  pattern: 'Solid' } },
             ],
         };
+
+        // ========= RECAP =========
+
+        const RECAP_SUM_FIELDS = [
+            'FORECAST', 'PS_ORDER_SS25_EOS', 'PS_ORDER_SS26_EOS', 'PS_ORDER_SS27_TD',
+            'PS_ORDER_SS26_TD', 'SS27_TD_LFL_COMPLETE', 'SS26_EOS_LFL', 'LANDING_FCST',
+            'TARGET', 'TOGO_VS_FCST_EN_VALO', 'FCST_VS_TARGET_EN_VALO', 'SS26_EOS_VALO_COMPLETE',
+            'CUST', 'TTL_PS_LY', 'CUST_OPEN', 'FCST_REPS', 'LW_FCST_REPS',
+            'FCST_SS27_LFL', 'DIFF', 'SS27_COMPLETE', 'LY_COMPLETE_EOS', 'BOH_FIGE_LW'
+        ];
+
+        const RECAP_COLS = [
+            { field: 'FORECAST',               label: 'FORECAST',               type: 'integer' },
+            { field: 'PS_ORDER_SS25_EOS',      label: 'PS SS25 EOS',            type: 'decimal' },
+            { field: 'PS_ORDER_SS26_EOS',      label: 'PS SS26 EOS',            type: 'decimal' },
+            { field: 'PS_ORDER_SS27_TD',       label: 'PS SS27 TD',             type: 'decimal' },
+            { field: 'PS_ORDER_SS26_TD',       label: 'PS SS26 TD',             type: 'decimal' },
+            { field: 'VS_LY_TD',               label: 'VS LY TD',               type: 'percent', num: 'PS_ORDER_SS27_TD',     den: 'PS_ORDER_SS26_TD' },
+            { field: 'SS27_TD_LFL_COMPLETE',   label: 'SS27 TD LFL COMPLETE',   type: 'decimal' },
+            { field: 'SS26_EOS_LFL',           label: 'SS26 EOS LFL',           type: 'decimal' },
+            { field: 'COMPLETE_VS_LY_LFL_EOS', label: 'COMPLETE VS LY LFL EOS', type: 'percent', num: 'SS27_TD_LFL_COMPLETE', den: 'SS26_EOS_LFL' },
+            { field: 'LANDING_FCST',           label: 'LANDING FCST',           type: 'decimal' },
+            { field: 'VS_SS26_EOS',            label: 'VS SS26 EOS',            type: 'percent', num: 'LANDING_FCST',         den: 'PS_ORDER_SS26_EOS' },
+            { field: 'TARGET',                 label: 'TARGET',                 type: 'integer' },
+            { field: 'TOGO_VS_FCST_EN_VALO',   label: 'TOGO VS FCST (VALO)',    type: 'decimal' },
+            { field: 'FCST_VS_TARGET_EN_VALO', label: 'FCST VS TARGET (VALO)',  type: 'decimal' },
+            { field: 'SS26_EOS_VALO_COMPLETE', label: 'SS26 EOS VALO COMPLETE', type: 'decimal' },
+            { field: 'CUST',                   label: '#CUST',                  type: 'integer' },
+            { field: 'TTL_PS_LY',              label: 'TTL PS LY',              type: 'decimal' },
+            { field: 'CUST_OPEN',              label: 'CUST OPEN',              type: 'integer' },
+            { field: 'FCST_REPS',              label: 'FCST REPS',              type: 'decimal' },
+            { field: 'LW_FCST_REPS',           label: 'LW FCST REPS',           type: 'decimal' },
+            { field: 'FCST_SALES_VS_EOS_SS26', label: 'FCST SALES VS EOS SS26', type: 'percent', num: 'FCST_REPS',            den: 'TTL_PS_LY' },
+            { field: 'FCST_SS27_LFL',          label: 'FCST SS27 LFL',          type: 'decimal' },
+            { field: 'DIFF',                   label: 'DIFF',                   type: 'decimal' },
+            { field: 'SS27_COMPLETE',          label: 'SS27 COMPLETE',          type: 'decimal' },
+            { field: 'LY_COMPLETE_EOS',        label: 'LY COMPLETE EOS',        type: 'decimal' },
+            { field: 'EVO_COMPLETE_VS_LY',     label: 'EVO COMPLETE VS LY',     type: 'percent', num: 'SS27_COMPLETE',        den: 'LY_COMPLETE_EOS' },
+            { field: 'BOH_FIGE_LW',            label: 'BOH FIGE LW',            type: 'decimal' },
+        ];
+
+        const _RECAP_FAM_LABELS = { FTW: 'Footwear', APL: 'Apparel', HDW: 'Accessories' };
+        const _RECAP_FAM_ORDER  = ['FTW', 'APL', 'HDW'];
+        const _RECAP_GEN_ORDER  = ['MALE', 'FEMALE', 'KIDS'];
+
+        function _recapInitSums() {
+            return Object.fromEntries(RECAP_SUM_FIELDS.map(f => [f, 0]));
+        }
+
+        function _recapAdd(target, row) {
+            for (const f of RECAP_SUM_FIELDS) target[f] += Number(row[f]) || 0;
+        }
+
+        function _recapWithPct(sums) {
+            const out = { ...sums };
+            for (const col of RECAP_COLS) {
+                if (col.type === 'percent') {
+                    const den = sums[col.den] || 0;
+                    out[col.field] = den !== 0 ? (sums[col.num] / den) - 1 : null;
+                }
+            }
+            return out;
+        }
+
+        function recapBuild(api) {
+            const total    = _recapInitSums();
+            const famSums  = {};
+            const genSums  = {};
+
+            for (const fam of _RECAP_FAM_ORDER) {
+                famSums[fam] = _recapInitSums();
+                for (const gen of _RECAP_GEN_ORDER) genSums[`${fam}|${gen}`] = _recapInitSums();
+                genSums[`${fam}|`] = _recapInitSums();
+            }
+
+            api.forEachNodeAfterFilter(node => {
+                if (!node.data || node.rowPinned) return;
+                const d   = node.data;
+                const fam = d.FAMILY;
+                const gen = d.GENDER ?? '';
+                if (!_RECAP_FAM_ORDER.includes(fam)) return;
+                _recapAdd(total, d);
+                _recapAdd(famSums[fam], d);
+                const gk = `${fam}|${gen}`;
+                if (genSums[gk]) _recapAdd(genSums[gk], d);
+            });
+
+            const rows = [];
+            rows.push({ label: 'TOTAL', cls: 'recap-row-total', data: _recapWithPct(total) });
+
+            for (const fam of _RECAP_FAM_ORDER) {
+                rows.push({ label: _RECAP_FAM_LABELS[fam] || fam, cls: 'recap-row-family', data: _recapWithPct(famSums[fam]) });
+                if (fam !== 'HDW') {
+                    for (const gen of _RECAP_GEN_ORDER) {
+                        const s = genSums[`${fam}|${gen}`];
+                        if (RECAP_SUM_FIELDS.some(f => s[f] !== 0)) {
+                            rows.push({ label: gen, cls: 'recap-row-gender', data: _recapWithPct(s) });
+                        }
+                    }
+                }
+            }
+
+            return rows;
+        }
+
+        function recapFmt(val, type) {
+            if (val === null || val === undefined) return '';
+            if (type === 'percent') {
+                const p = Math.round(val * 100);
+                return (p > 0 ? '+' : '') + p + ' %';
+            }
+            const n = Math.round(val);
+            if (n === 0) return '0';
+            return n.toLocaleString('fr-FR');
+        }
+
+        function recapRender(api) {
+            const rows = recapBuild(api);
+            const tbl  = document.getElementById('recapTable');
+            if (!tbl) return;
+
+            let h = '<thead><tr><th class="recap-th-label"></th>';
+            for (const c of RECAP_COLS) h += `<th class="recap-th-num">${c.label}</th>`;
+            h += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                h += `<tr class="${row.cls}"><td class="recap-td-label">${row.label}</td>`;
+                for (const c of RECAP_COLS) {
+                    const v  = row.data[c.field];
+                    const f  = recapFmt(v, c.type);
+                    let   cc = '';
+                    if (c.type === 'percent' && v !== null) {
+                        cc = v >  0.0005 ? 'recap-positive' :
+                             v < -0.0005 ? 'recap-negative' : '';
+                    }
+                    h += `<td class="recap-td-num ${cc}">${f}</td>`;
+                }
+                h += '</tr>';
+            }
+            h += '</tbody>';
+            tbl.innerHTML = h;
+        }
+
+        function recapBuildExcelRows(api) {
+            const rows = recapBuild(api);
+            const excelRows = [];
+
+            // Ligne d'en-tête des colonnes recap
+            const hdrCells = [{ data: { type: 'String', value: '' }, styleId: 'recapHeader' }];
+            for (const col of RECAP_COLS) {
+                hdrCells.push({ data: { type: 'String', value: col.label }, styleId: 'recapHeader' });
+            }
+            excelRows.push({ cells: hdrCells, height: 22 });
+
+            // Lignes de données
+            for (const row of rows) {
+                const base = row.cls === 'recap-row-total'  ? 'recapTotal'  :
+                             row.cls === 'recap-row-family' ? 'recapFamily' : 'recapGender';
+
+                const cells = [{ data: { type: 'String', value: row.label }, styleId: base }];
+
+                for (const col of RECAP_COLS) {
+                    const val = row.data[col.field];
+                    let style = base;
+                    let data;
+
+                    if (val === null || val === undefined) {
+                        data = { type: 'String', value: '' };
+                    } else if (col.type === 'percent') {
+                        const p   = Math.round(val * 100);
+                        const txt = (p > 0 ? '+' : '') + p + ' %';
+                        data = { type: 'String', value: txt };
+                        if (base !== 'recapTotal') {
+                            if      (val >  0.0005) style = 'recapPctPos';
+                            else if (val < -0.0005) style = 'recapPctNeg';
+                        }
+                    } else {
+                        data = { type: 'Number', value: String(Math.round(val)) };
+                    }
+
+                    cells.push({ data, styleId: style });
+                }
+
+                excelRows.push({ cells, height: 18 });
+            }
+
+            // Ligne vide séparatrice
+            excelRows.push({ cells: [{ data: { type: 'String', value: '' } }], height: 8 });
+
+            return excelRows;
+        }
+
+        // ========= FIN RECAP =========
 
         document.addEventListener('DOMContentLoaded', async () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
@@ -343,6 +609,7 @@
                     window.gridOptions,
                     '{{ title|replace({" ": "_"}) }}.xlsx',
                     {
+                        customHeader: recapBuildExcelRows(window.gridOptions.api),
                         processCellCallback: (p) => {
                             const field = p.column.getColId();
                             if (percentFields.includes(field)) {
@@ -380,6 +647,27 @@
                     e.returnValue = '';
                 }
             });
+
+            // Recap : mise à jour au 1er chargement, sur filtre et sur reload données
+            const recapUpdate = () => {
+                if (window.gridOptions && window.gridOptions.api) {
+                    recapRender(window.gridOptions.api);
+                }
+            };
+            if (window.gridOptions && window.gridOptions.api) {
+                window.gridOptions.api.addEventListener('firstDataRendered', recapUpdate);
+                window.gridOptions.api.addEventListener('filterChanged',     recapUpdate);
+                window.gridOptions.api.addEventListener('rowDataUpdated',    recapUpdate);
+            } else {
+                const recapCheck = setInterval(() => {
+                    if (window.gridOptions && window.gridOptions.api) {
+                        window.gridOptions.api.addEventListener('firstDataRendered', recapUpdate);
+                        window.gridOptions.api.addEventListener('filterChanged',     recapUpdate);
+                        window.gridOptions.api.addEventListener('rowDataUpdated',    recapUpdate);
+                        clearInterval(recapCheck);
+                    }
+                }, 100);
+            }
 
             window.AgGridCommon.setupAutoWidth(window.gridOptions, { widthMode: 'full' });
             window.AgGridCommon.setupAutoHeight(window.gridOptions, {

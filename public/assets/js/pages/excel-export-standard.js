@@ -65,8 +65,10 @@ const ExcelExportStandard = (function () {
 
     async function exportExcel(gridOptions, fileName, options = {}) {
         const {
-            processCellCallback = null,
+            processCellCallback  = null,
             processHeaderCallback = p => p.column.getColDef().headerName,
+            customHeader          = null,
+            customFooter          = null,
         } = options;
 
         showLoader('Génération du fichier Excel...');
@@ -91,9 +93,9 @@ const ExcelExportStandard = (function () {
                 processHeaderCallback: processHeaderCallback,
             };
 
-            if (processCellCallback) {
-                exportParams.processCellCallback = processCellCallback;
-            }
+            if (processCellCallback) exportParams.processCellCallback = processCellCallback;
+            if (customHeader)        exportParams.customHeader        = customHeader;
+            if (customFooter)        exportParams.customFooter        = customFooter;
 
             gridOptions.api.exportDataAsExcel(exportParams);
 
