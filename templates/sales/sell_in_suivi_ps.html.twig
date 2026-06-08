@@ -100,6 +100,11 @@
             background-color: #fff7e6;
         }
 
+        /* Footer (pinned row) : annule tout fond de cellule pour garder le fond bleu du footer */
+        .ag-theme-alpine .ag-row-pinned .ag-cell {
+            background-color: transparent !important;
+        }
+
         /* Feedback save */
         .ag-theme-alpine .ag-cell.cell-save-ok {
             background-color: #d4edda !important;
@@ -258,6 +263,22 @@
 
     <script>
         const columnDefs = {{ columns|json_encode|raw }};
+
+        // Convertit les cellStyle statiques en fonctions pour que le footer (rowPinned)
+        // n'hérite pas du backgroundColor des colonnes éditables (texte blanc sur fond clair).
+        columnDefs.forEach(col => {
+            if (col.cellStyle && typeof col.cellStyle === 'object') {
+                const originalStyle = col.cellStyle;
+                col.cellStyle = (params) => {
+                    if (params.node.rowPinned) {
+                        const { backgroundColor, ...rest } = originalStyle;
+                        return rest;
+                    }
+                    return originalStyle;
+                };
+            }
+        });
+
         const editableFields = ['SIMPLE_STATUS', 'FORECAST', 'TARGET'];
         const saveUrl = '{{ saveUrl }}';
         const dataUrl = '{{ dataUrl }}';
@@ -369,6 +390,7 @@
             { field: 'CUST_OPEN',              label: 'CUST OPEN',              type: 'integer' },
             { field: 'FCST_REPS',              label: 'FCST REPS',              type: 'decimal' },
             { field: 'LW_FCST_REPS',           label: 'LW FCST REPS',           type: 'decimal' },
+            { field: 'VS_LW',                  label: 'VS LW',                  type: 'string' },
             { field: 'FCST_SALES_VS_EOS_SS26', label: 'FCST SALES VS EOS SS26', type: 'percent', num: 'FCST_REPS',            den: 'TTL_PS_LY' },
             { field: 'FCST_SS27_LFL',          label: 'FCST SS27 LFL',          type: 'decimal' },
             { field: 'DIFF',                   label: 'DIFF',                   type: 'decimal' },
@@ -376,6 +398,7 @@
             { field: 'LY_COMPLETE_EOS',        label: 'LY COMPLETE EOS',        type: 'decimal' },
             { field: 'EVO_COMPLETE_VS_LY',     label: 'EVO COMPLETE VS LY',     type: 'percent', num: 'SS27_COMPLETE',        den: 'LY_COMPLETE_EOS' },
             { field: 'BOH_FIGE_LW',            label: 'BOH FIGE LW',            type: 'decimal' },
+            { field: 'EVO_BOH_VS_LW',          label: 'EVO BOH VS LW',          type: 'string' },
         ];
 
         const _RECAP_FAM_LABELS = { FTW: 'Footwear', APL: 'Apparel', HDW: 'Accessories' };
@@ -484,8 +507,15 @@
             const rows = recapBuild(api);
             const excelRows = [];
 
+            // Nombre de colonnes vides à insérer avant le label pour aligner le FORECAST
+            // de la recap avec la colonne FORECAST du tableau principal (colonne O = 15e).
+            // Label recap → colonne N (14e), FORECAST → colonne O (15e) : 13 cellules vides.
+            const RECAP_EXCEL_OFFSET = 14;
+            const emptyCell = { data: { type: 'String', value: '' } };
+            const offsetCells = Array.from({ length: RECAP_EXCEL_OFFSET }, () => emptyCell);
+
             // Ligne d'en-tête des colonnes recap
-            const hdrCells = [{ data: { type: 'String', value: '' }, styleId: 'recapHeader' }];
+            const hdrCells = [...offsetCells, { data: { type: 'String', value: '' }, styleId: 'recapHeader' }];
             for (const col of RECAP_COLS) {
                 hdrCells.push({ data: { type: 'String', value: col.label }, styleId: 'recapHeader' });
             }
@@ -496,7 +526,7 @@
                 const base = row.cls === 'recap-row-total'  ? 'recapTotal'  :
                              row.cls === 'recap-row-family' ? 'recapFamily' : 'recapGender';
 
-                const cells = [{ data: { type: 'String', value: row.label }, styleId: base }];
+                const cells = [...offsetCells, { data: { type: 'String', value: row.label }, styleId: base }];
 
                 for (const col of RECAP_COLS) {
                     const val = row.data[col.field];
