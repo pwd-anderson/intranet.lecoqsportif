@@ -5,47 +5,59 @@ namespace App\Service\Dashboards;
 use App\Factory\MssqlManagerFactory;
 use App\Service\Tools\GraphMailer;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\Mime\Email;
 use Psr\Log\LoggerInterface;
 use App\Service\Tools\MssqlManager;
 
 class MainDashboard
 {
-
     private MssqlManager $mssqlMade2design;
+    private bool $isDev;
 
     public function __construct(
-        private  MssqlManagerFactory $mssqlManagerFactory,
+        private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
         private GraphMailer $graphMailer,
         #[Autowire('%db.lcs_sei%')]
         string $dbLcsSei,
-    )
-    {
+        #[Autowire('%kernel.environment%')]
+        string $environment,
+    ) {
         $this->mssqlMade2design = $this->mssqlManagerFactory->create($dbLcsSei);
+        $this->isDev = ($environment === 'dev');
+    }
+
+    private function table(string $name): string
+    {
+        return 'MASTER_TABLES.' . $name . ($this->isDev ? '_DEV' : '');
     }
 
     private function normalizeNetworkFilter(?string $network): string
     {
-        return in_array($network, ['global', 'boutique', 'ecom'], true)
+        return in_array($network, ['global', 'boutique', 'ecom', 'wholesale_fr', 'wholesale_eu', 'wholesale_int'], true)
             ? $network
             : 'global';
     }
 
-    private function buildMainNetworkWhereClause(string $network, string $column = 'mainnetwork'): string
-    {
+    private function buildNetworkWhereClause(
+        string $network,
+        string $mainNetworkCol    = 'mainnetwork',
+        string $reportingDimCol   = 'reportingdimension'
+    ): string {
         return match ($this->normalizeNetworkFilter($network)) {
-            'boutique' => " AND {$column} IN ('RETAIL FO', 'CLEARANCE', 'RETAIL CS', 'CONCEPT STORE', 'FACTORY OUTLET')",
-            'ecom' => " AND {$column} IN ('RETAIL MARKET PLACE', 'RETAIL ESHOP','E BUSINESS DIRECT','E BUSINESS MARKET PLACE')",
-            default => '',
+            'boutique'      => " AND {$mainNetworkCol} IN ('RETAIL FO', 'CLEARANCE', 'RETAIL CS', 'CONCEPT STORE', 'FACTORY OUTLET')",
+            'ecom'          => " AND {$mainNetworkCol} IN ('RETAIL MARKET PLACE', 'RETAIL ESHOP', 'E BUSINESS DIRECT', 'E BUSINESS MARKET PLACE')",
+            'wholesale_fr'  => " AND {$reportingDimCol} = 'WHOLESALE FRANCE'",
+            'wholesale_eu'  => " AND {$reportingDimCol} = 'WHOLESALE EUROPE'",
+            'wholesale_int' => " AND {$reportingDimCol} = 'WHOLESALE INTERNATIO'",
+            default         => '',
         };
     }
 
     public function getSalesComparaisonYears(string $network = 'global'): array
     {
         try {
-            $params = [];
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_SALES_DAILY');
 
             $query = "SELECT
                     SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END) AS ca_n,
@@ -68,7 +80,7 @@ class MainDashboard
                         END
                     , 2) AS variation_pourcent
 
-                FROM MASTER_TABLES.INTRANET_SALES_DAILY
+                FROM {$table}
                 WHERE
                     (
                         (mois < MONTH(GETDATE()))
@@ -88,14 +100,14 @@ class MainDashboard
     public function getSalesComparaisonByMonths(string $network = 'global'): array
     {
         try {
-            $params = [];
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_SALES_DAILY');
 
             $query = "SELECT
                     mois,
                     SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END) AS ca_n,
                     SUM(CASE WHEN annee = YEAR(GETDATE())-1 THEN ca ELSE 0 END) AS ca_n_1
-                FROM MASTER_TABLES.INTRANET_SALES_DAILY
+                FROM {$table}
                 WHERE 1 = 1
                 {$networkWhere}
                 GROUP BY mois
@@ -113,35 +125,27 @@ class MainDashboard
     public function getSalesComparaisonCurrentMonthByDay(string $network = 'global'): array
     {
         try {
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_SALES_DAILY');
 
-            $j_1   = new \DateTime('yesterday');
-            $year  = (int) $j_1->format('Y');
-            $month = (int) $j_1->format('n');
-            $day   = (int) $j_1->format('j');
+            $j_1      = new \DateTime('yesterday');
+            $year     = (int) $j_1->format('Y');
+            $month    = (int) $j_1->format('n');
+            $day      = (int) $j_1->format('j');
             $year_n_1 = $year - 1;
 
             $query = "
             SELECT
                 jour,
-                SUM(CASE
-                        WHEN annee = {$year}
-                        THEN ca ELSE 0
-                    END) AS ca_n,
-
-                SUM(CASE
-                        WHEN annee = {$year_n_1}
-                        THEN ca ELSE 0
-                    END) AS ca_n_1
-
-            FROM MASTER_TABLES.INTRANET_SALES_DAILY
+                SUM(CASE WHEN annee = {$year}     THEN ca ELSE 0 END) AS ca_n,
+                SUM(CASE WHEN annee = {$year_n_1} THEN ca ELSE 0 END) AS ca_n_1
+            FROM {$table}
             WHERE mois = {$month}
               AND jour <= {$day}
               AND annee IN ({$year}, {$year_n_1})
               {$networkWhere}
             GROUP BY jour
-            ORDER BY jour;
-        ";
+            ORDER BY jour;";
 
             return $this->mssqlMade2design->executeQuery($query);
 
@@ -155,7 +159,8 @@ class MainDashboard
     public function getSalesComparaisonCurrentMonth(string $network = 'global'): array
     {
         try {
-            $networkWhere = $this->buildMainNetworkWhereClause($network, 'd.mainnetwork');
+            $networkWhere = $this->buildNetworkWhereClause($network, 'd.mainnetwork', 'd.reportingdimension');
+            $table        = $this->table('INTRANET_SALES_DAILY');
 
             $j_1     = (new \DateTime('yesterday'))->format('Y-m-d');
             $j_1_n_1 = (new \DateTime('yesterday -1 year'))->format('Y-m-d');
@@ -190,11 +195,10 @@ class MainDashboard
                     END
                 , 2) AS variation_pourcent
 
-            FROM MASTER_TABLES.INTRANET_SALES_DAILY d
+            FROM {$table} d
             CROSS JOIN bornes b
             WHERE 1 = 1
-            {$networkWhere};
-        ";
+            {$networkWhere};";
 
             return $this->mssqlMade2design->executeQuery($query);
 
@@ -208,14 +212,14 @@ class MainDashboard
     public function getTopClients(string $network = 'global'): array
     {
         try {
-            $params = [];
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_SALES_AGG_YEAR');
 
             $query = "
             SELECT TOP 10
                 customer_name as CustomerName,
                 SUM(ca) AS TotalCA_EUR
-            FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
+            FROM {$table}
             WHERE annee = YEAR(GETDATE())
             {$networkWhere}
             GROUP BY customer_name
@@ -233,8 +237,8 @@ class MainDashboard
     public function getTopFamilySales(string $network = 'global'): array
     {
         try {
-            $params = [];
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_SALES_AGG_YEAR');
 
             $query = "SELECT
                     CASE
@@ -243,7 +247,7 @@ class MainDashboard
                         WHEN item_family_code = 'HDW' THEN 'HARDWARE'
                     END AS ItemFamilyCode,
                     SUM(ca) AS TotalSales
-                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
+                FROM {$table}
                 WHERE annee = YEAR(GETDATE())
                 {$networkWhere}
                 GROUP BY item_family_code
@@ -261,14 +265,14 @@ class MainDashboard
     public function getTopProductsBySales(string $network = 'global'): array
     {
         try {
-            $params = [];
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_SALES_AGG_YEAR');
 
             $query = "SELECT TOP 5
                     item_no as ItemNo,
                     item_description as ItemDescription,
                     SUM(ca) AS TotalSales
-                FROM MASTER_TABLES.INTRANET_SALES_AGG_YEAR
+                FROM {$table}
                 WHERE annee = YEAR(GETDATE())
                 {$networkWhere}
                 GROUP BY item_no, item_description
@@ -278,23 +282,19 @@ class MainDashboard
 
             $out = [];
             foreach ($rows as $r) {
-                $itemNo = trim((string)($r->ItemNo ?? ''));
+                $itemNo = trim((string) ($r->ItemNo ?? ''));
                 if ($itemNo === '') {
                     continue;
                 }
 
-                // Extraction de l'article "base" (avant le premier _) pour les URLs lecoqsportif.com
-                // Ex: "2520908_BR" → "2520908"
-                $articleParts = explode('_', $itemNo);
-                $articleBase = $articleParts[0] ?? $itemNo;
-
-                $safeArticleBase = rawurlencode($articleBase);
+                $articleBase      = explode('_', $itemNo)[0] ?? $itemNo;
+                $safeArticleBase  = rawurlencode($articleBase);
 
                 $out[] = [
                     'image' => "https://www.lecoqsportif.com/cdn/shop/files/{$safeArticleBase}_2.jpg",
                     'code'  => $itemNo,
-                    'label' => (string)($r->ItemDescription ?? ''),
-                    'value' => (float)($r->TotalSales ?? 0),
+                    'label' => (string) ($r->ItemDescription ?? ''),
+                    'value' => (float)  ($r->TotalSales      ?? 0),
                 ];
             }
 
@@ -310,14 +310,14 @@ class MainDashboard
     public function getMonthlySalesEvolutionLast5Years(string $network = 'global'): array
     {
         try {
-            $params = [];
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_SALES_AGG_MONTH');
 
             $query = "SELECT
                     annee,
                     mois,
                     SUM(ca) as ca_mensuel
-                FROM MASTER_TABLES.INTRANET_SALES_AGG_MONTH
+                FROM {$table}
                 WHERE 1 = 1
                 {$networkWhere}
                 GROUP BY annee, mois
@@ -335,7 +335,8 @@ class MainDashboard
     public function getSalesOfToday(string $network = 'global'): ?float
     {
         try {
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_SALES_DAILY');
 
             $j_1     = (new \DateTime('yesterday'))->format('Y-m-d');
             $j_1_n_1 = (new \DateTime('yesterday -1 year'))->format('Y-m-d');
@@ -356,10 +357,9 @@ class MainDashboard
                         THEN ca ELSE 0
                     END) AS ca_n_1_j_1
 
-            FROM MASTER_TABLES.INTRANET_SALES_DAILY
+            FROM {$table}
             WHERE 1 = 1
-            {$networkWhere}
-        ";
+            {$networkWhere}";
 
             $result = $this->mssqlMade2design->executeQuery($query);
 
@@ -375,14 +375,16 @@ class MainDashboard
     public function getBacklogClientDonut(string $network = 'global'): array
     {
         try {
-            $networkWhere = $this->buildMainNetworkWhereClause($network);
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_BACKLOG_CLI');
+
             $query = "
             SELECT
                 retard,
                 SUM(quantite) AS quantite,
                 SUM(montant_ht_eur) AS montant
-            FROM MASTER_TABLES.INTRANET_BACKLOG_CLI
-            where 1 = 1
+            FROM {$table}
+            WHERE 1 = 1
             {$networkWhere}
             GROUP BY retard
             ORDER BY
@@ -390,67 +392,56 @@ class MainDashboard
                     WHEN 'MOIS' THEN 1
                     WHEN 'MOIS + 1' THEN 2
                     ELSE 3
-                END
-        ";
+                END";
 
             $results = $this->mssqlMade2design->executeQuery($query);
 
-            $labels = [];
-            $values = [];
+            $labels     = [];
+            $values     = [];
             $quantities = [];
 
             foreach ($results as $row) {
-                $labels[] = $row->retard;
-                $values[] = (float)$row->montant;
-                $quantities[] = (float)$row->quantite;
+                $labels[]     = $row->retard;
+                $values[]     = (float) $row->montant;
+                $quantities[] = (float) $row->quantite;
             }
 
             return [
-                'labels' => $labels,
-                'values' => $values,
-                'quantities' => $quantities
+                'labels'     => $labels,
+                'values'     => $values,
+                'quantities' => $quantities,
             ];
 
         } catch (\Exception $e) {
-
             $this->graphMailer->notifyError('❌ Dashboard : Backlog client donut', $e);
-
-            $this->logger->error('Erreur backlog client donut', [
-                'exception' => $e
-            ]);
-
-            return [
-                'labels' => [],
-                'values' => [],
-                'quantities' => []
-            ];
+            $this->logger->error('Erreur backlog client donut', ['exception' => $e]);
+            return ['labels' => [], 'values' => [], 'quantities' => []];
         }
     }
 
     public function refreshSalesAggMonth(): int
     {
         try {
+            $table = $this->table('INTRANET_SALES_AGG_MONTH');
 
-            // 1️⃣ suppression des anciennes données
-            $deleteQuery = "DELETE FROM [MASTER_TABLES].[INTRANET_SALES_AGG_MONTH]";
-            $this->mssqlMade2design->executeDelete($deleteQuery);
+            $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
-            // 2️⃣ recalcul des données
             $insertQuery = "
-        INSERT INTO [MASTER_TABLES].[INTRANET_SALES_AGG_MONTH] (annee, mois, mainnetwork, ca)
+        INSERT INTO {$table} (annee, mois, mainnetwork, reportingdimension, ca)
 
         SELECT
-            YEAR(I.DOCUMENTPOSTINGDATE) AS annee,
+            YEAR(I.DOCUMENTPOSTINGDATE)  AS annee,
             MONTH(I.DOCUMENTPOSTINGDATE) AS mois,
-            CUST.MAINNETWORK AS mainnetwork,
-            SUM(I.AMOUNTEURTM) AS ca
+            CUST.MAINNETWORK             AS mainnetwork,
+            CUST.REPORTINGDIMENSION      AS reportingdimension,
+            SUM(I.AMOUNTEURTM)           AS ca
         FROM SEI_X3_LCS.CONSO_INVOICES I
         LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
-            ON I.ITEMNO = C.ITEM_ID
+            ON  I.ITEMNO   = C.ITEM_ID
             AND I.SERIESNO = C.SERIESCODE
         LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
-            ON I.COMPANYCODE = CUST.COMPANY_ID
-            AND I.CUSTOMERNO = CUST.CUSTOMER_ID
+            ON  I.COMPANYCODE = CUST.COMPANY_ID
+            AND I.CUSTOMERNO  = CUST.CUSTOMER_ID
         WHERE
             I.ISBOHPERIMETERPRODUCT = 1
             AND (I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO') OR (I.DOCUMENTTYPE IN ('ORDER') AND I.ORDERSTATUS = 3 AND I.DLVQTY > 0))
@@ -461,23 +452,14 @@ class MainDashboard
         GROUP BY
             YEAR(I.DOCUMENTPOSTINGDATE),
             MONTH(I.DOCUMENTPOSTINGDATE),
-            CUST.MAINNETWORK;
-                ";
+            CUST.MAINNETWORK,
+            CUST.REPORTINGDIMENSION;";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
         } catch (\Exception $e) {
-
-            $this->graphMailer->notifyError(
-                '❌ Erreur recalcul cube ventes intranet',
-                $e
-            );
-
-            $this->logger->error(
-                'Erreur recalcul cube ventes intranet',
-                ['exception' => $e]
-            );
-
+            $this->graphMailer->notifyError('❌ Erreur recalcul cube ventes intranet', $e);
+            $this->logger->error('Erreur recalcul cube ventes intranet', ['exception' => $e]);
             return 0;
         }
     }
@@ -485,14 +467,12 @@ class MainDashboard
     public function refreshSalesAggMonthClient(): int
     {
         try {
+            $table = $this->table('INTRANET_SALES_AGG_YEAR');
 
-            // suppression
-            $deleteQuery = "DELETE FROM [MASTER_TABLES].[INTRANET_SALES_AGG_YEAR]";
-            $this->mssqlMade2design->executeDelete($deleteQuery);
+            $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
-            // insertion
             $insertQuery = "
-        INSERT INTO [MASTER_TABLES].[INTRANET_SALES_AGG_YEAR] (
+        INSERT INTO {$table} (
             annee,
             customer_no,
             customer_name,
@@ -500,7 +480,8 @@ class MainDashboard
             item_no,
             item_description,
             ca,
-            mainnetwork
+            mainnetwork,
+            reportingdimension
         )
 
         SELECT
@@ -510,17 +491,18 @@ class MainDashboard
             COLL.ITEMFAMILYCODE,
             I.ITEMNO,
             COLL.ITEMDESC,
-            SUM(I.AMOUNTEURTM) AS ca,
-            CUST.MAINNETWORK AS mainnetwork
+            SUM(I.AMOUNTEURTM)          AS ca,
+            CUST.MAINNETWORK            AS mainnetwork,
+            CUST.REPORTINGDIMENSION     AS reportingdimension
 
         FROM SEI_X3_LCS.CONSO_INVOICES I
 
         LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
-            ON I.COMPANYCODE = CUST.COMPANY_ID
-            AND I.CUSTOMERNO = CUST.CUSTOMER_ID
+            ON  I.COMPANYCODE = CUST.COMPANY_ID
+            AND I.CUSTOMERNO  = CUST.CUSTOMER_ID
 
         LEFT JOIN SEI_X3_LCS.LCS_COLLECTION COLL
-            ON I.ITEMNO = COLL.ITEM_ID
+            ON  I.ITEMNO   = COLL.ITEM_ID
             AND I.SERIESNO = COLL.SERIESCODE
 
         WHERE
@@ -528,7 +510,7 @@ class MainDashboard
             AND (I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO') OR (I.DOCUMENTTYPE IN ('ORDER') AND I.ORDERSTATUS = 3 AND I.DLVQTY > 0))
             AND COLL.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
             AND I.COMPANYCODE = 'LCSI'
-            AND I.DOCUMENTPOSTINGDATE >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
+            AND I.DOCUMENTPOSTINGDATE >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
             AND CUST.MAINNETWORK IS NOT NULL
 
         GROUP BY
@@ -538,23 +520,14 @@ class MainDashboard
             COLL.ITEMFAMILYCODE,
             I.ITEMNO,
             COLL.ITEMDESC,
-            CUST.MAINNETWORK
-        ";
+            CUST.MAINNETWORK,
+            CUST.REPORTINGDIMENSION;";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
         } catch (\Exception $e) {
-
-            $this->graphMailer->notifyError(
-                '❌ Erreur recalcul cube ventes client',
-                $e
-            );
-
-            $this->logger->error(
-                'Erreur recalcul cube ventes client',
-                ['exception' => $e]
-            );
-
+            $this->graphMailer->notifyError('❌ Erreur recalcul cube ventes client', $e);
+            $this->logger->error('Erreur recalcul cube ventes client', ['exception' => $e]);
             return 0;
         }
     }
@@ -562,39 +535,31 @@ class MainDashboard
     public function refreshSalesDaily(): int
     {
         try {
+            $table = $this->table('INTRANET_SALES_DAILY');
 
-            // suppression
-            $deleteQuery = "DELETE FROM MASTER_TABLES.INTRANET_SALES_DAILY";
-            $this->mssqlMade2design->executeDelete($deleteQuery);
+            $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
-            // insertion
             $insertQuery = "
-        INSERT INTO MASTER_TABLES.INTRANET_SALES_DAILY (
-            date,
-            annee,
-            mois,
-            jour,
-            ca,
-            mainnetwork
-        )
+        INSERT INTO {$table} (date, annee, mois, jour, ca, mainnetwork, reportingdimension)
 
         SELECT
             CAST(I.DOCUMENTPOSTINGDATE AS DATE) AS [date],
-            YEAR(I.DOCUMENTPOSTINGDATE) AS annee,
-            MONTH(I.DOCUMENTPOSTINGDATE) AS mois,
-            DAY(I.DOCUMENTPOSTINGDATE) AS jour,
-            SUM(I.AMOUNTEURTM) AS ca,
-            CUST.MAINNETWORK
+            YEAR(I.DOCUMENTPOSTINGDATE)         AS annee,
+            MONTH(I.DOCUMENTPOSTINGDATE)        AS mois,
+            DAY(I.DOCUMENTPOSTINGDATE)          AS jour,
+            SUM(I.AMOUNTEURTM)                  AS ca,
+            CUST.MAINNETWORK,
+            CUST.REPORTINGDIMENSION
 
         FROM SEI_X3_LCS.CONSO_INVOICES I
 
         LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
-            ON I.ITEMNO = C.ITEM_ID
+            ON  I.ITEMNO   = C.ITEM_ID
             AND I.SERIESNO = C.SERIESCODE
 
         LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
-    ON I.COMPANYCODE = CUST.COMPANY_ID
-    AND I.CUSTOMERNO = CUST.CUSTOMER_ID
+            ON  I.COMPANYCODE = CUST.COMPANY_ID
+            AND I.CUSTOMERNO  = CUST.CUSTOMER_ID
 
         WHERE
             I.ISBOHPERIMETERPRODUCT = 1
@@ -609,25 +574,16 @@ class MainDashboard
             YEAR(I.DOCUMENTPOSTINGDATE),
             MONTH(I.DOCUMENTPOSTINGDATE),
             DAY(I.DOCUMENTPOSTINGDATE),
-            CUST.MAINNETWORK
+            CUST.MAINNETWORK,
+            CUST.REPORTINGDIMENSION
 
-        ORDER BY [date]
-        ";
+        ORDER BY [date];";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
         } catch (\Exception $e) {
-
-            $this->graphMailer->notifyError(
-                '❌ Erreur recalcul cube ventes daily',
-                $e
-            );
-
-            $this->logger->error(
-                'Erreur recalcul cube ventes daily',
-                ['exception' => $e]
-            );
-
+            $this->graphMailer->notifyError('❌ Erreur recalcul cube ventes daily', $e);
+            $this->logger->error('Erreur recalcul cube ventes daily', ['exception' => $e]);
             return 0;
         }
     }
@@ -635,32 +591,27 @@ class MainDashboard
     public function refreshBacklogClient(): int
     {
         try {
+            $table = $this->table('INTRANET_BACKLOG_CLI');
 
-            // suppression
-            $deleteQuery = "DELETE FROM MASTER_TABLES.INTRANET_BACKLOG_CLI";
-            $this->mssqlMade2design->executeDelete($deleteQuery);
+            $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
-            // insertion
             $insertQuery = "
-        INSERT INTO MASTER_TABLES.INTRANET_BACKLOG_CLI (
-            retard,
-            quantite,
-            montant_ht_eur,
-            date_refresh,
-            mainnetwork
-        )
+        INSERT INTO {$table} (retard, quantite, montant_ht_eur, date_refresh, mainnetwork, reportingdimension)
+
         SELECT
             retard,
-            SUM(OUT_Quantity) AS quantite,
-            SUM(OUT_AmountEur) AS montant_ht_eur,
-            getdate(),
-            mainnetwork
+            SUM(OUT_Quantity)   AS quantite,
+            SUM(OUT_AmountEur)  AS montant_ht_eur,
+            GETDATE(),
+            mainnetwork,
+            reportingdimension
         FROM (
             SELECT
                 s.OUT_Quantity,
                 s.OUT_AmountEur,
                 s.CustomerNo,
-                CUST.MAINNETWORK as mainnetwork,
+                CUST.MAINNETWORK        AS mainnetwork,
+                CUST.REPORTINGDIMENSION AS reportingdimension,
 
                 CASE
                     WHEN o.RequestedDeliveryDate_L <= EOMONTH(GETDATE()) THEN 'MOIS'
@@ -672,38 +623,28 @@ class MainDashboard
             FROM DWH_LCS.F_Sales s
 
             LEFT JOIN DWH_LCS.F_Sales_Orders o
-                ON s.OrderDocumentNo = o.OrderDocumentNo
-                AND s.CompanyCode = o.CompanyCode
-                AND s.OrderDocumentLineNo = o.OrderDocumentLineNo
-                AND s.VariantCode = o.VariantCode
+                ON  s.OrderDocumentNo      = o.OrderDocumentNo
+                AND s.CompanyCode          = o.CompanyCode
+                AND s.OrderDocumentLineNo  = o.OrderDocumentLineNo
+                AND s.VariantCode          = o.VariantCode
 
             LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
-    ON s.CompanyCode = CUST.COMPANY_ID
-    AND s.CustomerNo = CUST.CUSTOMER_ID
+                ON  s.CompanyCode = CUST.COMPANY_ID
+                AND s.CustomerNo  = CUST.CUSTOMER_ID
 
             WHERE s.CompanyCode = 'LCSI BV'
               AND s.OUT_Quantity <> 0
               AND s.IsBohPerimeter = 1
               AND s.LocationCode IN ('DIRECT', 'DT-WHS-TH', 'LOGTXM-1', 'SF-WHS-CN1')
               AND s.SalesOrderType IN ('CO', 'OP', 'PS', 'RE')
-            ) t
-        GROUP BY retard, mainnetwork
-        ";
+        ) t
+        GROUP BY retard, mainnetwork, reportingdimension;";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
         } catch (\Exception $e) {
-
-            $this->graphMailer->notifyError(
-                '❌ Erreur recalcul cube backlog client',
-                $e
-            );
-
-            $this->logger->error(
-                'Erreur recalcul cube backlog client',
-                ['exception' => $e]
-            );
-
+            $this->graphMailer->notifyError('❌ Erreur recalcul cube backlog client', $e);
+            $this->logger->error('Erreur recalcul cube backlog client', ['exception' => $e]);
             return 0;
         }
     }
@@ -711,10 +652,10 @@ class MainDashboard
     public function refreshAllSalesCubes(): array
     {
         return [
-            'Cube CA mensuel' => $this->refreshSalesAggMonth(),
+            'Cube CA mensuel'          => $this->refreshSalesAggMonth(),
             'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
             'Cube ventes journalières' => $this->refreshSalesDaily(),
-            'Cube backlog client' => $this->refreshBacklogClient(),
+            'Cube backlog client'      => $this->refreshBacklogClient(),
         ];
     }
 }

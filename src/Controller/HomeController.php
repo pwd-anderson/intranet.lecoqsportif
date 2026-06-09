@@ -26,7 +26,7 @@ final class HomeController extends AbstractController
     {
         $network = $request->query->get('network', 'global');
 
-        return in_array($network, ['global', 'boutique', 'ecom'], true)
+        return in_array($network, ['global', 'boutique', 'ecom', 'wholesale_fr', 'wholesale_eu', 'wholesale_int'], true)
             ? $network
             : 'global';
     }
