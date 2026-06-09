@@ -47,6 +47,7 @@ sidebar:
           commandes_bp_sans_livraison: "Commandes avec BP sans livraison"
           commandes_non_soldees_par_date: "Suivi des commandes non soldées"
           sell_in_suivi_ps: "Sell-In : Suivi PS"
+          ventes_qte_ca_client: "Ventes par Client"
       management:
           ca_marges: "CA Marges"
       stock:

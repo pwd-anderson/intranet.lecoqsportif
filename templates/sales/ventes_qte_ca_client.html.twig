@@ -1,0 +1,306 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input { color: #000000 !important; }
+
+        .grid-wrapper { position: relative; min-height: 600px; }
+
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        .grid-loader-bar-track { height: 8px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
+        .grid-loader-bar-fill { height: 100%; width: 0%; background: #024185; border-radius: 99px; transition: width 0.3s ease; }
+        .grid-loader-percent-text { font-size: 13px; color: #024185; font-weight: 600; margin-top: 6px; }
+
+        .grid-actions-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
+        .grid-actions-visible { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 0.2s ease-in-out; }
+
+        /* Couleurs des en-têtes de groupe (mois) */
+        .ag-theme-alpine .ag-header-group-cell.month-grp-01 { background-color: #f28b82 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-02 { background-color: #f9b4a4 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-03 { background-color: #c8a8e4 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-04 { background-color: #b090d0 !important; color: #ffffff !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-05 { background-color: #a8c8e8 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-06 { background-color: #70b8e0 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-07 { background-color: #f0c060 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-08 { background-color: #e89060 !important; color: #ffffff !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-09 { background-color: #90c878 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-10 { background-color: #60a860 !important; color: #ffffff !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-11 { background-color: #d080c0 !important; color: #ffffff !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-12 { background-color: #5880c8 !important; color: #ffffff !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.month-grp-total { background-color: #006064 !important; color: #ffffff !important; font-weight: 700; }
+
+        .client-link { color: #dc3545; text-decoration: none; font-weight: 500; }
+        .client-link:hover { text-decoration: underline; }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <h3 class="box-title mb-0">{{ title }}</h3>
+
+                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                            <label class="mb-0 me-1 small text-muted">Année :</label>
+                            <select id="yearSelect" class="form-select form-select-sm" style="width: 100px;"></select>
+                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                    <div class="box-body pt-2">
+                        <div id="myGridWrapper" class="grid-wrapper">
+                            <div id="gridCustomLoader" class="grid-custom-loader">
+                                <div class="grid-loader-spinner"></div>
+                                <div class="grid-loader-text">Chargement...</div>
+                                <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                    <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                </div>
+                                <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                            </div>
+                            <div id="ventesQteCaClientGrid" class="ag-theme-alpine" style="height: 75vh; width: 100%; visibility: hidden;"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.9"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const GRID_SELECTOR  = '#ventesQteCaClientGrid';
+            const DATA_URL       = '{{ dataUrl }}';
+            const CLIENT_DETAIL  = '{{ clientDetailUrl }}';
+            const CURRENT_YEAR   = {{ currentYear }};
+            const STATE_KEY      = 'aggrid-state-ventes-qte-ca-client-user-{{ app.user.id|default("local") }}-v1';
+            let   selectedYear   = CURRENT_YEAR;
+
+            const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
+
+            const MONTHS = [
+                { key: '01', name: 'JAN.' },
+                { key: '02', name: 'FÉV.' },
+                { key: '03', name: 'MARS' },
+                { key: '04', name: 'AVR.' },
+                { key: '05', name: 'MAI'  },
+                { key: '06', name: 'JUIN' },
+                { key: '07', name: 'JUIL.' },
+                { key: '08', name: 'AOÛT' },
+                { key: '09', name: 'SEP.' },
+                { key: '10', name: 'OCT.' },
+                { key: '11', name: 'NOV.' },
+                { key: '12', name: 'DÉC.' },
+            ];
+
+            function cellStyleText() {
+                return { borderRight: '0.2px solid #CECECEFF', borderBottom: '0.2px solid #CECECEFF', textAlign: 'left' };
+            }
+
+            function cellStyleNum() {
+                return { borderRight: '0.2px solid #CECECEFF', borderBottom: '0.2px solid #CECECEFF', textAlign: 'right' };
+            }
+
+            function buildTotalColumns() {
+                const cols = [];
+                MONTHS.forEach(function (m) {
+                    cols.push('CA_'  + m.key);
+                    cols.push('QTE_' + m.key);
+                });
+                cols.push('CA_TOTAL');
+                cols.push('QTE_TOTAL');
+                return cols;
+            }
+
+            function buildColumnDefs() {
+                const fixed = [
+                    {
+                        field: 'PAYS',
+                        headerName: 'PAYS',
+                        pinned: 'left',
+                        minWidth: 110,
+                        maxWidth: 150,
+                        filter: 'agTextColumnFilter',
+                        cellStyle: cellStyleText,
+                    },
+                    {
+                        field: 'CLIENT',
+                        headerName: 'CLIENT',
+                        pinned: 'left',
+                        minWidth: 230,
+                        filter: 'agTextColumnFilter',
+                        cellStyle: cellStyleText,
+                        cellRenderer: function (params) {
+                            if (params.node.rowPinned || !params.value) {
+                                return params.value || '';
+                            }
+                            if (!CLIENT_DETAIL) {
+                                return `<span style="color:#dc3545;font-weight:500;">${params.value}</span>`;
+                            }
+                            const url = `${CLIENT_DETAIL}?client=${encodeURIComponent(params.data.CLIENT)}&year=${selectedYear}`;
+                            return `<a href="${url}" class="client-link" target="_blank" rel="noopener noreferrer">${params.value}</a>`;
+                        },
+                    },
+                ];
+
+                const monthGroups = MONTHS.map(function (m) {
+                    return {
+                        headerName: m.name,
+                        headerClass: 'month-grp-' + m.key,
+                        marryChildren: true,
+                        children: [
+                            {
+                                field: 'CA_' + m.key,
+                                headerName: 'CA',
+                                minWidth: 120,
+                                filter: 'agNumberColumnFilter',
+                                valueFormatter: window.decimalFormatter,
+                                comparator: window.decimalComparator,
+                                cellStyle: cellStyleNum,
+                                cellDataType: false,
+                            },
+                            {
+                                field: 'QTE_' + m.key,
+                                headerName: 'QTE',
+                                minWidth: 95,
+                                filter: 'agNumberColumnFilter',
+                                valueFormatter: window.integerFormatter,
+                                comparator: window.integerComparator,
+                                cellStyle: cellStyleNum,
+                                cellDataType: false,
+                            },
+                        ],
+                    };
+                });
+
+                const totalGroup = {
+                    headerName: 'TOTAL',
+                    headerClass: 'month-grp-total',
+                    marryChildren: true,
+                    children: [
+                        {
+                            field: 'CA_TOTAL',
+                            headerName: 'CA',
+                            minWidth: 130,
+                            filter: 'agNumberColumnFilter',
+                            valueFormatter: window.decimalFormatter,
+                            comparator: window.decimalComparator,
+                            cellStyle: cellStyleNum,
+                            cellDataType: false,
+                        },
+                        {
+                            field: 'QTE_TOTAL',
+                            headerName: 'QTE',
+                            minWidth: 100,
+                            filter: 'agNumberColumnFilter',
+                            valueFormatter: window.integerFormatter,
+                            comparator: window.integerComparator,
+                            cellStyle: cellStyleNum,
+                            cellDataType: false,
+                        },
+                    ],
+                };
+
+                return [...fixed, ...monthGroups, totalGroup];
+            }
+
+            const gridOptions = window.AgGridCommon.initGrid(GRID_SELECTOR, {
+                columnDefs: buildColumnDefs(),
+                dataUrl: null,
+                numericColumns: [],
+                integerColumns: [],
+                totalColumns: [],
+            });
+
+            gridOptions.api.addEventListener('filterChanged', function () {
+                window.AgGridCommon.updateTotals(gridOptions, buildTotalColumns());
+            });
+            gridOptions.api.addEventListener('sortChanged', function () {
+                window.AgGridCommon.updateTotals(gridOptions, buildTotalColumns());
+            });
+
+            function loadGrid(year) {
+                selectedYear = year;
+
+                window.AgGridCommon.hideGridActions();
+                window.AgGridCommon.showGridLoader(GRID_SELECTOR);
+
+                fetch(`${DATA_URL}?year=${year}`)
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        gridOptions.api.setRowData(data);
+                        window.AgGridCommon.loadGridState(gridOptions, STATE_KEY);
+                        window.AgGridCommon.updateTotals(gridOptions, buildTotalColumns());
+                        window.AgGridCommon.hideGridLoader(GRID_SELECTOR);
+                        window.AgGridCommon.showGridActions();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        gridOptions.api.setRowData([]);
+                        window.AgGridCommon.hideGridLoader(GRID_SELECTOR);
+                        window.AgGridCommon.showGridActions();
+                    });
+            }
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.saveGridState(gridOptions, STATE_KEY);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.clearGridState(STATE_KEY);
+                location.reload();
+            });
+
+            document.getElementById('exportBtn').addEventListener('click', async function () {
+                await ExcelExportStandard.export(gridOptions, 'ventes_par_client.xlsx');
+            });
+
+            window.dorpDownSelect('#yearSelect', 2020, CURRENT_YEAR, function (year) {
+                loadGrid(parseInt(year, 10));
+            });
+
+            loadGrid(CURRENT_YEAR);
+        });
+    </script>
+{% endblock %}

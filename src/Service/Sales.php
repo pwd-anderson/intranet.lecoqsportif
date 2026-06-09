@@ -533,6 +533,121 @@ class Sales
         }
     }
 
+    public function getVentesQteCaClient(int $year): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/ventes_qte_ca_client.sql');
+            $query = str_replace('{{YEAR}}', (string) $year, $query);
+            $rows  = $this->mssqlSei->executeQuery($query);
+
+            $pivoted = [];
+
+            foreach ($rows as $row) {
+                $pays   = (string) ($row->COUNTRYCODE ?? '');
+                $client = (string) ($row->CLIENT      ?? '');
+                $key    = $pays . '||' . $client;
+
+                if (!isset($pivoted[$key])) {
+                    $pivoted[$key] = [
+                        'PAYS'   => $pays,
+                        'CLIENT' => $client,
+                    ];
+                    for ($m = 1; $m <= 12; $m++) {
+                        $pad = str_pad((string) $m, 2, '0', STR_PAD_LEFT);
+                        $pivoted[$key]['CA_'  . $pad] = 0.0;
+                        $pivoted[$key]['QTE_' . $pad] = 0;
+                    }
+                }
+
+                $pad = str_pad((string) ((int) ($row->MOIS ?? 1)), 2, '0', STR_PAD_LEFT);
+                $pivoted[$key]['CA_'  . $pad] += round((float) ($row->CA       ?? 0), 2);
+                $pivoted[$key]['QTE_' . $pad] += (int)          ($row->QUANTITE ?? 0);
+            }
+
+            foreach ($pivoted as &$row) {
+                $caTotal = 0.0; $qteTotal = 0;
+                for ($m = 1; $m <= 12; $m++) {
+                    $pad = str_pad((string) $m, 2, '0', STR_PAD_LEFT);
+                    $caTotal  += $row['CA_'  . $pad];
+                    $qteTotal += $row['QTE_' . $pad];
+                }
+                $row['CA_TOTAL']  = round($caTotal, 2);
+                $row['QTE_TOTAL'] = $qteTotal;
+            }
+            unset($row);
+
+            $result = array_values($pivoted);
+            usort($result, fn($a, $b) =>
+                ($a['PAYS'] <=> $b['PAYS']) ?: ($a['CLIENT'] <=> $b['CLIENT'])
+            );
+
+            return $result;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : QTE/CA par Client', $e);
+            $this->logger->error('LCS Erreur Sales : QTE/CA par Client', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    public function getVentesQteCaArticle(int $year, string $client): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/ventes_qte_ca_article.sql');
+            $query = str_replace('{{YEAR}}',   (string) $year, $query);
+            $query = str_replace('{{CLIENT}}', str_replace("'", "''", $client), $query);
+            $rows  = $this->mssqlSei->executeQuery($query);
+
+            $pivoted = [];
+
+            foreach ($rows as $row) {
+                $famille = (string) ($row->FAMILLE      ?? '');
+                $article = (string) ($row->CODE_ARTICLE ?? '');
+                $key     = $famille . '||' . $article;
+
+                if (!isset($pivoted[$key])) {
+                    $pivoted[$key] = [
+                        'FAMILLE'      => $famille,
+                        'CODE_ARTICLE' => $article,
+                    ];
+                    for ($m = 1; $m <= 12; $m++) {
+                        $pad = str_pad((string) $m, 2, '0', STR_PAD_LEFT);
+                        $pivoted[$key]['CA_'  . $pad] = 0.0;
+                        $pivoted[$key]['QTE_' . $pad] = 0;
+                    }
+                }
+
+                $pad = str_pad((string) ((int) ($row->MOIS ?? 1)), 2, '0', STR_PAD_LEFT);
+                $pivoted[$key]['CA_'  . $pad] += round((float) ($row->CA       ?? 0), 2);
+                $pivoted[$key]['QTE_' . $pad] += (int)          ($row->QUANTITE ?? 0);
+            }
+
+            foreach ($pivoted as &$row) {
+                $caTotal = 0.0; $qteTotal = 0;
+                for ($m = 1; $m <= 12; $m++) {
+                    $pad = str_pad((string) $m, 2, '0', STR_PAD_LEFT);
+                    $caTotal  += $row['CA_'  . $pad];
+                    $qteTotal += $row['QTE_' . $pad];
+                }
+                $row['CA_TOTAL']  = round($caTotal, 2);
+                $row['QTE_TOTAL'] = $qteTotal;
+            }
+            unset($row);
+
+            $result = array_values($pivoted);
+            usort($result, fn($a, $b) =>
+                ($a['FAMILLE'] <=> $b['FAMILLE']) ?: ($a['CODE_ARTICLE'] <=> $b['CODE_ARTICLE'])
+            );
+
+            return $result;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : QTE/CA par Article', $e);
+            $this->logger->error('LCS Erreur Sales : QTE/CA par Article', ['exception' => $e]);
+            return [];
+        }
+    }
+
     public function getSellInSuiviPs(): array
     {
         try {
