@@ -37,8 +37,26 @@ function formatNumber(value, decimals = 0) {
     });
 }
 
-// Taux conversion
-function chargerConversionChart(path, targetSelectors, chartId, barColors) {
+// === Loader helpers ===
+
+function showBlockLoader(id) {
+    const el = document.getElementById('db-loader-' + id);
+    if (el) el.classList.remove('db-loader-hidden');
+}
+
+function hideBlockLoader(id) {
+    const el = document.getElementById('db-loader-' + id);
+    if (el) el.classList.add('db-loader-hidden');
+}
+
+function showDashboardLoaders() {
+    ['sales-year', 'sales-month', 'ca-jour', 'top-clients', 'top-family', 'top-products', 'backlog', 'evolution']
+        .forEach(showBlockLoader);
+}
+
+// === Taux conversion ===
+
+function chargerConversionChart(path, targetSelectors, chartId, barColors, loaderId) {
     $.getJSON(path, function (seriesData) {
         const tauxCourant = Number(seriesData?.taux_courant || 0);
         const evolution = Number(seriesData?.evolution_pourcent || 0);
@@ -57,7 +75,7 @@ function chargerConversionChart(path, targetSelectors, chartId, barColors) {
         $(targetSelectors.evolution).html(trendHtml);
 
         const el = destroyExistingChart(chartId);
-        if (!el) return;
+        if (!el) { hideBlockLoader(loaderId); return; }
 
         const labels = Array.isArray(seriesData?.labels) ? seriesData.labels : [];
         const positive = Array.isArray(seriesData?.positive) ? seriesData.positive : [];
@@ -121,12 +139,16 @@ function chargerConversionChart(path, targetSelectors, chartId, barColors) {
         const chart = new ApexCharts(el, chartOptions);
         chart.render();
         el._chart = chart;
+
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
 // === Fonctions de chargement de graphiques ===
 
-function renderSalesYearChart(apiUrl, caSelector, variationSelector, chartSelector) {
+function renderSalesYearChart(apiUrl, caSelector, variationSelector, chartSelector, loaderId) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (salesData) {
@@ -149,7 +171,7 @@ function renderSalesYearChart(apiUrl, caSelector, variationSelector, chartSelect
         $(variationSelector).html(variationHtml);
 
         const el = destroyExistingChart(chartSelector);
-        if (!el) return;
+        if (!el) { hideBlockLoader(loaderId); return; }
 
         const options = {
             chart: {
@@ -181,10 +203,14 @@ function renderSalesYearChart(apiUrl, caSelector, variationSelector, chartSelect
         const chart = new ApexCharts(el, options);
         chart.render();
         el._chart = chart;
+
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
-function renderSalesMonthChart(apiUrl, caSelector, variationSelector, chartSelector) {
+function renderSalesMonthChart(apiUrl, caSelector, variationSelector, chartSelector, loaderId) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (data) {
@@ -206,7 +232,7 @@ function renderSalesMonthChart(apiUrl, caSelector, variationSelector, chartSelec
         $(variationSelector).html(html);
 
         const el = destroyExistingChart(chartSelector);
-        if (!el) return;
+        if (!el) { hideBlockLoader(loaderId); return; }
 
         const options = {
             chart: {
@@ -257,21 +283,26 @@ function renderSalesMonthChart(apiUrl, caSelector, variationSelector, chartSelec
         const chart = new ApexCharts(el, options);
         chart.render();
         el._chart = chart;
+
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
-function renderTopClientsChart(apiUrl, selector) {
+function renderTopClientsChart(apiUrl, selector, loaderId) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (data) {
         const el = destroyExistingChart(selector);
-        if (!el) return;
+        if (!el) { hideBlockLoader(loaderId); return; }
 
         const labels = Array.isArray(data?.labels) ? data.labels : [];
         const values = Array.isArray(data?.data) ? data.data.map(v => Number(v || 0)) : [];
 
         if (labels.length === 0) {
             el.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
+            hideBlockLoader(loaderId);
             return;
         }
 
@@ -304,22 +335,27 @@ function renderTopClientsChart(apiUrl, selector) {
         const chart = new ApexCharts(el, options);
         chart.render();
         el._chart = chart;
+
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
-function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector) {
+function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector, loaderId) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
         const el = destroyExistingChart(chartSelector);
         const tableEl = document.querySelector(tableSelector);
 
-        if (!el || !tableEl) return;
+        if (!el || !tableEl) { hideBlockLoader(loaderId); return; }
 
         tableEl.innerHTML = '';
 
         if (!result || !Array.isArray(result.labels) || result.labels.length === 0) {
             el.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
+            hideBlockLoader(loaderId);
             return;
         }
 
@@ -366,20 +402,25 @@ function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector) {
         });
         html += '</tbody></table>';
         tableEl.innerHTML = html;
+
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
-function renderTopProductSalesChart(apiUrl, selector) {
+function renderTopProductSalesChart(apiUrl, selector, loaderId) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
         const el = document.querySelector(selector);
-        if (!el) return;
+        if (!el) { hideBlockLoader(loaderId); return; }
 
         el.innerHTML = '';
 
         if (!Array.isArray(result) || result.length === 0) {
             el.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
+            hideBlockLoader(loaderId);
             return;
         }
 
@@ -429,6 +470,10 @@ function renderTopProductSalesChart(apiUrl, selector) {
     </div>
 `;
         });
+
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
@@ -481,14 +526,14 @@ function injectImagesIntoYAxis(chartContext, data) {
     });
 }
 
-function renderSalesEvolutionChart(apiUrl, selector, legendSelector) {
+function renderSalesEvolutionChart(apiUrl, selector, legendSelector, loaderId) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (response) {
         const el = destroyExistingChart(selector);
         const legendEl = document.querySelector(legendSelector);
 
-        if (!el) return;
+        if (!el) { hideBlockLoader(loaderId); return; }
 
         const series = Array.isArray(response?.series) ? response.series : [];
         const categories = Array.isArray(response?.categories) ? response.categories : [];
@@ -499,6 +544,7 @@ function renderSalesEvolutionChart(apiUrl, selector, legendSelector) {
 
         if (series.length === 0) {
             el.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
+            hideBlockLoader(loaderId);
             return;
         }
 
@@ -552,10 +598,14 @@ function renderSalesEvolutionChart(apiUrl, selector, legendSelector) {
 
             legendEl.innerHTML = legendHtml;
         }
+
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
-function chargerCaJour(apiUrl) {
+function chargerCaJour(apiUrl, loaderId) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (data) {
@@ -565,22 +615,26 @@ function chargerCaJour(apiUrl) {
         } else {
             $('#ca-jour-kpi').text('—');
         }
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
-function renderBacklogClientChart(apiUrl, chartSelector, tableSelector) {
+function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, loaderId) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
         const chartEl = destroyExistingChart(chartSelector);
         const tableEl = document.querySelector(tableSelector);
 
-        if (!chartEl || !tableEl) return;
+        if (!chartEl || !tableEl) { hideBlockLoader(loaderId); return; }
 
         tableEl.innerHTML = '';
 
         if (!result || !Array.isArray(result.labels) || result.labels.length === 0) {
             chartEl.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
+            hideBlockLoader(loaderId);
             return;
         }
 
@@ -643,28 +697,36 @@ function renderBacklogClientChart(apiUrl, chartSelector, tableSelector) {
 
         html += '</tbody></table>';
         tableEl.innerHTML = html;
+
+        hideBlockLoader(loaderId);
+    }).fail(function () {
+        hideBlockLoader(loaderId);
     });
 }
 
 function loadDashboardData() {
+    showDashboardLoaders();
+
     renderSalesYearChart(
         window.dashboardRoutes.caParMois,
         '#ca_n',
         '#variation',
-        '#primary-line-chart'
+        '#primary-line-chart',
+        'sales-year'
     );
 
     renderSalesMonthChart(
         window.dashboardRoutes.salesCurrentMonth,
         '#ca_nm',
         '#variation_m',
-        '#warning-line-chart'
+        '#warning-line-chart',
+        'sales-month'
     );
 
-    renderTopClientsChart(window.dashboardRoutes.topClients, '#chart-top-clients');
-    renderTopCompanySalesChart(window.dashboardRoutes.topFamilySales, '#chart-top-family-sales', '#table-top-family-sales');
-    renderTopProductSalesChart(window.dashboardRoutes.topProductSales, '#chart-top-product-sales');
-    renderSalesEvolutionChart(window.dashboardRoutes.salesEvolution5y, '#userflow', '#apex-legend-sales');
-    chargerCaJour(window.dashboardRoutes.caToday);
-    renderBacklogClientChart(window.dashboardRoutes.backlogClient, '#chart-backlog-client', '#table-backlog-client');
+    renderTopClientsChart(window.dashboardRoutes.topClients, '#chart-top-clients', 'top-clients');
+    renderTopCompanySalesChart(window.dashboardRoutes.topFamilySales, '#chart-top-family-sales', '#table-top-family-sales', 'top-family');
+    renderTopProductSalesChart(window.dashboardRoutes.topProductSales, '#chart-top-product-sales', 'top-products');
+    renderSalesEvolutionChart(window.dashboardRoutes.salesEvolution5y, '#userflow', '#apex-legend-sales', 'evolution');
+    chargerCaJour(window.dashboardRoutes.caToday, 'ca-jour');
+    renderBacklogClientChart(window.dashboardRoutes.backlogClient, '#chart-backlog-client', '#table-backlog-client', 'backlog');
 }

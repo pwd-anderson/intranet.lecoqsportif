@@ -127,6 +127,37 @@
             margin-bottom: 2.8%;
         }
 
+        /* Dashboard block loaders */
+        .db-block { position: relative; overflow: hidden; }
+
+        .db-block-loader {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            border-radius: 4px;
+            transition: opacity 0.35s ease;
+        }
+
+        .db-block-loader.db-loader-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .db-loader-ring {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #024185;
+            border-radius: 50%;
+            animation: db-spin 0.75s linear infinite;
+        }
+
+        @keyframes db-spin { to { transform: rotate(360deg); } }
+
     </style>
 {% endblock %}
 
@@ -139,7 +170,8 @@
             <span id="trans_variation_month" data-text="{{ 'dashboard.variation_text_month'|trans }}"></span>
 
             <div class="col-lg-3 col-md-6">
-                <div class="box min-h-248-box">
+                <div class="box min-h-248-box db-block">
+                    <div class="db-block-loader" id="db-loader-conversion"><div class="db-loader-ring"></div></div>
                     <div class="box-body">
                         <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} :
                             <span class="fw-bold text-info">1 EUR = <span id="taux-eur-usd-text"></span> USD</span>
@@ -154,7 +186,8 @@
             </div>
             <!-- Blocs Ventes Année en cours -->
             <div class="col-lg-3 col-md-6">
-                <div class="box min-h-248-box">
+                <div class="box min-h-248-box db-block">
+                    <div class="db-block-loader" id="db-loader-sales-year"><div class="db-loader-ring"></div></div>
                     <div class="box-body">
                         <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("Y") }} <small>(EUR)</small></h6>
                         <div class="d-flex d-lg-block d-xl-flex align-items-end">
@@ -167,7 +200,8 @@
             </div>
             <!-- Blocs Mois en cours -->
             <div class="col-lg-3 col-md-6">
-                <div class="box min-h-248-box">
+                <div class="box min-h-248-box db-block">
+                    <div class="db-block-loader" id="db-loader-sales-month"><div class="db-loader-ring"></div></div>
                     <div class="box-body">
                         <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("m/Y") }} <small>(EUR)</small></h6>
                         <div class="d-flex d-lg-block d-xl-flex align-items-end">
@@ -181,7 +215,8 @@
 
             <!-- Blocs Jour -->
             <div class="col-lg-3 col-md-6">
-                <div class="box min-h-248-box">
+                <div class="box min-h-248-box db-block">
+                    <div class="db-block-loader" id="db-loader-ca-jour"><div class="db-loader-ring"></div></div>
                     <div class="box-body text-center" style="display: flex; flex-direction: column; justify-content: center;">
                         <div class="kpi-ca mb-1">
                             <p class="mb-1 fs-16 text-uppercase">CA du J-1 <small>(EUR)</small></p>
@@ -197,7 +232,8 @@
 
             <!-- TOP Client -->
             <div class="col-lg-4 col-md-6">
-                <div class="box min-h-box">
+                <div class="box min-h-box db-block">
+                    <div class="db-block-loader" id="db-loader-top-clients"><div class="db-loader-ring"></div></div>
                     <div class="box-body pt-10 pb-10">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="text-muted small">Top 10 Clients {{ "now"|date("Y") }}</span>
@@ -209,7 +245,8 @@
 
             <!-- CA par famille -->
             <div class="col-lg-4 col-md-6">
-                <div class="box min-h-box">
+                <div class="box min-h-box db-block">
+                    <div class="db-block-loader" id="db-loader-top-family"><div class="db-loader-ring"></div></div>
                     <div class="box-body text-center p-10">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par famille</span>
@@ -221,7 +258,8 @@
             </div>
 
             <div class="col-lg-4 col-md-6">
-                <div class="box min-h-box">
+                <div class="box min-h-box db-block">
+                    <div class="db-block-loader" id="db-loader-top-products"><div class="db-loader-ring"></div></div>
                     <div class="box-body">
                         <div class="d-flex justify-content-between align-items-center">
                 <span class="text-muted small">
@@ -235,7 +273,8 @@
             </div>
 
             <div class="col-lg-4 col-md-6">
-                <div class="box">
+                <div class="box db-block">
+                    <div class="db-block-loader" id="db-loader-backlog"><div class="db-loader-ring"></div></div>
                     <div class="box-body text-center p-10">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="text-muted small">Répartition backlog clients</span>
@@ -247,7 +286,8 @@
             </div>
 
             <div class="col-lg-8 col-md-6">
-                <div class="box">
+                <div class="box db-block">
+                    <div class="db-block-loader" id="db-loader-evolution"><div class="db-loader-ring"></div></div>
                     <div class="box-body">
                         <div class="d-flex justify-content-between align-items-center titre-evolution">
                             <span class="text-muted small">Évolution du CA sur 5 ans</span>
@@ -279,7 +319,7 @@
                 text: '#taux-eur-usd-text',
                 value: '#taux-eur-usd-val',
                 evolution: '#evolution-rate-eur-usd-text'
-            }, '#bar-negative-chart-eur-usd', ['#2e62b9', '#fad050']);
+            }, '#bar-negative-chart-eur-usd', ['#2e62b9', '#fad050'], 'conversion');
 
             window.dashboardRoutes = {
                 caParMois: '{{ path("api_dashboard_ca_par_mois") }}',
