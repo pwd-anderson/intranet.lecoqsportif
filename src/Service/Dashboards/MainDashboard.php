@@ -407,7 +407,7 @@ class MainDashboard
                 END,
                 SOH.CUR_0";
 
-            $rows = $this->mssqlLcs->executeQuery($query);
+            $rows = $this->mssqlMade2design->executeQuery($query);
 
             $taux = $this->divers->getExchangeRatesValues();
 
