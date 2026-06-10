@@ -441,14 +441,17 @@
 
                             const d = params.data || {};
 
-                            const priceLabel = d.GROUPE_TARIF || 'RRP';
+                            const priceLabel   = d.GROUPE_TARIF || 'RRP';
+                            const prixFormatted = d.PRIX != null && d.PRIX !== ''
+                                ? Number(d.PRIX).toLocaleString('fr-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                : '';
 
                             return `
                                 <div class="product-lines">
                                     <div><i>Article N°:</i> <strong>${d.ARTICLE ?? ''}</strong></div>
                                     <div><i>Gender:</i> <strong>${d.GENRE ?? ''}</strong></div>
                                     <div><i>Description:</i> <strong>${d.DESIGNATION_MODELE ?? ''}</strong></div>
-                                    <div><i>${priceLabel}:</i> <strong>${d.PRIX ?? ''} ${d.DEVISE ?? ''}</strong></div>
+                                    <div><i>${priceLabel}:</i> <strong>${prixFormatted} ${d.DEVISE ?? ''}</strong></div>
                                     <div><i>No series:</i> <strong>${d.COLLECTION ?? ''}</strong></div>
                                 </div>
                             `;
