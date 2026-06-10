@@ -3,7 +3,7 @@ WITH
     CollectionRecente AS (
         SELECT
             YIL.ITMREF_0,
-            YCO.YCOLLECT_0,
+            YIL.YCOLLECT_0,
             YCO.YDATDEB_0,
             ROW_NUMBER() OVER (
             PARTITION BY YIL.ITMREF_0
@@ -12,6 +12,10 @@ WITH
         FROM X3_LCS.YITMCOLLECT YIL
                  INNER JOIN X3_LCS.YCOLLECTION YCO
                             ON YIL.YCOLLECT_0 = YCO.YCOLLECT_0
+                 LEFT JOIN X3_LCS.ZITMCOL ITC
+                           ON ITC.ITMREF_0   = LEFT(YIL.ITMREF_0, CHARINDEX('_', YIL.ITMREF_0 + '_') - 1)
+    AND ITC.YCOLLECT_0 = YCO.YCOLLECT_0
+WHERE ISNULL(ITC.ZDROPPED_0, 0) <> 2
     )
 
 SELECT [SITE]
