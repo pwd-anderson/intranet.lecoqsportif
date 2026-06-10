@@ -447,9 +447,7 @@
                                 <div class="product-lines">
                                     <div><i>Article N°:</i> <strong>${d.ARTICLE ?? ''}</strong></div>
                                     <div><i>Gender:</i> <strong>${d.GENRE ?? ''}</strong></div>
-                                    <div><i>Age group:</i> <strong>${d.AGE_GROUP ?? ''}</strong></div>
-                                    <div><i>Item group:</i> <strong>${d.ITEM_GROUP ?? ''}</strong></div>
-                                    <div><i>Color:</i> <strong>${d.DESIGNATION_MODELE ?? ''}</strong></div>
+                                    <div><i>Description:</i> <strong>${d.DESIGNATION_MODELE ?? ''}</strong></div>
                                     <div><i>${priceLabel}:</i> <strong>${d.PRIX ?? ''} ${d.DEVISE ?? ''}</strong></div>
                                     <div><i>No series:</i> <strong>${d.COLLECTION ?? ''}</strong></div>
                                 </div>
@@ -457,26 +455,23 @@
                         }
                     },
                     {
-                        field: 'AVAILABILITY_INFO',
-                        headerName: '',
-                        minWidth: 140,
+                        field: 'PRIX',
+                        headerName: 'Unit Price',
+                        minWidth: 110,
+                        maxWidth: 130,
                         pinned: 'left',
-                        sortable: false,
-                        filter: false,
-                        cellStyle: textCellStyle,
-                        cellClass: 'availability-cell',
-                        autoHeight: true,
+                        sortable: true,
+                        filter: 'agNumberColumnFilter',
+                        cellStyle: integerCellStyle,
+                        valueFormatter: window.decimalFormatter,
+                        comparator: window.decimalComparator,
+                        cellDataType: false,
                         cellRenderer: function (params) {
-                            if (params.node.isRowPinned()) {
-                                return '<div style="font-weight: bold; padding-top: 5px;">TOTAL</div>';
-                            }
-
-                            return `
-                                <div class="availability-lines">
-                                    <div><i>Availability</i></div>
-                                    <div><i>Order</i></div>
-                                </div>
-                            `;
+                            if (params.node.isRowPinned()) return '';
+                            const prix  = params.data?.PRIX  ?? '';
+                            const devise = params.data?.DEVISE ?? '';
+                            if (prix === '' || prix === null) return '';
+                            return `<div class="variant-inner-box" style="background-color:#ffffff; text-align:right;">${prix} ${devise}</div>`;
                         }
                     }
                 ];
@@ -666,16 +661,12 @@
                                 return [
                                     `Article N°: ${data.ARTICLE ?? ''}`,
                                     `Gender: ${data.GENRE ?? ''}`,
-                                    `Age group: ${data.AGE_GROUP ?? ''}`,
-                                    `Item group: ${data.ITEM_GROUP ?? ''}`,
-                                    `Color: ${data.DESIGNATION_MODELE ?? ''}`,
+                                    `Description: ${data.DESIGNATION_MODELE ?? ''}`,
                                     `${priceLabel}: ${data.PRIX ?? ''} ${data.DEVISE ?? ''}`,
                                     `No series: ${data.COLLECTION ?? ''}`,
                                 ].join('\n');
                             },
-                            AVAILABILITY_INFO: () => {
-                                return 'Availability\nOrder';
-                            },
+                            PRIX: (data) => `${data.PRIX ?? ''} ${data.DEVISE ?? ''}`,
                         },
 
                         onProgress: (p) => {
