@@ -468,7 +468,7 @@
                         cellDataType: false,
                         cellRenderer: function (params) {
                             if (params.node.isRowPinned()) return '';
-                            const prix  = params.data?.PRIX  ?? '';
+                            const prix  = params.valueFormatted ?? params.value ?? '';
                             const devise = params.data?.DEVISE ?? '';
                             if (prix === '' || prix === null) return '';
                             return `<div class="variant-inner-box" style="background-color:#ffffff; text-align:right;">${prix} ${devise}</div>`;
