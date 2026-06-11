@@ -3,7 +3,6 @@
 namespace App\Service\Dashboards;
 
 use App\Factory\MssqlManagerFactory;
-use App\Service\Divers;
 use App\Service\Tools\GraphMailer;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Psr\Log\LoggerInterface;
@@ -12,23 +11,18 @@ use App\Service\Tools\MssqlManager;
 class MainDashboard
 {
     private MssqlManager $mssqlMade2design;
-    private MssqlManager $mssqlLcs;
     private bool $isDev;
 
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
         private GraphMailer $graphMailer,
-        private Divers $divers,
         #[Autowire('%db.lcs_sei%')]
         string $dbLcsSei,
-        #[Autowire('%db.lcs%')]
-        string $dbLcs,
         #[Autowire('%kernel.environment%')]
         string $environment,
     ) {
         $this->mssqlMade2design = $this->mssqlManagerFactory->create($dbLcsSei);
-        $this->mssqlLcs         = $this->mssqlManagerFactory->create($dbLcs);
         $this->isDev = ($environment === 'dev');
     }
 
@@ -381,63 +375,35 @@ class MainDashboard
     public function getBacklogClientDonut(string $network = 'global'): array
     {
         try {
+            $networkWhere = $this->buildNetworkWhereClause($network);
+            $table        = $this->table('INTRANET_BACKLOG_CLI');
+
             $query = "
             SELECT
-                CASE
-                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(GETDATE())                        THEN 'MOIS'
-                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE()))     THEN 'MOIS + 1'
-                    ELSE '>MOIS + 2'
-                END AS retard,
-                SOH.CUR_0 AS DEVISE,
-                SUM(CAST(ROUND(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0), 0) AS INT)) AS QUANTITE,
-                SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)))    AS TOTAL_PRIX
-            FROM X3_LCS.SORDERQ SOQ
-            INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
-            INNER JOIN X3_LCS.SORDERP SOP ON SOQ.SOHNUM_0 = SOP.SOHNUM_0
-                                          AND SOQ.ITMREF_0 = SOP.ITMREF_0
-                                          AND SOQ.SOPLIN_0 = SOP.SOPLIN_0
-            INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
-            WHERE SOQ.SOQSTA_0 <> 3
-            AND BPC.BCGCOD_0 <> 'INTER'
-            GROUP BY
-                CASE
-                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(GETDATE())                    THEN 'MOIS'
-                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE())) THEN 'MOIS + 1'
-                    ELSE '>MOIS + 2'
-                END,
-                SOH.CUR_0";
+                retard,
+                SUM(quantite) AS quantite,
+                SUM(montant_ht_eur) AS montant
+            FROM {$table}
+            WHERE 1 = 1
+            {$networkWhere}
+            GROUP BY retard
+            ORDER BY
+                CASE retard
+                    WHEN 'MOIS' THEN 1
+                    WHEN 'MOIS + 1' THEN 2
+                    ELSE 3
+                END";
 
-            $rows = $this->mssqlLcs->executeQuery($query);
-
-            $taux = $this->divers->getExchangeRatesValues();
-
-            $buckets = [];
-            foreach ($rows as $row) {
-                $retard     = $row->retard;
-                $devise     = $row->DEVISE;
-                $quantite   = (int) $row->QUANTITE;
-                $totalPrix  = (float) $row->TOTAL_PRIX;
-                $rate       = $taux[$devise] ?? null;
-                $montantEur = ($rate !== null && $rate > 0) ? ($totalPrix / $rate) : $totalPrix;
-
-                if (!isset($buckets[$retard])) {
-                    $buckets[$retard] = ['quantite' => 0, 'montant' => 0.0];
-                }
-                $buckets[$retard]['quantite'] += $quantite;
-                $buckets[$retard]['montant']  += $montantEur;
-            }
-
-            $order = ['MOIS' => 1, 'MOIS + 1' => 2, '>MOIS + 2' => 3];
-            uksort($buckets, fn($a, $b) => ($order[$a] ?? 99) <=> ($order[$b] ?? 99));
+            $results = $this->mssqlMade2design->executeQuery($query);
 
             $labels     = [];
             $values     = [];
             $quantities = [];
 
-            foreach ($buckets as $retard => $data) {
-                $labels[]     = $retard;
-                $values[]     = round($data['montant'], 2);
-                $quantities[] = $data['quantite'];
+            foreach ($results as $row) {
+                $labels[]     = $row->retard;
+                $values[]     = (float) $row->montant;
+                $quantities[] = (float) $row->quantite;
             }
 
             return [
@@ -447,8 +413,8 @@ class MainDashboard
             ];
 
         } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ Dashboard : Backlog client donut live', $e);
-            $this->logger->error('Erreur backlog client donut live', ['exception' => $e]);
+            $this->graphMailer->notifyError('❌ Dashboard : Backlog client donut', $e);
+            $this->logger->error('Erreur backlog client donut', ['exception' => $e]);
             return ['labels' => [], 'values' => [], 'quantities' => []];
         }
     }
@@ -622,12 +588,74 @@ class MainDashboard
         }
     }
 
+    public function refreshBacklogClient(): int
+    {
+        try {
+            $table = $this->table('INTRANET_BACKLOG_CLI');
+
+            $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
+
+            $insertQuery = "
+        INSERT INTO {$table} (retard, quantite, montant_ht_eur, date_refresh, mainnetwork, reportingdimension)
+
+        SELECT
+            retard,
+            SUM(OUT_Quantity)   AS quantite,
+            SUM(OUT_AmountEur)  AS montant_ht_eur,
+            GETDATE(),
+            mainnetwork,
+            reportingdimension
+        FROM (
+            SELECT
+                s.OUT_Quantity,
+                s.OUT_AmountEur,
+                s.CustomerNo,
+                CUST.MAINNETWORK        AS mainnetwork,
+                CUST.REPORTINGDIMENSION AS reportingdimension,
+
+                CASE
+                    WHEN o.RequestedDeliveryDate_L <= EOMONTH(GETDATE()) THEN 'MOIS'
+                    WHEN o.RequestedDeliveryDate_L > EOMONTH(GETDATE())
+                         AND o.RequestedDeliveryDate_L <= EOMONTH(DATEADD(MONTH, 1, GETDATE())) THEN 'MOIS + 1'
+                    ELSE '>MOIS + 2'
+                END AS retard
+
+            FROM DWH_LCS.F_Sales s
+
+            LEFT JOIN DWH_LCS.F_Sales_Orders o
+                ON  s.OrderDocumentNo      = o.OrderDocumentNo
+                AND s.CompanyCode          = o.CompanyCode
+                AND s.OrderDocumentLineNo  = o.OrderDocumentLineNo
+                AND s.VariantCode          = o.VariantCode
+
+            LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
+                ON  s.CompanyCode = CUST.COMPANY_ID
+                AND s.CustomerNo  = CUST.CUSTOMER_ID
+
+            WHERE s.CompanyCode = 'LCSI BV'
+              AND s.OUT_Quantity <> 0
+              AND s.IsBohPerimeter = 1
+              AND s.LocationCode IN ('DIRECT', 'DT-WHS-TH', 'LOGTXM-1', 'SF-WHS-CN1')
+              AND s.SalesOrderType IN ('CO', 'OP', 'PS', 'RE')
+        ) t
+        GROUP BY retard, mainnetwork, reportingdimension;";
+
+            return $this->mssqlMade2design->insertData($insertQuery);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ Erreur recalcul cube backlog client', $e);
+            $this->logger->error('Erreur recalcul cube backlog client', ['exception' => $e]);
+            return 0;
+        }
+    }
+
     public function refreshAllSalesCubes(): array
     {
         return [
             'Cube CA mensuel'          => $this->refreshSalesAggMonth(),
             'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
             'Cube ventes journalières' => $this->refreshSalesDaily(),
+            'Cube backlog client'      => $this->refreshBacklogClient(),
         ];
     }
 }
