@@ -234,11 +234,10 @@ final class HomeController extends AbstractController
     }
 
     #[Route('/api/dashboard/backlog-client', name: 'api_dashboard_backlog_client')]
-    public function backlogClientDashboard(Request $request): JsonResponse
+    public function backlogClientDashboard(): JsonResponse
     {
-        $network = $this->getNetworkFromRequest($request);
         return $this->json(
-            $this->mainDashboard->getBacklogClientDonut($network)
+            $this->mainDashboard->getBacklogClientDonut()
         );
     }
 }

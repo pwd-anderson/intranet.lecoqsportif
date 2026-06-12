@@ -372,20 +372,17 @@ class MainDashboard
         }
     }
 
-    public function getBacklogClientDonut(string $network = 'global'): array
+    public function getBacklogClientDonut(): array
     {
         try {
-            $networkWhere = $this->buildNetworkWhereClause($network);
-            $table        = $this->table('INTRANET_BACKLOG_CLI');
+            $table = $this->table('INTRANET_BACKLOG_CLI');
 
             $query = "
             SELECT
                 retard,
-                SUM(quantite) AS quantite,
+                SUM(quantite)     AS quantite,
                 SUM(montant_ht_eur) AS montant
             FROM {$table}
-            WHERE 1 = 1
-            {$networkWhere}
             GROUP BY retard
             ORDER BY
                 CASE retard
@@ -596,49 +593,50 @@ class MainDashboard
             $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
             $insertQuery = "
-        INSERT INTO {$table} (retard, quantite, montant_ht_eur, date_refresh, mainnetwork, reportingdimension)
+        INSERT INTO {$table} (retard, quantite, montant_ht_eur, date_refresh)
 
         SELECT
             retard,
-            SUM(OUT_Quantity)   AS quantite,
-            SUM(OUT_AmountEur)  AS montant_ht_eur,
-            GETDATE(),
-            mainnetwork,
-            reportingdimension
+            SUM(quantite)    AS quantite,
+            SUM(montant_eur) AS montant_ht_eur,
+            GETDATE()
         FROM (
             SELECT
-                s.OUT_Quantity,
-                s.OUT_AmountEur,
-                s.CustomerNo,
-                CUST.MAINNETWORK        AS mainnetwork,
-                CUST.REPORTINGDIMENSION AS reportingdimension,
+                CASE
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(GETDATE())                    THEN 'MOIS'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE())) THEN 'MOIS + 1'
+                    ELSE '>MOIS + 2'
+                END AS retard,
+
+                CAST(ROUND(SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0, 0) AS INT) AS quantite,
 
                 CASE
-                    WHEN o.RequestedDeliveryDate_L <= EOMONTH(GETDATE()) THEN 'MOIS'
-                    WHEN o.RequestedDeliveryDate_L > EOMONTH(GETDATE())
-                         AND o.RequestedDeliveryDate_L <= EOMONTH(DATEADD(MONTH, 1, GETDATE())) THEN 'MOIS + 1'
-                    ELSE '>MOIS + 2'
-                END AS retard
+                    WHEN SOH.CUR_0 = 'EUR' THEN SOP.NETPRINOT_0 * (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)
+                    ELSE (SOP.NETPRINOT_0 * (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)) / NULLIF(TC.CHGRAT_0, 0)
+                END AS montant_eur
 
-            FROM DWH_LCS.F_Sales s
+            FROM X3_LCS.SORDERQ SOQ
+            INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
+            INNER JOIN X3_LCS.SORDERP SOP ON SOQ.SOHNUM_0 = SOP.SOHNUM_0
+                                          AND SOQ.ITMREF_0  = SOP.ITMREF_0
+                                          AND SOQ.SOPLIN_0  = SOP.SOPLIN_0
+            INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
+            LEFT JOIN (
+                SELECT CURDEN_0, CHGRAT_0
+                FROM X3_LCS.TABCHANGE
+                WHERE CUR_0       = 'EUR'
+                  AND CHGTYP_0    = 1
+                  AND CHGSTRDAT_0 = (
+                      SELECT MAX(CHGSTRDAT_0) FROM X3_LCS.TABCHANGE
+                      WHERE CUR_0 = 'EUR' AND CHGTYP_0 = 1
+                  )
+            ) TC ON TC.CURDEN_0 = SOH.CUR_0
 
-            LEFT JOIN DWH_LCS.F_Sales_Orders o
-                ON  s.OrderDocumentNo      = o.OrderDocumentNo
-                AND s.CompanyCode          = o.CompanyCode
-                AND s.OrderDocumentLineNo  = o.OrderDocumentLineNo
-                AND s.VariantCode          = o.VariantCode
-
-            LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
-                ON  s.CompanyCode = CUST.COMPANY_ID
-                AND s.CustomerNo  = CUST.CUSTOMER_ID
-
-            WHERE s.CompanyCode = 'LCSI BV'
-              AND s.OUT_Quantity <> 0
-              AND s.IsBohPerimeter = 1
-              AND s.LocationCode IN ('DIRECT', 'DT-WHS-TH', 'LOGTXM-1', 'SF-WHS-CN1')
-              AND s.SalesOrderType IN ('CO', 'OP', 'PS', 'RE')
+            WHERE SOQ.SOQSTA_0 <> 3
+              AND (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) > 0
+              AND BPC.BCGCOD_0 <> 'INTER'
         ) t
-        GROUP BY retard, mainnetwork, reportingdimension;";
+        GROUP BY retard;";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
