@@ -33,9 +33,9 @@ function renderSellOutWeeklyChart(apiUrl, caSelector, variationSelector, chartSe
 
         const options = {
             chart: { height: 130, type: 'line', toolbar: { show: false } },
-            colors: ['#0055d4', '#c5d8f5'],
+            colors: ['#0f9b8e', '#ffb6a3'],
             dataLabels: { enabled: false },
-            stroke: { width: [2.5, 1.5], curve: 'smooth', dashArray: [0, 4] },
+            stroke: { width: 2, curve: 'smooth' },
             series: series,
             xaxis: {
                 categories: labels,
@@ -64,10 +64,8 @@ function renderSellOutSemaineChart(apiUrl, caSelector, variationSelector, semain
         const variation = Number(data?.variation || 0);
         const semaine   = data?.semaine || '—';
 
-        const semaineStr = 'S' + String(semaine).padStart(2, '0');
         $(caSelector).html(formatNumber(caN, 0));
-        $(semaineSelector).html(semaineStr);
-        if (semaine > 0) { $('#so-banner-week').text(semaineStr); }
+        $(semaineSelector).html('S' + String(semaine).padStart(2, '0'));
 
         let varHtml = '';
         if (variation > 0) {
@@ -92,13 +90,16 @@ function renderSellOutSemaineChart(apiUrl, caSelector, variationSelector, semain
 
         const options = {
             chart: { height: 130, type: 'bar', toolbar: { show: false } },
-            plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 2 } },
-            colors: ['#c5d8f5', '#0055d4'],
+            plotOptions: { bar: { horizontal: false, columnWidth: '65%', borderRadius: 3, distributed: true } },
+            colors: ['#ffb6a3', '#0f9b8e'],
             dataLabels: { enabled: false },
             series: series,
             xaxis: {
                 categories: labels,
-                labels: { show: false },
+                labels: {
+                    show: true,
+                    style: { fontSize: '11px', colors: ['#aaa', '#aaa'] }
+                },
                 axisBorder: { show: false },
                 axisTicks: { show: false }
             },
@@ -124,7 +125,7 @@ function loadSellOutDashboardData() {
         r.exchangeRate,
         { text: '#taux-eur-usd-text', value: '#taux-eur-usd-val', evolution: '#evolution-rate-eur-usd-text' },
         '#bar-negative-chart-eur-usd',
-        ['#2e62b9', '#fad050']
+        ['#0f9b8e', '#f4b942']
     );
 
     renderSellOutWeeklyChart(r.ventesAnnuelles, '#so-ca-ytd', '#so-variation-ytd', '#so-chart-weekly');
@@ -135,12 +136,21 @@ function loadSellOutDashboardData() {
         '#so-chart-semaine'
     );
 
-    renderTopClientsChart(r.topClients, '#so-chart-top-clients');
-    renderTopCompanySalesChart(r.familleCa, '#so-chart-famille', '#so-table-famille');
+    renderTopClientsChart(r.topClients, '#so-chart-top-clients', '#0f9b8e');
+    renderTopCompanySalesChart(
+        r.familleCa, '#so-chart-famille', '#so-table-famille',
+        ['#0f9b8e', '#ff6f59', '#f4b942', '#6c5b7b', '#f67280', '#2a9d8f', '#e76f51', '#e9c46a']
+    );
     renderTopProductSalesChart(r.topProduits, '#so-chart-top-produits');
 
-    renderBacklogClientChart(r.backlog, '#so-chart-backlog', '#so-table-backlog');
+    renderBacklogClientChart(
+        r.backlog, '#so-chart-backlog', '#so-table-backlog',
+        ['#0f9b8e', '#f4b942', '#ff6f59']
+    );
 
     // Barres verticales identiques au dashboard home — renderSalesEvolutionChart de dashboard.js
-    renderSalesEvolutionChart(r.evolutionSemaines, '#so-chart-evolution', '#so-legend-evolution');
+    renderSalesEvolutionChart(
+        r.evolutionSemaines, '#so-chart-evolution', '#so-legend-evolution',
+        ['#ffb6a3', '#0f9b8e']
+    );
 }

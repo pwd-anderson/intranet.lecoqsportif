@@ -103,19 +103,14 @@ final class SellOutDashboardController extends AbstractController
             ? round(($totals[$currentYear] - $totals[$prevYear]) / $totals[$prevYear] * 100, 2)
             : null;
 
-        $sources = ['INTERSPORT', 'SPORT2000'];
-        $dataN   = array_map(fn($s) => $bySourceYear[$s][$currentYear] ?? 0, $sources);
-        $dataN1  = array_map(fn($s) => $bySourceYear[$s][$prevYear]    ?? 0, $sources);
-
         return new JsonResponse([
             'semaine'   => $semaine,
             'ca_n'      => round($totals[$currentYear], 2),
             'ca_n1'     => round($totals[$prevYear], 2),
             'variation' => $variation,
-            'labels'    => $sources,
+            'labels'    => [(string) $prevYear, (string) $currentYear],
             'series'    => [
-                ['name' => (string) $prevYear,    'data' => $dataN1],
-                ['name' => (string) $currentYear, 'data' => $dataN],
+                ['name' => 'CA', 'data' => [round($totals[$prevYear], 2), round($totals[$currentYear], 2)]],
             ],
         ]);
     }
@@ -169,11 +164,12 @@ final class SellOutDashboardController extends AbstractController
             if ($itemn === '') {
                 continue;
             }
-            $base  = explode('_', $itemn)[0] ?? $itemn;
+            $itemdes = trim((string) ($row['itemdes'] ?? ''));
+            $base    = explode('_', $itemn)[0] ?? $itemn;
             $out[] = [
                 'image' => 'https://www.lecoqsportif.com/cdn/shop/files/' . rawurlencode($base) . '_2.jpg',
                 'code'  => $itemn,
-                'label' => $itemn,
+                'label' => $itemdes !== '' ? $itemdes : $itemn,
                 'value' => (float) ($row['salesamt'] ?? 0),
             ];
         }
@@ -225,8 +221,8 @@ final class SellOutDashboardController extends AbstractController
         }
 
         return new JsonResponse([
-            'labels' => $labels,
-            'series' => [
+            'categories' => $labels,
+            'series'     => [
                 ['name' => (string) $prevYear,    'data' => $dataN1],
                 ['name' => (string) $currentYear, 'data' => $dataN],
             ],

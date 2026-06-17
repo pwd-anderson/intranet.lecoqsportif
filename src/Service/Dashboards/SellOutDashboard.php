@@ -53,6 +53,7 @@ class SellOutDashboard
                     FROM SEI_X3_LCS.LCS_SELLOUT_SALES
                     WHERE SOURCENAME IN ('SPORT2000', 'INTERSPORT')
                       AND WEEK_CODE IS NOT NULL
+                    AND CUSTOMER_ID IS NOT NULL
                 ) t
                 GROUP BY week_code, annee, semaine, sourcename
             ");
@@ -86,6 +87,7 @@ class SellOutDashboard
                             = S.VARIANTCODE
                     WHERE S.SOURCENAME IN ('SPORT2000', 'INTERSPORT')
                       AND S.WEEK_CODE IS NOT NULL
+                      AND S.CUSTOMER_ID IS NOT NULL
                 ) t
                 WHERE annee = YEAR(GETDATE())
                   AND famille IN ('FTW', 'HDW', 'APL')
@@ -105,23 +107,30 @@ class SellOutDashboard
             $this->mssql->executeDelete("DELETE FROM {$table}");
 
             return $this->mssql->insertData("
-                INSERT INTO {$table} (annee, sourcename, itemn, salesamt, salesqty)
-                SELECT annee, sourcename, itemn, SUM(salesamt), SUM(salesqty)
+                INSERT INTO {$table} (annee, sourcename, itemn, itemdes, salesamt, salesqty)
+                SELECT annee, sourcename, itemn, itemdes, SUM(salesamt), SUM(salesqty)
                 FROM (
                     SELECT
-                        CAST(LEFT(CAST(WEEK_CODE AS VARCHAR(6)), 4) AS INT) AS annee,
-                        SOURCENAME                                           AS sourcename,
-                        ITEMN                                                AS itemn,
-                        ISNULL(SALESAMT, 0)                                  AS salesamt,
-                        ISNULL(SALESQTY, 0)                                  AS salesqty
-                    FROM SEI_X3_LCS.LCS_SELLOUT_SALES
-                    WHERE SOURCENAME IN ('SPORT2000', 'INTERSPORT')
-                      AND WEEK_CODE IS NOT NULL
-                      AND ITEMN IS NOT NULL
-                      AND ITEMN <> ''
+                        CAST(LEFT(CAST(S.WEEK_CODE AS VARCHAR(6)), 4) AS INT) AS annee,
+                        S.SOURCENAME                                           AS sourcename,
+                        S.ITEMN                                                AS itemn,
+                        ISNULL(ITM.ITMDES1_0, '')                              AS itemdes,
+                        ISNULL(S.SALESAMT, 0)                                  AS salesamt,
+                        ISNULL(S.SALESQTY, 0)                                  AS salesqty
+                    FROM SEI_X3_LCS.LCS_SELLOUT_SALES S
+                    LEFT JOIN X3_LCS.ITMMASTER ITM
+                        ON  LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0 + '_') - 1)
+                            = S.ITEMN
+                        AND SUBSTRING(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0 + '_') + 1, LEN(ITM.ITMREF_0))
+                            = S.VARIANTCODE
+                    WHERE S.SOURCENAME IN ('SPORT2000', 'INTERSPORT')
+                      AND S.WEEK_CODE IS NOT NULL
+                      AND S.ITEMN IS NOT NULL
+                      AND S.ITEMN <> ''
+                      AND S.CUSTOMER_ID IS NOT NULL
                 ) t
                 WHERE annee = YEAR(GETDATE())
-                GROUP BY annee, sourcename, itemn
+                GROUP BY annee, sourcename, itemn, itemdes
             ");
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur refresh INTRANET_SELLOUT_TOP_ITEMS', $e);
@@ -136,17 +145,14 @@ class SellOutDashboard
             $table = $this->table('INTRANET_SELLOUT_BACKLOG');
             $this->mssql->executeDelete("DELETE FROM {$table}");
 
-            // Filtre sur INTERSPORT et SPORT 2000 via le nom client X3.
-            // Si les libellés exacts diffèrent, ajuster les LIKE ci-dessous.
+            // Filtre sur INTERSPORT et SPORT 2000 via le groupe client X3 (ZGRPCOD_0).
             return $this->mssql->insertData("
-                INSERT INTO {$table} (retard, quantite, montant_ht_eur, date_refresh, customer_no, customer_name)
+                INSERT INTO {$table} (retard, quantite, montant_ht_eur, date_refresh)
                 SELECT
                     retard,
                     SUM(quantite)    AS quantite,
                     SUM(montant_eur) AS montant_ht_eur,
-                    GETDATE(),
-                    customer_no,
-                    customer_name
+                    GETDATE()
                 FROM (
                     SELECT
                         CASE
@@ -160,9 +166,7 @@ class SellOutDashboard
                                 THEN SOP.NETPRINOT_0 * (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)
                             ELSE (SOP.NETPRINOT_0 * (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0))
                                  / NULLIF(TC.CHGRAT_0, 0)
-                        END AS montant_eur,
-                        BPC.BPCNUM_0 AS customer_no,
-                        BPC.BPCNAM_0 AS customer_name
+                        END AS montant_eur
                     FROM X3_LCS.SORDERQ SOQ
                     INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
                     INNER JOIN X3_LCS.SORDERP SOP ON SOQ.SOHNUM_0 = SOP.SOHNUM_0
@@ -182,13 +186,9 @@ class SellOutDashboard
                     WHERE SOQ.SOQSTA_0 <> 3
                       AND (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) > 0
                       AND BPC.BCGCOD_0 <> 'INTER'
-                      AND (
-                          UPPER(BPC.BPCNAM_0) LIKE '%INTERSPORT%'
-                          OR UPPER(BPC.BPCNAM_0) LIKE '%SPORT2000%'
-                          OR UPPER(BPC.BPCNAM_0) LIKE '%SPORT 2000%'
-                      )
+                      AND BPC.ZGRPCOD_0 IN ('081', '043')
                 ) t
-                GROUP BY retard, customer_no, customer_name
+                GROUP BY retard
             ");
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur refresh INTRANET_SELLOUT_BACKLOG', $e);
@@ -312,6 +312,7 @@ class SellOutDashboard
             return $this->mssql->executeQuery("
                 SELECT TOP 5
                     itemn,
+                    MAX(itemdes)  AS itemdes,
                     SUM(salesamt) AS salesamt,
                     SUM(salesqty) AS salesqty
                 FROM {$table}

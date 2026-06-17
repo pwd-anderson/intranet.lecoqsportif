@@ -1,201 +1,12 @@
 {% extends 'base.html.twig' %}
 
 {% block stylesheets %}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-
     <style>
-        /* ── Design tokens ──────────────────────────────────────────────── */
-        :root {
-            --so-navy:         #0f1e3d;
-            --so-navy-mid:     #1a3460;
-            --so-inter:        #0055d4;
-            --so-sp2k:         #cc0010;
-            --so-green:        #00a86b;
-            --so-red-neg:      #e53935;
-            --so-border:       #dde3f0;
-            --so-bg:           #f3f5fa;
-            --so-surface:      #ffffff;
-            --so-muted:        #6b7a99;
-            --so-text:         #1a2744;
-        }
-
-        /* ── Page banner ─────────────────────────────────────────────────── */
-        .so-banner {
-            background: linear-gradient(130deg, var(--so-navy) 0%, var(--so-navy-mid) 100%);
-            border-radius: 10px;
-            padding: 18px 24px;
-            margin-bottom: 22px;
-            color: #fff;
-            position: relative;
-            overflow: hidden;
-        }
-        .so-banner::after {
-            content: 'SO';
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 5.5rem;
-            font-weight: 800;
-            color: rgba(255,255,255,0.05);
-            letter-spacing: 0.04em;
-            line-height: 1;
-            pointer-events: none;
-        }
-        .so-banner-title {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 1.6rem;
-            font-weight: 800;
-            letter-spacing: 0.12em;
-            margin: 0 0 3px;
-            line-height: 1;
-        }
-        .so-banner-sub {
-            font-size: 0.68rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: rgba(255,255,255,0.45);
-            margin: 0;
-            font-family: 'Barlow', sans-serif;
-        }
-        .so-brand-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.68rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            font-family: 'Barlow', sans-serif;
-        }
-        .so-pill-inter {
-            background: rgba(0,85,212,0.22);
-            border: 1px solid rgba(100,160,255,0.3);
-            color: #7ab2ff;
-        }
-        .so-pill-sp2k {
-            background: rgba(204,0,16,0.22);
-            border: 1px solid rgba(255,100,110,0.3);
-            color: #ff8080;
-        }
-        .so-dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .so-dot-blue { background: #7ab2ff; }
-        .so-dot-red  { background: #ff8080; }
-        .so-banner-week-wrap {
-            text-align: right;
-        }
-        .so-banner-week-label {
-            font-size: 0.62rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: rgba(255,255,255,0.4);
-            font-family: 'Barlow', sans-serif;
-        }
-        .so-banner-week-val {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: rgba(255,255,255,0.85);
-            line-height: 1.1;
-        }
-
-        /* ── Card base ───────────────────────────────────────────────────── */
-        .so-card {
-            background: var(--so-surface);
-            border-radius: 10px;
-            border: 1px solid var(--so-border);
-            box-shadow: 0 1px 6px rgba(15,30,61,0.07);
-            height: 100%;
-            overflow: hidden;
-        }
-        .so-card-body { padding: 20px 22px; }
-
-        .so-card-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .so-card-icon {
-            width: 26px; height: 26px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            flex-shrink: 0;
-        }
-        .so-card-icon-navy  { background: #e8edf8; color: var(--so-navy); }
-        .so-card-icon-blue  { background: #e0ecff; color: var(--so-inter); }
-        .so-card-icon-red   { background: #ffe0e2; color: var(--so-sp2k);  }
-        .so-card-icon-green { background: #e0f5ec; color: var(--so-green); }
-        .so-card-title {
-            font-size: 0.68rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.09em;
-            color: var(--so-muted);
-            font-family: 'Barlow', sans-serif;
-            margin: 0;
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Accent top border */
-        .so-top-navy  { border-top: 3px solid var(--so-navy); }
-        .so-top-blue  { border-top: 3px solid var(--so-inter); }
-        .so-top-red   { border-top: 3px solid var(--so-sp2k); }
-        .so-top-green { border-top: 3px solid var(--so-green); }
-
-        /* ── KPI display ─────────────────────────────────────────────────── */
-        .so-kpi {
-            display: flex;
-            align-items: baseline;
-            gap: 6px;
-            margin-bottom: 4px;
-        }
-        .so-kpi-num {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--so-text);
-            line-height: 1;
-            letter-spacing: -0.01em;
-        }
-        .so-kpi-suffix {
-            font-family: 'Barlow Condensed', sans-serif;
-            font-size: 1.1rem;
-            color: var(--so-muted);
-            font-weight: 400;
-        }
-        .so-kpi-delta {
-            font-size: 0.78rem;
-            font-family: 'Barlow', sans-serif;
-        }
-        .so-kpi-delta .text-success { color: var(--so-green) !important; }
-        .so-kpi-delta .text-danger  { color: var(--so-red-neg) !important; }
-        .so-kpi-delta .text-muted   { color: var(--so-muted) !important; }
-
-        /* ── Column vertical gutter ─────────────────────────────────────── */
-        .content .row > [class*="col-"] { margin-bottom: 22px; }
-
-        /* ── Heights ─────────────────────────────────────────────────────── */
         .min-h-box     { min-height: 440px; }
-        .min-h-248-box { min-height: 248px; }
+        .max-h-box     { max-height: 440px; }
+
         @media (max-width: 767px) {
-            .min-h-box     { min-height: auto; }
-            .min-h-248-box { min-height: auto; }
+            .min-h-box { min-height: auto; }
         }
 
         .scroll-table {
@@ -203,255 +14,189 @@
             overflow-y: auto;
             scrollbar-width: none;
         }
-        .scroll-table::-webkit-scrollbar { width: 0; }
+        .scroll-table::-webkit-scrollbar { width: 0; background: transparent; }
 
-        /* ── Top products — reuse classes from dashboard.js output ──────── */
-        .top-product-container { margin-top: 6px; }
         .top-product-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--so-border);
+            gap: 12px;
+            margin-bottom: 14px;
         }
-        .top-product-row:last-child { border-bottom: none; }
         .top-product-img {
-            width: 44px;
-            height: 44px;
+            width: 55px;
+            height: 55px;
             object-fit: cover;
-            border-radius: 7px;
+            border-radius: 8px;
             flex-shrink: 0;
-            background: var(--so-bg);
-            border: 1px solid var(--so-border);
         }
-        .top-product-info  { flex: 1; min-width: 0; }
+        .top-product-info  { flex: 1; }
         .top-product-label {
-            font-size: 0.82rem;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 500;
             margin-bottom: 6px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            color: var(--so-text);
-            font-family: 'Barlow', sans-serif;
         }
         .top-product-bar-container {
             width: 100%;
-            height: 5px;
-            background: var(--so-bg);
-            border-radius: 3px;
+            height: 10px;
+            background: #f1f1f1;
+            border-radius: 6px;
             overflow: hidden;
         }
         .top-product-bar {
             height: 100%;
-            background: linear-gradient(90deg, var(--so-inter), #5b9cf6);
-            border-radius: 3px;
-            transition: width 0.8s cubic-bezier(.4,0,.2,1);
+            background: linear-gradient(90deg, #0f9b8e, #ff6f59);
+            border-radius: 6px;
+            transition: width 0.6s ease;
         }
         .top-product-value {
-            font-family: 'Barlow Condensed', sans-serif;
             font-weight: 600;
-            font-size: 0.9rem;
-            min-width: 78px;
+            font-size: 14px;
+            min-width: 90px;
             text-align: right;
-            color: var(--so-text);
         }
 
-        /* ── Tables générées par dashboard.js ───────────────────────────── */
-        #so-table-famille table,
-        #so-table-backlog table {
-            width: 100%;
-            font-size: 0.8rem;
-            font-family: 'Barlow', sans-serif;
-        }
-        #so-table-famille td,
-        #so-table-backlog td {
-            padding: 6px 6px;
-            border-bottom: 1px solid var(--so-border);
-            color: var(--so-text);
-        }
-        #so-table-famille tr:last-child td,
-        #so-table-backlog tr:last-child td { border-bottom: none; }
+        #so-legend-evolution { margin-bottom: 1%; margin-top: 2.4%; }
+        .titre-evolution     { margin-bottom: 2.8%; }
 
-        /* ── Evolution legend ────────────────────────────────────────────── */
-        #so-legend-evolution {
-            margin-top: 14px;
-            font-family: 'Barlow', sans-serif;
-            font-size: 0.78rem;
-            color: var(--so-muted);
+        .so-row1-box,
+        .so-row1-box .box-body {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
+        .so-row1-box .box-body > div:last-child { margin-top: auto; }
+
+        .so-row1-col { margin-bottom: 22px; }
     </style>
 {% endblock %}
 
 {% block title %}Sell Out | {{ 'site.title'|trans }}{% endblock %}
 
 {% block body %}
-<section class="content">
-<div class="row">
+    <section class="content">
+        <div class="row">
 
-    {# ── Banner ──────────────────────────────────────────────────────────── #}
-    <div class="col-12">
-        <div class="so-banner">
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                <div>
-                    <h1 class="so-banner-title">SELL OUT</h1>
-                    <p class="so-banner-sub">Données hebdomadaires — import chaque lundi</p>
-                </div>
-                <div class="d-flex gap-2 ms-2 ms-lg-4">
-                    <span class="so-brand-pill so-pill-inter">
-                        <span class="so-dot so-dot-blue"></span>Intersport
-                    </span>
-                    <span class="so-brand-pill so-pill-sp2k">
-                        <span class="so-dot so-dot-red"></span>Sport 2000
-                    </span>
-                </div>
-                <div class="ms-auto so-banner-week-wrap d-none d-lg-block">
-                    <div class="so-banner-week-label">Semaine en cours</div>
-                    <div class="so-banner-week-val" id="so-banner-week">—</div>
+            {# ── Row 1 : Taux de change | Ventes annuelles | Ventes semaine ── #}
+
+            {# Taux de change — identique dashboard home #}
+            <div class="col-lg-3 col-md-6 so-row1-col">
+                <div class="box min-h-248-box so-row1-box">
+                    <div class="box-body">
+                        <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} :
+                            <span class="fw-bold text-info">1 EUR = <span id="taux-eur-usd-text"></span> USD</span>
+                        </h6>
+                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
+                            <h3 class="mb-0 me-5" id="taux-eur-usd-val"></h3>
+                            <p class="mb-0" id="evolution-rate-eur-usd-text"></p>
+                        </div>
+                        <div id="bar-negative-chart-eur-usd"></div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    {# ── Row 1 : Taux de change | Ventes annuelles | Ventes semaine ──────── #}
-
-    <div class="col-lg-3 col-md-6">
-        <div class="so-card so-top-navy min-h-248-box">
-            <div class="so-card-body">
-                <div class="so-card-header">
-                    <span class="so-card-icon so-card-icon-navy"><i class="fa fa-exchange"></i></span>
-                    <span class="so-card-title">{{ 'dashboard.conversion.title'|trans }}</span>
+            {# Ventes 2026 vs 2025 — courbes hebdomadaires #}
+            <div class="col-lg-5 col-md-6 so-row1-col">
+                <div class="box min-h-248-box so-row1-box">
+                    <div class="box-body">
+                        <h6 class="box-title">Ventes {{ "now"|date("Y") }} vs {{ ("now"|date("Y")) - 1 }} <small>(semaine par semaine)</small></h6>
+                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
+                            <h3 class="mb-0 me-5" id="so-ca-ytd">—</h3>
+                            <p class="mb-0" id="so-variation-ytd"></p>
+                        </div>
+                        <div id="so-chart-weekly"></div>
+                    </div>
                 </div>
-                <div style="font-size:0.75rem;color:var(--so-muted);margin-bottom:6px;">
-                    1 EUR = <strong style="color:var(--so-text)" id="taux-eur-usd-text">—</strong> USD
-                </div>
-                <div class="so-kpi">
-                    <span class="so-kpi-num" id="taux-eur-usd-val">—</span>
-                </div>
-                <div class="so-kpi-delta" id="evolution-rate-eur-usd-text"></div>
-                <div id="bar-negative-chart-eur-usd"></div>
             </div>
-        </div>
-    </div>
 
-    <div class="col-lg-5 col-md-6">
-        <div class="so-card so-top-blue min-h-248-box">
-            <div class="so-card-body">
-                <div class="so-card-header">
-                    <span class="so-card-icon so-card-icon-blue"><i class="fa fa-line-chart"></i></span>
-                    <span class="so-card-title">
-                        Ventes {{ "now"|date("Y") }} vs {{ ("now"|date("Y")) - 1 }}
-                        &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:0.9em">· semaine/semaine</span>
-                    </span>
+            {# Ventes de la semaine — barres par source #}
+            <div class="col-lg-4 col-md-6 so-row1-col">
+                <div class="box min-h-248-box so-row1-box">
+                    <div class="box-body">
+                        <h6 class="box-title">Ventes semaine <span id="so-semaine-num" class="text-info fw-bold">—</span></h6>
+                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
+                            <h3 class="mb-0 me-5" id="so-ca-semaine">—</h3>
+                            <p class="mb-0" id="so-variation-semaine"></p>
+                        </div>
+                        <div id="so-chart-semaine"></div>
+                    </div>
                 </div>
-                <div class="so-kpi">
-                    <span class="so-kpi-num" id="so-ca-ytd">—</span>
-                    <span class="so-kpi-suffix">€</span>
-                </div>
-                <div class="so-kpi-delta mb-1" id="so-variation-ytd"></div>
-                <div id="so-chart-weekly"></div>
             </div>
-        </div>
-    </div>
 
-    <div class="col-lg-4 col-md-6">
-        <div class="so-card so-top-red min-h-248-box">
-            <div class="so-card-body">
-                <div class="so-card-header">
-                    <span class="so-card-icon so-card-icon-red"><i class="fa fa-bar-chart"></i></span>
-                    <span class="so-card-title">
-                        Ventes semaine
-                        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;color:var(--so-sp2k);text-transform:none;letter-spacing:0" id="so-semaine-num"></span>
-                    </span>
+            {# ── Row 2 : Top clients | Famille CA | Top produits ────────────── #}
+
+            {# Top clients (2 barres) #}
+            <div class="col-lg-4 col-md-6">
+                <div class="box min-h-box">
+                    <div class="box-body pt-10 pb-10">
+                        <span class="text-muted small">CA par enseigne {{ "now"|date("Y") }}</span>
+                        <div id="so-chart-top-clients" style="height:360px;"></div>
+                    </div>
                 </div>
-                <div class="so-kpi">
-                    <span class="so-kpi-num" id="so-ca-semaine">—</span>
-                    <span class="so-kpi-suffix">€</span>
-                </div>
-                <div class="so-kpi-delta mb-1" id="so-variation-semaine"></div>
-                <div id="so-chart-semaine"></div>
             </div>
-        </div>
-    </div>
 
-    {# ── Row 2 : Top clients | Famille CA | Top produits ─────────────────── #}
-
-    <div class="col-lg-4 col-md-6">
-        <div class="so-card min-h-box">
-            <div class="so-card-body">
-                <div class="so-card-header">
-                    <span class="so-card-icon so-card-icon-blue"><i class="fa fa-users"></i></span>
-                    <span class="so-card-title">CA par enseigne {{ "now"|date("Y") }}</span>
+            {# Répartition CA par famille #}
+            <div class="col-lg-4 col-md-6">
+                <div class="box min-h-box">
+                    <div class="box-body text-center p-10">
+                        <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par famille</span>
+                        <div id="so-chart-famille" class="mb-20"></div>
+                        <div id="so-table-famille"></div>
+                    </div>
                 </div>
-                <div id="so-chart-top-clients" style="height:360px;"></div>
             </div>
-        </div>
-    </div>
 
-    <div class="col-lg-4 col-md-6">
-        <div class="so-card min-h-box">
-            <div class="so-card-body text-center">
-                <div class="so-card-header justify-content-center">
-                    <span class="so-card-icon so-card-icon-navy"><i class="fa fa-pie-chart"></i></span>
-                    <span class="so-card-title">Répartition CA {{ "now"|date("Y") }} par famille</span>
+            {# Top 5 produits #}
+            <div class="col-lg-4 col-md-6">
+                <div class="box min-h-box">
+                    <div class="box-body">
+                        <span class="text-muted small">Top 5 produits ({{ "now"|date("Y") }})</span>
+                        <div id="so-chart-top-produits" class="mt-3 top-product-container"></div>
+                    </div>
                 </div>
-                <div id="so-chart-famille" class="mb-3"></div>
-                <div id="so-table-famille"></div>
             </div>
-        </div>
-    </div>
 
-    <div class="col-lg-4 col-md-6">
-        <div class="so-card min-h-box">
-            <div class="so-card-body">
-                <div class="so-card-header">
-                    <span class="so-card-icon so-card-icon-green"><i class="fa fa-trophy"></i></span>
-                    <span class="so-card-title">Top 5 produits {{ "now"|date("Y") }}</span>
+            {# ── Row 3 : Backlog | Évolution 12 semaines ────────────────────── #}
+
+            {# Répartition backlog #}
+            <div class="col-lg-4 col-md-6">
+                <div class="box">
+                    <div class="box-body text-center p-10">
+                        <span class="text-muted small">Répartition backlog (INTERSPORT + SPORT2000)</span>
+                        <div id="so-chart-backlog" class="mb-20"></div>
+                        <div id="so-table-backlog"></div>
+                    </div>
                 </div>
-                <div id="so-chart-top-produits" class="top-product-container mt-2"></div>
             </div>
-        </div>
-    </div>
 
-    {# ── Row 3 : Backlog | Évolution 12 semaines ──────────────────────────── #}
-
-    <div class="col-lg-4 col-md-6">
-        <div class="so-card">
-            <div class="so-card-body text-center">
-                <div class="so-card-header justify-content-center">
-                    <span class="so-card-icon so-card-icon-red"><i class="fa fa-clock-o"></i></span>
-                    <span class="so-card-title">Backlog Intersport + Sport 2000</span>
+            {# Évolution CA 12 semaines glissantes — barres verticales #}
+            <div class="col-lg-8 col-md-6">
+                <div class="box">
+                    <div class="box-body">
+                        <div class="d-flex justify-content-between align-items-center titre-evolution">
+                            <span class="text-muted small">Évolution du CA — 12 semaines glissantes</span>
+                        </div>
+                        <div id="so-chart-evolution"></div>
+                        <div id="so-legend-evolution" class="d-flex flex-wrap gap-4 justify-content-center small"></div>
+                    </div>
                 </div>
-                <div id="so-chart-backlog" class="mb-3"></div>
-                <div id="so-table-backlog"></div>
             </div>
-        </div>
-    </div>
 
-    <div class="col-lg-8 col-md-6">
-        <div class="so-card">
-            <div class="so-card-body">
-                <div class="so-card-header">
-                    <span class="so-card-icon so-card-icon-navy"><i class="fa fa-area-chart"></i></span>
-                    <span class="so-card-title">Évolution du CA — 12 semaines glissantes</span>
-                </div>
-                <div id="so-chart-evolution"></div>
-                <div id="so-legend-evolution" class="d-flex flex-wrap gap-4 justify-content-center"></div>
-            </div>
         </div>
-    </div>
-
-</div>
-</section>
+    </section>
 {% endblock %}
 
 {% block javascripts %}
     <script src="{{ asset('assets/js/dashboard.js') }}?v=1.2"></script>
-    <script src="{{ asset('assets/js/dashboard_sellout.js') }}?v=1.3"></script>
+    <script src="{{ asset('assets/js/dashboard_sellout.js') }}?v=1.1"></script>
     <script>
         $(function () {
             'use strict';
+
             window.Apex = { markers: { size: 0 } };
+
             window.sellOutRoutes = {
                 exchangeRate:      "{{ path('api_dashboard_exchange_rate', { currency: 'EUR' }) }}",
                 ventesAnnuelles:   "{{ path('api_sellout_ventes_annuelles') }}",
@@ -462,6 +207,7 @@
                 backlog:           "{{ path('api_sellout_backlog') }}",
                 evolutionSemaines: "{{ path('api_sellout_evolution_semaines') }}"
             };
+
             loadSellOutDashboardData();
         });
     </script>

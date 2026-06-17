@@ -260,7 +260,7 @@ function renderSalesMonthChart(apiUrl, caSelector, variationSelector, chartSelec
     });
 }
 
-function renderTopClientsChart(apiUrl, selector) {
+function renderTopClientsChart(apiUrl, selector, barColor = '#2e62b9') {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (data) {
@@ -291,7 +291,7 @@ function renderTopClientsChart(apiUrl, selector) {
                 formatter: val => formatNumber(val, 0) + ' €',
                 style: { fontSize: '12px', colors: ['#333'] }
             },
-            colors: ['#2e62b9'],
+            colors: [barColor],
             xaxis: { categories: labels },
             series: [{ name: 'CA en EUR', data: values }],
             tooltip: {
@@ -307,7 +307,10 @@ function renderTopClientsChart(apiUrl, selector) {
     });
 }
 
-function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector) {
+function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector, donutColors = [
+    '#775DD0', '#00E396', '#FEB019', '#d0223c', '#008FFB',
+    '#3F51B5', '#546E7A', '#D4526E', '#8D5B4C', '#F86624'
+]) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
@@ -338,10 +341,7 @@ function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector) {
                     formatter: val => formatNumber(val, 2) + ' €'
                 }
             },
-            colors: [
-                '#775DD0', '#00E396', '#FEB019', '#d0223c', '#008FFB',
-                '#3F51B5', '#546E7A', '#D4526E', '#8D5B4C', '#F86624'
-            ],
+            colors: donutColors,
             plotOptions: {
                 pie: {
                     donut: {
@@ -481,7 +481,7 @@ function injectImagesIntoYAxis(chartContext, data) {
     });
 }
 
-function renderSalesEvolutionChart(apiUrl, selector, legendSelector) {
+function renderSalesEvolutionChart(apiUrl, selector, legendSelector, colors = ['#ff9800', '#40a2ed', '#26c6da', '#9b59b6', '#e74c3c']) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (response) {
@@ -501,8 +501,6 @@ function renderSalesEvolutionChart(apiUrl, selector, legendSelector) {
             el.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
             return;
         }
-
-        const colors = ['#ff9800', '#40a2ed', '#26c6da', '#9b59b6', '#e74c3c'];
 
         const options = {
             chart: { type: 'bar', height: 340, toolbar: { show: false } },
@@ -568,7 +566,7 @@ function chargerCaJour(apiUrl) {
     });
 }
 
-function renderBacklogClientChart(apiUrl, chartSelector, tableSelector) {
+function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutColors = ['#00C9A7', '#FFC75F', '#FF6F61']) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
@@ -608,7 +606,7 @@ function renderBacklogClientChart(apiUrl, chartSelector, tableSelector) {
                     }
                 }
             },
-            colors: ['#00C9A7', '#FFC75F', '#FF6F61'],
+            colors: donutColors,
             plotOptions: {
                 pie: {
                     donut: {
