@@ -941,6 +941,7 @@ class Sales
         LEFT  JOIN X3_LCS.ZITMCOL  ITC ON ITC.ITMREF_0 = SPLIT.ARTICLE_BASE AND ITC.YCOLLECT_0 = SOQ.YCOLLECT_0
         WHERE
             SOQ.SOQSTA_0 <> 3
+            AND SOH.ZSOHVALSTA_0 <> 3
             AND BPC.BCGCOD_0 <> 'INTER'
             $whereClause
         GROUP BY SOH.CUR_0
