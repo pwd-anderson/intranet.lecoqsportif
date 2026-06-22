@@ -144,14 +144,14 @@ VALUES
  NULL,NULL,1,28,NULL,0,NULL,NULL),
 
 -- REMISE AUTO (nouveau)
-('backlog_client_x3_grid','REMISE_AUTO','REMISE AUTO','decimal',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','REMISE_AUTO','REMISE AUTO','percent',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,29,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,NULL,1,29,NULL,0,'percentRawFormatter','decimalComparator'),
 
 -- REMISE MANU (nouveau)
-('backlog_client_x3_grid','REMISE_MANU','REMISE MANU','decimal',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','REMISE_MANU','REMISE MANU','percent',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,30,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,NULL,1,30,NULL,0,'percentRawFormatter','decimalComparator'),
 
 -- 17
 ('backlog_client_x3_grid','PRIX_EUR','PRIX EUR','decimal',130,1,'agNumberColumnFilter',

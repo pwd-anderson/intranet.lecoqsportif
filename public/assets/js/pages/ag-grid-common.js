@@ -414,6 +414,11 @@ window.AgGridCommon = (function () {
         return Number(a) - Number(b);
     }
 
+    function percentRawFormatter(params) {
+        if (params.value == null) return "";
+        return Number(params.value).toFixed(2) + " %";
+    }
+
     function patchSidebarCheckboxes(gridSelector) {
         const gridDiv = document.querySelector(gridSelector);
 
@@ -793,6 +798,7 @@ window.AgGridCommon = (function () {
     window.integerComparator = integerComparator;
     window.percentFormatter = percentFormatter;
     window.percentComparator = percentComparator;
+    window.percentRawFormatter = percentRawFormatter;
 
     return {
         initGrid: initGrid,
