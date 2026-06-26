@@ -52,6 +52,7 @@ sidebar:
         ca_marges: "Sales Margins"
     stock:
         stock_a_terme_x3: "Future Stock"
+        stock_a_terme_segmentation_produits_x3: "Stock à terme Amazon"
         stock_allocation: "Stock & Allocation"
         stock_composant: "Stock by Site & Family"
         stock_produits: "Produits"

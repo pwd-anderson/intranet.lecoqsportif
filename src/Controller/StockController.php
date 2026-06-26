@@ -59,6 +59,12 @@ final class StockController extends AbstractController
         return $this->stockGeneric('stock_a_terme_x3');
     }
 
+    #[Route('/stock/stock_a_terme_segmentation_produits_x3', name: 'app_stock_a_terme_segmentation_produits_x3')]
+    public function stockATermeSegmentationProduitsX3Alias(): Response
+    {
+        return $this->stockGeneric('stock_a_terme_segmentation_produits_x3');
+    }
+
     #[Route('/stock/stock_produits', name: 'app_stock_produits')]
     public function stockProduitsAlias(): Response
     {
@@ -136,6 +142,15 @@ final class StockController extends AbstractController
         return new JsonResponse($dataUtf8);
     }
 
+    #[Route('/stock/stock_a_terme_segmentation_produits_x3_json', name: 'stock_a_terme_segmentation_produits_x3_json')]
+    public function stockATermeSegmentationProduitsX3Json(Stock $stock, Helpers $helpers): JsonResponse
+    {
+        $data = $stock->getStockATermeSegmentationProduitsX3();
+        $dataUtf8 = $helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
     #[Route('/stock/stock_produits_shop_non_coches_json', name: 'stock_produits_shop_non_coches_json')]
     public function stockProduitsShopNonCochesJson(Stock $stock, Helpers $helpers): JsonResponse
     {
@@ -182,7 +197,7 @@ final class StockController extends AbstractController
     #[Route(
         '/stock/{type}',
         name: 'app_stock_generic',
-        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3|stock_produits|stock_produits_shop_non_coches']
+        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3|stock_a_terme_segmentation_produits_x3|stock_produits|stock_produits_shop_non_coches']
     )]
     public function stockGeneric(string $type): Response
     {
@@ -215,6 +230,12 @@ final class StockController extends AbstractController
                 'gridName' => 'stock_a_terme_x3_grid',
                 'title' => 'Stock à terme',
                 'jsonRoute' => 'stock_a_terme_x3_json',
+                'gridWidthMode' => 'full',
+            ],
+            'stock_a_terme_segmentation_produits_x3' => [
+                'gridName' => 'stock_a_terme_segmentation_produits_x3_grid',
+                'title' => 'Stock à terme Amazon',
+                'jsonRoute' => 'stock_a_terme_segmentation_produits_x3_json',
                 'gridWidthMode' => 'full',
             ],
             'stock_produits' => [

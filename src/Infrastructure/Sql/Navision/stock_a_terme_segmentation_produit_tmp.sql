@@ -8,35 +8,35 @@ IF OBJECT_ID('tempdb..#segmentation') IS NOT NULL DROP TABLE #segmentation;
 /* =======================
    1. Stock_aggregated
    ======================= */
-select sto.[Item No_], sto.[Variant Code], sum(sto.Stock_actuel) as Stock_actuel
+select sto.[ItemNo], sto.[VariantCode], sum(sto.Stock_actuel) as Stock_actuel
 into #stock_aggregated
 from (
-    SELECT stock.[Item No_], stock.[Variant Code], stock.Quantity as Stock_actuel
-    FROM [DB_Datalake].[nav].[Item Ledger Entry] stock
-    WHERE stock.[Item No_] <> ''
-    and stock.[Location Code] = 'LOGTXM-1'
-    and stock.Quantity <> 0
+         SELECT stock.[ItemNo], stock.[VariantCode], stock.Quantity as Stock_actuel
+         FROM [NAV_LCS].ItemLedgerEntry stock
+         WHERE stock.[ItemNo] <> ''
+           and stock.[LocationCode] = 'LOGTXM-1'
+           and stock.Quantity <> 0
 
-    union all
+         union all
 
-    -- transfert depuis IKS-PF vers LOGTXM-1
-    select pro.[Item No_], pro.[Variant Code], (pro.[Finished Quantity] - tl.[Quantity Shipped EDI]) as Stock_actuel
-    FROM [DB_Datalake].[nav].[Prod_ Order Line] pro
-    left join DB_Datalake.[nav lcsi bv].Item I on pro.[Item No_] = I.No_
-    left join [DB_Datalake].[nav].[Transfer Line] tl on pro.CompanyCode = tl.CompanyCode and pro.[IKS Prod Order No_] = tl.[IKS Prod Order No_] and pro.[Item No_] = tl.[Item No_] and pro.[Variant Code] = tl.[Variant Code]
-    where tl.[Transfer-from Code] = 'IKS-PF'
-    and tl.[Transfer-to Code] = 'LOGTXM-1'
-    and tl.[IKS Prod Order No_] <> ''
+         -- transfert depuis IKS-PF vers LOGTXM-1
+         select pro.[ItemNo], pro.[VariantCode], (pro.[FinishedQuantity] - tl.[QuantityShippedEDI]) as Stock_actuel
+         FROM [NAV_LCS].[ProdOrderLine] pro
+             left join [NAV_LCS].Item I on pro.[ItemNo] = I.ItemNo AND pro.CompanyCode = I.CompanyCode
+             left join [NAV_LCS].[TransferLine] tl on pro.CompanyCode = tl.CompanyCode and pro.[IKSProdOrderNo] = tl.[IKSProdOrderNo] and pro.[ItemNo] = tl.[ItemNo] and pro.[VariantCode] = tl.[VariantCode]
+         where tl.[TransferfromCode] = 'IKS-PF'
+           and tl.[TransfertoCode] = 'LOGTXM-1'
+           and tl.[IKSProdOrderNo] <> ''
 
-    )sto
-GROUP BY sto.[Item No_], sto.[Variant Code];
+     )sto
+GROUP BY sto.[ItemNo], sto.[VariantCode];
 /* =======================
    2. Achats
    ======================= */
 
 select
-    achat.No_,
-    achat.[Variant Code],
+    achat.ItemNo,
+    achat.[VariantCode],
 
     sum(Quantites_commandees_a_recevoir_mois_m) Quantites_commandees_a_recevoir_mois_m,
 
@@ -55,62 +55,62 @@ select
 INTO #achats
 from(
 
-    SELECT
-    p.No_,
-    p.[Variant Code],
+        SELECT
+            p.ItemNo,
+            p.[VariantCode],
 
-    (CASE
-    WHEN YEAR(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = year(getdate()) AND MONTH(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = month(getdate())
-    THEN p.[Outstanding Quantity]
+            (CASE
+                 WHEN YEAR(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = year(getdate()) AND MONTH(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = month(getdate())
+    THEN p.[OutstandingQuantity]
     ELSE 0
-    END) AS Quantites_commandees_a_recevoir_mois_m,
+END) AS Quantites_commandees_a_recevoir_mois_m,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = YEAR(DATEADD(MONTH, 1, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = MONTH(DATEADD(MONTH, 1, GETDATE()))
-    THEN p.[Outstanding Quantity]
+    WHEN YEAR(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = YEAR(DATEADD(MONTH, 1, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = MONTH(DATEADD(MONTH, 1, GETDATE()))
+    THEN p.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_commandees_a_recevoir_mois_m_1,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = YEAR(DATEADD(MONTH, 2, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = MONTH(DATEADD(MONTH, 2, GETDATE()))
-    THEN p.[Outstanding Quantity]
+    WHEN YEAR(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = YEAR(DATEADD(MONTH, 2, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = MONTH(DATEADD(MONTH, 2, GETDATE()))
+    THEN p.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_commandees_a_recevoir_mois_m_2,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = YEAR(DATEADD(MONTH, 3, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = MONTH(DATEADD(MONTH, 3, GETDATE()))
-    THEN p.[Outstanding Quantity]
+    WHEN YEAR(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = YEAR(DATEADD(MONTH, 3, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = MONTH(DATEADD(MONTH, 3, GETDATE()))
+    THEN p.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_commandees_a_recevoir_mois_m_3,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = YEAR(DATEADD(MONTH, 4, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = MONTH(DATEADD(MONTH, 4, GETDATE()))
-    THEN p.[Outstanding Quantity]
+    WHEN YEAR(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = YEAR(DATEADD(MONTH, 4, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = MONTH(DATEADD(MONTH, 4, GETDATE()))
+    THEN p.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_commandees_a_recevoir_mois_m_4,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = YEAR(DATEADD(MONTH, 5, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = MONTH(DATEADD(MONTH, 5, GETDATE()))
-    THEN p.[Outstanding Quantity]
+    WHEN YEAR(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = YEAR(DATEADD(MONTH, 5, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = MONTH(DATEADD(MONTH, 5, GETDATE()))
+    THEN p.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_commandees_a_recevoir_mois_m_5,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = YEAR(DATEADD(MONTH, 6, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[Resqueted Ex factory date])) = MONTH(DATEADD(MONTH, 6, GETDATE()))
-    THEN p.[Outstanding Quantity]
+    WHEN YEAR(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = YEAR(DATEADD(MONTH, 6, GETDATE())) AND MONTH(DATEADD(DAY, 45, p.[ResquetedExfactorydate])) = MONTH(DATEADD(MONTH, 6, GETDATE()))
+    THEN p.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_commandees_a_recevoir_mois_m_6
 
     FROM
-    [DB_Datalake].[nav].[Purchase Line] p
+    [NAV_LCS].[PurchaseLine] p
     WHERE
-    p.No_ <> ''
+    p.ItemNo <> ''
     AND p.[Type] = 2
-    AND p.[Document Type] = 1
-    AND DATEADD(DAY, 45, p.[Resqueted Ex factory date]) < DATEADD(DAY, 300, GETDATE())
-    and p.[Outstanding Quantity] <> 0
+    AND p.[DocumentType] = 1
+    AND DATEADD(DAY, 45, p.[ResquetedExfactorydate]) < DATEADD(DAY, 300, GETDATE())
+    and p.[OutstandingQuantity] <> 0
     )achat
-group by achat.No_, achat.[Variant Code];
+group by achat.ItemNo, achat.[VariantCode];
 
 /* =======================
    3. Ventes
@@ -118,8 +118,8 @@ group by achat.No_, achat.[Variant Code];
 
 select
 
-    vente.No_,
-    vente.[Variant Code],
+    vente.ItemNo,
+    vente.[VariantCode],
 
     sum(Quantites_vendues_a_livrer_mois_m) Quantites_vendues_a_livrer_mois_m,
 
@@ -138,212 +138,213 @@ select
 into #ventes
 from(
 
-    SELECT
-    s.No_,
-    s.[Variant Code],
 
-    (CASE
-    WHEN YEAR(s.[Requested Delivery Date]) = year(getdate()) AND MONTH(s.[Requested Delivery Date]) = month(getdate())
-    THEN s.[Outstanding Quantity]
+        SELECT
+            S.ItemNo,
+            S.[VariantCode],
+
+            (CASE
+                 WHEN YEAR(S.[RequestedDeliveryDate]) = year(getdate()) AND MONTH(S.[RequestedDeliveryDate]) = month(getdate())
+    THEN S.[OutstandingQuantity]
     ELSE 0
-    END) AS Quantites_vendues_a_livrer_mois_m,
+END) AS Quantites_vendues_a_livrer_mois_m,
 
     (CASE
-    WHEN YEAR(s.[Requested Delivery Date]) = YEAR(DATEADD(MONTH, 1, GETDATE())) AND MONTH(s.[Requested Delivery Date]) = MONTH(DATEADD(MONTH, 1, GETDATE()))
-    THEN s.[Outstanding Quantity]
+    WHEN YEAR(S.[RequestedDeliveryDate]) = YEAR(DATEADD(MONTH, 1, GETDATE())) AND MONTH(S.[RequestedDeliveryDate]) = MONTH(DATEADD(MONTH, 1, GETDATE()))
+    THEN S.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_vendues_a_livrer_mois_m_1,
 
     (CASE
-    WHEN YEAR(s.[Requested Delivery Date]) = YEAR(DATEADD(MONTH, 2, GETDATE())) AND MONTH(s.[Requested Delivery Date]) = MONTH(DATEADD(MONTH, 2, GETDATE()))
-    THEN s.[Outstanding Quantity]
+    WHEN YEAR(S.[RequestedDeliveryDate]) = YEAR(DATEADD(MONTH, 2, GETDATE())) AND MONTH(S.[RequestedDeliveryDate]) = MONTH(DATEADD(MONTH, 2, GETDATE()))
+    THEN S.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_vendues_a_livrer_mois_m_2,
 
     (CASE
-    WHEN YEAR(s.[Requested Delivery Date]) = YEAR(DATEADD(MONTH, 3, GETDATE())) AND MONTH(s.[Requested Delivery Date]) = MONTH(DATEADD(MONTH, 3, GETDATE()))
-    THEN s.[Outstanding Quantity]
+    WHEN YEAR(S.[RequestedDeliveryDate]) = YEAR(DATEADD(MONTH, 3, GETDATE())) AND MONTH(S.[RequestedDeliveryDate]) = MONTH(DATEADD(MONTH, 3, GETDATE()))
+    THEN S.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_vendues_a_livrer_mois_m_3,
 
     (CASE
-    WHEN YEAR(s.[Requested Delivery Date]) = YEAR(DATEADD(MONTH, 4, GETDATE())) AND MONTH(s.[Requested Delivery Date]) = MONTH(DATEADD(MONTH, 4, GETDATE()))
-    THEN s.[Outstanding Quantity]
+    WHEN YEAR(S.[RequestedDeliveryDate]) = YEAR(DATEADD(MONTH, 4, GETDATE())) AND MONTH(S.[RequestedDeliveryDate]) = MONTH(DATEADD(MONTH, 4, GETDATE()))
+    THEN S.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_vendues_a_livrer_mois_m_4,
 
     (CASE
-    WHEN YEAR(s.[Requested Delivery Date]) = YEAR(DATEADD(MONTH, 5, GETDATE())) AND MONTH(s.[Requested Delivery Date]) = MONTH(DATEADD(MONTH, 5, GETDATE()))
-    THEN s.[Outstanding Quantity]
+    WHEN YEAR(S.[RequestedDeliveryDate]) = YEAR(DATEADD(MONTH, 5, GETDATE())) AND MONTH(S.[RequestedDeliveryDate]) = MONTH(DATEADD(MONTH, 5, GETDATE()))
+    THEN S.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_vendues_a_livrer_mois_m_5,
 
     (CASE
-    WHEN YEAR(s.[Requested Delivery Date]) = YEAR(DATEADD(MONTH, 6, GETDATE())) AND MONTH(s.[Requested Delivery Date]) = MONTH(DATEADD(MONTH, 6, GETDATE()))
-    THEN s.[Outstanding Quantity]
+    WHEN YEAR(S.[RequestedDeliveryDate]) = YEAR(DATEADD(MONTH, 6, GETDATE())) AND MONTH(S.[RequestedDeliveryDate]) = MONTH(DATEADD(MONTH, 6, GETDATE()))
+    THEN S.[OutstandingQuantity]
     ELSE 0
     END) AS Quantites_vendues_a_livrer_mois_m_6
 
     FROM
-    [DB_Datalake].[nav].[Sales Line] s
-    LEFT JOIN DB_Datalake.[nav].[Sales Header] SH
+    [NAV_LCS].[SalesLine] S
+    LEFT JOIN [NAV_LCS].[SalesHeader] SH
     ON SH.CompanyCode = S.CompanyCode
-    AND SH.No_ = S.[Document No_]
-    AND SH.[Document Type] = S.[Document Type]
-    left join [DB_Datalake].[nav].[Customer] as c on s.CompanyCode = c.CompanyCode and s.[Bill-to Customer No_] = c.No_
+    AND SH.DocumentNo = S.[DocumentNo]
+    AND SH.[DocumentType] = S.[DocumentType]
+    left join [NAV_LCS].[Customer] as c on S.CompanyCode = c.CompanyCode and S.[BilltoCustomerNo] = c.CustomerNo
     WHERE
-    s.No_ <> ''
-    AND s.[Type] = 2
-    AND s.[Document Type] = 1
-    AND (SH.[Sales order typ] <> 'IR' OR SH.[Order Date] <= '20200101') -- exclusion des forecast JO 2024
-    AND s.[Requested Delivery Date] < DATEADD(DAY, 300, GETDATE())
-    and c.[Business Model] in ('1_WHOLESALE', '2_DISTRIBUTORS', '3_BTOC')
-    and s.[Outstanding Quantity] <> 0
+    S.ItemNo <> ''
+    AND S.[Type] = 2
+    AND S.[DocumentType] = 1
+    AND (SH.[Salesordertyp] <> 'IR' OR SH.[OrderDate] <= '20200101') -- exclusion des forecast JO 2024
+    AND S.[RequestedDeliveryDate] < DATEADD(DAY, 300, GETDATE())
+    and c.[BusinessModel] in ('1_WHOLESALE', '2_DISTRIBUTORS', '3_BTOC')
+    and S.[OutstandingQuantity] <> 0
     )vente
-group by vente.No_, vente.[Variant Code];
+group by vente.ItemNo, vente.[VariantCode];
 
 /* =======================
    4. Produits
    ======================= */
 SELECT
     p.*,
-    I.[Item Family Code],
-		I.Description [Item Description],
-		I.[Last Series No_]
+    I.[ItemFamilyCode],
+    I.Description [Item Description],
+		I.[LastSeriesNo]
 INTO #produits
 FROM
     (
-    SELECT DISTINCT [Item No_],[Variant Code] Variant_Code FROM (
-    SELECT DISTINCT [Item No_],[Variant Code] FROM #stock_aggregated
-    UNION ALL SELECT DISTINCT No_,[Variant Code] FROM #ventes
-    UNION ALL SELECT DISTINCT No_,[Variant Code] FROM #achats
+    SELECT DISTINCT [ItemNo],[VariantCode] Variant_Code FROM (
+    SELECT DISTINCT [ItemNo],[VariantCode] FROM #stock_aggregated
+    UNION ALL SELECT DISTINCT ItemNo,[VariantCode] FROM #ventes
+    UNION ALL SELECT DISTINCT ItemNo,[VariantCode] FROM #achats
     --UNION ALL SELECT DISTINCT [Item No_],[Variant Code] FROM production
     )T
     ) p
-    LEFT JOIN DB_Datalake.[nav lcsi bv].Item I ON I.No_ = p.[Item No_];
+    LEFT JOIN NAV_LCS.Item I ON I.ItemNo = p.[ItemNo];
 
 /* =======================
    4. production
    ======================= */
 
 select
-    production.[Item No_],
-production.[Variant Code],
+    production.[ItemNo],
+    production.[VariantCode],
 
-sum(Quantites_produites_a_recevoir_mois_m) Quantites_produites_a_recevoir_mois_m,
+    sum(Quantites_produites_a_recevoir_mois_m) Quantites_produites_a_recevoir_mois_m,
 
-sum(Quantites_produites_a_recevoir_mois_m_1) Quantites_produites_a_recevoir_mois_m_1,
+    sum(Quantites_produites_a_recevoir_mois_m_1) Quantites_produites_a_recevoir_mois_m_1,
 
-sum(Quantites_produites_a_recevoir_mois_m_2) Quantites_produites_a_recevoir_mois_m_2,
+    sum(Quantites_produites_a_recevoir_mois_m_2) Quantites_produites_a_recevoir_mois_m_2,
 
-sum(Quantites_produites_a_recevoir_mois_m_3) Quantites_produites_a_recevoir_mois_m_3,
+    sum(Quantites_produites_a_recevoir_mois_m_3) Quantites_produites_a_recevoir_mois_m_3,
 
-sum(Quantites_produites_a_recevoir_mois_m_4) Quantites_produites_a_recevoir_mois_m_4,
+    sum(Quantites_produites_a_recevoir_mois_m_4) Quantites_produites_a_recevoir_mois_m_4,
 
-sum(Quantites_produites_a_recevoir_mois_m_5) Quantites_produites_a_recevoir_mois_m_5,
+    sum(Quantites_produites_a_recevoir_mois_m_5) Quantites_produites_a_recevoir_mois_m_5,
 
-sum(Quantites_produites_a_recevoir_mois_m_6) Quantites_produites_a_recevoir_mois_m_6
+    sum(Quantites_produites_a_recevoir_mois_m_6) Quantites_produites_a_recevoir_mois_m_6
 
 into #production
 from (
 
-    SELECT
-    pro.[Item No_],
-    pro.[Variant Code],
+         SELECT
+             pro.[ItemNo],
+             pro.[VariantCode],
 
-    (CASE
-    WHEN YEAR(DATEADD(DAY, 4, tl.[Shipment Date])) = year(getdate()) AND MONTH(DATEADD(DAY, 4, tl.[Shipment Date])) = month(getdate())
-    THEN pro.[Remaining Quantity]
+             (CASE
+                  WHEN YEAR(DATEADD(DAY, 4, tl.[ShipmentDate])) = year(getdate()) AND MONTH(DATEADD(DAY, 4, tl.[ShipmentDate])) = month(getdate())
+    THEN pro.[RemainingQuantity]
     ELSE 0
-    END) AS Quantites_produites_a_recevoir_mois_m,
+END) AS Quantites_produites_a_recevoir_mois_m,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 4, tl.[Shipment Date])) = YEAR(DATEADD(MONTH, 1, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[Shipment Date])) = MONTH(DATEADD(MONTH, 1, GETDATE()))
-    THEN pro.[Remaining Quantity]
+    WHEN YEAR(DATEADD(DAY, 4, tl.[ShipmentDate])) = YEAR(DATEADD(MONTH, 1, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[ShipmentDate])) = MONTH(DATEADD(MONTH, 1, GETDATE()))
+    THEN pro.[RemainingQuantity]
     ELSE 0
     END) AS Quantites_produites_a_recevoir_mois_m_1,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 4, tl.[Shipment Date])) = YEAR(DATEADD(MONTH, 2, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[Shipment Date])) = MONTH(DATEADD(MONTH, 2, GETDATE()))
-    THEN pro.[Remaining Quantity]
+    WHEN YEAR(DATEADD(DAY, 4, tl.[ShipmentDate])) = YEAR(DATEADD(MONTH, 2, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[ShipmentDate])) = MONTH(DATEADD(MONTH, 2, GETDATE()))
+    THEN pro.[RemainingQuantity]
     ELSE 0
     END) AS Quantites_produites_a_recevoir_mois_m_2,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 4, tl.[Shipment Date])) = YEAR(DATEADD(MONTH, 3, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[Shipment Date])) = MONTH(DATEADD(MONTH, 3, GETDATE()))
-    THEN pro.[Remaining Quantity]
+    WHEN YEAR(DATEADD(DAY, 4, tl.[ShipmentDate])) = YEAR(DATEADD(MONTH, 3, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[ShipmentDate])) = MONTH(DATEADD(MONTH, 3, GETDATE()))
+    THEN pro.[RemainingQuantity]
     ELSE 0
     END) AS Quantites_produites_a_recevoir_mois_m_3,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 4, tl.[Shipment Date])) = YEAR(DATEADD(MONTH, 4, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[Shipment Date])) = MONTH(DATEADD(MONTH, 4, GETDATE()))
-    THEN pro.[Remaining Quantity]
+    WHEN YEAR(DATEADD(DAY, 4, tl.[ShipmentDate])) = YEAR(DATEADD(MONTH, 4, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[ShipmentDate])) = MONTH(DATEADD(MONTH, 4, GETDATE()))
+    THEN pro.[RemainingQuantity]
     ELSE 0
     END) AS Quantites_produites_a_recevoir_mois_m_4,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 4, tl.[Shipment Date])) = YEAR(DATEADD(MONTH, 5, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[Shipment Date])) = MONTH(DATEADD(MONTH, 5, GETDATE()))
-    THEN pro.[Remaining Quantity]
+    WHEN YEAR(DATEADD(DAY, 4, tl.[ShipmentDate])) = YEAR(DATEADD(MONTH, 5, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[ShipmentDate])) = MONTH(DATEADD(MONTH, 5, GETDATE()))
+    THEN pro.[RemainingQuantity]
     ELSE 0
     END) AS Quantites_produites_a_recevoir_mois_m_5,
 
     (CASE
-    WHEN YEAR(DATEADD(DAY, 4, tl.[Shipment Date])) = YEAR(DATEADD(MONTH, 6, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[Shipment Date])) = MONTH(DATEADD(MONTH, 6, GETDATE()))
-    THEN pro.[Remaining Quantity]
+    WHEN YEAR(DATEADD(DAY, 4, tl.[ShipmentDate])) = YEAR(DATEADD(MONTH, 6, GETDATE())) AND MONTH(DATEADD(DAY, 4, tl.[ShipmentDate])) = MONTH(DATEADD(MONTH, 6, GETDATE()))
+    THEN pro.[RemainingQuantity]
     ELSE 0
     END) AS Quantites_produites_a_recevoir_mois_m_6
 
     FROM
-    [DB_Datalake].[nav].[Prod_ Order Line] pro
-    left join DB_Datalake.[nav lcsi bv].Item I on pro.[Item No_] = I.No_
-    left join [DB_Datalake].[nav].[Transfer Line] tl on pro.CompanyCode = tl.CompanyCode and pro.[IKS Prod Order No_] = tl.[IKS Prod Order No_] and pro.[Item No_] = tl.[Item No_]
-    and pro.[Variant Code] = tl.[Variant Code] and pro.[Source No_] = tl.[Document No_]
+    [NAV_LCS].[ProdOrderLine] pro
+    left join [NAV_LCS].Item I on pro.[ItemNo] = I.ItemNo AND pro.CompanyCode = I.CompanyCode
+    left join [NAV_LCS].[TransferLine] tl on pro.CompanyCode = tl.CompanyCode and pro.[IKSProdOrderNo] = tl.[IKSProdOrderNo] and pro.[ItemNo] = tl.[ItemNo]
+    and pro.[VariantCode] = tl.[VariantCode] and pro.[SourceNo] = tl.[DocumentNo]
     WHERE
-    pro.[Remaining Quantity] <> 0
-    AND pro.[Item No_] <> ''
-    AND DATEADD(DAY, 4, tl.[Shipment Date]) < DATEADD(DAY, 300, GETDATE())
+    pro.[RemainingQuantity] <> 0
+    AND pro.[ItemNo] <> ''
+    AND DATEADD(DAY, 4, tl.[ShipmentDate]) < DATEADD(DAY, 300, GETDATE())
 
     )production
-group by production.[Item No_], production.[Variant Code];
+group by production.[ItemNo], production.[VariantCode];
 
 /* =======================
    5. segmentation
    ======================= */
 
 SELECT
-    A.[Series No_]        AS Series_No,
-    A.[Item No_]          AS Item_No,
-    IV.Code               AS Variant_Code,
+    A.[SeriesNo]        AS Series_No,
+    A.[ItemNo]          AS Item_No,
+    IV.VariantCode               AS Variant_Code,
     IV.BarCode,
-    A.[Market Price],
-    A.[Market Price Currency],
+    A.[MarketPrice],
+    A.[MarketPriceCurrency],
     IV.Width,
     IV.Height,
     IV.Length,
-    IV.[Reference Gross Weight in kg] AS Gross_Weight,
-    A.[Country Code Of Origin],
-    A.[PDM Material Code],
+    IV.[ReferenceGrossWeightinkg] AS Gross_Weight,
+    A.[CountryCodeOfOrigin],
+    A.[PDMMaterialCode],
     A.CompanyCode,
-    A.[Item Family Code] as ItemFamilyCode
+    A.[ItemFamilyCode] as ItemFamilyCode
 INTO #segmentation
-FROM [DB_Datalake].[nav].[Series Line] A
-    LEFT JOIN [DB_Datalake].[nav].[Item Variant] IV
-ON IV.[Item No_] = A.[Item No_] and A.CompanyCode = IV.CompanyCode
+FROM [NAV_LCS].[SeriesLine] A
+    LEFT JOIN [NAV_LCS].[ItemVariant] IV
+ON IV.[ItemNo] = A.[ItemNo] -- and A.CompanyCode = IV.CompanyCode
 WHERE
-    A.[Dropped Item] = 0
+    A.[DroppedItem] = 0
   AND A.CompanyCode = 'LCSI BV'
-  and A.[Item Family Code] IN ('1 FOOTWEAR', '2 TEXTILE', '3 HARDWARE')
-  and IV.Code <> 'SPL';
+  and A.[ItemFamilyCode] IN ('1 FOOTWEAR', '2 TEXTILE', '3 HARDWARE')
+  and IV.VariantCode <> 'SPL';
 
 SELECT
-    p.[Last Series No_],
-    p.[Item Family Code],
-    p.[Item No_],
+    p.[LastSeriesNo],
+    p.[ItemFamilyCode],
+    p.[ItemNo],
     p.[Item Description],
     p.Variant_Code
     ,seg.BarCode as EAN_CODE
-    ,seg.[Market Price]
-    ,seg.[Market Price Currency]
+    ,seg.[MarketPrice]
+    ,seg.[MarketPriceCurrency]
     ,seg.Width
     ,seg.Height
     ,seg.Length
@@ -506,14 +507,14 @@ SELECT
 
 FROM #produits p
 
-    LEFT JOIN #stock_aggregated sa ON p.[Item No_] = sa.[Item No_] AND p.Variant_Code = sa.[Variant Code]
-    LEFT JOIN #ventes as ventes ON p.[Item No_] = ventes.No_ AND p.Variant_Code = ventes.[Variant Code]
-    LEFT JOIN #achats as achats ON p.[Item No_] = achats.No_ AND p.Variant_Code = achats.[Variant Code]
-    LEFT JOIN #production as production ON p.[Item No_] = production.[Item No_] AND p.Variant_Code = production.[Variant Code]
-    LEFT JOIN #segmentation seg ON p.[Item No_] = seg.Item_No AND p.Variant_Code = seg.Variant_Code and seg.Series_No = p.[Last Series No_] and seg.ItemFamilyCode = p.[Item Family Code]
-WHERE p.[Item Family Code] IN ('1 FOOTWEAR', '2 TEXTILE', '3 HARDWARE')
+    LEFT JOIN #stock_aggregated sa ON p.[ItemNo] = sa.[ItemNo] AND p.Variant_Code = sa.[VariantCode]
+    LEFT JOIN #ventes as ventes ON p.[ItemNo] = ventes.ItemNo AND p.Variant_Code = ventes.[VariantCode]
+    LEFT JOIN #achats as achats ON p.[ItemNo] = achats.ItemNo AND p.Variant_Code = achats.[VariantCode]
+    LEFT JOIN #production as production ON p.[ItemNo] = production.[ItemNo] AND p.Variant_Code = production.[VariantCode]
+    LEFT JOIN #segmentation seg ON p.[ItemNo] = seg.Item_No AND p.Variant_Code = seg.Variant_Code and seg.Series_No = p.[LastSeriesNo] and seg.ItemFamilyCode = p.[ItemFamilyCode]
+WHERE p.[ItemFamilyCode] IN ('1 FOOTWEAR', '2 TEXTILE', '3 HARDWARE')
   and p.Variant_Code <> 'SPL'
-  and p.[Item No_] <> ''
+  and p.[ItemNo] <> ''
   AND (
     ISNULL(sa.Stock_actuel, 0) <> 0 OR
     ISNULL(ventes.Quantites_vendues_a_livrer_mois_m, 0) <> 0 OR

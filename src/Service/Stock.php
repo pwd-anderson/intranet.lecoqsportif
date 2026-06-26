@@ -188,6 +188,33 @@ class Stock
         }
     }
 
+    public function getStockATermeSegmentationProduitsX3(): array
+    {
+        try {
+            $query = "
+                SELECT [SITE], [DESCRIPTION_SITE], [FAMILLE], [DERNIERE_COLLECTION],
+                       [ARTICLE], [DESCRIPTION_ARTICLE], [STATUT],
+                       [LARGEUR], [LONGUEUR], [HAUTEUR], [UNITE], [POIDS],
+                       [PRIX_MARCHE], [DEVISE_MARCHE], [PDM_MATERIAL_CODE], [PAYS_ORIGINE],
+                       [STOCK_INTERNE],
+                       [ACHAT_M0], [VENTE_M0], [RESA_ETAIL_M0], [RESA_RETAIL_M0], [STOCK_TERME_M0],
+                       [ACHAT_M1], [VENTE_M1], [RESA_ETAIL_M1], [RESA_RETAIL_M1], [STOCK_TERME_M1],
+                       [ACHAT_M2], [VENTE_M2], [RESA_ETAIL_M2], [RESA_RETAIL_M2], [STOCK_TERME_M2],
+                       [ACHAT_M3], [VENTE_M3], [RESA_ETAIL_M3], [RESA_RETAIL_M3], [STOCK_TERME_M3],
+                       [ACHAT_M4], [VENTE_M4], [RESA_ETAIL_M4], [RESA_RETAIL_M4], [STOCK_TERME_M4],
+                       [ACHAT_M5], [VENTE_M5], [RESA_ETAIL_M5], [RESA_RETAIL_M5], [STOCK_TERME_M5],
+                       [ACHAT_M6], [VENTE_M6], [RESA_ETAIL_M6], [RESA_RETAIL_M6], [STOCK_TERME_M6]
+                FROM MASTER_TABLES.AMAZON_SEG_STOCK_A_TERME
+            ";
+            return $this->mssqlSei->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme Segmentation X3', $e);
+            $this->logger->error('LCS Erreur Stock à Terme Segmentation X3', ['exception' => $e]);
+            return [];
+        }
+    }
+
     public function getStockProduits(?string $collection = null, ?string $famille = null, ?string $genre = null): array
     {
         try {
