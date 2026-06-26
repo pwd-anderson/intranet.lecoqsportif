@@ -5,67 +5,67 @@ INSERT INTO intranet_lcs.aggrid_option
 VALUES
 ('stock_a_terme_segmentation_produits_x3_grid','SITE','SITE','string',100,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,1,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,1,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','DESCRIPTION_SITE','DESCRIPTION SITE','string',160,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,2,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,2,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','FAMILLE','FAMILLE','string',120,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,3,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,3,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','DERNIERE_COLLECTION','DERNIERE COLLECTION','string',150,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,4,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,4,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','ARTICLE','ARTICLE','string',120,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,5,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,5,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','DESCRIPTION_ARTICLE','DESCRIPTION ARTICLE','string',200,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,6,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,6,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','STATUT','STATUT','string',100,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,7,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,7,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','LARGEUR','LARGEUR','decimal',100,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,8,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,8,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','LONGUEUR','LONGUEUR','decimal',100,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,9,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,9,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','HAUTEUR','HAUTEUR','decimal',100,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,10,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,10,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','UNITE','UNITE','string',80,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,11,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,11,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','POIDS','POIDS','decimal',100,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,12,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,12,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','PRIX_MARCHE','PRIX MARCHE','decimal',120,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,13,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,13,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','DEVISE_MARCHE','DEVISE','string',80,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,14,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,14,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','PDM_MATERIAL_CODE','PDM MATERIAL CODE','string',140,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,15,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,15,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','PAYS_ORIGINE','PAYS ORIGINE','string',120,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,16,'bg-gradient-info',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,16,'bg-lightest',0,NULL,NULL,NULL,NULL,NULL),
 
 ('stock_a_terme_segmentation_produits_x3_grid','STOCK_INTERNE','STOCK INTERNE','integer',120,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
