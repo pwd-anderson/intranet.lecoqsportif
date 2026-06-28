@@ -992,4 +992,91 @@ class Sales
         }
     }
 
+    public function getSuiviPerfWholesaleFr(): array
+    {
+        try {
+            $sql  = $this->sqlFileLoader->load('Sei/suivi_perf_wholesale_fr.sql');
+            $rows = $this->mssqlSei->executeQuery($sql);
+
+            $brachetName   = 'BRACHET Sylvain';
+            $groups        = [];
+            $grandSs26     = 0.0;
+            $grandSs27     = 0.0;
+            $grandObjectif = 0.0;
+
+            foreach ($rows as $row) {
+                $rep      = (string) ($row->REPRESENTANT    ?? '');
+                $manager  = (string) ($row->MANAGER_RZ      ?? '');
+                $ss26     = (float)  ($row->PS_SS26          ?? 0);
+                $ss27     = (float)  ($row->PS_SS27          ?? 0);
+                $objectif = (float)  ($row->OBJECTIF_PS_SS27 ?? 0);
+
+                $grandSs26     += $ss26;
+                $grandSs27     += $ss27;
+                $grandObjectif += $objectif;
+
+                if ($rep === $brachetName) {
+                    continue;
+                }
+
+                // Un RZ appartient à son propre groupe
+                $groupKey = str_contains($rep, ' RZ') ? $rep : $manager;
+
+                if (!isset($groups[$groupKey])) {
+                    $groups[$groupKey] = ['reps' => [], 'ss26' => 0.0, 'ss27' => 0.0, 'objectif' => 0.0];
+                }
+
+                $groups[$groupKey]['reps'][]   = ['REPRESENTANT' => $rep, 'ss26' => $ss26, 'ss27' => $ss27, 'objectif' => $objectif];
+                $groups[$groupKey]['ss26']     += $ss26;
+                $groups[$groupKey]['ss27']     += $ss27;
+                $groups[$groupKey]['objectif'] += $objectif;
+            }
+
+            ksort($groups);
+
+            $result = [];
+
+            foreach ($groups as $groupKey => $group) {
+                usort($group['reps'], fn($a, $b) => strcmp($a['REPRESENTANT'], $b['REPRESENTANT']));
+
+                $rzRow = null;
+                foreach ($group['reps'] as $rep) {
+                    if (str_contains($rep['REPRESENTANT'], ' RZ')) {
+                        $rzRow = $rep;
+                    } else {
+                        $result[] = $this->enrichPerfRow($rep['REPRESENTANT'], $rep['ss26'], $rep['objectif'], $rep['ss27'], 'rep');
+                    }
+                }
+
+                if ($rzRow !== null) {
+                    $result[] = $this->enrichPerfRow($rzRow['REPRESENTANT'], $rzRow['ss26'], $rzRow['objectif'], $rzRow['ss27'], 'rep');
+                }
+
+                $result[] = $this->enrichPerfRow($groupKey, $group['ss26'], $group['objectif'], $group['ss27'], 'manager');
+            }
+
+            $result[] = $this->enrichPerfRow($brachetName, $grandSs26, $grandObjectif, $grandSs27, 'director');
+
+            return $result;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Suivi Perf Wholesale FR', $e);
+            $this->logger->error('LCS Erreur Sales : Suivi Perf Wholesale FR', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    private function enrichPerfRow(string $name, float $ss26, float $objectif, float $ss27, string $rowType): array
+    {
+        return [
+            'REPRESENTANT'          => $name,
+            'PS_ORDER_SS26_EOS'     => $ss26,
+            'OBJECTIF_PS_SS27'      => $objectif,
+            'PS_ORDER_SS27_TD'      => $ss27,
+            'EVOLUTION_VS_SS26'     => $ss26 > 0 ? round($ss27 / $ss26 - 1, 4) : null,
+            'POURCENTAGE_ATTEINTE'  => $objectif > 0 ? round($ss27 / $objectif, 4) : null,
+            'ROW_TYPE'              => $rowType,
+        ];
+    }
+
 }

@@ -114,6 +114,29 @@ final class SalesController extends AbstractController
         ]);
     }
 
+    #[Route('/sales/suivi_perf_wholesale_fr', name: 'app_sales_suivi_perf_wholesale_fr')]
+    public function suiviPerfWholesaleFr(): Response
+    {
+        $gridName = 'suivi_perf_wholesale_fr_grid';
+
+        $agridOptions = $this->aggridOptionRepository->findBy(
+            ['gridName' => $gridName],
+            ['orderIndex' => 'ASC']
+        );
+
+        $grid = $this->columnBuilder->build($agridOptions);
+
+        return $this->render('sales/suivi_perf_wholesale_fr.html.twig', [
+            'title'          => 'Suivi Performance SS27 - Wholesale France',
+            'columns'        => $grid['columns'],
+            'numericColumns' => $grid['numericColumns'],
+            'integerColumns' => $grid['integerColumns'],
+            'totalColumns'   => $grid['totalColumns'],
+            'dataUrl'        => $this->generateUrl('sales_suivi_perf_wholesale_fr_json'),
+            'gridWidthMode'  => 'auto',
+        ]);
+    }
+
     // ################## ROUTES JSON (inchangées) #####################
     #[Route('/sales/livraison_non_facturees_json', name: 'livraison_non_facturees_json')]
     public function livraisonNonFactureesJson(Sales $sales, Helpers $helpers): JsonResponse
@@ -230,6 +253,13 @@ final class SalesController extends AbstractController
     public function sellInSuiviPsJson(Sales $sales, Helpers $helpers): JsonResponse
     {
         $data = $sales->getSellInSuiviPs();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/suivi_perf_wholesale_fr_json', name: 'sales_suivi_perf_wholesale_fr_json')]
+    public function suiviPerfWholesaleFrJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getSuiviPerfWholesaleFr();
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 

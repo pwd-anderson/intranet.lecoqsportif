@@ -1,0 +1,213 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input { color: #000000 !important; }
+        .grid-outer-container { width: 100%; }
+        .grid-inner-container { width: 100%; }
+        .grid-wrapper { position: relative; min-height: 600px; }
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grid-actions-hidden  { visibility: hidden; opacity: 0; pointer-events: none; }
+        .grid-actions-visible { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 0.2s ease-in-out; }
+        .grid-loader-bar-track { height: 8px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
+        .grid-loader-bar-fill  { height: 100%; width: 0%; background: #024185; border-radius: 99px; transition: width 0.3s ease; }
+        .grid-loader-percent-text { font-size: 13px; color: #024185; font-weight: 600; margin-top: 6px; }
+
+        /* Lignes manager RZ */
+        .ag-theme-alpine .ag-row.perf-row-manager,
+        .ag-theme-alpine .ag-row.perf-row-manager.ag-row-hover {
+            font-weight: 700;
+            background-color: #198754 !important;
+            color: #ffffff !important;
+        }
+        /* Lignes directeur */
+        .ag-theme-alpine .ag-row.perf-row-director,
+        .ag-theme-alpine .ag-row.perf-row-director.ag-row-hover {
+            font-weight: 700;
+            background-color: #0dcaf0 !important;
+            color: #000000 !important;
+        }
+        /* Neutralise les cell_style inline (ex: fond jaune objectif) sur les lignes total et footer */
+        .ag-theme-alpine .ag-row.perf-row-manager .ag-cell,
+        .ag-theme-alpine .ag-row.perf-row-director .ag-cell,
+        .ag-theme-alpine .ag-floating-bottom .ag-cell {
+            background-color: transparent !important;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+                    <div id="gridOuterContainer" class="grid-outer-container {% if gridWidthMode == 'auto' %}grid-width-auto{% endif %}">
+                        <div id="gridInnerContainer" class="grid-inner-container">
+                            <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                                <h3 class="box-title mb-2">{{ title }}</h3>
+                                <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                                    <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                                    <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                                    <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
+                                    <span id="rowCount" class="text-muted small"></span>
+                                </div>
+                            </div>
+
+                            <div class="box-body">
+                                <div class="table-responsive-sm">
+                                    <div id="myGridWrapper" class="grid-wrapper">
+                                        <div id="gridCustomLoader" class="grid-custom-loader">
+                                            <div class="grid-loader-spinner"></div>
+                                            <div class="grid-loader-text">Chargement de la grille...</div>
+                                            <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                                <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                            </div>
+                                            <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                                        </div>
+                                        <div id="myGrid" class="ag-theme-alpine" style="height: 600px; visibility: hidden;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.5"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}?v=2"></script>
+
+    <script>
+        const columnDefs = {{ columns|json_encode|raw }};
+
+        columnDefs.forEach(col => {
+            col.cellClassRules = Object.assign(col.cellClassRules || {}, {
+                'excelRowManager':  params => params.data?.ROW_TYPE === 'manager',
+                'excelRowDirector': params => params.data?.ROW_TYPE === 'director',
+                'excelRowFooter':   params => params.node?.rowPinned === 'bottom',
+            });
+        });
+
+        const objectifCol = columnDefs.find(col => col.field === 'OBJECTIF_PS_SS27');
+        if (objectifCol) {
+            objectifCol.cellClassRules['excelYellowCell'] =
+                params => !['manager', 'director'].includes(params.data?.ROW_TYPE) && params.node?.rowPinned !== 'bottom';
+        }
+
+        const agGridConfig = {
+            columnDefs:     columnDefs,
+            dataUrl:        '{{ dataUrl }}',
+            numericColumns: {{ numericColumns|json_encode|raw }},
+            integerColumns: {{ integerColumns|json_encode|raw }},
+            totalColumns:   {{ totalColumns|json_encode|raw }},
+            headerClass:    'excelHeaderBlue',
+            stateKey:       'aggrid-state-suivi_perf_wholesale_fr-user-{{ app.user.id|default("local") }}-v1',
+            excelStyles: [
+                {
+                    id: 'excelHeaderBlue',
+                    font: { bold: true, color: '#FFFFFF' },
+                    alignment: { horizontal: 'Center' },
+                    interior: { color: '#024185', pattern: 'Solid' }
+                },
+                {
+                    id: 'excelYellowCell',
+                    interior: { color: '#FFFF00', pattern: 'Solid' }
+                },
+                {
+                    id: 'excelRowManager',
+                    interior: { color: '#198754', pattern: 'Solid' },
+                    font: { color: '#FFFFFF', bold: true }
+                },
+                {
+                    id: 'excelRowDirector',
+                    interior: { color: '#0dcaf0', pattern: 'Solid' },
+                    font: { bold: true }
+                },
+                {
+                    id: 'excelRowFooter',
+                    interior: { color: '#FFFFFF', pattern: 'Solid' },
+                    font: { bold: true }
+                },
+            ],
+            rowClassRules: {
+                'perf-row-manager':  params => params.data?.ROW_TYPE === 'manager',
+                'perf-row-director': params => params.data?.ROW_TYPE === 'director',
+            },
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+
+            window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+
+            const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
+            const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
+
+            window.onBtExportExcel = async function () {
+                await ExcelExportStandard.export(
+                    window.gridOptions,
+                    '{{ title|replace({" ": "_"}) }}.xlsx',
+                    {
+                        processCellCallback: (p) => {
+                            const field = p.column.getColId();
+                            if (['EVOLUTION_VS_SS26', 'POURCENTAGE_ATTEINTE'].includes(field)) {
+                                if (p.value == null || p.value === '') return '';
+                                return (Number(p.value) * 100).toFixed(0) + ' %';
+                            }
+                            return p.value;
+                        }
+                    }
+                );
+            };
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.saveGridState(window.gridOptions, agGridConfig.stateKey);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.clearGridState(agGridConfig.stateKey);
+                location.reload();
+            });
+
+            const gridWidthMode = '{{ gridWidthMode|default("full") }}';
+            window.AgGridCommon.setupAutoWidth(window.gridOptions, { widthMode: gridWidthMode });
+            window.AgGridCommon.setupAutoHeight(window.gridOptions, {
+                gridSelector: '#myGrid',
+                maxHeight: 800,
+            });
+        });
+    </script>
+{% endblock %}

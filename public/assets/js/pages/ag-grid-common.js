@@ -57,7 +57,8 @@ window.AgGridCommon = (function () {
                         color: '#FFFFFF'
                     };
                 }
-            }
+            },
+            rowClassRules: config.rowClassRules || undefined,
         };
 
         const gridDiv = document.querySelector(gridSelector);
