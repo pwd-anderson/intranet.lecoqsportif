@@ -97,6 +97,19 @@ final class AgGridSqlBuilder
 
     private function buildFilterClause(string $sqlColumn, array $filter): ?string
     {
+        // agMultiColumnFilter : { filterType: 'multi', filterModels: [textModel|null, setModel|null] }
+        if (($filter['filterType'] ?? '') === 'multi' && isset($filter['filterModels']) && is_array($filter['filterModels'])) {
+            $sub = [];
+            foreach ($filter['filterModels'] as $model) {
+                if (!is_array($model)) continue;
+                $clause = $this->buildFilterClause($sqlColumn, $model);
+                if ($clause !== null) {
+                    $sub[] = $clause;
+                }
+            }
+            return $sub === [] ? null : '(' . implode(' AND ', $sub) . ')';
+        }
+
         // Filtre combiné (operator + conditions[])
         if (isset($filter['operator'], $filter['conditions']) && is_array($filter['conditions'])) {
             $operator = strtoupper((string) $filter['operator']) === 'OR' ? 'OR' : 'AND';
@@ -123,8 +136,20 @@ final class AgGridSqlBuilder
             'text'   => $this->buildTextFilter($sqlColumn, $op, (string) ($filter['filter'] ?? '')),
             'number' => $this->buildNumberFilter($sqlColumn, $op, $filter['filter'] ?? null, $filter['filterTo'] ?? null),
             'date'   => $this->buildDateFilter($sqlColumn, $op, $filter['dateFrom'] ?? null, $filter['dateTo'] ?? null),
+            'set'    => $this->buildSetFilter($sqlColumn, $filter['values'] ?? []),
             default  => null,
         };
+    }
+
+    private function buildSetFilter(string $col, mixed $values): ?string
+    {
+        if (!is_array($values) || $values === []) {
+            return null;
+        }
+
+        $escaped = array_map(fn($v) => "'" . $this->escapeString((string) $v) . "'", $values);
+
+        return $col . ' IN (' . implode(', ', $escaped) . ')';
     }
 
     private function buildTextFilter(string $col, string $op, string $val): ?string

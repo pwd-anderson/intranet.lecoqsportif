@@ -226,6 +226,15 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/sales/backlog_clients_x3_filter_values', name: 'backlog_clients_x3_filter_values', methods: ['POST'])]
+    public function backlogClientsX3FilterValues(Request $request, Sales $sales): JsonResponse
+    {
+        $payload     = json_decode($request->getContent(), true) ?? [];
+        $field       = (string) ($payload['field'] ?? '');
+        $filterModel = $payload['filterModel'] ?? [];
+        return new JsonResponse($sales->getBacklogClientsX3DistinctValues($field, $filterModel));
+    }
+
     #[Route('/sales/backlog_clients_x3_ssrm_json', name: 'backlog_clients_x3_ssrm_json', methods: ['POST'])]
     public function backlogClientsX3SsrmJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
     {

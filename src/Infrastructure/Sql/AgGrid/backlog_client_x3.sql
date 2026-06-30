@@ -6,25 +6,25 @@ INSERT INTO intranet_lcs.aggrid_option
 VALUES
 
 -- 1
-('backlog_client_x3_grid','SITE','SITE','string',120,1,'agTextColumnFilter',
+('backlog_client_x3_grid','SITE','SITE','string',120,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,1,NULL,0,NULL,NULL),
 
-('backlog_client_x3_grid','MAINNETWORK','MAINNETWORK','string',120,1,'agTextColumnFilter',
+('backlog_client_x3_grid','MAINNETWORK','MAINNETWORK','string',120,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,2,NULL,0,NULL,NULL),
 
-('backlog_client_x3_grid','ZCLASSE_0','TYPE CMD.','string',120,1,'agTextColumnFilter',
+('backlog_client_x3_grid','ZCLASSE_0','TYPE CMD.','string',120,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,3,NULL,0,NULL,NULL),
 
 -- 2
-('backlog_client_x3_grid','COLLECTION','COLLECTION','string',120,1,'agTextColumnFilter',
+('backlog_client_x3_grid','COLLECTION','COLLECTION','string',120,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,4,NULL,0,NULL,NULL),
 
 -- 3
-('backlog_client_x3_grid','FAMILLE','FAMILLE','string',130,1,'agTextColumnFilter',
+('backlog_client_x3_grid','FAMILLE','FAMILLE','string',130,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,5,NULL,0,NULL,NULL),
 
@@ -49,12 +49,12 @@ VALUES
  NULL,NULL,1,9,NULL,0,NULL,NULL),
 
 -- GENRE (nouveau)
-('backlog_client_x3_grid','GENRE','GENRE','string',120,1,'agTextColumnFilter',
+('backlog_client_x3_grid','GENRE','GENRE','string',120,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,10,NULL,0,NULL,NULL),
 
 -- AGE (nouveau)
-('backlog_client_x3_grid','AGE','AGE','string',100,1,'agTextColumnFilter',
+('backlog_client_x3_grid','AGE','AGE','string',100,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,11,NULL,0,NULL,NULL),
 
@@ -64,17 +64,17 @@ VALUES
  NULL,NULL,1,12,NULL,0,NULL,NULL),
 
 -- 6
-('backlog_client_x3_grid','DROPPE','DROPPÉ','string',200,1,'agTextColumnFilter',
+('backlog_client_x3_grid','DROPPE','DROPPÉ','string',200,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,13,NULL,0,NULL,NULL),
 
 -- 7
-('backlog_client_x3_grid','CLIENT_COMMANDE','CODE CLIENT CMD.','string',130,1,'agTextColumnFilter',
+('backlog_client_x3_grid','CLIENT_COMMANDE','CODE CLIENT CMD.','string',130,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,14,NULL,0,NULL,NULL),
 
 -- 8
-('backlog_client_x3_grid','NOM_CLIENT_COMMANDE','NOM CLIENT CMD.','string',190,1,'agTextColumnFilter',
+('backlog_client_x3_grid','NOM_CLIENT_COMMANDE','NOM CLIENT CMD.','string',190,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,15,NULL,0,NULL,NULL),
 
@@ -124,12 +124,12 @@ VALUES
  NULL,NULL,1,24,NULL,0,NULL,NULL),
 
 -- 13
-('backlog_client_x3_grid','REP1','REPRESENTANT 1','string',140,1,'agTextColumnFilter',
+('backlog_client_x3_grid','REP1','REPRESENTANT 1','string',140,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,25,NULL,0,NULL,NULL),
 
 -- 13
-('backlog_client_x3_grid','REP2','REPRESENTANT 2','string',140,1,'agTextColumnFilter',
+('backlog_client_x3_grid','REP2','REPRESENTANT 2','string',140,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,26,NULL,0,NULL,NULL),
 
@@ -144,7 +144,7 @@ VALUES
  NULL,NULL,1,28,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 16
-('backlog_client_x3_grid','CUR_0','DEVISE','string',100,1,'agTextColumnFilter',
+('backlog_client_x3_grid','CUR_0','DEVISE','string',100,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,29,NULL,0,NULL,NULL),
 

@@ -258,6 +258,47 @@
             }
         });
 
+        // Colonnes avec liste déroulante dynamique (SELECT DISTINCT côté serveur)
+        const ssrmSetFilterFields = [
+            'SITE', 'MAINNETWORK', 'ZCLASSE_0', 'COLLECTION', 'FAMILLE',
+            'GENRE', 'AGE', 'DROPPE', 'CUR_0', 'REP1', 'REP2',
+            'CLIENT_COMMANDE', 'NOM_CLIENT_COMMANDE'
+        ];
+        if (salesType === 'backlog_clients_x3') {
+            columnDefs.forEach(col => {
+                if (ssrmSetFilterFields.includes(col.field)) {
+                    const field = col.field;
+                    col.filterParams = {
+                        filters: [
+                            { filter: 'agTextColumnFilter' },
+                            {
+                                filter: 'agSetColumnFilter',
+                                filterParams: {
+                                    values: (params) => {
+                                        const filterModel = window.gridOptions && window.gridOptions.api
+                                            ? window.gridOptions.api.getFilterModel()
+                                            : {};
+                                        // Exclure le filtre de la colonne en cours pour ne pas se filtrer soi-même
+                                        const otherFilters = Object.fromEntries(
+                                            Object.entries(filterModel).filter(([k]) => k !== field)
+                                        );
+                                        fetch('{{ path('backlog_clients_x3_filter_values') }}', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ field: field, filterModel: otherFilters }),
+                                        })
+                                            .then(r => r.json())
+                                            .then(values => params.success(values))
+                                            .catch(() => params.success([]));
+                                    }
+                                }
+                            }
+                        ]
+                    };
+                }
+            });
+        }
+
         const agGridConfig = {
             columnDefs: columnDefs,
             dataUrl: salesType === 'poid_famille_par_variant'
@@ -286,6 +327,7 @@
                 window.gridOptions.api.resetRowHeights();
             }
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+            window.AgGridCommon.patchSetFilterCheckboxes();
 
             const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);

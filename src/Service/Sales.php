@@ -821,6 +821,43 @@ class Sales
         ];
     }
 
+    public function getBacklogClientsX3DistinctValues(string $field, array $filterModel = []): array
+    {
+        $fieldMap = $this->getBacklogClientsX3FieldMap();
+
+        if (!isset($fieldMap[$field])) {
+            return [];
+        }
+
+        try {
+            $expr    = $fieldMap[$field];
+            $baseSql = $this->sqlFileLoader->load('Sei/backlog_client.sql');
+
+            $fromPos = stripos($baseSql, 'FROM X3_LCS');
+            if ($fromPos === false) return [];
+
+            $fromClause = substr($baseSql, $fromPos);
+            $fromClause = str_replace(['{{ORDER_BY}}', '{{PAGINATION}}'], '', $fromClause);
+
+            // Construire le WHERE à partir des filtres actifs sur les autres colonnes
+            $ssrmRequest = SsrmRequest::fromArray(['filterModel' => $filterModel]);
+            $builder     = new AgGridSqlBuilder($ssrmRequest, $fieldMap);
+            $whereClause = $builder->buildWhereClause();
+            $fromClause  = str_replace('{{WHERE_CLAUSE}}', $whereClause, $fromClause);
+
+            $sql  = "SELECT DISTINCT {$expr} AS val\n{$fromClause}\nORDER BY val";
+            $rows = $this->mssqlSei->executeQuery($sql);
+
+            return array_values(array_filter(
+                array_map(fn($r) => $r->val ?? null, $rows),
+                fn($v) => $v !== null && $v !== ''
+            ));
+        } catch (\Throwable $e) {
+            $this->logger->error('getBacklogClientsX3DistinctValues error', ['field' => $field, 'error' => $e->getMessage()]);
+            return [];
+        }
+    }
+
     /**
      * Version paginée (SSRM) : 1 bloc de lignes + total pour la scrollbar.
      */
