@@ -220,7 +220,7 @@ class Sales
             $conditions = [];
 
             if ($tariffGroup) {
-                $conditions[] = "GROUPE_TARIF = '" . str_replace("'", "''", $tariffGroup) . "'";
+                $conditions[] = "AND GROUPE_TARIF = '" . str_replace("'", "''", $tariffGroup) . "'";
             }
 
             if (!empty($families)) {
@@ -230,7 +230,7 @@ class Sales
                 );
 
                 if (!empty($escaped)) {
-                    $conditions[] = 'FAMILLE IN (' . implode(', ', $escaped) . ')';
+                    $conditions[] = 'AND FAMILLE IN (' . implode(', ', $escaped) . ')';
                 }
             }
 
@@ -241,13 +241,11 @@ class Sales
                 );
 
                 if (!empty($escaped)) {
-                    $conditions[] = 'COLLECTION IN (' . implode(', ', $escaped) . ')';
+                    $conditions[] = 'AND COLLECTION IN (' . implode(', ', $escaped) . ')';
                 }
             }
 
-            if (!empty($conditions)) {
-                $query .= ' WHERE ' . implode(' AND ', $conditions);
-            }
+            $query = str_replace('{{WHERE_CLAUSE}}', implode(' ', $conditions), $query);
 
             $rows = $this->mssqlSei->executeQuery($query);
 
