@@ -888,9 +888,8 @@
 
             let okCount = 0;
             let koCount = 0;
-            const failedKeys = [];
 
-            for (const [key, change] of pendingChanges) {
+            for (const [key, change] of [...pendingChanges]) {
                 try {
                     const res = await fetch(saveUrl, {
                         method:  'POST',
@@ -910,26 +909,19 @@
 
                     if (res.ok && json.success) {
                         okCount++;
+                        pendingChanges.delete(key); // suppression immédiate → pas dans localStorage si session expire ensuite
                     } else {
                         koCount++;
-                        failedKeys.push(key);
                         console.error('Échec save :', change, json);
                     }
                 } catch (err) {
                     koCount++;
-                    failedKeys.push(key);
                     console.error('Erreur réseau save :', change, err);
                 }
             }
 
-            // Retire de la map uniquement ce qui a réussi
-            for (const [key] of pendingChanges) {
-                if (!failedKeys.includes(key)) {
-                    pendingChanges.delete(key);
-                }
-            }
-
             if (koCount === 0) {
+                localStorage.removeItem(LS_KEY);
                 showToast(`✅ ${okCount} modification(s) enregistrée(s)`, true);
                 window.AgGridCommon.reloadData(
                     window.gridOptions,
