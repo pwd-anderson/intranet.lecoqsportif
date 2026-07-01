@@ -250,6 +250,25 @@
 
         <div id="saveToast"></div>
         {{ include('components/_excel_loader.html.twig') }}
+
+        <!-- Modal session expirée -->
+        <div class="modal fade" id="sessionExpiredModal" tabindex="-1" aria-labelledby="sessionExpiredModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title" id="sessionExpiredModalLabel">⚠️ Session expirée</h5>
+                    </div>
+                    <div class="modal-body">
+                        <p>Votre session Office 365 a expiré. <strong>Vos saisies ont été sauvegardées localement</strong> et seront restaurées automatiquement après reconnexion.</p>
+                        <p class="text-muted small mb-0">Cliquez sur "Se connecter", connectez-vous dans le nouvel onglet, puis revenez sur cet onglet et cliquez "Réessayer".</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" id="sessionLoginBtn">🔐 Se connecter</button>
+                        <button type="button" class="btn btn-success" id="sessionRetryBtn">🔄 Réessayer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </section>
 {% endblock %}
 
@@ -562,6 +581,9 @@
         // ========= FIN RECAP =========
 
         document.addEventListener('DOMContentLoaded', async () => {
+            // Restaurer les saisies sauvegardées avant expiration de session
+            restorePendingFromLocalStorage();
+
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
 
             // Injecte le mot "Total" dans la première colonne du footer
@@ -787,29 +809,102 @@
             }
         }
 
+        const LS_KEY = 'sell_in_suivi_ps_pending_{{ app.user.id|default("local") }}';
+        let _sessionModal = null;
+
+        function _getSessionModal() {
+            if (!_sessionModal) {
+                _sessionModal = new bootstrap.Modal(document.getElementById('sessionExpiredModal'));
+            }
+            return _sessionModal;
+        }
+
+        function savePendingToLocalStorage() {
+            const data = Array.from(pendingChanges.entries());
+            localStorage.setItem(LS_KEY, JSON.stringify(data));
+        }
+
+        function restorePendingFromLocalStorage() {
+            const raw = localStorage.getItem(LS_KEY);
+            if (!raw) return false;
+            try {
+                const data = JSON.parse(raw);
+                if (!Array.isArray(data) || data.length === 0) return false;
+                data.forEach(([key, change]) => pendingChanges.set(key, change));
+                localStorage.removeItem(LS_KEY);
+                updatePendingUI();
+                showToast(`🔄 ${data.length} saisie(s) restaurée(s) — cliquez Enregistrer`, true);
+                return true;
+            } catch { return false; }
+        }
+
+        function _isJsonResponse(res) {
+            const ct = res.headers.get('content-type') || '';
+            return ct.includes('application/json');
+        }
+
+        async function isSessionAlive() {
+            try {
+                const res = await fetch('{{ path('sales_ping') }}', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                return res.ok && _isJsonResponse(res);
+            } catch { return false; }
+        }
+
+        function showSessionExpiredModal() {
+            savePendingToLocalStorage();
+
+            document.getElementById('sessionLoginBtn').onclick = () => {
+                window.open('{{ path('login') }}', '_blank');
+            };
+
+            document.getElementById('sessionRetryBtn').onclick = async () => {
+                const alive = await isSessionAlive();
+                if (alive) {
+                    _getSessionModal().hide();
+                    saveAllChanges();
+                } else {
+                    showToast('Session toujours expirée. Reconnectez-vous d\'abord.', false);
+                }
+            };
+
+            _getSessionModal().show();
+        }
+
         async function saveAllChanges() {
             if (pendingChanges.size === 0) return;
+
+            // Vérification session avant d'envoyer
+            const alive = await isSessionAlive();
+            if (!alive) {
+                showSessionExpiredModal();
+                return;
+            }
 
             const btn = document.getElementById('saveChangesBtn');
             btn.disabled = true;
             btn.innerHTML = '⏳ Enregistrement...';
 
-            const changes = Array.from(pendingChanges.values());
             let okCount = 0;
             let koCount = 0;
             const failedKeys = [];
 
-            // Envoi séquentiel (plus simple à logger côté serveur)
-            // Si tu veux du parallèle, on peut passer en Promise.all
             for (const [key, change] of pendingChanges) {
-                const payload = change;
-
                 try {
                     const res = await fetch(saveUrl, {
                         method:  'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body:    JSON.stringify(payload),
+                        body:    JSON.stringify(change),
                     });
+
+                    // Détection session expirée mid-save (HTML reçu à la place de JSON)
+                    if (!_isJsonResponse(res)) {
+                        showSessionExpiredModal();
+                        btn.innerHTML = '💾 Enregistrer <span id="pendingCount" class="badge bg-dark ms-1"></span>';
+                        updatePendingUI();
+                        return;
+                    }
 
                     const json = await res.json();
 
@@ -818,12 +913,12 @@
                     } else {
                         koCount++;
                         failedKeys.push(key);
-                        console.error('Échec save :', payload, json);
+                        console.error('Échec save :', change, json);
                     }
                 } catch (err) {
                     koCount++;
                     failedKeys.push(key);
-                    console.error('Erreur réseau save :', payload, err);
+                    console.error('Erreur réseau save :', change, err);
                 }
             }
 
@@ -834,12 +929,8 @@
                 }
             }
 
-            // Feedback utilisateur
             if (koCount === 0) {
                 showToast(`✅ ${okCount} modification(s) enregistrée(s)`, true);
-
-                // La map est déjà vide, donc cellClassRules retournera false partout
-                // Le reloadData va régénérer toute la grille
                 window.AgGridCommon.reloadData(
                     window.gridOptions,
                     dataUrl,
@@ -847,9 +938,6 @@
                 );
             } else {
                 showToast(`⚠️ ${okCount} OK, ${koCount} échec(s). Les lignes en échec restent en attente.`, false);
-
-                // Refresh des cellules pour mettre à jour la coloration
-                // (celles qui ont réussi perdent leur classe, les autres la gardent)
                 window.gridOptions.api.refreshCells({ force: true });
             }
 

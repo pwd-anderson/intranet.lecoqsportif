@@ -50,7 +50,7 @@ WITH base AS (
                            AND S.ITEMNO     = C.ITEM_ID
                            AND S.CUSTOMERNO = BPC.BPCNUM_0
 
-             LEFT JOIN [SEICube].[MASTER_TABLES].[SELL_IN_SUIVI_PS] SIS
+             LEFT JOIN {{TABLE_SELL_IN_SUIVI_PS}} SIS
 ON SIS.CUSTOMER_CODE = BPC.BPCNUM_0
     AND SIS.CITY          = COALESCE(BPA.CTY_0, '')
     AND SIS.FAMILY        = F.ITEMFAMILYCODE

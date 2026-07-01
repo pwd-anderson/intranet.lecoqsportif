@@ -289,6 +289,12 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/sales/ping', name: 'sales_ping')]
+    public function ping(): JsonResponse
+    {
+        return new JsonResponse(['ok' => true]);
+    }
+
     #[Route('/sales/sell_in_suivi_ps_save', name: 'sales_sell_in_suivi_ps_save', methods: ['POST'])]
     public function sellInSuiviPsSave(Request $request, Sales $sales): JsonResponse
     {

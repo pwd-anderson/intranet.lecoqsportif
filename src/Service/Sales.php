@@ -19,6 +19,7 @@ class Sales
 {
     private MssqlManager $mssqlLcs;
     private MssqlManager $mssqlSei;
+    private bool $isDev;
 
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
@@ -32,10 +33,18 @@ class Sales
         string $dbLcs,
         #[Autowire('%db.lcs_sei%')]
         string $dbLcsSei,
+        #[Autowire('%kernel.environment%')]
+        string $environment,
     )
     {
         $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
         $this->mssqlSei = $this->mssqlManagerFactory->create($dbLcsSei);
+        $this->isDev    = ($environment === 'dev');
+    }
+
+    private function table(string $name): string
+    {
+        return '[SEICube].[MASTER_TABLES].[' . $name . ($this->isDev ? '_DEV' : '') . ']';
     }
 
     public function getLivraisonsNonFacturees(): array
@@ -662,6 +671,7 @@ class Sales
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/sell_in_suivi_ps.sql');
+            $query = str_replace('{{TABLE_SELL_IN_SUIVI_PS}}', $this->table('SELL_IN_SUIVI_PS'), $query);
             return $this->mssqlSei->executeQuery($query);
 
         } catch (\Exception $e) {
@@ -713,8 +723,10 @@ class Sales
         $defaultForecast = ($field === 'FORECAST')      ? $valueSql : '0';
         $defaultTarget   = ($field === 'TARGET')        ? $valueSql : '0';
 
+        $table = $this->table('SELL_IN_SUIVI_PS');
+
         $sql = <<<SQL
-        MERGE [SEICube].[MASTER_TABLES].[SELL_IN_SUIVI_PS] AS target
+        MERGE {$table} AS target
         USING (SELECT
                   '{$customerCodeEsc}' AS CUSTOMER_CODE,
                   '{$cityEsc}'         AS CITY,
@@ -733,7 +745,7 @@ class Sales
                 UPDATED_AT = SYSUTCDATETIME(),
                 UPDATED_BY = '{$updatedByEsc}'
         WHEN NOT MATCHED THEN
-            INSERT (CUSTOMER_CODE, CITY, FAMILY, GENDER, SERIESNO, SIMPLE_STATUS, FORECAST, TARGET, UPDATED_BY)
+            INSERT (CUSTOMER_CODE, CITY, FAMILY, GENDER, SERIESNO, SIMPLE_STATUS, FORECAST, TARGET, UPDATED_BY, UPDATED_AT, CREATED_AT)
             VALUES (
                 '{$customerCodeEsc}',
                 '{$cityEsc}',
@@ -743,7 +755,9 @@ class Sales
                 {$defaultStatus},
                 {$defaultForecast},
                 {$defaultTarget},
-                '{$updatedByEsc}'
+                '{$updatedByEsc}',
+                SYSUTCDATETIME(),
+                SYSUTCDATETIME()
             );
         SQL;
 
