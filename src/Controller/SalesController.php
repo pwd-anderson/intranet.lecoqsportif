@@ -295,6 +295,64 @@ final class SalesController extends AbstractController
         return new JsonResponse(['ok' => true]);
     }
 
+    #[Route('/sales/sell_in_suivi_ps_save_batch', name: 'sales_sell_in_suivi_ps_save_batch', methods: ['POST'])]
+    public function sellInSuiviPsSaveBatch(Request $request, Sales $sales): JsonResponse
+    {
+        $payload = json_decode($request->getContent(), true);
+
+        if (!is_array($payload) || empty($payload)) {
+            return new JsonResponse(['success' => false, 'message' => 'Payload invalide'], 400);
+        }
+
+        $allowedFields   = ['SIMPLE_STATUS', 'FORECAST', 'TARGET'];
+        $userIdentifier  = $this->getUser()?->getUserIdentifier() ?? 'unknown';
+        $results         = [];
+
+        foreach ($payload as $item) {
+            $key = implode('|', [
+                $item['CUSTOMER_CODE'] ?? '',
+                $item['CITY']          ?? '',
+                $item['FAMILY']        ?? '',
+                $item['GENDER']        ?? '',
+                $item['SERIESNO']      ?? '',
+                $item['field']         ?? '',
+            ]);
+
+            $required = ['CUSTOMER_CODE', 'CITY', 'FAMILY', 'GENDER', 'SERIESNO', 'field', 'value'];
+            foreach ($required as $f) {
+                if (!array_key_exists($f, $item)) {
+                    $results[$key] = ['success' => false, 'message' => "Champ '$f' manquant"];
+                    continue 2;
+                }
+            }
+
+            if (!in_array($item['field'], $allowedFields, true)) {
+                $results[$key] = ['success' => false, 'message' => 'Champ non éditable'];
+                continue;
+            }
+
+            try {
+                $ok = $sales->saveSellInSuiviPs(
+                    customerCode: (string) $item['CUSTOMER_CODE'],
+                    city:         (string) $item['CITY'],
+                    family:       (string) $item['FAMILY'],
+                    gender:       (string) $item['GENDER'],
+                    seriesNo:     (string) $item['SERIESNO'],
+                    field:        (string) $item['field'],
+                    value:        $item['value'],
+                    updatedBy:    $userIdentifier,
+                );
+                $results[$key] = ['success' => $ok];
+            } catch (\Throwable $e) {
+                $results[$key] = ['success' => false, 'message' => $e->getMessage()];
+            }
+        }
+
+        $allOk = count(array_filter($results, fn($r) => !$r['success'])) === 0;
+
+        return new JsonResponse(['success' => $allOk, 'results' => $results]);
+    }
+
     #[Route('/sales/sell_in_suivi_ps_save', name: 'sales_sell_in_suivi_ps_save', methods: ['POST'])]
     public function sellInSuiviPsSave(Request $request, Sales $sales): JsonResponse
     {

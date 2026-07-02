@@ -299,7 +299,8 @@
         });
 
         const editableFields = ['SIMPLE_STATUS', 'FORECAST', 'TARGET'];
-        const saveUrl = '{{ saveUrl }}';
+        const saveUrl      = '{{ saveUrl }}';
+        const saveBatchUrl = '{{ path('sales_sell_in_suivi_ps_save_batch') }}';
         const dataUrl = '{{ dataUrl }}';
 
         // Stocke les modifications en attente
@@ -889,35 +890,39 @@
             let okCount = 0;
             let koCount = 0;
 
-            for (const [key, change] of [...pendingChanges]) {
-                try {
-                    const res = await fetch(saveUrl, {
-                        method:  'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body:    JSON.stringify(change),
-                    });
+            const changes = Array.from(pendingChanges.entries()); // [[key, change], ...]
 
-                    // Détection session expirée mid-save (HTML reçu à la place de JSON)
-                    if (!_isJsonResponse(res)) {
-                        showSessionExpiredModal();
-                        btn.innerHTML = '💾 Enregistrer <span id="pendingCount" class="badge bg-dark ms-1"></span>';
-                        updatePendingUI();
-                        return;
-                    }
+            try {
+                const res = await fetch(saveBatchUrl, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify(changes.map(([, change]) => change)),
+                });
 
-                    const json = await res.json();
+                // Détection session expirée (HTML reçu à la place de JSON)
+                if (!_isJsonResponse(res)) {
+                    showSessionExpiredModal();
+                    btn.innerHTML = '💾 Enregistrer <span id="pendingCount" class="badge bg-dark ms-1"></span>';
+                    updatePendingUI();
+                    return;
+                }
 
-                    if (res.ok && json.success) {
+                const json = await res.json();
+                const results = json.results || {};
+
+                for (const [key] of changes) {
+                    const result = results[key];
+                    if (result && result.success) {
                         okCount++;
-                        pendingChanges.delete(key); // suppression immédiate → pas dans localStorage si session expire ensuite
+                        pendingChanges.delete(key);
                     } else {
                         koCount++;
-                        console.error('Échec save :', change, json);
+                        console.error('Échec save :', key, result);
                     }
-                } catch (err) {
-                    koCount++;
-                    console.error('Erreur réseau save :', change, err);
                 }
+            } catch (err) {
+                koCount = changes.length;
+                console.error('Erreur réseau batch save :', err);
             }
 
             if (koCount === 0) {
@@ -929,7 +934,7 @@
                     {{ totalColumns|json_encode|raw }}
                 );
             } else {
-                showToast(`⚠️ ${okCount} OK, ${koCount} échec(s). Les lignes en échec restent en attente.`, false);
+                showToast(`⚠️ ${okCount} OK, ${koCount} échec(s) — cliquez à nouveau sur Enregistrer pour réessayer.`, false);
                 window.gridOptions.api.refreshCells({ force: true });
             }
 
