@@ -193,7 +193,7 @@ class Stock
         try {
             $query = "
                 SELECT [SITE], [DESCRIPTION_SITE], [FAMILLE], [DERNIERE_COLLECTION],
-                       [ARTICLE], [DESCRIPTION_ARTICLE], [STATUT],
+                       [ARTICLE], [EAN], [DESCRIPTION_ARTICLE], [STATUT],
                        [LARGEUR], [LONGUEUR], [HAUTEUR], [UNITE], [POIDS],
                        [PRIX_MARCHE], [DEVISE_MARCHE], [PDM_MATERIAL_CODE], [PAYS_ORIGINE],
                        [STOCK_INTERNE],
