@@ -784,6 +784,29 @@ class Sales
         }
     }
 
+    public function backupSellInSuiviPs(): int|false
+    {
+        $source  = $this->table('SELL_IN_SUIVI_PS');
+        $history = $this->table('SELL_IN_SUIVI_PS_HISTORY');
+
+        $sql = <<<SQL
+            INSERT INTO {$history}
+            (CUSTOMER_CODE, FAMILY, GENDER, SERIESNO, SIMPLE_STATUS, FORECAST, TARGET, CREATED_AT, UPDATED_AT, UPDATED_BY, CITY, SNAPSHOT_DATE, SNAPSHOT_TYPE)
+            SELECT CUSTOMER_CODE, FAMILY, GENDER, SERIESNO, SIMPLE_STATUS, FORECAST, TARGET, CREATED_AT, UPDATED_AT, UPDATED_BY, CITY, SYSUTCDATETIME(), 'DAILY'
+            FROM {$source}
+        SQL;
+
+        try {
+            $count = $this->mssqlSei->insertData($sql);
+            $this->logger->info("Backup SELL_IN_SUIVI_PS : $count ligne(s) insérée(s) dans HISTORY");
+            return $count;
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Backup Sell In Suivi PS', $e);
+            $this->logger->error('Backup SELL_IN_SUIVI_PS échoué', ['exception' => $e]);
+            return false;
+        }
+    }
+
     /**
      * Mapping centralisé : field Ag-Grid → colonne SQL.
      * Une seule source de vérité, utilisée par les méthodes paginate + full.
