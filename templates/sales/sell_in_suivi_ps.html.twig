@@ -382,7 +382,7 @@
         // ========= RECAP =========
 
         const RECAP_SUM_FIELDS = [
-            'FORECAST', 'PS_ORDER_SS25_EOS', 'PS_ORDER_SS26_EOS', 'PS_ORDER_SS27_TD',
+            'FORECAST', 'PS_ORDER_SS25_EOS', 'PS_ORDER_SS26_EOS', 'PS_ORDER_FW26_EOS', 'PS_ORDER_SS27_TD',
             'PS_ORDER_SS26_TD', 'SS27_TD_LFL_COMPLETE', 'SS26_EOS_LFL', 'LANDING_FCST',
             'TARGET', 'TOGO_VS_FCST_EN_VALO', 'FCST_VS_TARGET_EN_VALO', 'SS26_EOS_VALO_COMPLETE',
             'CUST', 'TTL_PS_LY', 'CUST_OPEN', 'FCST_REPS', 'LW_FCST_REPS',
@@ -393,6 +393,7 @@
             { field: 'FORECAST',               label: 'FORECAST',               type: 'integer' },
             { field: 'PS_ORDER_SS25_EOS',      label: 'PS SS25 EOS',            type: 'decimal' },
             { field: 'PS_ORDER_SS26_EOS',      label: 'PS SS26 EOS',            type: 'decimal' },
+            { field: 'PS_ORDER_FW26_EOS',      label: 'PS FW26 EOS',            type: 'decimal' },
             { field: 'PS_ORDER_SS27_TD',       label: 'PS SS27 TD',             type: 'decimal' },
             { field: 'PS_ORDER_SS26_TD',       label: 'PS SS26 TD',             type: 'decimal' },
             { field: 'VS_LY_TD',               label: 'VS LY TD',               type: 'percent', num: 'PS_ORDER_SS27_TD',     den: 'PS_ORDER_SS26_TD' },

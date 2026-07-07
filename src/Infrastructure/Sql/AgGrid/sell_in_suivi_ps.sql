@@ -85,113 +85,117 @@ VALUES
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,'sum',1,18,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
-('sell_in_suivi_ps_grid','PS_ORDER_SS27_TD','PS ORDER SS27 TD','decimal',150,1,'agNumberColumnFilter',
+('sell_in_suivi_ps_grid','PS_ORDER_FW26_EOS','PS ORDER FW26 EOS','decimal',150,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,'sum',1,19,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
-('sell_in_suivi_ps_grid','PS_ORDER_SS26_TD','PS ORDER SS26 TD','decimal',150,1,'agNumberColumnFilter',
+('sell_in_suivi_ps_grid','PS_ORDER_SS27_TD','PS ORDER SS27 TD','decimal',150,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,'sum',1,20,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+
+('sell_in_suivi_ps_grid','PS_ORDER_SS26_TD','PS ORDER SS26 TD','decimal',150,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,'sum',1,21,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 -- ============ VS_LY_TD ============
 ('sell_in_suivi_ps_grid','VS_LY_TD','VS LY TD','percent',120,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,21,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
+ NULL,NULL,1,22,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
 
 -- ============ LFL ============
 ('sell_in_suivi_ps_grid','SS27_TD_LFL_COMPLETE','SS27 TD LFL COMPLETE','decimal',180,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,22,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,23,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','SS26_EOS_LFL','SS26 EOS LFL','decimal',150,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,23,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,24,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','COMPLETE_VS_LY_LFL_EOS','COMPLETE VS LY LFL EOS','percent',180,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,24,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
+ NULL,NULL,1,25,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
 
 -- ============ LANDING / VS_SS26 / TARGET / TOGO / FCST_VS_TARGET ============
 ('sell_in_suivi_ps_grid','LANDING_FCST','LANDING FCST','decimal',140,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,25,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,26,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','VS_SS26_EOS','VS SS26 EOS','percent',140,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,26,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
+ NULL,NULL,1,27,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','TARGET','TARGET','integer',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF','backgroundColor','#fff7e6'),
- NULL,'sum',1,27,NULL,0,'integerFormatter','integerComparator',1,'agNumberCellEditor',JSON_OBJECT('min',0,'precision',0)),
+ NULL,'sum',1,28,NULL,0,'integerFormatter','integerComparator',1,'agNumberCellEditor',JSON_OBJECT('min',0,'precision',0)),
 
 ('sell_in_suivi_ps_grid','TOGO_VS_FCST_EN_VALO','TOGO VS FCST (VALO)','decimal',170,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,28,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,29,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','FCST_VS_TARGET_EN_VALO','FCST VS TARGET (VALO)','decimal',180,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,29,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,30,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 -- ============ COMPLETE / CUST ============
 ('sell_in_suivi_ps_grid','SS26_EOS_VALO_COMPLETE','SS26 EOS VALO COMPLETE','decimal',190,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,30,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,31,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','CUST','#CUST','integer',100,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,31,NULL,0,'integerFormatter','integerComparator',NULL,NULL,NULL),
+ NULL,'sum',1,32,NULL,0,'integerFormatter','integerComparator',NULL,NULL,NULL),
 
 -- ============ OPEN ============
 ('sell_in_suivi_ps_grid','TTL_PS_LY','TTL PS LY','decimal',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,32,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,33,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','CUST_OPEN','CUST OPEN','integer',120,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,33,NULL,0,'integerFormatter','integerComparator',NULL,NULL,NULL),
+ NULL,'sum',1,34,NULL,0,'integerFormatter','integerComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','FCST_REPS','FCST REPS','decimal',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,34,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,35,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','LW_FCST_REPS','LW FCST REPS','decimal',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,35,'bg-info-light',0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,36,'bg-info-light',0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','VS_LW','VS LW','string',100,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,36,'bg-info-light',0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,37,'bg-info-light',0,NULL,NULL,NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','FCST_SALES_VS_EOS_SS26','FCST SALES VS EOS SS26','percent',190,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,37,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
+ NULL,NULL,1,38,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','FCST_SS27_LFL','FCST SS27 LFL','decimal',150,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,38,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,39,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','DIFF','DIFF','decimal',120,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,39,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,40,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 -- ============ COMPLETE / EOS FINAL ============
 ('sell_in_suivi_ps_grid','SS27_COMPLETE','SS27 COMPLETE','decimal',150,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,40,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,41,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','LY_COMPLETE_EOS','LY COMPLETE EOS','decimal',160,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,41,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,'sum',1,42,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','EVO_COMPLETE_VS_LY','EVO COMPLETE VS LY','percent',170,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,42,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
+ NULL,NULL,1,43,'excelPercentColumn',0,'percentFormatter','percentComparator',NULL,NULL,NULL),
 
 -- ============ BOH ============
 ('sell_in_suivi_ps_grid','BOH_FIGE_LW','BOH FIGE LW','decimal',140,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,43,'bg-info-light',0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,NULL,1,44,'bg-info-light',0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','EVO_BOH_VS_LW','EVO BOH VS LW','string',140,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,44,'bg-info-light',0,NULL,NULL,NULL,NULL,NULL);
+ NULL,NULL,1,45,'bg-info-light',0,NULL,NULL,NULL,NULL,NULL);
