@@ -1,0 +1,335 @@
+/* ============================================================
+   Impression Étiquettes Expéditions — styles scoped à .eta-app
+   ============================================================ */
+
+.eta-app {
+    --eta-bg:       #F5F5F5;
+    --eta-white:    #FFFFFF;
+    --eta-primary:  #1A1A2E;
+    --eta-accent:   #0066CC;
+    --eta-accent2:  #004999;
+    --eta-success:  #2E7D32;
+    --eta-warning:  #E65100;
+    --eta-border:   #DDDDDD;
+    --eta-text:     #1A1A1A;
+    --eta-muted:    #666666;
+    --eta-row-odd:  #FAFAFA;
+    --eta-row-sel:  #E3F0FF;
+
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px); /* compense le header intranet */
+    background: var(--eta-bg);
+    color: var(--eta-text);
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 13px;
+}
+
+/* ---- Barre d'onglets ---- */
+.eta-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--eta-primary);
+    padding: 0 20px;
+    flex-shrink: 0;
+}
+
+.eta-tab-btn {
+    background: transparent;
+    color: #8899BB;
+    border: none;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    font-family: inherit;
+}
+
+.eta-tab-btn:hover { color: var(--eta-white); }
+.eta-tab-btn.active { color: var(--eta-white); border-bottom-color: var(--eta-accent); }
+
+/* ---- Layout principal ---- */
+.eta-body {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px 20px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.eta-col-left  { width: 280px; flex-shrink: 0; overflow-y: auto; }
+.eta-col-center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.eta-col-right { width: 340px; flex-shrink: 0; display: none; flex-direction: column; }
+
+/* ---- Panneaux d'onglets ---- */
+.eta-panel { display: none; flex: 1; flex-direction: column; min-height: 0; }
+.eta-panel.active { display: flex; }
+
+/* ---- Cards colonne gauche ---- */
+.eta-card {
+    background: var(--eta-white);
+    border: 1px solid var(--eta-border);
+    margin-bottom: 12px;
+}
+
+.eta-card .eta-card-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--eta-muted);
+    text-transform: uppercase;
+    padding: 10px 14px 6px;
+    border-bottom: 1px solid var(--eta-border);
+}
+
+.eta-card .eta-card-body { padding: 10px 14px 12px; }
+
+/* ---- Formulaire livraison ---- */
+.eta-field-label {
+    display: block;
+    font-size: 12px;
+    color: var(--eta-muted);
+    margin-bottom: 4px;
+}
+
+.eta-input {
+    width: 100%;
+    padding: 7px 9px;
+    font-size: 13px;
+    border: 1px solid var(--eta-border);
+    background: #F0F4FA;
+    color: var(--eta-text);
+    margin-bottom: 8px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.eta-input:focus {
+    outline: 2px solid var(--eta-accent);
+    outline-offset: -1px;
+}
+
+.eta-input.eta-input-error { border-color: var(--eta-warning); background: #FFF3EE; }
+
+/* ---- Boutons ---- */
+.eta-btn {
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 13px;
+    border: none;
+    color: var(--eta-white);
+    background: var(--eta-accent);
+    padding: 8px 14px;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.eta-btn:hover { background: var(--eta-accent2); }
+.eta-btn:disabled { background: #AAB4C0 !important; cursor: not-allowed; }
+.eta-btn-sm { padding: 6px 10px; font-size: 12px; width: auto; }
+.eta-btn-success { background: var(--eta-success); }
+.eta-btn-success:hover { background: #245e26; }
+.eta-btn-danger  { background: #CC0000; }
+.eta-btn-danger:hover  { background: #990000; }
+.eta-btn-secondary { background: #5b6b82; }
+.eta-btn-secondary:hover { background: #48566a; }
+
+/* ---- Résumé ---- */
+.eta-summary-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
+.eta-summary-row .eta-label { color: var(--eta-muted); }
+.eta-summary-row .eta-value { font-weight: 700; }
+
+/* ---- Tableaux ---- */
+.eta-table-scroll { flex: 1; overflow-y: auto; border: 1px solid var(--eta-border); background: var(--eta-white); }
+
+table.eta-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--eta-white);
+    font-size: 12.5px;
+}
+
+table.eta-table thead th {
+    background: var(--eta-primary);
+    color: var(--eta-white);
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 11px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+table.eta-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--eta-border);
+}
+
+table.eta-table tbody tr:nth-child(odd) { background: var(--eta-row-odd); }
+table.eta-table tbody tr.selected { background: var(--eta-row-sel); }
+table.eta-table tbody tr { cursor: pointer; }
+
+/* ---- Section title ---- */
+.eta-section-title { font-size: 14px; font-weight: 700; margin: 0 0 8px; }
+
+/* ---- Colisage detail ---- */
+#etaColisageEmpty {
+    color: var(--eta-muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--eta-white);
+    border: 1px solid var(--eta-border);
+}
+
+#etaColisageContent { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#etaCartonDetailWrap { flex: 1; min-height: 180px; display: flex; flex-direction: column; }
+
+.eta-carton-info {
+    padding: 8px 10px;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--eta-border);
+    background: #FAFAFA;
+    flex-shrink: 0;
+}
+
+.eta-carton-info .eta-muted { color: var(--eta-muted); }
+
+.eta-carton-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--eta-border);
+    background: #F7F9FC;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.eta-carton-toolbar input[type=number] { margin-bottom: 0; width: 80px; padding: 4px 6px; box-sizing: border-box; }
+.eta-carton-toolbar .eta-spacer { flex: 1 1 auto; min-width: 8px; }
+.eta-carton-toolbar .eta-hint { color: var(--eta-muted); font-size: 11px; }
+
+#etaCartonTableScroll { flex: 1; overflow-y: auto; }
+
+.eta-sum-indicator { font-size: 12px; padding: 8px 10px; border-top: 1px solid var(--eta-border); flex-shrink: 0; }
+.eta-sum-indicator.ok   { color: var(--eta-success); }
+.eta-sum-indicator.warn { color: var(--eta-warning); font-weight: 700; }
+
+/* ---- Aperçu ---- */
+#etaPreviewInfo { font-size: 12.5px; color: var(--eta-muted); margin-bottom: 8px; min-height: 32px; }
+
+.eta-preview-box {
+    flex: 1;
+    background: var(--eta-white);
+    border: 1px solid var(--eta-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.eta-preview-box img { max-width: 100%; max-height: 100%; }
+.eta-preview-box .eta-placeholder { color: var(--eta-muted); font-size: 12px; text-align: center; }
+
+/* ---- Footer ---- */
+.eta-footer {
+    background: var(--eta-white);
+    border-top: 1px solid var(--eta-border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+#etaStatus {
+    flex: 1;
+    font-size: 12px;
+    color: var(--eta-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#etaStatus.ok   { color: var(--eta-success); }
+#etaStatus.warn { color: var(--eta-warning); }
+
+#etaProgressBar { width: 160px; }
+
+/* ---- Rangée inline ---- */
+.eta-row-inline { display: flex; gap: 6px; align-items: stretch; }
+.eta-row-inline > *:first-child { flex: 1; }
+
+/* ---- Aide ---- */
+.eta-help {
+    background: var(--eta-white);
+    border: 1px solid var(--eta-border);
+    margin-bottom: 10px;
+    flex-shrink: 0;
+    font-size: 12.5px;
+}
+
+.eta-help summary {
+    cursor: pointer;
+    padding: 8px 12px;
+    font-weight: 700;
+    color: var(--eta-accent);
+    list-style: none;
+}
+
+.eta-help .eta-help-body { padding: 0 14px 14px; line-height: 1.6; }
+.eta-help .eta-help-body p { margin-bottom: 8px; }
+.eta-help .eta-help-body p:last-child { margin-bottom: 0; color: var(--eta-muted); }
+
+/* ---- Liste de colisage ---- */
+#etaListeContent {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--eta-white);
+    border: 1px solid var(--eta-border);
+    padding: 16px;
+}
+
+#etaListeContent h3 { font-size: 13px; margin: 16px 0 6px; }
+#etaListeContent h3:first-child { margin-top: 0; }
+#etaListeContent table.eta-table { margin-bottom: 4px; }
+
+/* ---- État de chargement ---- */
+.eta-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--eta-muted);
+    padding: 4px 0;
+}
+
+.eta-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--eta-border);
+    border-top-color: var(--eta-accent);
+    border-radius: 50%;
+    animation: eta-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes eta-spin { to { transform: rotate(360deg); } }
+
+/* ---- Impression ---- */
+@media print {
+    .eta-tabs, .eta-col-left, #etaColRight, .eta-footer, .eta-no-print { display: none !important; }
+    .eta-app  { height: auto; display: block; background: white; }
+    .eta-body { display: block; padding: 0; }
+    .eta-col-center { width: 100%; }
+    .eta-panel { display: none !important; }
+    .eta-panel.active { display: block !important; }
+    #etaListeContent { border: none; padding: 0; overflow: visible; }
+    table.eta-table thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    table.eta-table tr { page-break-inside: avoid; }
+}

@@ -31,6 +31,8 @@ sidebar:
     stock: "Stock"
     clients: "Clients"
     it: "IT"
+    modules: "Modules"
+    etiquette_expedition: "Impression Étiquettes\nExpéditions"
   stat:
       sales:
           sales_by_year: "Ventes annuelles"
@@ -65,4 +67,3 @@ sidebar:
           tcd_cmd_non_soldees: "TCD Commandes web non Soldées"
           detail_tcd: "Détail du TCD web"
           suivi_commandes_web_sav: "Suivi Commandes web pour SAV"
-

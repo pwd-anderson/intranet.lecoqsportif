@@ -1,0 +1,949 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    <link href="{{ asset('assets/css/impression_etiquette.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block body %}
+<div class="eta-app">
+
+    {# ---- Barre d'onglets ---- #}
+    <div class="eta-tabs">
+        <button class="eta-tab-btn active" data-tab="overview">Vue d'ensemble</button>
+        <button class="eta-tab-btn" data-tab="colisage">Gestion du colisage</button>
+        <button class="eta-tab-btn" data-tab="liste">Liste de colisage</button>
+    </div>
+
+    {# ---- Corps principal ---- #}
+    <div class="eta-body">
+
+        {# ===== Colonne gauche ===== #}
+        <div class="eta-col-left">
+
+            {# Recherche livraison #}
+            <div class="eta-card">
+                <div class="eta-card-title">Livraison</div>
+                <div class="eta-card-body">
+                    <label class="eta-field-label" for="etaNumeroLivraison">N° de livraison</label>
+                    <input type="text" id="etaNumeroLivraison" class="eta-input"
+                           placeholder="ex : BLLCSI26-00026423"
+                           autocomplete="off" spellcheck="false">
+                    <button class="eta-btn" id="etaBtnRechercher">🔍 Rechercher</button>
+                    <div id="etaLivraisonHint" style="font-size:11px;color:var(--eta-muted);margin-top:6px;min-height:16px"></div>
+                </div>
+            </div>
+
+            {# Paramètres imprimante #}
+            <div class="eta-card">
+                <div class="eta-card-title">Paramètres</div>
+                <div class="eta-card-body">
+                    <label class="eta-field-label">Imprimante</label>
+                    <div class="eta-row-inline">
+                        <select id="etaPrinterSelect" class="eta-input" style="margin-bottom:0"></select>
+                        <button class="eta-btn eta-btn-sm eta-btn-secondary" id="etaRefreshPrinters" title="Rafraîchir">↺</button>
+                    </div>
+                    <div style="margin-top:6px">
+                        <button class="eta-btn eta-btn-sm eta-btn-secondary" id="etaBtnTestPrint" style="width:100%">🖨 Imprimer une étiquette test</button>
+                    </div>
+                </div>
+            </div>
+
+            {# Résumé #}
+            <div class="eta-card">
+                <div class="eta-card-title">Résumé</div>
+                <div class="eta-card-body">
+                    <div class="eta-summary-row">
+                        <span class="eta-label">Étiquettes à imprimer</span>
+                        <span class="eta-value" id="etaSumRefs">0</span>
+                    </div>
+                    <div class="eta-summary-row">
+                        <span class="eta-label">Pièces totales</span>
+                        <span class="eta-value" id="etaSumTotal" style="color:var(--eta-accent)">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ===== Colonne centrale ===== #}
+        <div class="eta-col-center">
+
+            {# ---- Onglet 1 : Vue d'ensemble ---- #}
+            <div class="eta-panel active" id="etaTabOverview">
+                <details class="eta-help">
+                    <summary>❓ Aide — comment utiliser ce module</summary>
+                    <div class="eta-help-body">
+                        <p><strong>1. Rechercher une livraison</strong> — Saisissez le numéro de livraison dans la colonne de gauche et cliquez sur « Rechercher ». Le tableau se remplit automatiquement avec une ligne par article.</p>
+                        <p><strong>2. Régler les cartons</strong> — Cliquez sur une ligne pour ouvrir l'onglet « Gestion du colisage ». Fixez le nombre de cartons, puis répartissez les quantités par plage (ex : cartons 1 à 5 → 20 pièces). La numérotation des cartons est continue sur l'ensemble de la livraison.</p>
+                        <p><strong>3. Liste de colisage</strong> — L'onglet « Liste de colisage » affiche un récap par article et le détail carton par carton. Utilisez « Imprimer / Export PDF » pour générer le document papier ou PDF.</p>
+                        <p><strong>4. Imprimer les étiquettes Zebra</strong> — Sélectionnez l'imprimante Zebra (colonne de gauche), puis cliquez sur « Imprimer » en bas : une étiquette ZPL est envoyée par carton via Zebra Browser Print (doit être installé et lancé sur ce poste).</p>
+                    </div>
+                </details>
+                <h2 class="eta-section-title">Détail des étiquettes</h2>
+                <div class="eta-table-scroll" id="etaMainTableWrap">
+                    <table class="eta-table">
+                        <thead>
+                            <tr>
+                                <th>Article</th>
+                                <th>Désignation</th>
+                                <th style="text-align:center;width:110px">Qté à livrer</th>
+                                <th style="text-align:center;width:90px">Cartons</th>
+                            </tr>
+                        </thead>
+                        <tbody id="etaTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            {# ---- Onglet 2 : Gestion du colisage ---- #}
+            <div class="eta-panel" id="etaTabColisage">
+                <div id="etaColisageEmpty">Sélectionnez une ligne dans l'onglet « Vue d'ensemble » pour gérer son colisage.</div>
+                <div id="etaColisageContent" style="display:none">
+                    <h2 class="eta-section-title">Cartons de la ligne sélectionnée</h2>
+                    <div class="eta-table-scroll" id="etaCartonDetailWrap">
+                        <div style="padding:8px 10px;border-bottom:1px solid var(--eta-border);background:#EFF3F8;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
+                            <label style="font-size:12px;color:var(--eta-muted);white-space:nowrap">Ligne article :</label>
+                            <select id="etaSkuSelect" class="eta-input" style="margin-bottom:0;flex:1;min-width:180px"></select>
+                            <label style="font-size:12px;color:var(--eta-muted);white-space:nowrap">Nombre de cartons <span style="color:#CC0000">*</span> :</label>
+                            <input type="number" min="1" step="1" id="etaCartonsCount" class="eta-input" style="margin-bottom:0;width:70px">
+                        </div>
+                        <div class="eta-carton-info" id="etaCartonLineInfo"></div>
+                        <div class="eta-carton-toolbar">
+                            <span>Cartons n°</span>
+                            <input type="number" min="1" id="etaRangeFrom" placeholder="de">
+                            <span>à</span>
+                            <input type="number" min="1" id="etaRangeTo" placeholder="n°" style="width:60px">
+                            <span>→ qté</span>
+                            <input type="number" min="0" step="1" id="etaApplyQty" placeholder="qté" style="width:90px">
+                            <button class="eta-btn eta-btn-sm eta-btn-success" id="etaBtnApplyRange">✓ Appliquer à la plage</button>
+                            <span class="eta-hint" id="etaCartonRangeHint"></span>
+                            <span class="eta-spacer"></span>
+                            <button class="eta-btn eta-btn-sm eta-btn-secondary" id="etaBtnResetSplit">↺ Réinitialiser</button>
+                        </div>
+                        <div id="etaCartonTableScroll">
+                            <table class="eta-table">
+                                <thead>
+                                    <tr><th>Carton</th><th>Quantité</th><th style="width:56px"></th></tr>
+                                </thead>
+                                <tbody id="etaCartonTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="eta-sum-indicator" id="etaSumIndicator"></div>
+                    </div>
+                </div>
+            </div>
+
+            {# ---- Onglet 3 : Liste de colisage ---- #}
+            <div class="eta-panel" id="etaTabListe">
+                <div class="eta-no-print" style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;margin-bottom:10px">
+                    <h2 class="eta-section-title" style="margin:0">Liste de colisage</h2>
+                    <button class="eta-btn eta-btn-success" id="etaBtnPrintListe" style="width:auto;padding:8px 16px">🖨 Imprimer / Export PDF</button>
+                </div>
+                <div id="etaListeContent"></div>
+            </div>
+        </div>
+
+        {# ===== Colonne droite (aperçu) ===== #}
+        <div class="eta-col-right" id="etaColRight">
+            <h2 class="eta-section-title">Aperçu étiquette</h2>
+            <div id="etaPreviewInfo">Sélectionnez une ligne, puis cliquez sur un carton.</div>
+            <button class="eta-btn eta-btn-success eta-btn-sm" id="etaBtnShowPreview" disabled style="margin-bottom:10px;width:100%">🔄 Rafraîchir l'aperçu</button>
+            <div class="eta-preview-box" id="etaPreviewBox">
+                <span class="eta-placeholder">Aucun aperçu chargé</span>
+            </div>
+        </div>
+    </div>
+
+    {# ---- Footer ---- #}
+    <div class="eta-footer">
+        <span id="etaStatus">Prêt — saisissez un numéro de livraison.</span>
+        <button class="eta-btn eta-btn-danger" id="etaBtnReset" style="position:absolute;right:200px;width:auto;padding:8px 14px">🗑 Nouvelle expédition</button>
+        <progress id="etaProgressBar" max="100" value="0" style="display:none;width:160px"></progress>
+        <button class="eta-btn eta-btn-success" id="etaBtnPrint" disabled style="width:auto;padding:8px 16px">⎙ Imprimer</button>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+"use strict";
+
+// =============================================================================
+// CONFIG
+// =============================================================================
+const LABELARY_URL       = "https://api.labelary.com/v1/printers/8dpmm/labels/4x4/0/";
+const BROWSER_PRINT_URL  = "http://localhost:9100/";
+const LIVRAISON_URL      = "{{ path('app_etiquette_livraison') }}";
+
+const ADDR_LINE1 = "LOGTEX p/c LCS International SAS";
+const ADDR_LINE2 = "Parc Logistique de L'Aube";
+const ADDR_LINE3 = "3 Rue des Lacs";
+const ADDR_LINE4 = "10800 MOUSSEY - France";
+
+let rows          = [];
+let selectedIndex = null;
+let activeCartonIdx = null;
+let printers      = [];
+
+// =============================================================================
+// UTILITAIRES ZPL
+// =============================================================================
+const ACCENT_MAP = [
+    ["é","e"],["è","e"],["ê","e"],["ë","e"],
+    ["à","a"],["â","a"],["ä","a"],
+    ["ç","c"],["ù","u"],["û","u"],["ü","u"],
+    ["î","i"],["ï","i"],["ô","o"],["œ","oe"],
+    ["É","E"],["È","E"],["Ê","E"],
+    ["À","A"],["Â","A"],["Ç","C"],
+];
+
+function zplSafe(s) {
+    s = String(s ?? "");
+    s = s.replace(/N°/g, "No").replace(/\^/g, " ").replace(/~/g, " ");
+    s = s.replace(/\r/g, " ").replace(/\n/g, " ");
+    return s.trim();
+}
+
+function asciiFr(s) {
+    s = zplSafe(s);
+    for (const [src, dst] of ACCENT_MAP) s = s.split(src).join(dst);
+    return s;
+}
+
+// =============================================================================
+// GÉNÉRATION ZPL (102x102mm, layout identique au module standalone)
+// =============================================================================
+function buildZpl(otb, sku, taille, qty, itemName) {
+    otb      = zplSafe(otb);
+    sku      = asciiFr(sku);
+    taille   = zplSafe(taille);
+    qty      = zplSafe(String(qty));
+    itemName = asciiFr(itemName);
+
+    const z = [];
+    z.push("^XA");
+    z.push("^PW816");
+    z.push("^LL816");
+    z.push("^LH0,0");
+
+    // En-tête
+    z.push("^FO69,74^GB678,80,2^FS");
+    z.push("^FO330,74^GB1,80,2^FS");
+    z.push("^FO569,74^GB1,80,2^FS");
+    z.push("^FO140,89^A0N,20,20^FDTransfer Order^FS");
+    z.push("^FO425,89^A0N,20,20^FDOrigine^FS");
+    z.push("^FO620,89^A0N,20,20^FDQty Total^FS");
+    z.push(`^FO90,114^A0N,26,26^FD${otb}^FS`);
+    z.push("^FO415,114^A0N,28,28^FDFrance^FS");
+    z.push(`^FO640,114^A0N,32,32^FD${qty}^FS`);
+
+    // Produit
+    z.push("^FO69,159^GB678,180,2^FS");
+    z.push("^FO569,159^GB1,180,2^FS");
+    z.push("^FO89,174^A0N,20,20^FDItem No^FS");
+    z.push(`^FO89,199^A0N,34,34^FD${sku}^FS`);
+    z.push("^FO89,259^A0N,20,20^FDItem Name^FS");
+    z.push(`^FO89,284^FB460,2,0,L,0^A0N,26,26^FD${itemName}^FS`);
+    z.push("^FO569,174^FB178,1,0,C,0^A0N,20,20^FDSize^FS");
+    z.push(`^FO580,214^FB178,1,0,C,0^A0N,90,90^FD${taille}^FS`);
+
+    // Adresse
+    z.push("^FO69,344^GB678,120,2^FS");
+    z.push(`^FO89,359^A0N,24,24^FD${ADDR_LINE1}^FS`);
+    z.push(`^FO89,384^A0N,24,24^FD${ADDR_LINE2}^FS`);
+    z.push(`^FO89,409^A0N,24,24^FD${ADDR_LINE3}^FS`);
+    z.push(`^FO89,434^A0N,24,24^FD${ADDR_LINE4}^FS`);
+
+    // Code-barres OTB
+    z.push("^FO99,484^A0N,22,22^FDTransfer Order No^FS");
+    z.push(`^FO99,508^BY2,2,70^BCN,70,N,N^FD${otb}^FS`);
+    z.push(`^FO99,588^A0N,20,20^FD${otb}^FS`);
+
+    // Code-barres SKU
+    z.push("^FO99,629^A0N,20,20^FDItem No^FS");
+    z.push(`^FO99,654^BY2,2,60^BCN,60,N,N^FD${sku}^FS`);
+    z.push(`^FO99,724^A0N,20,20^FD${sku}^FS`);
+
+    // Code-barres QTY
+    z.push("^FO600,629^A0N,20,20^FDQty Total^FS");
+    z.push(`^FO580,654^BY2,2,60^BCN,60,N,N^FD${qty}^FS`);
+    z.push(`^FO620,724^A0N,20,20^FD${qty}^FS`);
+
+    z.push("^XZ");
+    return z.join("");
+}
+
+// =============================================================================
+// CHARGEMENT LIVRAISON (remplace loadFile)
+// =============================================================================
+async function rechercherLivraison() {
+    const input  = document.getElementById("etaNumeroLivraison");
+    const numero = input.value.trim();
+    if (!numero) {
+        input.classList.add("eta-input-error");
+        setStatus("Veuillez saisir un numéro de livraison.", "warn");
+        return;
+    }
+    input.classList.remove("eta-input-error");
+
+    const btn = document.getElementById("etaBtnRechercher");
+    btn.disabled = true;
+    setStatus("Chargement de la livraison…");
+    document.getElementById("etaLivraisonHint").innerHTML =
+        '<span class="eta-loading"><span class="eta-spinner"></span> Recherche en cours…</span>';
+
+    try {
+        const resp = await fetch(LIVRAISON_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ numero }),
+        });
+
+        if (!resp.ok) throw new Error(`Erreur serveur (HTTP ${resp.status})`);
+
+        const data = await resp.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+            document.getElementById("etaLivraisonHint").textContent = "Aucune ligne trouvée.";
+            setStatus("Aucune ligne trouvée pour ce numéro de livraison.", "warn");
+            return;
+        }
+
+        rows = data.map(row => {
+            const sku      = String(row.ARTICLE ?? "");
+            const sepIdx   = sku.lastIndexOf("_");
+            const taille   = sepIdx >= 0 ? sku.slice(sepIdx + 1) : "";
+            const qty      = Math.max(0, parseInt(row.QUANTITE_A_LIVREE) || 0);
+            return {
+                otb:          String(row.N_LIVRAISON ?? ""),
+                sku,
+                taille,
+                itemName:     String(row.DESIGNATION ?? ""),
+                qty,
+                cartons:      1,
+                cartonQtys:   [qty],
+                cartonLocked: [false],
+            };
+        }).filter(r => r.qty > 0);
+
+        selectedIndex   = null;
+        activeCartonIdx = null;
+
+        document.getElementById("etaColisageEmpty").style.display  = "";
+        document.getElementById("etaColisageContent").style.display = "none";
+
+        refreshTable();
+        populateSkuSelect();
+        updatePreviewButtonState();
+        drawSummary();
+
+        if (document.getElementById("etaTabColisage").classList.contains("active") && rows.length > 0) {
+            openColisageForRow(0);
+        }
+        if (document.getElementById("etaTabListe").classList.contains("active")) {
+            renderListeColisage();
+        }
+
+        document.getElementById("etaBtnPrint").disabled = rows.length === 0;
+        document.getElementById("etaLivraisonHint").textContent = `${rows.length} ligne(s) chargée(s)`;
+        setStatus(`${rows.length} article(s) chargé(s) — ajustez le nombre de cartons si besoin.`, "ok");
+
+    } catch (e) {
+        document.getElementById("etaLivraisonHint").textContent = "";
+        setStatus("Erreur : " + e.message, "warn");
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// =============================================================================
+// RÉPARTITION PAR CARTON
+// =============================================================================
+function computeEvenSplit(total, n) {
+    n = Math.max(1, Math.trunc(n) || 1);
+    const base = Math.floor(total / n);
+    let remainder = total - base * n;
+    const out = [];
+    for (let k = 0; k < n; k++) {
+        out.push(base + (remainder > 0 ? 1 : 0));
+        if (remainder > 0) remainder--;
+    }
+    return out;
+}
+
+function rowCartonSum(r) {
+    return r.cartonQtys.reduce((a, b) => a + b, 0);
+}
+
+function rowCartonOffset(i) {
+    let offset = 0;
+    for (let k = 0; k < i; k++) offset += rows[k].cartons;
+    return offset;
+}
+
+function redistributeUnlocked(r) {
+    const unlockedIdxs = [];
+    let lockedSum = 0;
+    r.cartonQtys.forEach((q, idx) => {
+        if (r.cartonLocked[idx]) lockedSum += q;
+        else unlockedIdxs.push(idx);
+    });
+    if (unlockedIdxs.length === 0) return;
+    const remaining = r.qty - lockedSum;
+    const split = remaining > 0 ? computeEvenSplit(remaining, unlockedIdxs.length) : new Array(unlockedIdxs.length).fill(0);
+    unlockedIdxs.forEach((idx, k) => { r.cartonQtys[idx] = split[k]; });
+}
+
+function updateRowWarnDot(i) {
+    const r   = rows[i];
+    const dot = document.getElementById(`etaWarnDot_${i}`);
+    if (dot) dot.style.display = (rowCartonSum(r) !== r.qty) ? "inline" : "none";
+}
+
+// =============================================================================
+// APERÇU LABELARY
+// =============================================================================
+async function fetchPreview(zpl) {
+    const resp = await fetch(LABELARY_URL, {
+        method: "POST",
+        headers: { "Accept": "image/png", "Content-Type": "application/x-www-form-urlencoded" },
+        body: zpl,
+    });
+    if (!resp.ok) throw new Error(`Labelary a répondu ${resp.status}`);
+    return URL.createObjectURL(await resp.blob());
+}
+
+// =============================================================================
+// IMPRESSION Zebra Browser Print
+// =============================================================================
+async function getAvailablePrinters() {
+    const resp = await fetch(BROWSER_PRINT_URL + "available");
+    if (!resp.ok) throw new Error("Browser Print ne répond pas.");
+    const data = await resp.json();
+    return (data && data.printer) ? data.printer : [];
+}
+
+async function sendZpl(device, zpl) {
+    const resp = await fetch(BROWSER_PRINT_URL + "write", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        body: JSON.stringify({ device, data: zpl }),
+    });
+    if (!resp.ok) throw new Error(`Échec d'envoi à l'imprimante (HTTP ${resp.status})`);
+}
+
+// =============================================================================
+// INTERFACE
+// =============================================================================
+const statusEl = document.getElementById("etaStatus");
+function setStatus(msg, kind) {
+    statusEl.textContent = msg;
+    statusEl.className   = kind || "";
+}
+
+function drawSummary() {
+    document.getElementById("etaSumRefs").textContent  = rows.reduce((a, r) => a + r.cartons, 0);
+    document.getElementById("etaSumTotal").textContent = rows.reduce((a, r) => a + rowCartonSum(r), 0);
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+function refreshTable() {
+    const tbody = document.getElementById("etaTableBody");
+    tbody.innerHTML = "";
+    rows.forEach((r, i) => {
+        const tr      = document.createElement("tr");
+        tr.dataset.idx = i;
+        const disp    = r.itemName.length > 50 ? r.itemName.slice(0, 50) + "…" : r.itemName;
+        const mismatch = rowCartonSum(r) !== r.qty;
+        tr.innerHTML =
+            `<td>${escapeHtml(r.sku)}${r.taille ? ' <span style="color:var(--eta-muted);font-size:11px">('+escapeHtml(r.taille)+')</span>' : ''}</td>` +
+            `<td>${escapeHtml(disp)}</td>` +
+            `<td style="text-align:center">${r.qty}</td>` +
+            `<td style="text-align:center;white-space:nowrap">` +
+                `<input type="number" min="1" step="1" style="width:54px;padding:3px 4px;border:1px solid #ddd;font-size:12px" id="etaCartonsInput_${i}" value="${r.cartons}">` +
+                `<span id="etaWarnDot_${i}" title="Total cartons ≠ qté à livrer" style="display:${mismatch ? "inline" : "none"};color:var(--eta-warning);margin-left:4px">⚠</span>` +
+            `</td>`;
+        tr.addEventListener("click", e => {
+            if (e.target.tagName === "INPUT") return;
+            selectRow(i);
+        });
+        tbody.appendChild(tr);
+        const inp = tr.querySelector(`#etaCartonsInput_${i}`);
+        inp.addEventListener("click", e => e.stopPropagation());
+        inp.addEventListener("change", e => onCartonsInputChange(i, e.target.value));
+    });
+}
+
+function onCartonsInputChange(i, value) {
+    let n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 1) n = 1;
+    const r = rows[i];
+    r.cartons      = n;
+    r.cartonQtys   = computeEvenSplit(r.qty, n);
+    r.cartonLocked = new Array(n).fill(false);
+    const input = document.getElementById(`etaCartonsInput_${i}`);
+    if (input) input.value = n;
+    updateRowWarnDot(i);
+    if (selectedIndex === i) {
+        activeCartonIdx = null;
+        const ci = document.getElementById("etaCartonsCount");
+        if (ci) ci.value = n;
+        renderCartonDetail();
+        updatePreviewButtonState();
+    }
+    drawSummary();
+}
+
+function renderCartonDetail() {
+    const i = selectedIndex;
+    if (i === null) return;
+    const r = rows[i];
+    if (!r.cartonLocked) r.cartonLocked = new Array(r.cartons).fill(false);
+    const offset = rowCartonOffset(i);
+
+    document.getElementById("etaCartonLineInfo").innerHTML =
+        `<strong>${escapeHtml(r.sku)}</strong>${r.taille ? " — " + escapeHtml(r.taille) : ""} — ${escapeHtml(r.itemName)}` +
+        `<span class="eta-muted"> · N° livraison : ${escapeHtml(r.otb)} · Qté à livrer : ${r.qty} · Cartons n° ${offset + 1} à ${offset + r.cartons}</span>`;
+
+    const hint = document.getElementById("etaCartonRangeHint");
+    if (hint) hint.textContent = `(cette ligne : ${offset + 1} à ${offset + r.cartons})`;
+
+    const tbody = document.getElementById("etaCartonTableBody");
+    tbody.innerHTML = "";
+    r.cartonQtys.forEach((q, idx) => {
+        const locked = r.cartonLocked[idx];
+        const tr     = document.createElement("tr");
+        tr.dataset.cartonIdx = idx;
+        if (idx === activeCartonIdx) tr.classList.add("selected");
+        tr.innerHTML =
+            `<td>Carton ${offset + idx + 1}</td>` +
+            `<td><input type="number" min="0" step="1" class="etaCartonQtyInput" data-qty-idx="${idx}" value="${q}" style="width:90px;padding:4px 6px;border:1px solid #ddd;font-size:12px"></td>` +
+            `<td><button class="eta-btn eta-btn-sm" data-lock-idx="${idx}" style="background:${locked ? "var(--eta-warning)" : "#AAB4C0"}" title="${locked ? "Déverrouiller" : "Verrouillé dès modification"}">${locked ? "🔒" : "🔓"}</button></td>`;
+        tr.addEventListener("click", e => {
+            if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+            setActiveCarton(idx);
+        });
+        tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll(".etaCartonQtyInput").forEach(input => {
+        input.addEventListener("change", e => onCartonQtyChange(Number(input.dataset.qtyIdx), e.target.value));
+    });
+    tbody.querySelectorAll("button[data-lock-idx]").forEach(btn => {
+        btn.addEventListener("click", () => toggleCartonLock(Number(btn.dataset.lockIdx)));
+    });
+
+    const sum = rowCartonSum(r);
+    const ok  = sum === r.qty;
+    const ind = document.getElementById("etaSumIndicator");
+    ind.className   = "eta-sum-indicator " + (ok ? "ok" : "warn");
+    ind.textContent = ok
+        ? `Total cartons : ${sum} / ${r.qty} ✓`
+        : `Total cartons : ${sum} / ${r.qty} — ne correspond pas à la qté à livrer`;
+
+    updateRowWarnDot(i);
+}
+
+function setActiveCarton(idx) {
+    activeCartonIdx = idx;
+    document.querySelectorAll("#etaCartonTableBody tr").forEach(tr =>
+        tr.classList.toggle("selected", Number(tr.dataset.cartonIdx) === idx)
+    );
+    updatePreviewButtonState();
+    previewCarton(selectedIndex, idx);
+}
+
+function updatePreviewButtonState() {
+    const btn  = document.getElementById("etaBtnShowPreview");
+    const info = document.getElementById("etaPreviewInfo");
+    if (selectedIndex === null || activeCartonIdx === null) {
+        btn.disabled     = true;
+        info.textContent = selectedIndex === null
+            ? "Sélectionnez une ligne, puis cliquez sur un carton."
+            : "Cliquez sur un carton dans le tableau.";
+    } else {
+        btn.disabled = false;
+        const r      = rows[selectedIndex];
+        const offset = rowCartonOffset(selectedIndex);
+        info.textContent = `Carton ${offset + activeCartonIdx + 1} (${activeCartonIdx + 1}/${r.cartons} de cette ligne) — Qté : ${r.cartonQtys[activeCartonIdx]}`;
+    }
+}
+
+function onCartonQtyChange(idx, value) {
+    const i = selectedIndex;
+    const v = Math.max(0, parseInt(value, 10) || 0);
+    const r = rows[i];
+    r.cartonQtys[idx]   = v;
+    r.cartonLocked[idx] = true;
+    redistributeUnlocked(r);
+    renderCartonDetail();
+    updatePreviewButtonState();
+    updateRowWarnDot(i);
+    drawSummary();
+}
+
+function toggleCartonLock(idx) {
+    const r = rows[selectedIndex];
+    r.cartonLocked[idx] = !r.cartonLocked[idx];
+    redistributeUnlocked(r);
+    renderCartonDetail();
+    updatePreviewButtonState();
+    updateRowWarnDot(selectedIndex);
+    drawSummary();
+}
+
+function applyQtyToRange() {
+    if (selectedIndex === null) return;
+    const r       = rows[selectedIndex];
+    const offset  = rowCartonOffset(selectedIndex);
+    const fromEl  = document.getElementById("etaRangeFrom");
+    const toEl    = document.getElementById("etaRangeTo");
+    const qtyInp  = document.getElementById("etaApplyQty");
+    let from = parseInt(fromEl.value, 10);
+    let to   = parseInt(toEl.value, 10);
+    const v  = Math.max(0, parseInt(qtyInp.value, 10) || 0);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) {
+        setStatus("Indiquez les numéros de carton de début et de fin.", "warn");
+        return;
+    }
+    if (from > to) { const tmp = from; from = to; to = tmp; }
+    let localFrom = from - offset;
+    let localTo   = to - offset;
+    if (localTo < 1) {
+        setStatus(`Les cartons ${from}–${to} appartiennent à une ligne précédente (début de cette ligne : carton ${offset + 1}).`, "warn");
+        return;
+    }
+    localFrom = Math.max(1, localFrom);
+    if (localTo > r.cartons) {
+        const extra    = localTo - r.cartons;
+        r.cartonQtys   = r.cartonQtys.concat(new Array(extra).fill(0));
+        r.cartonLocked = r.cartonLocked.concat(new Array(extra).fill(false));
+        r.cartons      = localTo;
+        const ci = document.getElementById("etaCartonsCount");
+        if (ci) ci.value = r.cartons;
+        const mi = document.getElementById(`etaCartonsInput_${selectedIndex}`);
+        if (mi) mi.value = r.cartons;
+    }
+    for (let k = localFrom; k <= localTo; k++) {
+        r.cartonQtys[k - 1]   = v;
+        r.cartonLocked[k - 1] = true;
+    }
+    redistributeUnlocked(r);
+    renderCartonDetail();
+    updatePreviewButtonState();
+    updateRowWarnDot(selectedIndex);
+    drawSummary();
+    setStatus(`Qté ${v} appliquée aux cartons ${offset + localFrom}–${offset + localTo} — reliquat réparti automatiquement.`, "ok");
+    fromEl.value = offset + localTo + 1;
+    toEl.value   = "";
+    toEl.focus();
+}
+
+function resetRowSplit() {
+    if (selectedIndex === null) return;
+    const r        = rows[selectedIndex];
+    r.cartonLocked = new Array(r.cartons).fill(false);
+    r.cartonQtys   = computeEvenSplit(r.qty, r.cartons);
+    renderCartonDetail();
+    updateRowWarnDot(selectedIndex);
+    drawSummary();
+}
+
+function renderListeColisage() {
+    const container = document.getElementById("etaListeContent");
+    if (!rows.length) {
+        container.innerHTML = `<p style="padding:20px;text-align:center;color:var(--eta-muted)">Aucune donnée — recherchez d'abord un numéro de livraison.</p>`;
+        return;
+    }
+    const totalCartons = rows.reduce((a, r) => a + r.cartons, 0);
+    const totalPieces  = rows.reduce((a, r) => a + rowCartonSum(r), 0);
+    const now          = new Date();
+    const dateStr      = now.toLocaleDateString("fr-FR") + " " + now.toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+    const livraison    = rows[0]?.otb ?? "";
+
+    let html = `<div style="margin-bottom:10px">
+        <h2 class="eta-section-title" style="margin-bottom:2px">Liste de colisage</h2>
+        <div style="font-size:12px;color:var(--eta-muted)">
+            N° livraison : <strong>${escapeHtml(livraison)}</strong> — Édité le ${dateStr}<br>
+            ${rows.length} article(s) · ${totalCartons} carton(s) · ${totalPieces} pièce(s)
+        </div>
+    </div>`;
+
+    html += `<h3>Récapitulatif par article</h3>`;
+    html += `<table class="eta-table"><thead><tr>
+        <th style="width:110px">Cartons n°</th><th>Article</th><th>Désignation</th>
+        <th style="text-align:center;width:90px">Nb cartons</th>
+        <th style="text-align:center;width:100px">Total pièces</th>
+    </tr></thead><tbody>`;
+    rows.forEach((r, i) => {
+        const offset     = rowCartonOffset(i);
+        const rangeLabel = r.cartons > 1 ? `${offset + 1} à ${offset + r.cartons}` : `${offset + 1}`;
+        html += `<tr>
+            <td>${rangeLabel}</td>
+            <td>${escapeHtml(r.sku)}${r.taille ? " (" + escapeHtml(r.taille) + ")" : ""}</td>
+            <td>${escapeHtml(r.itemName)}</td>
+            <td style="text-align:center">${r.cartons}</td>
+            <td style="text-align:center">${rowCartonSum(r)}</td>
+        </tr>`;
+    });
+    html += `</tbody></table>`;
+
+    html += `<h3>Détail par carton</h3>`;
+    html += `<table class="eta-table"><thead><tr>
+        <th style="width:90px">Carton n°</th><th>Article</th><th>Désignation</th>
+        <th style="text-align:center;width:100px">Quantité</th>
+    </tr></thead><tbody>`;
+    rows.forEach((r, i) => {
+        const offset = rowCartonOffset(i);
+        r.cartonQtys.forEach((q, idx) => {
+            html += `<tr>
+                <td>${offset + idx + 1}</td>
+                <td>${escapeHtml(r.sku)}${r.taille ? " (" + escapeHtml(r.taille) + ")" : ""}</td>
+                <td>${escapeHtml(r.itemName)}</td>
+                <td style="text-align:center">${q}</td>
+            </tr>`;
+        });
+    });
+    html += `</tbody></table>`;
+
+    container.innerHTML = html;
+}
+
+// =============================================================================
+// NAVIGATION PAR ONGLETS
+// =============================================================================
+function switchTab(tab) {
+    document.querySelectorAll(".eta-tab-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.tab === tab)
+    );
+    document.getElementById("etaTabOverview").classList.toggle("active", tab === "overview");
+    document.getElementById("etaTabColisage").classList.toggle("active", tab === "colisage");
+    document.getElementById("etaTabListe").classList.toggle("active",    tab === "liste");
+    document.getElementById("etaColRight").style.display   = tab === "colisage" ? "flex" : "none";
+    document.getElementById("etaBtnPrint").style.display   = tab === "overview" ? "" : "none";
+    document.getElementById("etaBtnReset").style.display   = tab === "overview" ? "" : "none";
+    if (tab === "colisage" && selectedIndex === null && rows.length > 0) openColisageForRow(0);
+    if (tab === "liste") renderListeColisage();
+}
+
+document.querySelectorAll(".eta-tab-btn").forEach(btn =>
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab))
+);
+
+// =============================================================================
+// SÉLECTEUR D'ARTICLE (onglet colisage)
+// =============================================================================
+function populateSkuSelect() {
+    const sel = document.getElementById("etaSkuSelect");
+    sel.innerHTML = "";
+    rows.forEach((r, i) => {
+        const opt  = document.createElement("option");
+        opt.value  = i;
+        const disp = r.itemName.length > 40 ? r.itemName.slice(0, 40) + "…" : r.itemName;
+        opt.textContent = `${r.sku}${r.taille ? " (" + r.taille + ")" : ""} — ${disp}`;
+        sel.appendChild(opt);
+    });
+    if (selectedIndex !== null) sel.value = selectedIndex;
+}
+
+function openColisageForRow(i) {
+    selectedIndex   = i;
+    activeCartonIdx = null;
+    document.querySelectorAll("#etaTableBody tr").forEach(tr =>
+        tr.classList.toggle("selected", Number(tr.dataset.idx) === i)
+    );
+    document.getElementById("etaColisageEmpty").style.display  = "none";
+    document.getElementById("etaColisageContent").style.display = "flex";
+    const sel = document.getElementById("etaSkuSelect");
+    if (sel) sel.value = i;
+    const ci = document.getElementById("etaCartonsCount");
+    if (ci)  ci.value = rows[i].cartons;
+    const offset = rowCartonOffset(i);
+    const fe = document.getElementById("etaRangeFrom");
+    const te = document.getElementById("etaRangeTo");
+    if (fe) fe.value = offset + 1;
+    if (te) te.value = "";
+    renderCartonDetail();
+    updatePreviewButtonState();
+    if (ci) setTimeout(() => { ci.focus(); ci.select(); }, 0);
+}
+
+function selectRow(i) {
+    openColisageForRow(i);
+    switchTab("colisage");
+}
+
+document.getElementById("etaSkuSelect").addEventListener("change", e => {
+    const i = Number(e.target.value);
+    if (Number.isFinite(i) && rows[i]) openColisageForRow(i);
+});
+
+document.getElementById("etaCartonsCount").addEventListener("change", e => {
+    if (selectedIndex === null) return;
+    onCartonsInputChange(selectedIndex, e.target.value);
+});
+
+// =============================================================================
+// APERÇU
+// =============================================================================
+async function previewCarton(i, idx) {
+    const r   = rows[i];
+    const qty = r.cartonQtys[idx];
+    const zpl = buildZpl(r.otb, r.sku, r.taille, qty, r.itemName);
+    const box = document.getElementById("etaPreviewBox");
+    box.innerHTML = `<span class="eta-placeholder">Chargement aperçu…</span>`;
+    setStatus("Chargement aperçu…");
+    try {
+        const url = await fetchPreview(zpl);
+        box.innerHTML = `<img src="${url}" alt="Aperçu étiquette">`;
+        const offset  = rowCartonOffset(i);
+        setStatus(`Aperçu chargé — carton ${offset + idx + 1}.`, "ok");
+    } catch (e) {
+        box.innerHTML = `<span class="eta-placeholder">Erreur aperçu</span>`;
+        setStatus("Erreur aperçu : " + e.message, "warn");
+    }
+}
+
+// =============================================================================
+// IMPRIMANTES
+// =============================================================================
+async function refreshPrinters() {
+    const select   = document.getElementById("etaPrinterSelect");
+    const previous = select.value;
+    try {
+        printers = await getAvailablePrinters();
+        select.innerHTML = "";
+        printers.forEach((p, i) => {
+            const opt  = document.createElement("option");
+            opt.value  = i;
+            const conn = p.connection ? ` — ${String(p.connection).toUpperCase()}` : "";
+            opt.textContent = (p.name || p.uid || `Imprimante ${i + 1}`) + conn;
+            select.appendChild(opt);
+        });
+        const saved = localStorage.getItem("eta_printer_name");
+        if (saved) {
+            const idx = printers.findIndex(p => p.name === saved);
+            if (idx >= 0) select.value = idx;
+        } else if (previous) {
+            select.value = previous;
+        }
+        if (printers.length === 0) setStatus("Aucune imprimante détectée par Browser Print.", "warn");
+    } catch {
+        select.innerHTML = `<option value="">— Browser Print introuvable —</option>`;
+    }
+}
+
+document.getElementById("etaRefreshPrinters").addEventListener("click", refreshPrinters);
+
+document.getElementById("etaPrinterSelect").addEventListener("change", e => {
+    const p = printers[Number(e.target.value)];
+    if (p) localStorage.setItem("eta_printer_name", p.name);
+});
+
+document.getElementById("etaBtnTestPrint").addEventListener("click", async () => {
+    const idx    = Number(document.getElementById("etaPrinterSelect").value);
+    const device = printers[idx];
+    if (!device) { setStatus("Sélectionnez d'abord une imprimante.", "warn"); return; }
+    const zpl = "^XA^CF0,45^FO40,40^FDETIQUETTE TEST^FS" +
+                "^CF0,30^FO40,110^FD" + zplSafe(device.name || device.uid || "?") + "^FS" +
+                "^FO40,160^A0N,24,24^FDSi cette etiquette sort ici,^FS" +
+                "^FO40,195^A0N,24,24^FDc'est bien cette imprimante.^FS^XZ";
+    const btn = document.getElementById("etaBtnTestPrint");
+    btn.disabled = true;
+    try {
+        await sendZpl(device, zpl);
+        setStatus("✓ Étiquette test envoyée.", "ok");
+    } catch (e) {
+        setStatus("Erreur test : " + e.message, "warn");
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// =============================================================================
+// IMPRESSION ÉTIQUETTES
+// =============================================================================
+document.getElementById("etaBtnPrint").addEventListener("click", async () => {
+    if (!rows.length) { setStatus("Chargez d'abord une livraison.", "warn"); return; }
+    const idx    = Number(document.getElementById("etaPrinterSelect").value);
+    const device = printers[idx];
+    if (!device) { setStatus("Aucune imprimante valide sélectionnée.", "warn"); return; }
+    const total = rows.reduce((a, r) => a + r.cartons, 0);
+    if (total === 0) { setStatus("Aucun carton à imprimer.", "warn"); return; }
+    if (!confirm(`Imprimer ${total} étiquette(s) sur :\n${device.name} ?`)) return;
+
+    const btn      = document.getElementById("etaBtnPrint");
+    const progress = document.getElementById("etaProgressBar");
+    btn.disabled   = true;
+    progress.style.display = "inline-block";
+    progress.max   = total;
+    progress.value = 0;
+    let done = 0;
+    try {
+        for (const r of rows) {
+            for (const cartonQty of r.cartonQtys) {
+                await sendZpl(device, buildZpl(r.otb, r.sku, r.taille, cartonQty, r.itemName));
+                done++;
+                progress.value = done;
+                setStatus(`Impression… ${done}/${total}`);
+            }
+        }
+        setStatus(`✓ ${total} étiquette(s) envoyée(s).`, "ok");
+    } catch (e) {
+        setStatus("Erreur d'impression : " + e.message, "warn");
+    } finally {
+        btn.disabled = false;
+        progress.style.display = "none";
+    }
+});
+
+// =============================================================================
+// LISTE DE COLISAGE — impression papier/PDF
+// =============================================================================
+document.getElementById("etaBtnPrintListe").addEventListener("click", () => {
+    renderListeColisage();
+    window.print();
+});
+
+// =============================================================================
+// RÉINITIALISER
+// =============================================================================
+document.getElementById("etaBtnReset").addEventListener("click", () => {
+    if (!rows.length) { setStatus("Aucune expédition en cours.", "warn"); return; }
+    if (!confirm("Réinitialiser le travail en cours ?")) return;
+    rows = []; selectedIndex = null; activeCartonIdx = null;
+    document.getElementById("etaColisageEmpty").style.display  = "";
+    document.getElementById("etaColisageContent").style.display = "none";
+    document.getElementById("etaNumeroLivraison").value = "";
+    document.getElementById("etaLivraisonHint").textContent = "";
+    refreshTable();
+    populateSkuSelect();
+    updatePreviewButtonState();
+    drawSummary();
+    document.getElementById("etaBtnPrint").disabled = true;
+    setStatus("Prêt — saisissez un numéro de livraison.", "ok");
+});
+
+// =============================================================================
+// ACTIONS DES BOUTONS / APPEL LIVRAISON
+// =============================================================================
+document.getElementById("etaBtnRechercher").addEventListener("click", rechercherLivraison);
+document.getElementById("etaNumeroLivraison").addEventListener("keydown", e => {
+    if (e.key === "Enter") rechercherLivraison();
+});
+document.getElementById("etaBtnApplyRange").addEventListener("click", applyQtyToRange);
+document.getElementById("etaBtnResetSplit").addEventListener("click", resetRowSplit);
+document.getElementById("etaBtnShowPreview").addEventListener("click", () => {
+    if (selectedIndex === null || activeCartonIdx === null) return;
+    previewCarton(selectedIndex, activeCartonIdx);
+});
+
+// =============================================================================
+// INIT
+// =============================================================================
+refreshPrinters();
+</script>
+{% endblock %}
