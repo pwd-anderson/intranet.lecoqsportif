@@ -52,7 +52,6 @@ class MssqlManager
             $stmt = $this->connection?->query($query);
             return $stmt ? $stmt->fetchAll(PDO::FETCH_OBJ) : [];
         } catch (PDOException $e) {
-            var_dump($e->getMessage());
             $this->logger->error("Query failed: {$e->getMessage()}", ['query' => $query]);
             return [];
         }
