@@ -620,14 +620,18 @@ class Sales
             $pivoted = [];
 
             foreach ($rows as $row) {
-                $famille = (string) ($row->FAMILLE      ?? '');
-                $article = (string) ($row->CODE_ARTICLE ?? '');
-                $key     = $famille . '||' . $article;
+                $famille   = (string) ($row->FAMILLE      ?? '');
+                $article   = (string) ($row->CODE_ARTICLE ?? '');
+                $genre     = (string) ($row->GENRE        ?? '');
+                $segOffre  = (string) ($row->SEG_OFFRE    ?? '');
+                $key       = $famille . '||' . $article . '||' . $genre . '||' . $segOffre;
 
                 if (!isset($pivoted[$key])) {
                     $pivoted[$key] = [
                         'FAMILLE'      => $famille,
                         'CODE_ARTICLE' => $article,
+                        'GENRE'        => $genre,
+                        'SEG_OFFRE'    => $segOffre,
                     ];
                     for ($m = 1; $m <= 12; $m++) {
                         $pad = str_pad((string) $m, 2, '0', STR_PAD_LEFT);
