@@ -143,67 +143,72 @@ VALUES
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,28,NULL,0,'integerFormatter','integerComparator'),
 
+-- PO EN COURS
+('backlog_client_x3_grid','PO_EN_COURS','PO EN COURS','integer',120,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,29,NULL,0,'integerFormatter','integerComparator'),
+
 -- 15
 ('backlog_client_x3_grid','PRIX','PRIX DEVISE','decimal',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,29,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,NULL,1,30,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 16
 ('backlog_client_x3_grid','CUR_0','DEVISE','string',100,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,30,NULL,0,NULL,NULL),
+ NULL,NULL,1,31,NULL,0,NULL,NULL),
 
 -- REMISE AUTO (nouveau)
 ('backlog_client_x3_grid','REMISE_AUTO','REMISE AUTO','percent',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,31,NULL,0,'percentRawFormatter','decimalComparator'),
+ NULL,NULL,1,32,NULL,0,'percentRawFormatter','decimalComparator'),
 
 -- REMISE MANU (nouveau)
 ('backlog_client_x3_grid','REMISE_MANU','REMISE MANU','percent',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,32,NULL,0,'percentRawFormatter','decimalComparator'),
+ NULL,NULL,1,33,NULL,0,'percentRawFormatter','decimalComparator'),
 
 -- 17
 ('backlog_client_x3_grid','PRIX_EUR','PRIX EUR','decimal',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,33,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,NULL,1,34,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 18
 ('backlog_client_x3_grid','STOCK_INTERNE_WLOGM','STK INT. WLOGM','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,34,'bg-info',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,35,'bg-info',0,'integerFormatter','integerComparator'),
 
 -- 18
 ('backlog_client_x3_grid','STOCK_REEL_WLOGM','STK REEL WLOGM','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,35,'bg-info',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,36,'bg-info',0,'integerFormatter','integerComparator'),
 
 -- 18
 ('backlog_client_x3_grid','STOCK_INTERNE_WSFCN','STK INT. WSFCN','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,36,'bg-info-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,37,'bg-info-light',0,'integerFormatter','integerComparator'),
 
 -- 18
 ('backlog_client_x3_grid','STOCK_REEL_WSFCN','STK REEL WSFCN','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,37,'bg-info-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,38,'bg-info-light',0,'integerFormatter','integerComparator'),
 
 -- 18
 ('backlog_client_x3_grid','STOCK_INTERNE_WTAKH','STK INT. WTAKH','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,38,'bg-success-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,39,'bg-success-light',0,'integerFormatter','integerComparator'),
 
 -- 18
 ('backlog_client_x3_grid','STOCK_REEL_WTAKH','STK REEL WTAKH','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,39,'bg-success-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,40,'bg-success-light',0,'integerFormatter','integerComparator'),
 
 -- 18
 ('backlog_client_x3_grid','STOCK_INTERNE_WDTTH','STK INT. WDTTH','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,40,'bg-primary-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,41,'bg-primary-light',0,'integerFormatter','integerComparator'),
 
 -- 18
 ('backlog_client_x3_grid','STOCK_REEL_WDTTH','STK REEL WDTTH','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,41,'bg-primary-light',0,'integerFormatter','integerComparator');
+ NULL,NULL,1,42,'bg-primary-light',0,'integerFormatter','integerComparator');

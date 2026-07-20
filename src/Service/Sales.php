@@ -852,6 +852,7 @@ class Sales
             'REP2'                  => 'REP1.REPNAM_0',
             'STATUT_ARTICLE'        => 'ITM.ITMSTA_0',
             'QUANTITE'              => '(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0))',
+            'PO_EN_COURS'           => 'PO.PO_EN_COURS',
             'CUR_0'                 => 'SOH.CUR_0',
             'PRICE_HT'              => 'SOP.NETPRINOT_0',
             'CLIENT_LIVRE'          => 'SOH.BPDNAM_0',
@@ -1017,6 +1018,16 @@ class Sales
         LEFT  JOIN X3_LCS.ATEXTRA ATX4 ON ATX4.IDENT2_0 = BPC.ZGROUPIND_0 AND ATX4.CODFIC_0 = 'ATABDIV' AND ATX4.LANGUE_0 = 'FRA' AND ATX4.ZONE_0 = 'LNGDES' AND ATX4.IDENT1_0 = '6021'
         LEFT  JOIN X3_LCS.ATEXTRA ATX6 ON ATX6.IDENT2_0 = BPC.ZGRPCOD_0  AND ATX6.CODFIC_0 = 'ATABDIV' AND ATX6.LANGUE_0 = 'FRA' AND ATX6.ZONE_0 = 'LNGDES' AND ATX6.IDENT1_0 = '6028'
         LEFT  JOIN X3_LCS.ZITMCOL  ITC ON ITC.ITMREF_0 = SPLIT.ARTICLE_BASE AND ITC.YCOLLECT_0 = SOQ.YCOLLECT_0
+        " . (str_contains($whereClause, 'PO.PO_EN_COURS') ? "
+        LEFT  JOIN (
+            SELECT POQ.ITMREF_0, POQ.PRHFCY_0,
+                   SUM(POQ.QTYUOM_0 - POQ.RCPQTYSTU_0) AS PO_EN_COURS
+            FROM X3_LCS.PORDERQ POQ
+            INNER JOIN X3_LCS.PORDER POH ON POQ.POHNUM_0 = POH.POHNUM_0
+            WHERE POQ.LINCLEFLG_0 = 1 AND POH.BETFCY_0 <> 2
+            GROUP BY POQ.ITMREF_0, POQ.PRHFCY_0
+        ) PO ON PO.ITMREF_0 = SOQ.ITMREF_0 AND PO.PRHFCY_0 = SOH.STOFCY_0
+        " : "") . "
         WHERE
             SOQ.SOQSTA_0 <> 3
             AND SOH.ZSOHVALSTA_0 <> 3
