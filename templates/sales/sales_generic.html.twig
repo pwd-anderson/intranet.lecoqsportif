@@ -359,20 +359,37 @@
                     }
                     return undefined;
                 },
+                postSortRows: (params) => {
+                    const nodes = params.nodes;
+                    for (let i = nodes.length - 1; i >= 0; i--) {
+                        const data = nodes[i].data;
+                        if (data && data.__isDetailRow) {
+                            const detail = nodes.splice(i, 1)[0];
+                            const parentIdx = nodes.findIndex(n => n.data && n.data.ITEMGROUPCODE === data.__group);
+                            nodes.splice(parentIdx !== -1 ? parentIdx + 1 : nodes.length, 0, detail);
+                        }
+                    }
+                },
                 onCellClicked: (params) => {
                     if (!params.data || params.data.__isDetailRow) return;
                     if (params.column.getColId() !== 'ITEMGROUPCODE') return;
-                    const group    = params.data.ITEMGROUPCODE;
-                    const rowIndex = params.rowIndex;
-                    const nextNode = params.api.getDisplayedRowAtIndex(rowIndex + 1);
-                    if (nextNode && nextNode.data && nextNode.data.__isDetailRow && nextNode.data.__group === group) {
-                        params.api.applyTransaction({ remove: [nextNode.data] });
-                        return;
+                    const group = params.data.ITEMGROUPCODE;
+
+                    const existingDetails = [];
+                    params.api.forEachNode(node => {
+                        if (node.data && node.data.__isDetailRow) existingDetails.push(node.data);
+                    });
+
+                    const alreadyOpen = existingDetails.some(d => d.__group === group);
+                    if (existingDetails.length) {
+                        params.api.applyTransaction({ remove: existingDetails });
                     }
+                    if (alreadyOpen) return;
+
                     const articles = bestDemandDetailCache[group] || [];
                     params.api.applyTransaction({
                         add: [{ __isDetailRow: true, __group: group, __articles: articles }],
-                        addIndex: rowIndex + 1
+                        addIndex: params.rowIndex + 1
                     });
                 },
             } : {},
