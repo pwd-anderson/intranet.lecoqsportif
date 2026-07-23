@@ -229,7 +229,7 @@
 {% block javascripts %}
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.5"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.6"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-ssrm.js') }}?v=1.7"></script>
     <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
@@ -299,6 +299,18 @@
             });
         }
 
+        let bestDemandDetailCache = {};
+
+        if (salesType === 'best_demand_per_style') {
+            const groupCol = columnDefs.find(c => c.field === 'ITEMGROUPCODE');
+            if (groupCol) {
+                groupCol.cellStyle = (p) => {
+                    if (p.data && p.data.__isDetailRow) return {};
+                    return { cursor: 'pointer', color: '#024185', textDecoration: 'underline', fontWeight: '600' };
+                };
+            }
+        }
+
         const agGridConfig = {
             columnDefs: columnDefs,
             dataUrl: salesType === 'poid_famille_par_variant'
@@ -311,6 +323,59 @@
             totalColumns: {{ totalColumns|json_encode|raw }},
             headerClass: 'excelHeaderBlue',
             stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
+            transformData: salesType === 'best_demand_per_style'
+                ? (data) => { bestDemandDetailCache = data.details || {}; return data.groups || []; }
+                : null,
+            extraOptions: salesType === 'best_demand_per_style' ? {
+                isFullWidthRow: (params) => !!(params.rowNode.data && params.rowNode.data.__isDetailRow),
+                fullWidthCellRenderer: (params) => {
+                    const articles = params.data.__articles || [];
+                    const fmtQty = v => new Intl.NumberFormat('fr-FR').format(Math.round(v || 0));
+                    const fmtCa  = v => new Intl.NumberFormat('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}).format(v || 0);
+
+                    // Récupère les largeurs exactes des colonnes parentes
+                    const cols   = params.columnApi.getAllDisplayedColumns();
+                    const w      = cols.map(c => c.getActualWidth() + 'px');
+                    const w0 = w[0] || '40%', w1 = w[1] || '30%', w2 = w[2] || '30%';
+
+                    const rowStyle  = 'display:flex;align-items:center;height:42px;border-bottom:1px solid #b8d0e8;font-size:13px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+                    const cellBase  = 'flex-shrink:0;padding:0 12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-sizing:border-box;';
+
+                    const rows = articles.map((a, i) => `
+                        <div style="${rowStyle}background:${i % 2 === 0 ? '#ddeeff' : '#cce0f5'};">
+                            <div style="${cellBase}width:${w0};text-align:left;">${a.ARTICLE || ''}</div>
+                            <div style="${cellBase}width:${w1};text-align:right;">${fmtQty(a.QUANTITY)}</div>
+                            <div style="${cellBase}width:${w2};text-align:right;">${fmtCa(a.CA)}</div>
+                        </div>`).join('');
+
+                    const container = document.createElement('div');
+                    container.style.cssText = 'background:#cce0f5;border-bottom:2px solid #024185;';
+                    container.innerHTML = rows || `<div style="padding:12px;font-size:13px;color:#666;">Aucun article trouvé</div>`;
+                    return container;
+                },
+                getRowHeight: (params) => {
+                    if (params.data && params.data.__isDetailRow) {
+                        return (params.data.__articles || []).length * 42;
+                    }
+                    return undefined;
+                },
+                onCellClicked: (params) => {
+                    if (!params.data || params.data.__isDetailRow) return;
+                    if (params.column.getColId() !== 'ITEMGROUPCODE') return;
+                    const group    = params.data.ITEMGROUPCODE;
+                    const rowIndex = params.rowIndex;
+                    const nextNode = params.api.getDisplayedRowAtIndex(rowIndex + 1);
+                    if (nextNode && nextNode.data && nextNode.data.__isDetailRow && nextNode.data.__group === group) {
+                        params.api.applyTransaction({ remove: [nextNode.data] });
+                        return;
+                    }
+                    const articles = bestDemandDetailCache[group] || [];
+                    params.api.applyTransaction({
+                        add: [{ __isDetailRow: true, __group: group, __articles: articles }],
+                        addIndex: rowIndex + 1
+                    });
+                },
+            } : {},
             excelStyles: [
                 { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
                 { id: 'excelPercentColumn', interior: { color: '#baedbc', pattern: 'Solid' }, font: { color: '#1B5E20' } }
@@ -389,14 +454,58 @@
                 location.reload();
             });
 
-            // Les selects de filtres ne sont pas concernés en mode SSRM
-            if (!isServerSide && ['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
-                // ... bloc inchangé pour les selects collection/family/type/itemGroup
-                // (je le coupe pour la lisibilité, garde le tien tel quel)
+            if (['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
+                const collectionSelect = document.getElementById('collectionSelect');
+                const familySelect = document.getElementById('familySelect');
+                const typeSelect = document.getElementById('typeSelect');
+                const itemGroupSelect = document.getElementById('itemGroupSelect');
+
+                if (collectionSelect) {
+                    fetch('{{ path("poid_famille_par_variant_collections_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(collection => {
+                                const option = document.createElement('option');
+                                option.value = collection;
+                                option.textContent = collection;
+                                collectionSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                if (typeSelect) {
+                    fetch('{{ path("poid_famille_par_variant_types_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(type => {
+                                const option = document.createElement('option');
+                                option.value = type;
+                                option.textContent = type;
+                                typeSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                if (itemGroupSelect && salesType === 'best_demand_per_style') {
+                    fetch('{{ path("best_demand_per_style_item_groups_json") }}')
+                        .then(res => res.json())
+                        .then(data => {
+                            data.forEach(itemGroup => {
+                                const option = document.createElement('option');
+                                option.value = itemGroup;
+                                option.textContent = itemGroup;
+                                itemGroupSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                [collectionSelect, familySelect, typeSelect, itemGroupSelect].forEach(select => {
+                    if (select) {
+                        select.addEventListener('change', reloadGridWithFilters);
+                    }
+                });
             }
 
-            // setupAutoWidth / setupAutoHeight : on les saute en mode SSRM
-            // (car la grille a une hauteur fixe et un scroll virtuel)
             if (!isServerSide) {
                 window.AgGridCommon.setupAutoWidth(window.gridOptions, { widthMode: gridWidthMode });
                 window.AgGridCommon.setupAutoHeight(window.gridOptions, {
@@ -405,7 +514,38 @@
             }
         });
 
-        function reloadGridWithFilters() { /* inchangé */ }
-        function debounce(fn, delay) { /* inchangé */ }
+        function reloadGridWithFilters() {
+            if (!['poid_famille_par_variant', 'best_demand_per_style'].includes(salesType)) {
+                return;
+            }
+
+            const collection = document.getElementById('collectionSelect')?.value || '';
+            const family     = document.getElementById('familySelect')?.value || '';
+            const type       = document.getElementById('typeSelect')?.value || '';
+            const itemGroup  = document.getElementById('itemGroupSelect')?.value || '';
+
+            const url = new URL('{{ dataUrl }}', window.location.origin);
+
+            if (collection) url.searchParams.set('collection', collection);
+            if (family)     url.searchParams.set('family', family);
+            if (type)       url.searchParams.set('type', type);
+            if (itemGroup)  url.searchParams.set('itemGroup', itemGroup);
+
+            window.AgGridCommon.reloadData(
+                window.gridOptions,
+                url.toString(),
+                {{ totalColumns|json_encode|raw }},
+                null,
+                agGridConfig.transformData || null
+            );
+        }
+
+        function debounce(fn, delay) {
+            let timer = null;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
     </script>
 {% endblock %}

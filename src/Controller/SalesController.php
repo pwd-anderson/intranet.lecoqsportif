@@ -221,9 +221,9 @@ final class SalesController extends AbstractController
         $collection = $request->query->get('collection');
         $family     = $request->query->get('family');
 
-        $data = $sales->getBestDemandPerStyle($collection, $family);
+        $result = $sales->getBestDemandPerStyle($collection, $family);
 
-        return new JsonResponse($helpers->convertArrayToUtf8($data));
+        return new JsonResponse($helpers->convertArrayToUtf8($result));
     }
 
     #[Route('/sales/backlog_clients_x3_filter_values', name: 'backlog_clients_x3_filter_values', methods: ['POST'])]
@@ -248,6 +248,39 @@ final class SalesController extends AbstractController
             'lastRow' => $response->lastRow,
             'totals'  => $response->totals,   // 🆕
         ]);
+    }
+
+    #[Route('/sales/best_demand_per_style_detail_all_json', name: 'best_demand_per_style_detail_all_json')]
+    public function bestDemandPerStyleDetailAllJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $collection = $request->query->get('collection');
+        $family     = $request->query->get('family');
+
+        $rows = $sales->getBestDemandPerStyleDetailAll($collection, $family);
+
+        // Regroupe par ITEMGROUPCODE → Map JS-friendly
+        $grouped = [];
+        foreach ($rows as $row) {
+            $grouped[$row->ITEMGROUPCODE][] = [
+                'ARTICLE'  => $row->ARTICLE,
+                'QUANTITY' => $row->QUANTITY,
+                'CA'       => $row->CA,
+            ];
+        }
+
+        return new JsonResponse($helpers->convertArrayToUtf8($grouped));
+    }
+
+    #[Route('/sales/best_demand_per_style_detail_json', name: 'best_demand_per_style_detail_json')]
+    public function bestDemandPerStyleDetailJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $itemGroup  = $request->query->get('itemGroup', '');
+        $collection = $request->query->get('collection');
+        $family     = $request->query->get('family');
+
+        $data = $sales->getBestDemandPerStyleDetail($itemGroup, $collection, $family);
+
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
     #[Route('/sales/best_demand_per_style_item_groups_json', name: 'best_demand_per_style_item_groups_json')]

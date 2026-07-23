@@ -59,6 +59,7 @@ window.AgGridCommon = (function () {
                 }
             },
             rowClassRules: config.rowClassRules || undefined,
+            ...(config.extraOptions || {}),
         };
 
         const gridDiv = document.querySelector(gridSelector);
@@ -72,7 +73,8 @@ window.AgGridCommon = (function () {
                 gridOptions,
                 config.dataUrl,
                 config.totalColumns,
-                config.stateKey
+                config.stateKey,
+                config.transformData || null
             );
         }
 
@@ -194,7 +196,7 @@ window.AgGridCommon = (function () {
         }
     }
 
-    function reloadData(gridOptions, dataUrl, totalColumns, stateKey) {
+    function reloadData(gridOptions, dataUrl, totalColumns, stateKey, transformData) {
         hideGridActions();
         showGridLoader();
         gridOptions.api.showLoadingOverlay();
@@ -202,7 +204,8 @@ window.AgGridCommon = (function () {
         fetch(dataUrl)
             .then(response => response.json())
             .then(data => {
-                gridOptions.api.setRowData(data);
+                const rowData = transformData ? transformData(data) : data;
+                gridOptions.api.setRowData(rowData);
 
                 if (stateKey) {
                     setTimeout(() => {

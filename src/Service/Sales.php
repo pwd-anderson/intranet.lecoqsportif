@@ -518,8 +518,7 @@ class Sales
         ?string $family = null,
         ?string $type = null,
         ?string $itemGroup = null
-    ): array
-    {
+    ): array {
         try {
             $sql = $this->sqlFileLoader->load('Sei/best_demand_per_style.sql');
 
@@ -529,24 +528,103 @@ class Sales
             $family = $family !== null ? trim($family) : null;
             $family = $family !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $family) : null;
 
-            $collectionWhere = '';
-            if ($collection) {
-                $collectionWhere = " AND C.SERIESCODE = '{$collection}'";
+            $sql = str_replace('{{COLLECTION_WHERE}}', $collection ? " AND C.SERIESCODE = '{$collection}'" : '', $sql);
+            $sql = str_replace('{{FAMILY_WHERE}}',     $family     ? " AND C.ITEMFAMILYCODE = '{$family}'" : '', $sql);
+
+            $rows = $this->mssqlSei->executeQuery($sql);
+
+            // Agrège en PHP : totaux par groupe + top 20 articles par groupe
+            $groups  = [];
+            $details = [];
+
+            foreach ($rows as $row) {
+                $group = (string) $row->ITEMGROUPCODE;
+                $qty   = (float) ($row->QUANTITY ?? 0);
+                $ca    = (float) ($row->CA ?? 0);
+
+                if (!isset($groups[$group])) {
+                    $groups[$group] = ['ITEMGROUPCODE' => $group, 'QUANTITY' => 0.0, 'CA' => 0.0];
+                    $details[$group] = [];
+                }
+                $groups[$group]['QUANTITY'] += $qty;
+                $groups[$group]['CA']       += $ca;
+                $details[$group][] = ['ARTICLE' => (string) $row->ARTICLE, 'QUANTITY' => $qty, 'CA' => $ca];
             }
 
-            $familyWhere = '';
-            if ($family) {
-                $familyWhere = " AND C.ITEMFAMILYCODE = '{$family}'";
+            // Trie les groupes par CA DESC
+            uasort($groups, fn($a, $b) => $b['CA'] <=> $a['CA']);
+
+            // Trie les articles par CA DESC et garde top 20
+            foreach ($details as $group => &$articles) {
+                usort($articles, fn($a, $b) => $b['CA'] <=> $a['CA']);
+                $details[$group] = array_slice($articles, 0, 20);
             }
+            unset($articles);
 
-            $sql = str_replace('{{COLLECTION_WHERE}}', $collectionWhere, $sql);
-            $sql = str_replace('{{FAMILY_WHERE}}', $familyWhere, $sql);
-
-            return $this->mssqlSei->executeQuery($sql);
+            return [
+                'groups'  => array_values($groups),
+                'details' => $details,
+            ];
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Best Demand per Style : Récupération de données sales', $e);
             $this->logger->error('LCS Erreur Best Demand per Style : Récupération de données sales', ['exception' => $e]);
+
+            return ['groups' => [], 'details' => []];
+        }
+    }
+
+    public function getBestDemandPerStyleDetailAll(
+        ?string $collection = null,
+        ?string $family = null
+    ): array {
+        try {
+            $sql = $this->sqlFileLoader->load('Sei/best_demand_per_style_detail_all.sql');
+
+            $collection = $collection !== null ? trim($collection) : null;
+            $collection = $collection !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $collection) : null;
+
+            $family = $family !== null ? trim($family) : null;
+            $family = $family !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $family) : null;
+
+            $sql = str_replace('{{COLLECTION_WHERE}}', $collection ? " AND C.SERIESCODE = '{$collection}'" : '', $sql);
+            $sql = str_replace('{{FAMILY_WHERE}}',     $family     ? " AND C.ITEMFAMILYCODE = '{$family}'" : '', $sql);
+
+            return $this->mssqlSei->executeQuery($sql);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Best Demand per Style Detail All', $e);
+            $this->logger->error('LCS Erreur Best Demand per Style Detail All', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
+    public function getBestDemandPerStyleDetail(
+        string $itemGroupCode,
+        ?string $collection = null,
+        ?string $family = null
+    ): array {
+        try {
+            $sql = $this->sqlFileLoader->load('Sei/best_demand_per_style_detail.sql');
+
+            $itemGroupCode = preg_replace('/[^A-Za-z0-9_\-]/', '', $itemGroupCode);
+
+            $collection = $collection !== null ? trim($collection) : null;
+            $collection = $collection !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $collection) : null;
+
+            $family = $family !== null ? trim($family) : null;
+            $family = $family !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $family) : null;
+
+            $sql = str_replace('{{ITEMGROUPCODE}}', $itemGroupCode, $sql);
+            $sql = str_replace('{{COLLECTION_WHERE}}', $collection ? " AND C.SERIESCODE = '{$collection}'" : '', $sql);
+            $sql = str_replace('{{FAMILY_WHERE}}', $family ? " AND C.ITEMFAMILYCODE = '{$family}'" : '', $sql);
+
+            return $this->mssqlSei->executeQuery($sql);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Best Demand per Style Detail', $e);
+            $this->logger->error('LCS Erreur Best Demand per Style Detail', ['exception' => $e]);
 
             return [];
         }
