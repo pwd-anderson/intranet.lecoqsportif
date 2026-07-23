@@ -423,6 +423,11 @@
                     return;
                 }
 
+                if (salesType === 'best_demand_per_style') {
+                    await _exportBestDemandExcel();
+                    return;
+                }
+
                 // Mode classique inchangé
                 await ExcelExportStandard.export(
                     window.gridOptions,
@@ -439,6 +444,88 @@
                     }
                 );
             };
+
+            async function _exportBestDemandExcel() {
+                const wb = new ExcelJS.Workbook();
+                const ws = wb.addWorksheet('Best Demand per Style');
+
+                const fmtInt = v => Math.round(Number(v) || 0).toLocaleString('fr-FR');
+                const fmtDec = v => (Number(v) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // ---- styles ----
+                const styleGroupHeader = {
+                    font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF024185' } },
+                    alignment: { horizontal: 'center', vertical: 'middle' },
+                    border: { bottom: { style: 'thin', color: { argb: 'FFCECECE' } } }
+                };
+                const styleGroupRow = {
+                    font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a3c6e' } },
+                    alignment: { vertical: 'middle' },
+                    border: { bottom: { style: 'thin', color: { argb: 'FFCECECE' } } }
+                };
+                const styleGroupRowRight = { ...styleGroupRow, alignment: { horizontal: 'right', vertical: 'middle' } };
+                const styleArticleEven = {
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFddeeff' } },
+                    alignment: { vertical: 'middle' },
+                    border: { bottom: { style: 'thin', color: { argb: 'FFb8d0e8' } } }
+                };
+                const styleArticleOdd = {
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFcce0f5' } },
+                    alignment: { vertical: 'middle' },
+                    border: { bottom: { style: 'thin', color: { argb: 'FFb8d0e8' } } }
+                };
+                const styleArticleRight = base => ({ ...base, alignment: { horizontal: 'right', vertical: 'middle' } });
+
+                // ---- header ----
+                ws.columns = [
+                    { key: 'col1', width: 30 },
+                    { key: 'col2', width: 18 },
+                    { key: 'col3', width: 18 }
+                ];
+                const headerRow = ws.addRow(['GROUPE / ARTICLE', 'QUANTITÉ', 'CA']);
+                headerRow.height = 22;
+                headerRow.eachCell(cell => Object.assign(cell, styleGroupHeader));
+
+                // ---- data : groupes dans l'ordre affiché du grid ----
+                const groupNodes = [];
+                window.gridOptions.api.forEachNodeAfterFilterAndSort(node => {
+                    if (node.data && !node.data.__isDetailRow) groupNodes.push(node.data);
+                });
+
+                for (const gd of groupNodes) {
+                    const group = gd.ITEMGROUPCODE;
+
+                    // ligne groupe
+                    const gr = ws.addRow([group, fmtInt(gd.QUANTITY), fmtDec(gd.CA)]);
+                    gr.height = 20;
+                    gr.getCell(1).style = styleGroupRow;
+                    gr.getCell(2).style = styleGroupRowRight;
+                    gr.getCell(3).style = styleGroupRowRight;
+
+                    // lignes articles
+                    const articles = bestDemandDetailCache[group] || [];
+                    articles.forEach((a, i) => {
+                        const base = i % 2 === 0 ? styleArticleEven : styleArticleOdd;
+                        const ar = ws.addRow([a.ARTICLE || '', fmtInt(a.QUANTITY), fmtDec(a.CA)]);
+                        ar.height = 18;
+                        ar.getCell(1).style = base;
+                        ar.getCell(2).style = styleArticleRight(base);
+                        ar.getCell(3).style = styleArticleRight(base);
+                    });
+                }
+
+                // ---- téléchargement ----
+                const buf  = await wb.xlsx.writeBuffer();
+                const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement('a');
+                a.href     = url;
+                a.download = 'Best_Demand_per_Style.xlsx';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
 
 // 🆕 Bouton "Exporter" de la modale
             if (isServerSide) {
