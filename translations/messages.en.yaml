@@ -60,6 +60,7 @@ sidebar:
         stock_composant: "Stock by Site & Family"
         stock_produits: "Produits"
         stock_produits_shop_non_coches: "Produits en stock mais\npas sur Shopify"
+        stock_logtex: "Stock LogTex"
     purchase:
         backlog_fournisseur_x3: "Backlog Supplier"
         reception_fournisseur: "Réception Fournisseur"

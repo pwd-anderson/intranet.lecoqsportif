@@ -77,6 +77,12 @@ final class StockController extends AbstractController
         return $this->stockGeneric('stock_produits_shop_non_coches');
     }
 
+    #[Route('/stock/stock_logtex', name: 'app_stock_logtex')]
+    public function stockLogtexAlias(): Response
+    {
+        return $this->stockGeneric('stock_logtex');
+    }
+
     // ################## ROUTES JSON (inchangées) #####################
 
     #[Route('/stock/stock_a_terme_json', name: 'stock_a_terme_json')]
@@ -182,6 +188,13 @@ final class StockController extends AbstractController
 
     ####################### Route Divers ####################
 
+    #[Route('/stock/stock_logtex_json', name: 'stock_logtex_json')]
+    public function stockLogtexJson(Stock $stock, Helpers $helpers): JsonResponse
+    {
+        $data = $stock->getStockLogtex();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
     #[Route('/stock/collections_json', name: 'stock_collections_json')]
     public function stockCollectionsJson(Divers $divers): JsonResponse
     {
@@ -197,7 +210,7 @@ final class StockController extends AbstractController
     #[Route(
         '/stock/{type}',
         name: 'app_stock_generic',
-        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3|stock_a_terme_segmentation_produits_x3|stock_produits|stock_produits_shop_non_coches']
+        requirements: ['type' => 'stock_a_terme|stock_allocation|stock_composant|stock_a_terme_segmentation_produits|stock_a_terme_x3|stock_a_terme_segmentation_produits_x3|stock_produits|stock_produits_shop_non_coches|stock_logtex']
     )]
     public function stockGeneric(string $type): Response
     {
@@ -249,6 +262,12 @@ final class StockController extends AbstractController
                 'title'     => 'Produits en stock mais pas sur Shopify',
                 'jsonRoute' => 'stock_produits_shop_non_coches_json',
                 'gridWidthMode' => 'auto',
+            ],
+            'stock_logtex' => [
+                'gridName'      => 'stock_logtex_grid',
+                'title'         => 'Stock LogTex',
+                'jsonRoute'     => 'stock_logtex_json',
+                'gridWidthMode' => 'full',
             ],
         ];
 

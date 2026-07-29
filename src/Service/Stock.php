@@ -315,6 +315,19 @@ class Stock
         }
     }
 
+    public function getStockLogtex(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/stock_logtex.sql');
+            $data = $this->mssqlSei->executeQuery($query);
+            return empty($data) ? [] : $data;
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Stock LogTex : Récupération de données', $e);
+            $this->logger->error('LCS Erreur Stock LogTex : Récupération de données', ['exception' => $e]);
+            return [];
+        }
+    }
+
     public function getStockInterneLogtexEtMagasins(): array
     {
         try {

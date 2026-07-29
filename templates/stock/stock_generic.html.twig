@@ -246,6 +246,8 @@
                 col.sortable = false;
                 col.filter = false;
                 col.resizable = false;
+                col.suppressColumnsToolPanel = true;
+                col.suppressFiltersToolPanel = true;
                 col.cellClass = 'best-demand-photo-cell';
 
                 col.cellRenderer = function (params) {
@@ -289,7 +291,7 @@
             headerClass: 'excelHeaderBlue',
             stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
             getRowHeight: function () {
-                return '{{ type }}' === 'stock_produits' ? 90 : 42;
+                return ['stock_produits', 'stock_logtex'].includes('{{ type }}') ? 90 : 42;
             },
 
             excelStyles: [
@@ -323,6 +325,7 @@
                     {
                         processCellCallback: (p) => {
                             const field = p.column.getColId();
+                            if (field === 'PHOTO') return '';
                             if (field === 'TAUX_DEPRECIATION') {
                                 if (p.value == null || p.value === '') return '';
                                 return (Number(p.value) * 100).toFixed(0) + ' %';
