@@ -261,6 +261,8 @@
             <img
             src="${escapedUrl}"
             alt="photo article"
+            loading="lazy"
+            decoding="async"
             style="width:118px; height:85px; object-fit:contain; display:block;"
             data-fallback-step="0"
             onerror="
@@ -313,6 +315,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+            window.AgGridCommon.patchSetFilterCheckboxes();
 
             const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
