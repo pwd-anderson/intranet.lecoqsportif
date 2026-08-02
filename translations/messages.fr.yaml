@@ -33,6 +33,7 @@ sidebar:
     it: "IT"
     modules: "Modules"
     etiquette_expedition: "Impression Étiquettes\nExpéditions"
+    import_od: "Import OD"
   stat:
       sales:
           sales_by_year: "Ventes annuelles"

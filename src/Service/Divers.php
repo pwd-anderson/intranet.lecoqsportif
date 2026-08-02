@@ -253,4 +253,52 @@ class Divers
             return [];
         }
     }
+
+    public function getSocietes(): array
+    {
+        try {
+            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT CPY_0 FROM X3_LCS.COMPANY ORDER BY CPY_0");
+            return array_map(fn($row) => $row->CPY_0, $data);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste sociétés', $e);
+            $this->logger->error('LCS Erreur Divers : Liste sociétés', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    public function getTypesAccent(): array
+    {
+        try {
+            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT TYP_0 FROM X3_LCS.GTYPACCENT ORDER BY TYP_0");
+            return array_map(fn($row) => $row->TYP_0, $data);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste types accent', $e);
+            $this->logger->error('LCS Erreur Divers : Liste types accent', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    public function getJournaux(): array
+    {
+        try {
+            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT JOU_0 FROM X3_LCS.GJOURNAL ORDER BY JOU_0");
+            return array_map(fn($row) => $row->JOU_0, $data);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste journaux', $e);
+            $this->logger->error('LCS Erreur Divers : Liste journaux', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    public function getDevises(): array
+    {
+        try {
+            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT CUR_0 FROM X3_LCS.TABCUR ORDER BY CUR_0");
+            return array_map(fn($row) => $row->CUR_0, $data);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste devises', $e);
+            $this->logger->error('LCS Erreur Divers : Liste devises', ['exception' => $e]);
+            return [];
+        }
+    }
 }

@@ -95,6 +95,12 @@
 
                 <ul class="sidebar-menu" data-widget="tree">
                     <li class="header">Modules</li>
+                    <li class="{% if currentRoute == 'app_module_import_od' %}active{% endif %}">
+                        <a href="{{ path('app_module_import_od') }}">
+                            <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.menu.import_od'|trans }}</span>
+                        </a>
+                    </li>
                     <li class="{% if currentRoute == 'app_etiquette_expedition' %}active{% endif %}">
                         <a href="{{ path('app_etiquette_expedition') }}">
                             <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
