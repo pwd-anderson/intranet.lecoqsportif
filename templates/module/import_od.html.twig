@@ -1,0 +1,401 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        .form-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+        .form-section h5 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #024185;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .paste-zone {
+            min-height: 80px;
+            border: 2px dashed #adb5bd;
+            border-radius: 6px;
+            padding: 10px 12px;
+            background: #fff;
+            cursor: text;
+            font-size: 13px;
+            color: #555;
+        }
+        .paste-zone:focus {
+            outline: none;
+            border-color: #024185;
+        }
+        .paste-zone:empty:before {
+            content: attr(data-placeholder);
+            color: #adb5bd;
+        }
+        #lignesTable thead th {
+            background-color: #024185;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        #lignesTable td { padding: 3px 4px; }
+        #lignesTable td input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            font-size: 13px;
+            padding: 2px 4px;
+        }
+        #lignesTable td input:focus {
+            outline: 1px solid #024185;
+            background: #fff;
+            border-radius: 2px;
+        }
+        #lignesTable tbody tr:nth-child(odd) { background-color: #f8f9fa; }
+        #lignesTable tbody tr:hover { background-color: #e8f0fb; }
+        .balance-ok  { color: #198754; font-weight: 600; }
+        .balance-nok { color: #dc3545; font-weight: 600; }
+    </style>
+{% endblock %}
+
+{% block body %}
+<section class="content">
+    <div class="row">
+        <div class="col-12">
+            <div class="box">
+
+                <div class="box-header with-border d-flex justify-content-between align-items-center">
+                    <h3 class="box-title mb-0">{{ title }}</h3>
+                </div>
+
+                <div class="box-body">
+
+                    {# ===== ENTÊTE ===== #}
+                    <div class="form-section">
+                        <h5>Entête de la pièce</h5>
+                        <div class="row g-3">
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Société <span class="text-danger">*</span></label>
+                                <select id="societe" class="form-select form-select-sm">
+                                    <option value="">-- Choisir --</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Date <span class="text-danger">*</span></label>
+                                <input type="date" id="date" class="form-control form-control-sm">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Type <span class="text-danger">*</span></label>
+                                <select id="type" class="form-select form-select-sm">
+                                    <option value="">-- Choisir --</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Journal <span class="text-danger">*</span></label>
+                                <select id="journal" class="form-select form-select-sm">
+                                    <option value="">-- Choisir --</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Devise <span class="text-danger">*</span></label>
+                                <select id="devise" class="form-select form-select-sm">
+                                    <option value="">-- Choisir --</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Référence</label>
+                                <input type="text" id="ref" class="form-control form-control-sm">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">BPRVCR</label>
+                                <input type="text" id="bprvcr" class="form-control form-control-sm">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Date échéance</label>
+                                <input type="date" id="date_echeance" class="form-control form-control-sm">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Extourne</label>
+                                <input type="text" id="extourne" class="form-control form-control-sm" placeholder="">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Date extourne</label>
+                                <input type="date" id="date_extourne" class="form-control form-control-sm">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Libellé <span class="text-danger">*</span></label>
+                                <input type="text" id="libelle" class="form-control form-control-sm" placeholder="Libellé de la pièce">
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {# ===== LIGNES ===== #}
+                    <div class="form-section">
+                        <h5>Lignes de la pièce</h5>
+
+                        <p class="text-muted small mb-2">
+                            Copiez vos lignes depuis Excel (colonnes : Compte, Tiers, Débit, Crédit, Libellé, Axe1, Axe2, Taxe) et collez ci-dessous.
+                        </p>
+
+                        <div id="pasteZone"
+                             class="paste-zone mb-2"
+                             contenteditable="true"
+                             data-placeholder="Coller vos lignes Excel ici..."></div>
+
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <button class="btn btn-secondary btn-sm" onclick="chargerLignes()">Charger les lignes</button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="resetLignes()">Vider</button>
+                            <span id="balanceInfo" class="ms-3 small"></span>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm" id="lignesTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width:100px">Compte</th>
+                                        <th style="width:100px">Tiers</th>
+                                        <th style="width:100px">Débit</th>
+                                        <th style="width:100px">Crédit</th>
+                                        <th>Libellé</th>
+                                        <th style="width:110px">Axe 1</th>
+                                        <th style="width:110px">Axe 2</th>
+                                        <th style="width:90px">Taxe</th>
+                                        <th style="width:36px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {# ===== ACTIONS ===== #}
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm" onclick="valider()">Valider</button>
+                        <button class="btn btn-success btn-sm" id="genererBtn" disabled onclick="generer()">Générer XML</button>
+                        <button class="btn btn-danger btn-sm" onclick="resetAll()">Reset</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
+    <script>
+    const SOCIETES_URL = '{{ societesUrl }}';
+    const TYPES_URL    = '{{ typesUrl }}';
+    const JOURNAUX_URL = '{{ journauxUrl }}';
+    const DEVISES_URL  = '{{ devisesUrl }}';
+    const GENERATE_URL = '{{ generateUrl }}';
+
+    function initTomSelect(selectId, url, defaultValue = null) {
+        const ts = new TomSelect('#' + selectId, {
+            valueField: 'v',
+            labelField: 'v',
+            searchField: 'v',
+            options: [],
+            placeholder: '-- Choisir --',
+            maxOptions: 1000,
+        });
+
+        fetch(url)
+            .then(r => r.json())
+            .then(values => {
+                const opts = values.map(v => ({ v }));
+                ts.addOptions(opts);
+                if (defaultValue) ts.setValue(defaultValue);
+            });
+
+        return ts;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initTomSelect('societe', SOCIETES_URL);
+        initTomSelect('type',    TYPES_URL);
+        initTomSelect('journal', JOURNAUX_URL);
+        initTomSelect('devise',  DEVISES_URL, 'EUR');
+    });
+
+    // -------------------------------------------------------
+    // Charger les lignes depuis le copier-coller Excel
+    // -------------------------------------------------------
+    function chargerLignes() {
+        const text = document.getElementById('pasteZone').innerText.trim();
+        if (!text) return;
+
+        const tbody = document.querySelector('#lignesTable tbody');
+        tbody.innerHTML = '';
+
+        text.split(/\n/).forEach(row => {
+            if (!row.trim()) return;
+            ajouterLigne(row.split(/\t/));
+        });
+
+        updateBalance();
+        document.getElementById('genererBtn').disabled = false;
+    }
+
+    function ajouterLigne(cols = []) {
+        const keys   = ['Compte', 'Tiers', 'Debit', 'Credit', 'Libelle', 'Axe1', 'Axe2', 'Taxe'];
+        const tbody  = document.querySelector('#lignesTable tbody');
+        const tr     = document.createElement('tr');
+
+        keys.forEach((key, i) => {
+            const td    = document.createElement('td');
+            const input = document.createElement('input');
+            input.value = (cols[i] || '').trim();
+            if (key === 'Debit' || key === 'Credit') {
+                input.style.textAlign = 'right';
+                input.addEventListener('input', updateBalance);
+            }
+            td.appendChild(input);
+            tr.appendChild(td);
+        });
+
+        const tdDel = document.createElement('td');
+        tdDel.style.textAlign = 'center';
+        tdDel.innerHTML = '<button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="this.closest(\'tr\').remove(); updateBalance();">✕</button>';
+        tr.appendChild(tdDel);
+
+        tbody.appendChild(tr);
+    }
+
+    // -------------------------------------------------------
+    // Balance Débit / Crédit
+    // -------------------------------------------------------
+    function updateBalance() {
+        let debit = 0, credit = 0;
+
+        document.querySelectorAll('#lignesTable tbody tr').forEach(tr => {
+            const inputs = tr.querySelectorAll('input');
+            debit  += parseFloat((inputs[2].value || '0').replace(',', '.')) || 0;
+            credit += parseFloat((inputs[3].value || '0').replace(',', '.')) || 0;
+        });
+
+        const diff = Math.round((debit - credit) * 100) / 100;
+        const fmt  = n => n.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+        const el   = document.getElementById('balanceInfo');
+
+        if (diff === 0 && debit > 0) {
+            el.innerHTML = `<span class="balance-ok">✔ Équilibré — Débit : ${fmt(debit)} | Crédit : ${fmt(credit)}</span>`;
+        } else {
+            el.innerHTML = `<span class="balance-nok">✘ Déséquilibre : ${fmt(diff)} — Débit : ${fmt(debit)} | Crédit : ${fmt(credit)}</span>`;
+        }
+    }
+
+    // -------------------------------------------------------
+    // Récupérer les lignes JSON
+    // -------------------------------------------------------
+    function getLignes() {
+        return Array.from(document.querySelectorAll('#lignesTable tbody tr')).map(tr => {
+            const inputs = tr.querySelectorAll('input');
+            return {
+                Compte:  inputs[0].value.trim(),
+                Tiers:   inputs[1].value.trim(),
+                Debit:   inputs[2].value.trim(),
+                Credit:  inputs[3].value.trim(),
+                Libelle: inputs[4].value.trim(),
+                Axe1:    inputs[5].value.trim(),
+                Axe2:    inputs[6].value.trim(),
+                Taxe:    inputs[7].value.trim(),
+            };
+        });
+    }
+
+    function getEntete() {
+        return {
+            societe:       document.getElementById('societe').value,
+            date:          document.getElementById('date').value,
+            type:          document.getElementById('type').value,
+            journal:       document.getElementById('journal').value,
+            devise:        document.getElementById('devise').value,
+            ref:           document.getElementById('ref').value,
+            bprvcr:        document.getElementById('bprvcr').value,
+            date_echeance: document.getElementById('date_echeance').value,
+            extourne:      document.getElementById('extourne').value,
+            date_extourne: document.getElementById('date_extourne').value,
+            libelle:       document.getElementById('libelle').value,
+        };
+    }
+
+    // -------------------------------------------------------
+    // Validation
+    // -------------------------------------------------------
+    function valider() {
+        const lignes = getLignes();
+        if (!lignes.length) { alert('Aucune ligne à valider.'); return; }
+        // TODO : POST /module/import_od/validate
+        alert('Validation à brancher.');
+    }
+
+    async function generer() {
+        const lignes = getLignes();
+        if (!lignes.length) { alert('Aucune ligne à traiter.'); return; }
+
+        const btn = document.getElementById('genererBtn');
+        btn.disabled = true;
+        btn.textContent = 'Envoi en cours…';
+
+        try {
+            const resp = await fetch(GENERATE_URL, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ entete: getEntete(), lignes }),
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                alert(`✅ ${data.message}\nLancer : symfony console app:sales:webservices:execute`);
+            } else {
+                alert('❌ Erreur : ' + (data.message || 'Inconnue'));
+            }
+        } catch (e) {
+            alert('❌ Erreur réseau : ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Générer XML';
+        }
+    }
+
+    // -------------------------------------------------------
+    // Reset
+    // -------------------------------------------------------
+    function resetLignes() {
+        document.getElementById('pasteZone').innerHTML = '';
+        document.querySelector('#lignesTable tbody').innerHTML = '';
+        document.getElementById('balanceInfo').innerHTML = '';
+    }
+
+    function resetAll() {
+        ['societe','type','journal','devise'].forEach(id => {
+            const ts = TomSelect.getInstance(document.getElementById(id));
+            if (ts) ts.clear();
+        });
+        ['date','date_echeance','extourne','date_extourne','ref','bprvcr','libelle']
+            .forEach(id => document.getElementById(id).value = '');
+        resetLignes();
+    }
+    </script>
+{% endblock %}
