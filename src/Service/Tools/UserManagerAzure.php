@@ -113,30 +113,37 @@ class UserManagerAzure
 
     public function fetchUserRoles(string $accessToken): array
     {
+        $groupMap = [
+            'GS_INTRA_ACCOUNTING'  => 'ROLE_ACCOUNTING',
+            'GS_INTRA_ADV'         => 'ROLE_ADV',
+            'GS_INTRA_CONTROLLING' => 'ROLE_CONTROLLING',
+            'GS_INTRA_IT'          => 'ROLE_IT',
+            'GS_INTRA_LOGISTIC'    => 'ROLE_LOGISTIC',
+            'GS_INTRA_MANAGEMENT'  => 'ROLE_MANAGEMENT',
+            'GS_INTRA_MARKETING'   => 'ROLE_MARKETING',
+            'GS_INTRA_MODETIQEXP'  => 'ROLE_MODETIQEXP',
+            'GS_INTRA_PURCHASING'  => 'ROLE_PURCHASING',
+            'GS_INTRA_SALES'       => 'ROLE_SALES',
+            'GS_INTRA_SAV'         => 'ROLE_SAV',
+        ];
+
         try {
             $client = new Client();
 
             $response = $client->get('https://graph.microsoft.com/v1.0/me/memberOf', [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $accessToken,
-                ],
+                'headers' => ['Authorization' => 'Bearer ' . $accessToken],
             ]);
 
             $data = json_decode($response->getBody(), true);
             $roles = [];
 
-            if (!empty($data['value'])) {
-                foreach ($data['value'] as $group) {
-                    $groupName = $group['displayName'] ?? null;
-
-                    if ($groupName && str_starts_with($groupName, $this->codeSite . 'intra-')) {
-                        $role = strtoupper(str_replace(' ', '_', substr($groupName, strlen($this->codeSite . 'intra-'))));
-                        $roles[] = 'ROLE_' . $role;
-                    }
-
-                    if ($groupName === $this->codeSite . 'secu-IT') {
-                        $roles[] = 'ROLE_ADMIN';
-                    }
+            foreach ($data['value'] ?? [] as $group) {
+                $groupName = $group['displayName'] ?? null;
+                if ($groupName && isset($groupMap[$groupName])) {
+                    $roles[] = $groupMap[$groupName];
+                }
+                if ($groupName === 'GS_INTRA_IT') {
+                    $roles[] = 'ROLE_ADMIN';
                 }
             }
 

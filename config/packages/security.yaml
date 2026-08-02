@@ -44,6 +44,7 @@ security:
     access_control:
         - { path: ^/(fr|en)/connect, roles: PUBLIC_ACCESS }
         - { path: ^/(fr|en)/callback, roles: PUBLIC_ACCESS }
+        - { path: ^/(fr|en)/admin/permissions, roles: [ROLE_ADMIN, ROLE_MANAGEMENT] }
         - { path: ^/(fr|en)/admin/, roles: ROLE_ADMIN }
         - { path: ^/(fr|en)/dashboard, roles: ROLE_USER }
         - { path: ^/(fr|en)/, roles: ROLE_USER }

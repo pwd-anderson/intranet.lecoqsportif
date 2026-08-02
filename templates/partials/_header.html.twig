@@ -26,18 +26,18 @@
                     <li class="nav-item dropdown d-flex align-items-center me-3">
                         <form id="network-switcher">
                             <select name="network" class="form-select form-select-sm" style="width: auto;">
-                                <option value="global">Global</option>
-                                <option value="boutique">Boutique</option>
-                                <option value="ecom">E-com</option>
-                                <option value="wholesale_fr">Wholesale France</option>
-                                <option value="wholesale_eu">Wholesale Europe</option>
-                                <option value="wholesale_int">Wholesale International</option>
+                                {% if not is_stat_excluded('dashboard_filter_global') %}<option value="global">Global</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_boutique') %}<option value="boutique">Boutique</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_ecom') %}<option value="ecom">E-com</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_wholesale_fr') %}<option value="wholesale_fr">Wholesale France</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_wholesale_eu') %}<option value="wholesale_eu">Wholesale Europe</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_wholesale_int') %}<option value="wholesale_int">Wholesale International</option>{% endif %}
                             </select>
                         </form>
                     </li>
                 {% endif %}
 
-                {% if _route in ['app_home', 'app_dashboard_sellout'] %}
+                {% if _route in ['app_home', 'app_dashboard_sellout'] and not is_stat_excluded('app_dashboard_sellout') %}
                     <li class="nav-item d-flex align-items-center me-3">
                         <a href="{{ path('app_dashboard_sellout') }}"
                            class="btn btn-sm {{ _route == 'app_dashboard_sellout' ? 'btn-primary' : 'btn-outline-primary' }}">
@@ -72,7 +72,7 @@
 </header>
 {% block javascripts %}
     <script>
-        document.querySelector('#language-switcher select').addEventListener('change', function () {
+document.querySelector('#language-switcher select').addEventListener('change', function () {
             const selectedLocale = this.value;
             const currentPath = window.location.pathname;
             const pathParts = currentPath.split('/').filter(p => p);

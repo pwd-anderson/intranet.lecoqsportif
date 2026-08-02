@@ -1,5 +1,9 @@
 {% set path = app.request.pathinfo|replace({'/fr': '', '/en': ''}) %}
 {% set currentRoute = app.request.attributes.get('_route') %}
+
+{# Raccourcis rôles #}
+{% set isSuperUser = is_granted('ROLE_MANAGEMENT') or is_granted('ROLE_CONTROLLING') or is_granted('ROLE_ADMIN') %}
+
 <aside class="main-sidebar mt-2">
     <section class="sidebar position-relative">
         <div class="user-profile px-30 py-15">
@@ -23,85 +27,139 @@
         <div class="multinav">
             <div class="multinav-scroll" style="height: 100%;">
                 <ul class="sidebar-menu" data-widget="tree">
-                    <li class="{% if path == '/' %}active{% endif %}"><a href="{{ path('app_home') }}"><img src="{{ asset('assets/images/svg-icon/dashboard.svg') }}" class="svg-icon" alt=""><span>{{ 'sidebar.accueil'|trans }}</span></a></li>
+                    <li class="{% if path == '/' %}active{% endif %}">
+                        <a href="{{ path('app_home') }}">
+                            <img src="{{ asset('assets/images/svg-icon/dashboard.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.accueil'|trans }}</span>
+                        </a>
+                    </li>
 
-                    {# Block Menu #}
+                    {# ===== MENUS ===== #}
                     <li class="header">Menus</li>
-                    <li class="treeview  {% if path starts with '/sales' %}active{% endif %}">
+
+                    {# ----- Ventes : SALES, MARKETING, MANAGEMENT, CONTROLLING, ADMIN ----- #}
+                    {% if isSuperUser or is_granted('ROLE_SALES') or is_granted('ROLE_MARKETING') %}
+                    <li class="treeview {% if path starts with '/sales' %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/ecommerce.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.sales'|trans }}</span>
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li class="{% if currentRoute == 'app_sales_livraison_non_facturees' %}active{% endif %}"><a href="{{ path('app_sales_livraison_non_facturees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.delivery_without_invoice'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_backlog_clients_x3' %}active{% endif %}"><a href="{{ path('app_sales_backlog_clients_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.backlog_clients_x3'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_kpi_retail' %}active{% endif %}"><a href="{{ path('app_kpi_retail') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.kpi_deck_retail'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_kpi_retail_x3' %}active{% endif %}"><a href="{{ path('app_kpi_retail_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.kpi_deck_retail_x3'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_commandes_a_facturer_x3' %}active{% endif %}"><a href="{{ path('app_sales_commandes_a_facturer_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.commandes_a_facturer_x3'|trans|nl2br }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_reassort' %}active{% endif %}"><a href="{{ path('app_sales_reassort') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.reassort_magasin'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_excess_for_sales' %}active{% endif %}"><a href="{{ path('app_sales_excess_for_sales') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.excess_for_sales'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_poid_famille_par_variant' %}active{% endif %}"><a href="{{ path('app_sales_poid_famille_par_variant') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.poids_tailles'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_best_demand_per_style' %}active{% endif %}"><a href="{{ path('app_sales_best_demand_per_style') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.best_demand_per_style'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_sell_in_suivi_ps' %}active{% endif %}"><a href="{{ path('app_sales_sell_in_suivi_ps') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.sell_in_suivi_ps'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_suivi_perf_wholesale_fr' %}active{% endif %}"><a href="{{ path('app_sales_suivi_perf_wholesale_fr') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.suivi_perf_wholesale_fr'|trans|nl2br }}</a></li>
-                            <li class="{% if currentRoute == 'app_sales_ventes_qte_ca_client' %}active{% endif %}"><a href="{{ path('app_sales_ventes_qte_ca_client') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.ventes_qte_ca_client'|trans }}</a></li>
+                            {% if not is_stat_excluded('app_kpi_retail') %}<li class="{% if currentRoute == 'app_kpi_retail' %}active{% endif %}"><a href="{{ path('app_kpi_retail') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.kpi_deck_retail'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_kpi_retail_x3') %}<li class="{% if currentRoute == 'app_kpi_retail_x3' %}active{% endif %}"><a href="{{ path('app_kpi_retail_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.kpi_deck_retail_x3'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_reassort') %}<li class="{% if currentRoute == 'app_sales_reassort' %}active{% endif %}"><a href="{{ path('app_sales_reassort') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.reassort_magasin'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_excess_for_sales') %}<li class="{% if currentRoute == 'app_sales_excess_for_sales' %}active{% endif %}"><a href="{{ path('app_sales_excess_for_sales') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.excess_for_sales'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_poid_famille_par_variant') %}<li class="{% if currentRoute == 'app_sales_poid_famille_par_variant' %}active{% endif %}"><a href="{{ path('app_sales_poid_famille_par_variant') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.poids_tailles'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_best_demand_per_style') %}<li class="{% if currentRoute == 'app_sales_best_demand_per_style' %}active{% endif %}"><a href="{{ path('app_sales_best_demand_per_style') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.best_demand_per_style'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_sell_in_suivi_ps') %}<li class="{% if currentRoute == 'app_sales_sell_in_suivi_ps' %}active{% endif %}"><a href="{{ path('app_sales_sell_in_suivi_ps') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.sell_in_suivi_ps'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_suivi_perf_wholesale_fr') %}<li class="{% if currentRoute == 'app_sales_suivi_perf_wholesale_fr' %}active{% endif %}"><a href="{{ path('app_sales_suivi_perf_wholesale_fr') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.suivi_perf_wholesale_fr'|trans|nl2br }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_ventes_qte_ca_client') %}<li class="{% if currentRoute == 'app_sales_ventes_qte_ca_client' %}active{% endif %}"><a href="{{ path('app_sales_ventes_qte_ca_client') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.ventes_qte_ca_client'|trans }}</a></li>{% endif %}
                         </ul>
                     </li>
+                    {% endif %}
 
-                    <li class="treeview  {% if path starts with '/purchase' %}active{% endif %}">
+                    {# ----- ADV : ADV, MANAGEMENT, CONTROLLING, ADMIN ----- #}
+                    {% if isSuperUser or is_granted('ROLE_ADV') %}
+                    <li class="treeview {% if currentRoute in ['app_sales_livraison_non_facturees', 'app_sales_backlog_clients_x3', 'app_sales_commandes_a_facturer_x3'] %}active{% endif %}">
+                        <a href="#">
+                            <img src="{{ asset('assets/images/svg-icon/ecommerce.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.menu.adv'|trans }}</span>
+                            <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+                        </a>
+                        <ul class="treeview-menu">
+                            {% if not is_stat_excluded('app_sales_livraison_non_facturees') %}<li class="{% if currentRoute == 'app_sales_livraison_non_facturees' %}active{% endif %}"><a href="{{ path('app_sales_livraison_non_facturees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.delivery_without_invoice'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_backlog_clients_x3') %}<li class="{% if currentRoute == 'app_sales_backlog_clients_x3' %}active{% endif %}"><a href="{{ path('app_sales_backlog_clients_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.backlog_clients_x3'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_commandes_a_facturer_x3') %}<li class="{% if currentRoute == 'app_sales_commandes_a_facturer_x3' %}active{% endif %}"><a href="{{ path('app_sales_commandes_a_facturer_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.commandes_a_facturer_x3'|trans|nl2br }}</a></li>{% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {# ----- Achats : PURCHASING, MANAGEMENT, CONTROLLING, ADMIN ----- #}
+                    {% if isSuperUser or is_granted('ROLE_PURCHASING') %}
+                    <li class="treeview {% if path starts with '/purchase' %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/purchase.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.purchasing'|trans }}</span>
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li class="{% if currentRoute == 'app_backlog_fournisseur_x3' %}active{% endif %}"><a href="{{ path('app_backlog_fournisseur_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.backlog_fournisseur_x3'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_reception_fournisseur' %}active{% endif %}"><a href="{{ path('app_reception_fournisseur') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.reception_fournisseur'|trans }}</a></li>
+                            {% if not is_stat_excluded('app_backlog_fournisseur_x3') %}<li class="{% if currentRoute == 'app_backlog_fournisseur_x3' %}active{% endif %}"><a href="{{ path('app_backlog_fournisseur_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.backlog_fournisseur_x3'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_reception_fournisseur') %}<li class="{% if currentRoute == 'app_reception_fournisseur' %}active{% endif %}"><a href="{{ path('app_reception_fournisseur') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.reception_fournisseur'|trans }}</a></li>{% endif %}
                         </ul>
                     </li>
+                    {% endif %}
 
-                    <li class="treeview  {% if path starts with '/stock' %}active{% endif %}">
+                    {# ----- Stock : LOGISTIC, PURCHASING, MANAGEMENT, CONTROLLING, ADMIN ----- #}
+                    {% if isSuperUser or is_granted('ROLE_LOGISTIC') or is_granted('ROLE_PURCHASING') %}
+                    <li class="treeview {% if path starts with '/stock' %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/stocks.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.stock'|trans }}</span>
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li class="{% if currentRoute == 'app_stock_a_terme_x3' %}active{% endif %}"><a href="{{ path('app_stock_a_terme_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme_x3'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_stock_a_terme_segmentation_produits_x3' %}active{% endif %}"><a href="{{ path('app_stock_a_terme_segmentation_produits_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme_segmentation_produits_x3'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_stock_allocation' %}active{% endif %}"><a href="{{ path('app_stock_allocation') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_allocation'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_stock_composant' %}active{% endif %}"><a href="{{ path('app_stock_composant') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_composant'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_stock_produits' %}active{% endif %}"><a href="{{ path('app_stock_produits') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_produits'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_stock_produits_shop_non_coches' %}active{% endif %}"><a href="{{ path('app_stock_produits_shop_non_coches') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_produits_shop_non_coches'|trans|nl2br }}</a></li>
-                            <li class="{% if currentRoute == 'app_stock_logtex' %}active{% endif %}"><a href="{{ path('app_stock_logtex') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_logtex'|trans }}</a></li>
+                            {% if not is_stat_excluded('app_stock_a_terme_x3') %}<li class="{% if currentRoute == 'app_stock_a_terme_x3' %}active{% endif %}"><a href="{{ path('app_stock_a_terme_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme_x3'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_stock_a_terme_segmentation_produits_x3') %}<li class="{% if currentRoute == 'app_stock_a_terme_segmentation_produits_x3' %}active{% endif %}"><a href="{{ path('app_stock_a_terme_segmentation_produits_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_a_terme_segmentation_produits_x3'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_stock_allocation') %}<li class="{% if currentRoute == 'app_stock_allocation' %}active{% endif %}"><a href="{{ path('app_stock_allocation') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_allocation'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_stock_composant') %}<li class="{% if currentRoute == 'app_stock_composant' %}active{% endif %}"><a href="{{ path('app_stock_composant') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_composant'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_stock_produits') %}<li class="{% if currentRoute == 'app_stock_produits' %}active{% endif %}"><a href="{{ path('app_stock_produits') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_produits'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_stock_produits_shop_non_coches') %}<li class="{% if currentRoute == 'app_stock_produits_shop_non_coches' %}active{% endif %}"><a href="{{ path('app_stock_produits_shop_non_coches') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_produits_shop_non_coches'|trans|nl2br }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_stock_logtex') %}<li class="{% if currentRoute == 'app_stock_logtex' %}active{% endif %}"><a href="{{ path('app_stock_logtex') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.stock.stock_logtex'|trans }}</a></li>{% endif %}
                         </ul>
                     </li>
+                    {% endif %}
 
-                    <li class="treeview  {% if path starts with '/it' %}active{% endif %}">
+                    {# ----- IT : IT, MANAGEMENT, ADMIN ----- #}
+                    {% if isSuperUser or is_granted('ROLE_IT') %}
+                    <li class="treeview {% if path starts with '/it' %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/it.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.it'|trans }}</span>
                             <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
                         <ul class="treeview-menu">
-                            <li class="{% if currentRoute == 'app_it_tcd_cmd_non_soldees' %}active{% endif %}"><a href="{{ path('app_it_tcd_cmd_non_soldees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.it.tcd_cmd_non_soldees'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_it_detail_tcd' %}active{% endif %}"><a href="{{ path('app_it_detail_tcd') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.it.detail_tcd'|trans }}</a></li>
-                            <li class="{% if currentRoute == 'app_it_suivi_commandes_web_sav' %}active{% endif %}"><a href="{{ path('app_it_suivi_commandes_web_sav') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.it.suivi_commandes_web_sav'|trans }}</a></li>
-                         </ul>
+                            {% if not is_stat_excluded('app_it_tcd_cmd_non_soldees') %}<li class="{% if currentRoute == 'app_it_tcd_cmd_non_soldees' %}active{% endif %}"><a href="{{ path('app_it_tcd_cmd_non_soldees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.it.tcd_cmd_non_soldees'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_it_detail_tcd') %}<li class="{% if currentRoute == 'app_it_detail_tcd' %}active{% endif %}"><a href="{{ path('app_it_detail_tcd') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.it.detail_tcd'|trans }}</a></li>{% endif %}
+                        </ul>
                     </li>
+                    {% endif %}
+
+                    {# ----- SAV : SAV, IT, MANAGEMENT, CONTROLLING, ADMIN ----- #}
+                    {% if isSuperUser or is_granted('ROLE_SAV') or is_granted('ROLE_IT') %}
+                    <li class="treeview {% if currentRoute == 'app_it_suivi_commandes_web_sav' %}active{% endif %}">
+                        <a href="#">
+                            <img src="{{ asset('assets/images/svg-icon/it.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.menu.sav'|trans }}</span>
+                            <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
+                        </a>
+                        <ul class="treeview-menu">
+                            {% if not is_stat_excluded('app_it_suivi_commandes_web_sav') %}<li class="{% if currentRoute == 'app_it_suivi_commandes_web_sav' %}active{% endif %}"><a href="{{ path('app_it_suivi_commandes_web_sav') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.it.suivi_commandes_web_sav'|trans }}</a></li>{% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
 
                 </ul>
 
+                {# ===== MODULES ===== #}
+                {% if isSuperUser or is_granted('ROLE_MODETIQEXP') or is_granted('ROLE_LOGISTIC') or is_granted('ROLE_ADV') or is_granted('ROLE_ACCOUNTING') %}
                 <ul class="sidebar-menu" data-widget="tree">
                     <li class="header">Modules</li>
+
+                    {# Étiquettes : MODETIQEXP, LOGISTIC, MANAGEMENT, CONTROLLING, ADMIN #}
+                    {% if (isSuperUser or is_granted('ROLE_MODETIQEXP') or is_granted('ROLE_LOGISTIC')) and not is_stat_excluded('module_etiquettes') %}
                     <li class="{% if currentRoute == 'app_etiquette_expedition' %}active{% endif %}">
                         <a href="{{ path('app_etiquette_expedition') }}">
                             <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.etiquette_expedition'|trans|nl2br }}</span>
                         </a>
                     </li>
+                    {% endif %}
+
+                    {# Import OD : sera activé après merge de la branche import_od #}
+
                 </ul>
+                {% endif %}
 
                 <div class="sidebar-widgets">
                     <div class="copyright text-start m-25">
