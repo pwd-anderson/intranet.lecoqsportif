@@ -122,6 +122,60 @@ For dates in MSSQL queries, always cast to `varchar(10)` with format 23: `CONVER
 
 Azure AD via a custom `AzureAuthenticator` (`src/Security/`). Public routes are `/connect` and `/callback`. All other routes require `ROLE_USER`. Admin panel (`/admin/*`) requires `ROLE_ADMIN`.
 
+### Gestion des rôles et droits d'accès
+
+#### Deux couches distinctes
+
+**Couche 1 — Rôle : visibilité des sections sidebar**
+Les rôles déterminent quelles sections du menu sont visibles. Ils proviennent des groupes Azure AD, lus via `GET /me/memberOf` (Microsoft Graph) dans `UserManagerAzure::fetchUserRoles()`.
+
+Mapping groupes Azure → rôles Symfony :
+
+| Groupe Azure AD | Rôle Symfony |
+|---|---|
+| GS_INTRA_ACCOUNTING | ROLE_ACCOUNTING |
+| GS_INTRA_ADV | ROLE_ADV |
+| GS_INTRA_CONTROLLING | ROLE_CONTROLLING |
+| GS_INTRA_IT | ROLE_IT + ROLE_ADMIN |
+| GS_INTRA_LOGISTIC | ROLE_LOGISTIC |
+| GS_INTRA_MANAGEMENT | ROLE_MANAGEMENT |
+| GS_INTRA_MARKETING | ROLE_MARKETING |
+| GS_INTRA_MODETIQEXP | ROLE_MODETIQEXP |
+| GS_INTRA_PURCHASING | ROLE_PURCHASING |
+| GS_INTRA_SALES | ROLE_SALES |
+| GS_INTRA_SAV | ROLE_SAV |
+
+`ROLE_MANAGEMENT` et `ROLE_CONTROLLING` sont des **super-users** : ils voient toutes les sections. Variable Twig `isSuperUser` définie en haut du sidebar.
+
+Sections sidebar et rôles autorisés :
+- **Ventes** → SALES, MARKETING + superusers
+- **ADV** → ADV + superusers
+- **Achats** → PURCHASING + superusers
+- **Stock** → LOGISTIC, PURCHASING + superusers
+- **IT** → IT + superusers
+- **SAV** → SAV, IT + superusers
+- **Modules / Étiquettes** → MODETIQEXP, LOGISTIC + superusers
+- **Modules / Import OD** → ACCOUNTING + superusers
+
+**Couche 2 — Exclusions par user : visibilité fine des stats**
+En complément des rôles, un admin peut exclure un utilisateur spécifique d'une stat, d'un widget dashboard, d'un filtre ou d'un module.
+
+- Table MySQL : `user_stat_exclusion` (`id`, `user_id`, `stat_key`)
+- `stat_key` = nom de route Symfony (ex: `app_kpi_retail`) ou clé fonctionnelle (ex: `dashboard_filter_boutique`)
+- Registre central : `src/Service/StatRegistry.php` — liste toutes les clés avec section, label, rôles requis
+- Fonction Twig : `is_stat_excluded('stat_key')` — chargée une fois par requête (`src/Twig/StatAccessExtension.php`)
+- Blocage route : `src/EventSubscriber/StatAccessSubscriber.php` — redirige vers l'accueil si la route est dans les exclusions de l'user
+- Page admin : `/admin/permissions` — accessible à ROLE_ADMIN et ROLE_MANAGEMENT
+
+#### Ajouter une nouvelle stat au système d'exclusion
+
+1. Ajouter la clé dans `StatRegistry::all()` avec section, label et rôles
+2. Wrapper le lien sidebar avec `{% if not is_stat_excluded('ma_route') %}`
+3. La page admin `/admin/permissions` l'affiche automatiquement
+
+#### Règle importante
+Ne jamais bypasser les deux couches. Un user sans le bon rôle ne voit pas la section. Un user avec le bon rôle mais une exclusion ne voit pas la stat — ni dans le sidebar, ni en accès direct à la route.
+
 ### Error notifications
 
 All service-level exceptions are caught, logged via PSR logger, and sent as email alerts via `GraphMailer::notifyError()` (Microsoft Graph API).
