@@ -22,7 +22,7 @@ final class Version20260802145801 extends AbstractMigration
         // this up() migration is auto-generated, please modify it to your needs
         $this->addSql('CREATE TABLE user_stat_exclusion (id INT AUTO_INCREMENT NOT NULL, user_id INT NOT NULL, stat_key VARCHAR(100) NOT NULL, INDEX IDX_8968603A76ED395 (user_id), UNIQUE INDEX UNIQ_8968603A76ED395769F4A9D (user_id, stat_key), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         $this->addSql('ALTER TABLE user_stat_exclusion ADD CONSTRAINT FK_8968603A76ED395 FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE');
-        $this->addSql('DROP TABLE sales_web_service');
+        // sales_web_service n'existe qu'en dev, pas en prod
     }
 
     public function down(Schema $schema): void
