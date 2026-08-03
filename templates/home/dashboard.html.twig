@@ -296,7 +296,9 @@
             const networkSelect = document.querySelector('#network-switcher select');
 
             if (networkSelect) {
-                networkSelect.value = 'global';
+                if (networkSelect.options.length > 0) {
+                    networkSelect.value = networkSelect.options[0].value;
+                }
 
                 networkSelect.addEventListener('change', function () {
                     loadDashboardData();

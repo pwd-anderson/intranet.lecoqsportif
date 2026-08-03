@@ -31,6 +31,8 @@ sidebar:
     stock: "Stock"
     clients: "Clients"
     it: "IT"
+    adv: "ADV"
+    sav: "SAV"
     modules: "Modules"
     etiquette_expedition: "Label Printing"
     import_od: "OD Import"

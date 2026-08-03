@@ -1,0 +1,254 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        .user-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 16px;
+            position: sticky;
+            top: 20px;
+        }
+        .section-block {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .section-header {
+            background: #024185;
+            color: #fff;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row.grayed { opacity: 0.4; pointer-events: none; }
+        .stat-row .stat-label { flex: 1; }
+        .stat-row .role-badges { display: flex; gap: 4px; margin-right: 16px; }
+        .badge-role { font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #e9ecef; color: #495057; }
+
+        .form-check-input { width: 36px; height: 20px; cursor: pointer; }
+        .form-check-input:checked { background-color: #dc3545; border-color: #dc3545; }
+
+        #saveStatus { font-size: 12px; }
+        .no-user { color: #adb5bd; text-align: center; padding: 40px 0; }
+
+        .user-roles { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+        .badge-user-role { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #024185; color: #fff; }
+    </style>
+{% endblock %}
+
+{% block body %}
+<section class="content">
+    <div class="row">
+        <div class="col-12">
+            <div class="box">
+                <div class="box-header with-border">
+                    <h3 class="box-title mb-0">Gestion des droits d'accès aux statistiques</h3>
+                </div>
+                <div class="box-body">
+                    <div class="row">
+
+                        {# ── Colonne gauche : sélection user ─────────────────────── #}
+                        <div class="col-md-3">
+                            <div class="user-card">
+                                <label class="form-label small fw-semibold mb-2">Sélectionner un utilisateur</label>
+                                <select id="userSelect">
+                                    <option value="">-- Choisir --</option>
+                                    {% for user in users %}
+                                    <option value="{{ user.id }}"
+                                            data-roles="{{ user.roles|join(',') }}"
+                                            data-name="{{ user.lastname|upper }} {{ user.firstname }}">
+                                        {{ user.lastname|upper }} {{ user.firstname }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+
+                                <div id="userRoles" class="user-roles mt-3"></div>
+
+                                <hr>
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <button class="btn btn-primary btn-sm" id="saveBtn" disabled onclick="saveExclusions()">
+                                        Enregistrer
+                                    </button>
+                                    <span id="saveStatus" class="text-muted"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── Colonne droite : matrix des stats ───────────────────── #}
+                        <div class="col-md-9">
+                            <div id="noUser" class="no-user">
+                                <i class="fa fa-user-circle fa-3x mb-3 d-block"></i>
+                                Sélectionnez un utilisateur pour gérer ses accès
+                            </div>
+
+                            <div id="statsMatrix" style="display:none">
+                                <p class="text-muted small mb-3">
+                                    <span class="text-danger fw-semibold">Toggle rouge</span> = stat exclue pour cet utilisateur.
+                                    Les lignes grisées correspondent aux sections auxquelles le rôle de l'utilisateur ne donne pas accès.
+                                </p>
+
+                                {% for section, stats in grouped %}
+                                <div class="section-block">
+                                    <div class="section-header">
+                                        <span>{{ section }}</span>
+                                        <span class="small fw-normal" id="count-{{ section|lower|replace({' ': '-'}) }}"></span>
+                                    </div>
+                                    {% for statKey, stat in stats %}
+                                    <div class="stat-row" id="row-{{ statKey }}" data-stat="{{ statKey }}" data-roles="{{ stat.roles|join(',') }}">
+                                        <span class="stat-label">{{ stat.label }}</span>
+                                        <span class="role-badges">
+                                            {% for role in stat.roles %}
+                                            <span class="badge-role">{{ role|replace({'ROLE_': ''}) }}</span>
+                                            {% endfor %}
+                                        </span>
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="toggle-{{ statKey }}"
+                                                   data-stat="{{ statKey }}"
+                                                   onchange="onToggle(this)"
+                                                   role="switch">
+                                            <label class="form-check-label" for="toggle-{{ statKey }}">Exclure</label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
+    <script>
+    const USER_URL    = '{{ path('admin_permissions_user', {id: 0})|replace({'/0': '/'}) }}';
+    const SAVE_URL    = '{{ path('admin_permissions_save', {id: 0})|replace({'/0': '/'}) }}';
+
+    let currentUserId   = null;
+    let currentUserRoles = [];
+    let pendingChanges  = false;
+
+    const ts = new TomSelect('#userSelect', {
+        placeholder: '-- Choisir --',
+        maxOptions: 200,
+        onChange(value) { loadUser(value); }
+    });
+
+    async function loadUser(userId) {
+        if (!userId) return;
+        currentUserId = userId;
+
+        const resp = await fetch(USER_URL + userId);
+        const data = await resp.json();
+
+        currentUserRoles = data.roles || [];
+
+        // Afficher les rôles de l'user
+        const rolesEl = document.getElementById('userRoles');
+        rolesEl.innerHTML = currentUserRoles
+            .filter(r => r !== 'ROLE_USER')
+            .map(r => `<span class="badge-user-role">${r.replace('ROLE_', '')}</span>`)
+            .join('');
+
+        // Afficher la matrix
+        document.getElementById('noUser').style.display = 'none';
+        document.getElementById('statsMatrix').style.display = 'block';
+
+        // Appliquer exclusions + grisage
+        document.querySelectorAll('.stat-row').forEach(row => {
+            const statKey   = row.dataset.stat;
+            const statRoles = row.dataset.roles.split(',');
+
+            // Griser si l'user n'a aucun des rôles requis (ni superuser)
+            const isSuperUser = currentUserRoles.some(r => ['ROLE_MANAGEMENT', 'ROLE_CONTROLLING', 'ROLE_ADMIN'].includes(r));
+            const hasAccess   = isSuperUser || statRoles.some(r => currentUserRoles.includes(r));
+            row.classList.toggle('grayed', !hasAccess);
+
+            // Cocher si exclu
+            const toggle = row.querySelector('input[type=checkbox]');
+            toggle.checked = data.exclusions.includes(statKey);
+        });
+
+        updateCounts();
+        pendingChanges = false;
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('saveStatus').textContent = '';
+    }
+
+    function onToggle(input) {
+        pendingChanges = true;
+        document.getElementById('saveStatus').textContent = '● Non enregistré';
+        document.getElementById('saveStatus').className = 'text-warning small';
+        updateCounts();
+    }
+
+    function updateCounts() {
+        document.querySelectorAll('.section-block').forEach(block => {
+            const section = block.querySelector('.section-header span').textContent.trim();
+            const countEl = block.querySelector('[id^="count-"]');
+            const excluded = block.querySelectorAll('input[type=checkbox]:checked:not(.grayed *)').length;
+            const total    = block.querySelectorAll('.stat-row:not(.grayed)').length;
+            countEl.textContent = excluded > 0 ? `${excluded} exclusion(s) / ${total} stats` : `${total} stats accessibles`;
+        });
+    }
+
+    async function saveExclusions() {
+        if (!currentUserId) return;
+
+        const exclusions = Array.from(document.querySelectorAll('input[type=checkbox]:checked'))
+            .map(el => el.dataset.stat);
+
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch(SAVE_URL + currentUserId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ exclusions }),
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                document.getElementById('saveStatus').textContent = '✔ Enregistré';
+                document.getElementById('saveStatus').className = 'text-success small';
+                pendingChanges = false;
+            }
+        } catch (e) {
+            document.getElementById('saveStatus').textContent = '✘ Erreur';
+            document.getElementById('saveStatus').className = 'text-danger small';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // Avertir si on quitte sans sauvegarder
+    window.addEventListener('beforeunload', e => {
+        if (pendingChanges) { e.preventDefault(); e.returnValue = ''; }
+    });
+    </script>
+{% endblock %}
