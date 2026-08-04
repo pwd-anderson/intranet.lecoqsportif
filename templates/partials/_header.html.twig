@@ -45,12 +45,23 @@
                         </a>
                     </li>
                 {% endif %}
+                {% if _route == 'app_dashboard_sellout' %}
+                    <li class="nav-item d-flex align-items-center me-3">
+                        <a href="{{ path('app_home') }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fa fa-arrow-left me-1"></i> Sell In
+                        </a>
+                    </li>
+                {% endif %}
                 <!-- Ajoute les autres boutons et champs de recherche ici si tu veux tout le header -->
             </ul>
         </div>
 
         <div class="navbar-custom-menu r-side">
             <ul class="nav navbar-nav">
+
+                <li class="nav-item d-flex align-items-center me-3">
+                    <small class="text-muted" id="header-eur-usd" style="white-space: nowrap;"></small>
+                </li>
 
                 <li class="nav-item dropdown d-flex align-items-center me-3">
                     <form id="language-switcher">
@@ -72,6 +83,17 @@
 </header>
 {% block javascripts %}
     <script>
+        // Taux EUR/USD dans le header
+        fetch("{{ path('api_dashboard_exchange_rate', { currency: 'EUR' }) }}")
+            .then(r => r.json())
+            .then(data => {
+                const taux = Number(data?.taux_courant || 0);
+                if (taux > 0) {
+                    document.getElementById('header-eur-usd').textContent = 'Taux moyen du mois : 1 EUR = ' + taux.toFixed(3) + ' USD';
+                }
+            })
+            .catch(() => {});
+
 document.querySelector('#language-switcher select').addEventListener('change', function () {
             const selectedLocale = this.value;
             const currentPath = window.location.pathname;

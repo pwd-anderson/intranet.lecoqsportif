@@ -71,14 +71,15 @@ class SellOutDashboard
             $this->mssql->executeDelete("DELETE FROM {$table}");
 
             return $this->mssql->insertData("
-                INSERT INTO {$table} (annee, sourcename, famille, salesamt)
-                SELECT annee, sourcename, famille, SUM(salesamt)
+                INSERT INTO {$table} (annee, sourcename, famille, salesamt, salesqty)
+                SELECT annee, sourcename, famille, SUM(salesamt), SUM(salesqty)
                 FROM (
                     SELECT
                         CAST(LEFT(CAST(S.WEEK_CODE AS VARCHAR(6)), 4) AS INT) AS annee,
                         S.SOURCENAME                                           AS sourcename,
                         ISNULL(ITM.TCLCOD_0, 'INCONNU')                       AS famille,
-                        ISNULL(S.SALESAMT, 0)                                  AS salesamt
+                        ISNULL(S.SALESAMT, 0)                                  AS salesamt,
+                        ISNULL(S.SALESQTY, 0)                                  AS salesqty
                     FROM SEI_X3_LCS.LCS_SELLOUT_SALES S
                     LEFT JOIN X3_LCS.ITMMASTER ITM
                         ON  LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0 + '_') - 1)
@@ -215,7 +216,7 @@ class SellOutDashboard
             $table = $this->table('INTRANET_SELLOUT_WEEKLY');
 
             return $this->mssql->executeQuery("
-                SELECT annee, semaine, SUM(salesamt) AS salesamt
+                SELECT annee, semaine, SUM(salesqty) AS salesqty
                 FROM {$table}
                 WHERE semaine <= (
                     SELECT MAX(semaine) FROM {$table} WHERE annee = YEAR(GETDATE())
@@ -228,6 +229,23 @@ class SellOutDashboard
             $this->graphMailer->notifyError('❌ Erreur Dashboard Sell-out : ventes annuelles', $e);
             $this->logger->error('Erreur sellout ventes annuelles', ['exception' => $e]);
             return [];
+        }
+    }
+
+    public function getFullYearN1Total(): float
+    {
+        try {
+            $table  = $this->table('INTRANET_SELLOUT_WEEKLY');
+            $result = $this->mssql->executeQuery("
+                SELECT SUM(salesqty) AS total
+                FROM {$table}
+                WHERE annee = YEAR(GETDATE()) - 1
+            ");
+            return (float) ($result[0]->total ?? 0);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ Erreur Dashboard Sell-out : total N-1 annuel', $e);
+            $this->logger->error('Erreur sellout total n1 annuel', ['exception' => $e]);
+            return 0.0;
         }
     }
 
@@ -272,11 +290,11 @@ class SellOutDashboard
             $table = $this->table('INTRANET_SELLOUT_WEEKLY');
 
             return $this->mssql->executeQuery("
-                SELECT sourcename, SUM(salesamt) AS salesamt
+                SELECT sourcename, SUM(salesqty) AS salesqty
                 FROM {$table}
                 WHERE annee = YEAR(GETDATE())
                 GROUP BY sourcename
-                ORDER BY salesamt DESC
+                ORDER BY salesqty DESC
             ");
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur Dashboard Sell-out : top clients', $e);
@@ -291,11 +309,11 @@ class SellOutDashboard
             $table = $this->table('INTRANET_SELLOUT_FAMILY');
 
             return $this->mssql->executeQuery("
-                SELECT famille, SUM(salesamt) AS salesamt
+                SELECT famille, SUM(salesqty) AS salesqty
                 FROM {$table}
                 WHERE annee = YEAR(GETDATE())
                 GROUP BY famille
-                ORDER BY salesamt DESC
+                ORDER BY salesqty DESC
             ");
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur Dashboard Sell-out : famille CA', $e);
@@ -304,21 +322,29 @@ class SellOutDashboard
         }
     }
 
-    public function getTopProduits(): array
+    public function getTopProduits(?string $family = null): array
     {
         try {
             $table = $this->table('INTRANET_SELLOUT_TOP_ITEMS');
+            $familyFilter = '';
+            if ($family !== null) {
+                $familyFilter = "AND EXISTS (
+                    SELECT 1 FROM X3_LCS.ITMMASTER ITM
+                    WHERE LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0 + '_') - 1) = t.itemn
+                      AND ITM.TCLCOD_0 = '{$family}'
+                )";
+            }
 
             return $this->mssql->executeQuery("
                 SELECT TOP 5
-                    itemn,
-                    MAX(itemdes)  AS itemdes,
-                    SUM(salesamt) AS salesamt,
-                    SUM(salesqty) AS salesqty
-                FROM {$table}
-                WHERE annee = YEAR(GETDATE())
-                GROUP BY itemn
-                ORDER BY salesamt DESC
+                    t.itemn,
+                    MAX(t.itemdes)  AS itemdes,
+                    SUM(t.salesqty) AS salesqty
+                FROM {$table} t
+                WHERE t.annee = YEAR(GETDATE())
+                {$familyFilter}
+                GROUP BY t.itemn
+                ORDER BY SUM(t.salesqty) DESC
             ");
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur Dashboard Sell-out : top produits', $e);
@@ -373,7 +399,7 @@ class SellOutDashboard
                     FROM {$table}
                     WHERE annee = YEAR(GETDATE())
                 )
-                SELECT annee, semaine, SUM(salesamt) AS salesamt
+                SELECT annee, semaine, SUM(salesqty) AS salesqty
                 FROM {$table}
                 CROSS JOIN last_week
                 WHERE semaine BETWEEN (last_week.max_sem - 11) AND last_week.max_sem

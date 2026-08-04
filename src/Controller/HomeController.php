@@ -76,13 +76,18 @@ final class HomeController extends AbstractController
             }
         }
 
+        $year = (int) date('Y');
+
         return new JsonResponse([
-            'ca_n' => round((float) ($dataAnnual[0]->ca_n ?? 0), 2),
+            'ca_n'      => round((float) ($dataAnnual[0]->ca_n    ?? 0), 2),
+            'ca_n_1'    => round((float) ($dataAnnual[0]->ca_n_1  ?? 0), 2),
+            'ca_ytd_n1' => round((float) ($dataAnnual[0]->ca_ytd_n1 ?? 0), 2),
             'variation' => $dataAnnual[0]->variation_pourcent ?? null,
-            'labels' => $labels,
-            'series' => [
-                ['name' => 'CA Année N', 'data' => $caN],
-                ['name' => 'CA Année N-1', 'data' => $caN1],
+            'year'      => $year,
+            'labels'    => $labels,
+            'series'    => [
+                ['name' => 'CA '    . $year,       'data' => $caN],
+                ['name' => 'CA '    . ($year - 1), 'data' => $caN1],
             ],
         ]);
     }
@@ -172,8 +177,12 @@ final class HomeController extends AbstractController
     public function getTopProductSales(Request $request): JsonResponse
     {
         $network = $this->getNetworkFromRequest($request);
+        $family  = $request->query->get('family');
 
-        $data = $this->mainDashboard->getTopProductsBySales($network);
+        $allowed = ['FTW', 'APL', 'HDW'];
+        $family  = in_array($family, $allowed, true) ? $family : null;
+
+        $data     = $this->mainDashboard->getTopProductsBySales($network, $family);
         $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);
@@ -234,10 +243,12 @@ final class HomeController extends AbstractController
     }
 
     #[Route('/api/dashboard/backlog-client', name: 'api_dashboard_backlog_client')]
-    public function backlogClientDashboard(): JsonResponse
+    public function backlogClientDashboard(Request $request): JsonResponse
     {
+        $network = $this->getNetworkFromRequest($request);
+
         return $this->json(
-            $this->mainDashboard->getBacklogClientDonut()
+            $this->mainDashboard->getBacklogClientDonut($network)
         );
     }
 }
