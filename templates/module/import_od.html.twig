@@ -204,38 +204,31 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
     <script>
-    const SOCIETES_URL = '{{ societesUrl }}';
-    const TYPES_URL    = '{{ typesUrl }}';
-    const JOURNAUX_URL = '{{ journauxUrl }}';
-    const DEVISES_URL  = '{{ devisesUrl }}';
+    const LISTES_URL   = '{{ listesUrl }}';
     const GENERATE_URL = '{{ generateUrl }}';
 
-    function initTomSelect(selectId, url, defaultValue = null) {
+    function initTomSelect(selectId, values, defaultValue = null) {
         const ts = new TomSelect('#' + selectId, {
             valueField: 'v',
             labelField: 'v',
             searchField: 'v',
-            options: [],
+            options: values.map(v => ({ v })),
             placeholder: '-- Choisir --',
             maxOptions: 1000,
         });
-
-        fetch(url)
-            .then(r => r.json())
-            .then(values => {
-                const opts = values.map(v => ({ v }));
-                ts.addOptions(opts);
-                if (defaultValue) ts.setValue(defaultValue);
-            });
-
+        if (defaultValue) ts.setValue(defaultValue);
         return ts;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        initTomSelect('societe', SOCIETES_URL);
-        initTomSelect('type',    TYPES_URL);
-        initTomSelect('journal', JOURNAUX_URL);
-        initTomSelect('devise',  DEVISES_URL, 'EUR');
+        fetch(LISTES_URL)
+            .then(r => r.json())
+            .then(data => {
+                initTomSelect('societe', data.societes);
+                initTomSelect('type',    data.types);
+                initTomSelect('journal', data.journaux);
+                initTomSelect('devise',  data.devises, 'EUR');
+            });
     });
 
     // -------------------------------------------------------
