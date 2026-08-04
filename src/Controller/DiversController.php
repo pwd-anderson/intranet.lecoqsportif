@@ -50,4 +50,15 @@ final class DiversController extends AbstractController
     {
         return new JsonResponse($divers->getDevises());
     }
+
+    #[Route('/divers/import_od_listes_json', name: 'divers_import_od_listes_json')]
+    public function importOdListes(Divers $divers): JsonResponse
+    {
+        return new JsonResponse([
+            'societes' => $divers->getSocietes(),
+            'types'    => $divers->getTypesAccent(),
+            'journaux' => $divers->getJournaux(),
+            'devises'  => $divers->getDevises(),
+        ]);
+    }
 }

@@ -16,10 +16,7 @@ final class ImportOdController extends AbstractController
     {
         return $this->render('module/import_od.html.twig', [
             'title'       => 'Import OD',
-            'societesUrl' => $this->generateUrl('divers_societes_json'),
-            'typesUrl'    => $this->generateUrl('divers_types_accent_json'),
-            'journauxUrl' => $this->generateUrl('divers_journaux_json'),
-            'devisesUrl'  => $this->generateUrl('divers_devises_json'),
+            'listesUrl'   => $this->generateUrl('divers_import_od_listes_json'),
             'generateUrl' => $this->generateUrl('app_module_import_od_generate'),
         ]);
     }
