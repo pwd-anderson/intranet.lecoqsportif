@@ -11,11 +11,11 @@
         }
 
         .min-h-248-box {
-            min-height: 248px;
+            min-height: 280px;
         }
 
         .max-h-248-box {
-            max-height: 248px;
+            max-height: 280px;
         }
 
         /* Sur mobile (écran < 768px), on réduit la hauteur min pour éviter les espaces inutiles */
@@ -138,43 +138,24 @@
             <!-- Traductions utilisées dans JS (dashboard.js) -->
             <span id="trans_variation_month" data-text="{{ 'dashboard.variation_text_month'|trans }}"></span>
 
-            <div class="col-lg-3 col-md-6">
+            <!-- Bloc Ventes Année — large, barres mensuelles + annuelles -->
+            <div class="col-lg-9 col-md-12">
                 <div class="box min-h-248-box">
                     <div class="box-body">
-                        <h6 class="box-title">{{ 'dashboard.conversion.title'|trans }} :
-                            <span class="fw-bold text-info">1 EUR = <span id="taux-eur-usd-text"></span> USD</span>
-                        </h6>
-                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
-                            <h3 class="mb-0 me-5" id="taux-eur-usd-val"></h3>
-                            <p class="mb-0" id="evolution-rate-eur-usd-text"></p>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="box-title mb-0">{{ 'dashboard.ventes.title'|trans }} <small>(EUR)</small></h6>
+                            <span id="variation" class="small"></span>
                         </div>
-                        <div id="bar-negative-chart-eur-usd"></div>
-                    </div>
-                </div>
-            </div>
-            <!-- Blocs Ventes Année en cours -->
-            <div class="col-lg-3 col-md-6">
-                <div class="box min-h-248-box">
-                    <div class="box-body">
-                        <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("Y") }} <small>(EUR)</small></h6>
-                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
-                            <h3 class="mb-0 me-5" id="ca_n"></h3>
-                            <p class="mb-0"><span class="text-danger" id="variation"><i class="fa fa-arrow-down"></i></span></p>
+                        <div class="d-flex gap-3">
+                            <div style="flex: 3; min-width: 0;">
+                                <div class="text-muted small mb-1">CA Mensuel</div>
+                                <div id="chart-ca-mensuel"></div>
+                            </div>
+                            <div style="flex: 1; min-width: 160px;">
+                                <div class="text-muted small mb-1">CA Annuel</div>
+                                <div id="chart-ca-annuel"></div>
+                            </div>
                         </div>
-                        <div id="primary-line-chart"></div>
-                    </div>
-                </div>
-            </div>
-            <!-- Blocs Mois en cours -->
-            <div class="col-lg-3 col-md-6">
-                <div class="box min-h-248-box">
-                    <div class="box-body">
-                        <h6 class="box-title">{{ 'dashboard.ventes.title'|trans }} {{ "now"|date("m/Y") }} <small>(EUR)</small></h6>
-                        <div class="d-flex d-lg-block d-xl-flex align-items-end">
-                            <h3 class="mb-0 me-5" id="ca_nm">–</h3>
-                            <p class="mb-0" id="variation_m">–</p>
-                        </div>
-                        <div id="warning-line-chart"></div>
                     </div>
                 </div>
             </div>
@@ -207,29 +188,29 @@
                 </div>
             </div>
 
-            <!-- CA par famille -->
+            <!-- Répartition CA par famille -->
             <div class="col-lg-4 col-md-6">
                 <div class="box min-h-box">
                     <div class="box-body text-center p-10">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par famille</span>
-                        </div>
+                        <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par famille</span>
                         <div id="chart-top-family-sales" class="mb-20"></div>
                         <div id="table-top-family-sales"></div>
                     </div>
                 </div>
             </div>
 
+            <!-- Top produits — toggle FTW / Textile -->
             <div class="col-lg-4 col-md-6">
                 <div class="box min-h-box">
                     <div class="box-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                <span class="text-muted small">
-                    Produits les plus vendus ({{ "now"|date("Y") }})
-                </span>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Top produits ({{ "now"|date("Y") }})</span>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button id="btn-top-ftw" class="btn btn-primary btn-sm active" onclick="switchTopProduit('FTW')">Footwear</button>
+                                <button id="btn-top-apl" class="btn btn-outline-primary btn-sm" onclick="switchTopProduit('APL')">Textile</button>
+                            </div>
                         </div>
-
-                        <div id="chart-top-product-sales" class="mt-3 top-product-container"></div>
+                        <div id="chart-top-product" class="mt-3 top-product-container"></div>
                     </div>
                 </div>
             </div>
@@ -249,11 +230,16 @@
             <div class="col-lg-8 col-md-6">
                 <div class="box">
                     <div class="box-body">
-                        <div class="d-flex justify-content-between align-items-center titre-evolution">
-                            <span class="text-muted small">Évolution du CA sur 5 ans</span>
+                        <span class="text-muted small">Évolution du CA sur 5 ans</span>
+                        <div class="d-flex gap-3 mt-1">
+                            <div style="flex: 3; min-width: 0;">
+                                <div id="userflow"></div>
+                            </div>
+                            <div style="flex: 1; min-width: 140px;">
+                                <div class="text-muted small mb-1">Total par année</div>
+                                <div id="chart-ca-5y-totals"></div>
+                            </div>
                         </div>
-                        <div id="userflow"></div>
-                        <div id="apex-legend-sales" class="d-flex flex-wrap gap-4 justify-content-center small"></div>
                     </div>
                 </div>
             </div>
@@ -262,7 +248,7 @@
     </section>
 {% endblock %}
 {% block javascripts %}
-    <script src="{{ asset('assets/js/dashboard.js') }}?v=1.2"></script>
+    <script src="{{ asset('assets/js/dashboard.js') }}?v=3.1"></script>
     <script>
         $(function () {
 
@@ -274,13 +260,6 @@
                 }
             };
 
-            const exchangeUrlEurUsd = "{{ path('api_dashboard_exchange_rate', { currency: 'EUR' }) }}";
-
-            chargerConversionChart(exchangeUrlEurUsd, {
-                text: '#taux-eur-usd-text',
-                value: '#taux-eur-usd-val',
-                evolution: '#evolution-rate-eur-usd-text'
-            }, '#bar-negative-chart-eur-usd', ['#2e62b9', '#fad050']);
 
             window.dashboardRoutes = {
                 caParMois: '{{ path("api_dashboard_ca_par_mois") }}',

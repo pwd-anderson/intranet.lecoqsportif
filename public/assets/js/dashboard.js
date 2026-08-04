@@ -37,7 +37,124 @@ function formatNumber(value, decimals = 0) {
     });
 }
 
-// Taux conversion
+// Taux conversion — affichage simple dans le header
+function chargerTauxHeaderSimple(path) {
+    $.getJSON(path, function (data) {
+        const taux = Number(data?.taux_courant || 0);
+        if (taux > 0) {
+            $('#header-eur-usd').text('1 EUR = ' + taux.toFixed(3) + ' USD');
+        }
+    });
+}
+
+// CA Mensuel N vs N-1 — barres groupées
+function renderCaMensuelChart(data, selector) {
+    const el = destroyExistingChart(selector);
+    if (!el) return;
+
+    const year   = data.year || new Date().getFullYear();
+    const labels = data.labels || [];
+    const series = data.series || [];
+
+    const options = {
+        chart: { type: 'bar', height: 195, toolbar: { show: false } },
+        plotOptions: { bar: { horizontal: false, columnWidth: '80%', borderRadius: 2 } },
+        colors: ['#1a3767', '#90aad4'],
+        dataLabels: { enabled: false },
+        series: [...series].reverse(),
+        xaxis: {
+            categories: labels,
+            labels: { style: { fontSize: '11px' } },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: {
+            labels: {
+                formatter: val => {
+                    if (Math.abs(val) >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+                    if (Math.abs(val) >= 1000) return (val / 1000).toFixed(0) + 'k';
+                    return formatNumber(val, 0);
+                }
+            }
+        },
+        legend: { show: true, position: 'top', fontSize: '11px' },
+        tooltip: { y: { formatter: val => formatNumber(val, 0) + ' €' } },
+        grid: { borderColor: '#f1f1f1', strokeDashArray: 3 }
+    };
+
+    const chart = new ApexCharts(el, options);
+    chart.render();
+    el._chart = chart;
+}
+
+// CA Annuel — 4 barres : Total N-1, Total N, YTD N-1, YTD N
+function renderCaAnnuelChart(data, selector, unit = '€') {
+    const el = destroyExistingChart(selector);
+    if (!el) return;
+
+    const year     = data.year || new Date().getFullYear();
+    const caN      = data.ca_n      || 0;
+    const caN1     = data.ca_n_1    || 0;
+    const caYtdN   = data.ca_n      || 0;
+    const caYtdN1  = data.ca_ytd_n1 || 0;
+
+    const options = {
+        chart: { type: 'bar', height: 195, toolbar: { show: false } },
+        plotOptions: { bar: { horizontal: false, columnWidth: '70%', borderRadius: 2 } },
+        colors: ['#1a3767', '#90aad4'],
+        dataLabels: { enabled: false },
+        series: [
+            { name: year - 1,   data: [caN1,   caYtdN1] },
+            { name: year,       data: [caN,    caYtdN]  }
+        ],
+        xaxis: {
+            categories: ['Total année', 'YTD'],
+            labels: { style: { fontSize: '11px' } },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: {
+            labels: {
+                formatter: val => {
+                    if (Math.abs(val) >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+                    if (Math.abs(val) >= 1000) return (val / 1000).toFixed(0) + 'k';
+                    return formatNumber(val, 0);
+                }
+            }
+        },
+        legend: { show: true, position: 'top', fontSize: '11px' },
+        tooltip: { y: { formatter: val => formatNumber(val, 0) + ' ' + unit } },
+        grid: { borderColor: '#f1f1f1', strokeDashArray: 3 }
+    };
+
+    const chart = new ApexCharts(el, options);
+    chart.render();
+    el._chart = chart;
+}
+
+// Chargement combiné CA mensuel + annuel
+function renderCaVentesBlock(apiUrl) {
+    const finalUrl = buildUrlWithNetwork(apiUrl);
+
+    $.getJSON(finalUrl, function (data) {
+        // Variation affichée dans le titre
+        const variation = Number(data?.variation || 0);
+        let varHtml = '';
+        if (variation > 0) {
+            varHtml = `<span class="text-success">${variation.toFixed(1)}% <i class="fa fa-arrow-up"></i></span> vs N-1 YTD`;
+        } else if (variation < 0) {
+            varHtml = `<span class="text-danger">${Math.abs(variation).toFixed(1)}% <i class="fa fa-arrow-down"></i></span> vs N-1 YTD`;
+        } else {
+            varHtml = `<span class="text-muted">0% stable</span>`;
+        }
+        $('#variation').html(varHtml);
+
+        renderCaMensuelChart(data, '#chart-ca-mensuel');
+        renderCaAnnuelChart(data, '#chart-ca-annuel');
+    });
+}
+
+// Taux conversion (ancienne version bloc — conservée pour compatibilité)
 function chargerConversionChart(path, targetSelectors, chartId, barColors) {
     $.getJSON(path, function (seriesData) {
         const tauxCourant = Number(seriesData?.taux_courant || 0);
@@ -260,7 +377,7 @@ function renderSalesMonthChart(apiUrl, caSelector, variationSelector, chartSelec
     });
 }
 
-function renderTopClientsChart(apiUrl, selector, barColor = '#2e62b9') {
+function renderTopClientsChart(apiUrl, selector, barColor = '#2e62b9', unit = '€') {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (data) {
@@ -288,15 +405,15 @@ function renderTopClientsChart(apiUrl, selector, barColor = '#2e62b9') {
                 enabled: true,
                 position: 'right',
                 offsetX: 25,
-                formatter: val => formatNumber(val, 0) + ' €',
+                formatter: val => formatNumber(val, 0) + ' ' + unit,
                 style: { fontSize: '12px', colors: ['#333'] }
             },
             colors: [barColor],
             xaxis: { categories: labels },
-            series: [{ name: 'CA en EUR', data: values }],
+            series: [{ name: 'CA', data: values }],
             tooltip: {
                 y: {
-                    formatter: val => formatNumber(val, 2) + ' €'
+                    formatter: val => formatNumber(val, 2) + ' ' + unit
                 }
             }
         };
@@ -310,7 +427,7 @@ function renderTopClientsChart(apiUrl, selector, barColor = '#2e62b9') {
 function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector, donutColors = [
     '#775DD0', '#00E396', '#FEB019', '#d0223c', '#008FFB',
     '#3F51B5', '#546E7A', '#D4526E', '#8D5B4C', '#F86624'
-]) {
+], height = 240, unit = '€') {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
@@ -329,16 +446,14 @@ function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector, donutC
         const safeValues = result.values.map(v => Number(v) || 0);
 
         const options = {
-            chart: { type: 'donut', height: 240, toolbar: { show: false } },
+            chart: { type: 'donut', height: height, toolbar: { show: false } },
             labels: result.labels,
             series: safeValues,
             legend: { show: false },
-            dataLabels: {
-                formatter: val => Number(val || 0).toFixed(1) + ' %'
-            },
+            dataLabels: { enabled: false },
             tooltip: {
                 y: {
-                    formatter: val => formatNumber(val, 2) + ' €'
+                    formatter: val => formatNumber(val, 2) + ' ' + unit
                 }
             },
             colors: donutColors,
@@ -356,20 +471,37 @@ function renderTopCompanySalesChart(apiUrl, chartSelector, tableSelector, donutC
         chart.render();
         el._chart = chart;
 
-        let html = '<table class="table table-sm mb-0" style="font-size: 12px;"><tbody>';
-        result.labels.forEach((label, i) => {
-            const val = safeValues[i];
-            html += `<tr>
-                        <td class="text-start text-truncate" style="max-width: 140px;">${label}</td>
-                        <td class="text-end fw-bold">${formatNumber(val, 2)} €</td>
-                     </tr>`;
-        });
-        html += '</tbody></table>';
-        tableEl.innerHTML = html;
+        const compact = height < 200;
+        const total = safeValues.reduce((s, v) => s + v, 0);
+
+        if (compact) {
+            let html = '';
+            result.labels.forEach((label, i) => {
+                const val = safeValues[i];
+                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
+                html += `<div class="d-flex align-items-center mb-1" style="gap:6px; font-size:11px;">
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${donutColors[i] ?? '#ccc'};flex-shrink:0;"></span>
+                    <span class="text-truncate" style="flex:1;">${label}</span>
+                    <span class="fw-bold" style="white-space:nowrap;">${formatNumber(val, 0)} ${unit}</span>
+                </div>`;
+            });
+            tableEl.innerHTML = html;
+        } else {
+            let html = '<table class="table table-sm mb-0" style="font-size: 12px;"><tbody>';
+            result.labels.forEach((label, i) => {
+                const val = safeValues[i];
+                html += `<tr>
+                            <td class="text-start text-truncate" style="max-width: 140px;">${label}</td>
+                            <td class="text-end fw-bold">${formatNumber(val, 2)} ${unit}</td>
+                         </tr>`;
+            });
+            html += '</tbody></table>';
+            tableEl.innerHTML = html;
+        }
     });
 }
 
-function renderTopProductSalesChart(apiUrl, selector) {
+function renderTopProductSalesChart(apiUrl, selector, barColor = '#00b894', unit = '€') {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
@@ -419,12 +551,12 @@ function renderTopProductSalesChart(apiUrl, selector) {
         <div class="top-product-info">
             <div class="top-product-label">${p.label}</div>
             <div class="top-product-bar-container">
-                <div class="top-product-bar" style="width:${percent}%"></div>
+                <div class="top-product-bar" style="width:${percent}%; background: ${barColor};"></div>
             </div>
         </div>
 
         <div class="top-product-value">
-            ${formatNumber(p.value, 0)} €
+            ${formatNumber(p.value, 0)} ${unit}
         </div>
     </div>
 `;
@@ -481,74 +613,103 @@ function injectImagesIntoYAxis(chartContext, data) {
     });
 }
 
-function renderSalesEvolutionChart(apiUrl, selector, legendSelector, colors = ['#ff9800', '#40a2ed', '#26c6da', '#9b59b6', '#e74c3c']) {
+function renderSalesEvolutionChart(apiUrl, selector, legendSelector, colors = ['#e74c3c', '#9b59b6', '#26c6da', '#40a2ed', '#ff9800'], totalsSelector = '#chart-ca-5y-totals', unit = '€') {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (response) {
         const el = destroyExistingChart(selector);
-        const legendEl = document.querySelector(legendSelector);
+        const totalsEl = destroyExistingChart(totalsSelector);
 
         if (!el) return;
 
         const series = Array.isArray(response?.series) ? response.series : [];
         const categories = Array.isArray(response?.categories) ? response.categories : [];
 
-        if (legendEl) {
-            legendEl.innerHTML = '';
-        }
-
         if (series.length === 0) {
             el.innerHTML = '<p class="text-muted text-center mt-5">Aucune donnée disponible.</p>';
             return;
         }
 
+        // Graphique principal — barres mensuelles par année
         const options = {
-            chart: { type: 'bar', height: 340, toolbar: { show: false } },
-            plotOptions: {
-                bar: {
-                    horizontal: false,
-                    columnWidth: '60%',
-                    endingShape: 'flat',
-                    dataLabels: { position: 'top' }
-                }
-            },
+            chart: { type: 'bar', height: 310, toolbar: { show: false } },
+            plotOptions: { bar: { horizontal: false, columnWidth: '60%', borderRadius: 1 } },
             colors: colors,
             dataLabels: { enabled: false },
-            stroke: { show: true, width: 0, colors: ['#fff'] },
             series: series,
             xaxis: {
                 categories: categories,
-                labels: { style: { fontSize: '12px' } }
+                labels: { style: { fontSize: '11px' } },
+                axisBorder: { show: false },
+                axisTicks: { show: false }
             },
             yaxis: {
                 labels: {
-                    formatter: val => formatNumber(val, 0)
+                    formatter: val => {
+                        if (Math.abs(val) >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+                        if (Math.abs(val) >= 1000) return (val / 1000).toFixed(0) + 'k';
+                        return formatNumber(val, 0);
+                    }
                 }
             },
-            legend: { show: false },
-            tooltip: {
-                y: {
-                    formatter: val => formatNumber(val, 0) + ' €'
-                }
+            legend: {
+                show: true,
+                position: 'bottom',
+                fontSize: '12px',
+                onItemClick: { toggleDataSeries: true },
+                onItemHover: { highlightDataSeries: true }
             },
-            grid: {
-                borderColor: '#f1f1f1',
-                xaxis: { lines: { show: true } },
-                yaxis: { lines: { show: true } },
-                strokeDashArray: 0
-            }
+            tooltip: { y: { formatter: val => formatNumber(val, 0) + ' ' + unit } },
+            grid: { borderColor: '#f1f1f1', strokeDashArray: 3 }
         };
 
         const chart = new ApexCharts(el, options);
         chart.render();
         el._chart = chart;
 
-        if (legendEl) {
-            const legendHtml = series.map((serie, index) => {
-                return `<span class="badge me-1" style="background-color: ${colors[index]}; font-size: 12px;">${serie.name}</span>`;
-            }).join(' ');
+        // Graphique totaux par année
+        if (totalsEl) {
+            const currentMonth = new Date().getMonth(); // 0-based, ex: juillet = 6
+            const totalLabels = series.map(s => s.name);
+            // Une série par année, chaque série a 2 valeurs : [Total, YTD]
+            const totalsSeriesData = series.map((s, i) => ({
+                name: s.name,
+                data: [
+                    Math.round(s.data.reduce((a, b) => a + (b || 0), 0)),
+                    Math.round(s.data.slice(0, currentMonth).reduce((a, b) => a + (b || 0), 0))
+                ]
+            }));
 
-            legendEl.innerHTML = legendHtml;
+            const totalsOptions = {
+                chart: { type: 'bar', height: 310, toolbar: { show: false } },
+                plotOptions: { bar: { horizontal: false, columnWidth: '70%', borderRadius: 2 } },
+                colors: colors,
+                dataLabels: { enabled: false },
+                series: totalsSeriesData,
+                stroke: { show: true, width: 2, colors: ['transparent'] },
+                xaxis: {
+                    categories: ['Total année', 'YTD'],
+                    labels: { style: { fontSize: '11px' } },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
+                yaxis: {
+                    labels: {
+                        formatter: val => {
+                            if (Math.abs(val) >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+                            if (Math.abs(val) >= 1000) return (val / 1000).toFixed(0) + 'k';
+                            return formatNumber(val, 0);
+                        }
+                    }
+                },
+                legend: { show: false },
+                tooltip: { y: { formatter: val => formatNumber(val, 0) + ' ' + unit } },
+                grid: { borderColor: '#f1f1f1', strokeDashArray: 3 }
+            };
+
+            const totalsChart = new ApexCharts(totalsEl, totalsOptions);
+            totalsChart.render();
+            totalsEl._chart = totalsChart;
         }
     });
 }
@@ -644,13 +805,31 @@ function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutCol
     });
 }
 
-function loadDashboardData() {
-    renderSalesYearChart(
-        window.dashboardRoutes.caParMois,
-        '#ca_n',
-        '#variation',
-        '#primary-line-chart'
+// Couleurs famille — même palette que le donut répartition famille
+const TOP_PRODUIT_COLORS = { FTW: '#775DD0', APL: '#00E396' };
+
+function switchTopProduit(family) {
+    const color = TOP_PRODUIT_COLORS[family] || '#775DD0';
+    renderTopProductSalesChart(
+        window.dashboardRoutes.topProductSales + '?family=' + family,
+        '#chart-top-product',
+        color
     );
+    ['ftw', 'apl'].forEach(f => {
+        const btn = document.getElementById('btn-top-' + f);
+        if (!btn) return;
+        if (f === family.toLowerCase()) {
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-primary', 'active');
+        } else {
+            btn.classList.remove('btn-primary', 'active');
+            btn.classList.add('btn-outline-primary');
+        }
+    });
+}
+
+function loadDashboardData() {
+    renderCaVentesBlock(window.dashboardRoutes.caParMois);
 
     renderSalesMonthChart(
         window.dashboardRoutes.salesCurrentMonth,
@@ -661,8 +840,8 @@ function loadDashboardData() {
 
     renderTopClientsChart(window.dashboardRoutes.topClients, '#chart-top-clients');
     renderTopCompanySalesChart(window.dashboardRoutes.topFamilySales, '#chart-top-family-sales', '#table-top-family-sales');
-    renderTopProductSalesChart(window.dashboardRoutes.topProductSales, '#chart-top-product-sales');
-    renderSalesEvolutionChart(window.dashboardRoutes.salesEvolution5y, '#userflow', '#apex-legend-sales');
+    renderTopProductSalesChart(window.dashboardRoutes.topProductSales + '?family=FTW', '#chart-top-product', TOP_PRODUIT_COLORS.FTW);
+    renderSalesEvolutionChart(window.dashboardRoutes.salesEvolution5y, '#userflow', null);
     chargerCaJour(window.dashboardRoutes.caToday);
     renderBacklogClientChart(window.dashboardRoutes.backlogClient, '#chart-backlog-client', '#table-backlog-client');
 }

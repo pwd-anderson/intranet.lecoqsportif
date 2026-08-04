@@ -42,7 +42,7 @@ final class SellOutDashboardController extends AbstractController
 
         foreach ($dataArray as $row) {
             $semaine = (int) $row['semaine'];
-            $ca      = round((float) $row['salesamt'], 2);
+            $ca      = round((float) $row['salesqty'], 2);
             if ((int) $row['annee'] === $currentYear) {
                 $seriesN[$semaine]  = $ca;
             } else {
@@ -60,16 +60,18 @@ final class SellOutDashboardController extends AbstractController
             $dataN1[] = $seriesN1[$week] ?? 0;
         }
 
-        $totalN  = array_sum($dataN);
-        $totalN1 = array_sum($dataN1);
-        $variation = $totalN1 > 0 ? round(($totalN - $totalN1) / $totalN1 * 100, 2) : null;
+        $totalN     = array_sum($dataN);
+        $totalN1    = array_sum($dataN1); // YTD N-1 (mêmes semaines que N)
+        $totalN1Full = round($this->sellOutDashboard->getFullYearN1Total(), 2); // Total complet N-1
+        $variation  = $totalN1 > 0 ? round(($totalN - $totalN1) / $totalN1 * 100, 2) : null;
 
         return new JsonResponse([
-            'ca_n'      => round($totalN, 2),
-            'ca_n1'     => round($totalN1, 2),
-            'variation' => $variation,
-            'labels'    => $labels,
-            'series'    => [
+            'ca_n'        => round($totalN, 2),
+            'ca_n1'       => round($totalN1, 2),
+            'ca_n1_full'  => $totalN1Full,
+            'variation'   => $variation,
+            'labels'      => $labels,
+            'series'      => [
                 ['name' => (string) $currentYear, 'data' => $dataN],
                 ['name' => (string) $prevYear,    'data' => $dataN1],
             ],
@@ -91,7 +93,7 @@ final class SellOutDashboardController extends AbstractController
         foreach ($dataArray as $row) {
             $annee  = (int) $row['annee'];
             $source = $row['sourcename'];
-            $ca     = round((float) $row['salesamt'], 2);
+            $ca     = round((float) $row['salesqty'], 2);
 
             $bySourceYear[$source][$annee] = $ca;
             if (array_key_exists($annee, $totals)) {
@@ -127,7 +129,7 @@ final class SellOutDashboardController extends AbstractController
         foreach ($dataUtf8 as $row) {
             $row      = (array) $row;
             $labels[] = $row['sourcename'];
-            $values[] = round((float) $row['salesamt'], 2);
+            $values[] = round((float) $row['salesqty'], 2);
         }
 
         return new JsonResponse(['labels' => $labels, 'data' => $values]);
@@ -145,16 +147,19 @@ final class SellOutDashboardController extends AbstractController
         foreach ($dataUtf8 as $row) {
             $row      = (array) $row;
             $labels[] = (string) $row['famille'];
-            $values[] = round((float) $row['salesamt'], 2);
+            $values[] = round((float) $row['salesqty'], 2);
         }
 
         return new JsonResponse(['labels' => $labels, 'values' => $values]);
     }
 
     #[Route('/api/sell-out/top-produits', name: 'api_sellout_top_produits')]
-    public function getTopProduits(): JsonResponse
+    public function getTopProduits(\Symfony\Component\HttpFoundation\Request $request): JsonResponse
     {
-        $rows     = $this->sellOutDashboard->getTopProduits();
+        $family   = $request->query->get('family');
+        $allowed  = ['FTW', 'APL', 'HDW'];
+        $family   = in_array($family, $allowed, true) ? $family : null;
+        $rows     = $this->sellOutDashboard->getTopProduits($family);
         $dataUtf8 = $this->helpers->convertArrayToUtf8($rows);
 
         $out = [];
@@ -170,7 +175,7 @@ final class SellOutDashboardController extends AbstractController
                 'image' => 'https://www.lecoqsportif.com/cdn/shop/files/' . rawurlencode($base) . '_2.jpg',
                 'code'  => $itemn,
                 'label' => $itemdes !== '' ? $itemdes : $itemn,
-                'value' => (float) ($row['salesamt'] ?? 0),
+                'value' => (float) ($row['salesqty'] ?? 0),
             ];
         }
 
@@ -202,7 +207,7 @@ final class SellOutDashboardController extends AbstractController
 
         foreach ($dataArray as $row) {
             $semaine = (int) $row['semaine'];
-            $ca      = round((float) $row['salesamt'], 2);
+            $ca      = round((float) $row['salesqty'], 2);
             if ((int) $row['annee'] === $currentYear) {
                 $seriesN[$semaine]  = $ca;
             } else {

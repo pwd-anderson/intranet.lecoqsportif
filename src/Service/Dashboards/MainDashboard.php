@@ -60,32 +60,45 @@ class MainDashboard
             $table        = $this->table('INTRANET_SALES_DAILY');
 
             $query = "SELECT
-                    SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END) AS ca_n,
+                    -- YTD N : jusqu'à aujourd'hui
+                    SUM(CASE WHEN annee = YEAR(GETDATE())
+                              AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                             THEN ca ELSE 0 END) AS ca_n,
 
+                    -- YTD N-1 : même période l'an dernier
+                    SUM(CASE WHEN annee = YEAR(GETDATE()) - 1
+                              AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                             THEN ca ELSE 0 END) AS ca_ytd_n1,
+
+                    -- Total N-1 : année entière
                     SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END) AS ca_n_1,
 
                     ROUND(
                         CASE
-                            WHEN SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END) = 0
+                            WHEN SUM(CASE WHEN annee = YEAR(GETDATE()) - 1
+                                          AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                                         THEN ca ELSE 0 END) = 0
                                 THEN NULL
                             ELSE
                                 (
-                                    SUM(CASE WHEN annee = YEAR(GETDATE()) THEN ca ELSE 0 END)
+                                    SUM(CASE WHEN annee = YEAR(GETDATE())
+                                              AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                                             THEN ca ELSE 0 END)
                                     -
-                                    SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END)
+                                    SUM(CASE WHEN annee = YEAR(GETDATE()) - 1
+                                              AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                                             THEN ca ELSE 0 END)
                                 )
                                 /
-                                SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END)
+                                SUM(CASE WHEN annee = YEAR(GETDATE()) - 1
+                                          AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                                         THEN ca ELSE 0 END)
                                 * 100
                         END
                     , 2) AS variation_pourcent
 
                 FROM {$table}
-                WHERE
-                    (
-                        (mois < MONTH(GETDATE()))
-                        OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE()))
-                    )
+                WHERE 1=1
                     {$networkWhere};";
 
             return $this->mssqlMade2design->executeQuery($query);
@@ -262,11 +275,19 @@ class MainDashboard
         }
     }
 
-    public function getTopProductsBySales(string $network = 'global'): array
+    public function getTopProductsBySales(string $network = 'global', ?string $familyCode = null): array
     {
         try {
             $networkWhere = $this->buildNetworkWhereClause($network);
             $table        = $this->table('INTRANET_SALES_AGG_YEAR');
+
+            $familyWhere = '';
+            if ($familyCode !== null) {
+                $allowed = ['FTW', 'APL', 'HDW'];
+                if (in_array($familyCode, $allowed, true)) {
+                    $familyWhere = " AND item_family_code = '{$familyCode}'";
+                }
+            }
 
             $query = "SELECT TOP 5
                     item_no as ItemNo,
@@ -275,6 +296,7 @@ class MainDashboard
                 FROM {$table}
                 WHERE annee = YEAR(GETDATE())
                 {$networkWhere}
+                {$familyWhere}
                 GROUP BY item_no, item_description
                 ORDER BY TotalSales DESC;";
 
@@ -372,10 +394,18 @@ class MainDashboard
         }
     }
 
-    public function getBacklogClientDonut(): array
+    public function getBacklogClientDonut(string $network = 'global'): array
     {
         try {
-            $table = $this->table('INTRANET_BACKLOG_CLI');
+            $normalized = $this->normalizeNetworkFilter($network);
+            if (in_array($normalized, ['boutique', 'ecom'], true)) {
+                return ['labels' => [], 'values' => [], 'quantities' => []];
+            }
+
+            $table        = $this->table('INTRANET_BACKLOG_CLI');
+            $networkWhere = $normalized === 'wholesale_int'
+                ? " AND reportingdimension = 'WHOLESALE INTERNATIONAL'"
+                : $this->buildNetworkWhereClause($network);
 
             $query = "
             SELECT
@@ -383,6 +413,7 @@ class MainDashboard
                 SUM(quantite)     AS quantite,
                 SUM(montant_ht_eur) AS montant
             FROM {$table}
+            WHERE 1=1 {$networkWhere}
             GROUP BY retard
             ORDER BY
                 CASE retard
@@ -390,7 +421,6 @@ class MainDashboard
                     WHEN 'MOIS + 1' THEN 2
                     ELSE 3
                 END";
-
             $results = $this->mssqlMade2design->executeQuery($query);
 
             $labels     = [];
@@ -593,12 +623,13 @@ class MainDashboard
             $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
             $insertQuery = "
-        INSERT INTO {$table} (retard, quantite, montant_ht_eur, date_refresh)
+        INSERT INTO {$table} (retard, quantite, montant_ht_eur, reportingdimension, date_refresh)
 
         SELECT
             retard,
             SUM(quantite)    AS quantite,
             SUM(montant_eur) AS montant_ht_eur,
+            reportingdimension,
             GETDATE()
         FROM (
             SELECT
@@ -613,7 +644,9 @@ class MainDashboard
                 CASE
                     WHEN SOH.CUR_0 = 'EUR' THEN SOP.NETPRINOT_0 * (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)
                     ELSE (SOP.NETPRINOT_0 * (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)) / NULLIF(TC.CHGRAT_0, 0)
-                END AS montant_eur
+                END AS montant_eur,
+
+                ATX.TEXTE_0 AS reportingdimension
 
             FROM X3_LCS.SORDERQ SOQ
             INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
@@ -621,6 +654,11 @@ class MainDashboard
                                           AND SOQ.ITMREF_0  = SOP.ITMREF_0
                                           AND SOQ.SOPLIN_0  = SOP.SOPLIN_0
             INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
+            LEFT JOIN X3_LCS.ATEXTRA ATX ON ATX.IDENT2_0 = BPC.TSCCOD_2
+                                         AND ATX.CODFIC_0 = 'ATABDIV'
+                                         AND ATX.LANGUE_0 = 'FRA'
+                                         AND ATX.ZONE_0   = 'LNGDES'
+                                         AND ATX.IDENT1_0 = '32'
             LEFT JOIN (
                 SELECT CURDEN_0, CHGRAT_0
                 FROM X3_LCS.TABCHANGE
@@ -635,8 +673,9 @@ class MainDashboard
             WHERE SOQ.SOQSTA_0 <> 3
               AND (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) > 0
               AND BPC.BCGCOD_0 <> 'INTER'
+                AND SOH.ZSOHVALSTA_0 <> 3
         ) t
-        GROUP BY retard;";
+        GROUP BY retard, reportingdimension;";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
@@ -650,9 +689,7 @@ class MainDashboard
     public function refreshAllSalesCubes(): array
     {
         return [
-            'Cube CA mensuel'          => $this->refreshSalesAggMonth(),
-            'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
-            'Cube ventes journalières' => $this->refreshSalesDaily(),
+
             'Cube backlog client'      => $this->refreshBacklogClient(),
         ];
     }
