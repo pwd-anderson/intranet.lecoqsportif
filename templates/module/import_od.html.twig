@@ -89,6 +89,13 @@
                             </div>
 
                             <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Site <span class="text-danger">*</span></label>
+                                <select id="site" class="form-select form-select-sm">
+                                    <option value="">-- Choisir --</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
                                 <label class="form-label small fw-semibold">Date <span class="text-danger">*</span></label>
                                 <input type="date" id="date" class="form-control form-control-sm">
                             </div>
@@ -207,6 +214,8 @@
     const LISTES_URL   = '{{ listesUrl }}';
     const GENERATE_URL = '{{ generateUrl }}';
 
+    const tsInstances = {};
+
     function initTomSelect(selectId, values, defaultValue = null) {
         const ts = new TomSelect('#' + selectId, {
             valueField: 'v',
@@ -217,7 +226,12 @@
             maxOptions: 1000,
         });
         if (defaultValue) ts.setValue(defaultValue);
+        tsInstances[selectId] = ts;
         return ts;
+    }
+
+    function getTsValue(selectId) {
+        return tsInstances[selectId] ? tsInstances[selectId].getValue() : document.getElementById(selectId).value;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -225,6 +239,7 @@
             .then(r => r.json())
             .then(data => {
                 initTomSelect('societe', data.societes);
+                initTomSelect('site',    data.sites);
                 initTomSelect('type',    data.types);
                 initTomSelect('journal', data.journaux);
                 initTomSelect('devise',  data.devises, 'EUR');
@@ -319,11 +334,12 @@
 
     function getEntete() {
         return {
-            societe:       document.getElementById('societe').value,
+            societe:       getTsValue('societe'),
+            site:          getTsValue('site'),
             date:          document.getElementById('date').value,
-            type:          document.getElementById('type').value,
-            journal:       document.getElementById('journal').value,
-            devise:        document.getElementById('devise').value,
+            type:          getTsValue('type'),
+            journal:       getTsValue('journal'),
+            devise:        getTsValue('devise'),
             ref:           document.getElementById('ref').value,
             bprvcr:        document.getElementById('bprvcr').value,
             date_echeance: document.getElementById('date_echeance').value,
@@ -382,9 +398,8 @@
     }
 
     function resetAll() {
-        ['societe','type','journal','devise'].forEach(id => {
-            const ts = TomSelect.getInstance(document.getElementById(id));
-            if (ts) ts.clear();
+        ['societe','site','type','journal','devise'].forEach(id => {
+            if (tsInstances[id]) tsInstances[id].clear();
         });
         ['date','date_echeance','extourne','date_extourne','ref','bprvcr','libelle']
             .forEach(id => document.getElementById(id).value = '');

@@ -15,6 +15,6 @@ final class ImportOdService
     public function generate(array $entete, array $lignes): SalesWebService
     {
         $xml = XmlBuilder::buildOD($entete, $lignes);
-        return $this->dispatcher->dispatch('ZSAIOD', $xml);
+        return $this->dispatcher->dispatch('ZWSIMPOD', $xml);
     }
 }

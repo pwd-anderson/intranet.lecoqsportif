@@ -11,33 +11,38 @@ final class XmlBuilder
         $grp = $root->addChild('GRP');
         $grp->addAttribute('ID', 'INH');
 
-        self::fld($grp, 'WCPY',    $entete['societe']       ?? '');
-        self::fld($grp, 'WDAT',    self::formatDate($entete['date'] ?? ''));
-        self::fld($grp, 'WTYP',    $entete['type']          ?? '');
-        self::fld($grp, 'WJOU',    $entete['journal']       ?? '');
-        self::fld($grp, 'WREF',    $entete['ref']           ?? '');
-        self::fld($grp, 'WBPRVCR', $entete['bprvcr']        ?? '');
-        self::fld($grp, 'WCUR',    $entete['devise']        ?? '');
-        self::fld($grp, 'WDATDUE', self::formatDate($entete['date_echeance'] ?? ''));
-        self::fld($grp, 'WEXT',    $entete['extourne']      ?? '');
-        self::fld($grp, 'WEXTDAT', self::formatDate($entete['date_extourne'] ?? ''));
-        self::fld($grp, 'WDES',    $entete['libelle']       ?? '');
+        self::fld($grp, 'HAE_TYP',    $entete['type']    ?? '');
+        self::fld($grp, 'HAE_FCY',    $entete['site']    ?? '');
+        self::fld($grp, 'HAE_JOU',    $entete['journal'] ?? '');
+        self::fld($grp, 'HAE_ACCDAT', self::formatDate($entete['date'] ?? ''));
+        self::fld($grp, 'HAE_REF',    $entete['ref']     ?? '');
+        self::fld($grp, 'HAE_BPRVCR', $entete['bprvcr']  ?? '');
+        self::fld($grp, 'HAE_CUR',    $entete['devise']  ?? '');
+
+        $bprvcr  = $entete['bprvcr'] ?? '';
+        $nbLignes = count($lignes);
 
         $tab = $root->addChild('TAB');
-        $tab->addAttribute('ID', 'LIN');
+        $tab->addAttribute('ID', 'IND');
+        $tab->addAttribute('DIM', '998');
+        $tab->addAttribute('SIZE', (string) $nbLignes);
 
         foreach ($lignes as $i => $ligne) {
+            $debit  = (float) str_replace(',', '.', $ligne['Debit']  ?? '0');
+            $credit = (float) str_replace(',', '.', $ligne['Credit'] ?? '0');
+            $amtcur = round($credit - $debit, 2);
+
             $lin = $tab->addChild('LIN');
             $lin->addAttribute('NUM', (string) ($i + 1));
 
-            self::fld($lin, 'WACCCOD', $ligne['Compte']  ?? '');
-            self::fld($lin, 'WBPR',    $ligne['Tiers']   ?? '');
-            self::fld($lin, 'WDEB',    $ligne['Debit']   ?? '');
-            self::fld($lin, 'WCRE',    $ligne['Credit']  ?? '');
-            self::fld($lin, 'WDES',    $ligne['Libelle'] ?? '');
-            self::fld($lin, 'WAXE1',   $ligne['Axe1']    ?? '');
-            self::fld($lin, 'WAXE2',   $ligne['Axe2']    ?? '');
-            self::fld($lin, 'WTAX',    $ligne['Taxe']    ?? '');
+            self::fld($lin, 'DAE_ACC',    $ligne['Compte']  ?? '');
+            self::fld($lin, 'DAE_BPR',    $ligne['Tiers']   ?? '');
+            self::fld($lin, 'DAE_DES',    $ligne['Libelle'] ?? '');
+            self::fld($lin, 'DAE_AMTCUR', (string) $amtcur);
+            self::fld($lin, 'DAE_TAX',    $ligne['Taxe']    ?? '');
+            self::fld($lin, 'DAE_FREREF', $bprvcr);
+            self::fld($lin, 'DAE_CCE1',   $ligne['Axe1']    ?? '');
+            self::fld($lin, 'DAE_CCE2',   $ligne['Axe2']    ?? '');
         }
 
         return $root->asXML();
