@@ -56,6 +56,7 @@ final class DiversController extends AbstractController
     {
         return new JsonResponse([
             'societes' => $divers->getSocietes(),
+            'sites'    => $divers->getSites(),
             'types'    => $divers->getTypesAccent(),
             'journaux' => $divers->getJournaux(),
             'devises'  => $divers->getDevises(),

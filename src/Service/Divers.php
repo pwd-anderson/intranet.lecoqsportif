@@ -254,6 +254,18 @@ class Divers
         }
     }
 
+    public function getSites(): array
+    {
+        try {
+            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT FCY.FCY_0 FROM X3_LCS.FACILITY FCY ORDER BY FCY.FCY_0");
+            return array_map(fn($row) => $row->FCY_0, $data);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste sites', $e);
+            $this->logger->error('LCS Erreur Divers : Liste sites', ['exception' => $e]);
+            return [];
+        }
+    }
+
     public function getSocietes(): array
     {
         try {
