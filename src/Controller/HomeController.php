@@ -251,4 +251,67 @@ final class HomeController extends AbstractController
             $this->mainDashboard->getBacklogClientDonut($network)
         );
     }
+
+    private function getBoutiqueGroupFromRequest(Request $request): ?string
+    {
+        $group = $request->query->get('group', '');
+        return in_array($group, ['propres', 'affilies', 'outlet'], true) ? $group : null;
+    }
+
+    #[Route('/api/dashboard/boutique-group-ventes', name: 'api_dashboard_boutique_group_ventes')]
+    public function getBoutiqueGroupVentes(Request $request): JsonResponse
+    {
+        $group = $this->getBoutiqueGroupFromRequest($request);
+        if ($group === null) {
+            return new JsonResponse(['error' => 'Groupe invalide'], 400);
+        }
+
+        $dataAnnual   = $this->mainDashboard->getBoutiqueGroupVentesYears($group);
+        $dataByMonth  = $this->mainDashboard->getBoutiqueGroupVentesByMonths($group);
+
+        $labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+        $caN    = array_fill(0, 12, 0);
+        $caN1   = array_fill(0, 12, 0);
+
+        foreach ($dataByMonth as $row) {
+            $index = (int) $row->mois - 1;
+            if ($index >= 0 && $index < 12) {
+                $caN[$index]  = round((float) $row->ca_n,   2);
+                $caN1[$index] = round((float) $row->ca_n_1, 2);
+            }
+        }
+
+        $year = (int) date('Y');
+
+        return new JsonResponse([
+            'ca_n'      => round((float) ($dataAnnual[0]->ca_n         ?? 0), 2),
+            'ca_n_1'    => round((float) ($dataAnnual[0]->ca_n_1       ?? 0), 2),
+            'ca_ytd_n1' => round((float) ($dataAnnual[0]->ca_ytd_n1    ?? 0), 2),
+            'variation' => $dataAnnual[0]->variation_pourcent ?? null,
+            'year'      => $year,
+            'labels'    => $labels,
+            'series'    => [
+                ['name' => 'CA ' . $year,        'data' => $caN],
+                ['name' => 'CA ' . ($year - 1),  'data' => $caN1],
+            ],
+        ]);
+    }
+
+    #[Route('/api/dashboard/boutique-group-top-produits', name: 'api_dashboard_boutique_group_top_produits')]
+    public function getBoutiqueGroupTopProduits(Request $request): JsonResponse
+    {
+        $group = $this->getBoutiqueGroupFromRequest($request);
+        if ($group === null) {
+            return new JsonResponse(['error' => 'Groupe invalide'], 400);
+        }
+
+        $family  = $request->query->get('family');
+        $allowed = ['FTW', 'APL', 'HDW'];
+        $family  = in_array($family, $allowed, true) ? $family : null;
+
+        $data     = $this->mainDashboard->getBoutiqueGroupTopProduits($group, $family);
+        $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
 }
