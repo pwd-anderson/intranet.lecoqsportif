@@ -134,9 +134,12 @@
 
 {% block body %}
     <section class="content">
+        <!-- Traductions utilisées dans JS (dashboard.js) -->
+        <span id="trans_variation_month" data-text="{{ 'dashboard.variation_text_month'|trans }}"></span>
+
+        {# ── STANDARD DASHBOARD ── #}
+        <div id="dashboard-standard">
         <div class="row">
-            <!-- Traductions utilisées dans JS (dashboard.js) -->
-            <span id="trans_variation_month" data-text="{{ 'dashboard.variation_text_month'|trans }}"></span>
 
             <!-- Bloc Ventes Année — large, barres mensuelles + annuelles -->
             <div class="col-lg-9 col-md-12">
@@ -245,10 +248,66 @@
             </div>
 
         </div>
+        </div>{# /dashboard-standard #}
+
+        {# ── BOUTIQUE GROUPS ── #}
+        <div id="dashboard-boutique" style="display:none">
+            {% set boutique_groups = [
+                { id: 'propres',  label: 'Magasins propres' },
+                { id: 'affilies', label: 'Magasins Affiliés' },
+                { id: 'outlet',   label: 'Factory Outlet' },
+            ] %}
+            {% for grp in boutique_groups %}
+            <div class="row mb-3" style="display:flex; align-items:stretch;">
+                <div class="col-12 mb-1 mt-2">
+                    <span class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">{{ grp.label }}</span>
+                </div>
+                <div class="col-lg-8" style="display:flex; flex-direction:column;">
+                    <div class="box" style="flex:1; margin-bottom:0;">
+                        <div class="box-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="box-title mb-0">Ventes {{ "now"|date("Y") }} <small>(EUR)</small></h6>
+                                <span id="boutique-{{ grp.id }}-variation" class="small"></span>
+                            </div>
+                            <div class="d-flex gap-3">
+                                <div style="flex: 3; min-width: 0;">
+                                    <div class="text-muted small mb-1">CA Mensuel</div>
+                                    <div id="boutique-{{ grp.id }}-mensuel"></div>
+                                </div>
+                                <div style="flex: 1; min-width: 160px;">
+                                    <div class="text-muted small mb-1">CA Annuel</div>
+                                    <div id="boutique-{{ grp.id }}-annuel"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4" style="display:flex; flex-direction:column;">
+                    <div class="box" style="flex:1; margin-bottom:0;">
+                        <div class="box-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">Top produits {{ "now"|date("Y") }}</span>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button id="boutique-{{ grp.id }}-btn-ftw"
+                                            class="btn btn-primary btn-sm active"
+                                            onclick="switchBoutiqueTopProduit('{{ grp.id }}', 'FTW')">Footwear</button>
+                                    <button id="boutique-{{ grp.id }}-btn-apl"
+                                            class="btn btn-outline-primary btn-sm"
+                                            onclick="switchBoutiqueTopProduit('{{ grp.id }}', 'APL')">Textile</button>
+                                </div>
+                            </div>
+                            <div id="boutique-{{ grp.id }}-product" class="mt-2 top-product-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>{# /dashboard-boutique #}
+
     </section>
 {% endblock %}
 {% block javascripts %}
-    <script src="{{ asset('assets/js/dashboard.js') }}?v=3.1"></script>
+    <script src="{{ asset('assets/js/dashboard.js') }}?v=3.4"></script>
     <script>
         $(function () {
 
@@ -269,7 +328,9 @@
                 topProductSales: '{{ path("api_dashboard_top_product_sales") }}',
                 salesEvolution5y: '{{ path("api_dashboard_sales_evolution_5y") }}',
                 caToday: '{{ path("api_dashboard_ca_today") }}',
-                backlogClient: '{{ path("api_dashboard_backlog_client") }}'
+                backlogClient: '{{ path("api_dashboard_backlog_client") }}',
+                boutiqueGroupVentes: '{{ path("api_dashboard_boutique_group_ventes") }}',
+                boutiqueGroupTopProduits: '{{ path("api_dashboard_boutique_group_top_produits") }}'
             };
 
             const networkSelect = document.querySelector('#network-switcher select');

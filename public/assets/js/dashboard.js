@@ -48,7 +48,7 @@ function chargerTauxHeaderSimple(path) {
 }
 
 // CA Mensuel N vs N-1 — barres groupées
-function renderCaMensuelChart(data, selector) {
+function renderCaMensuelChart(data, selector, height = 195) {
     const el = destroyExistingChart(selector);
     if (!el) return;
 
@@ -57,7 +57,7 @@ function renderCaMensuelChart(data, selector) {
     const series = data.series || [];
 
     const options = {
-        chart: { type: 'bar', height: 195, toolbar: { show: false } },
+        chart: { type: 'bar', height: height, toolbar: { show: false } },
         plotOptions: { bar: { horizontal: false, columnWidth: '80%', borderRadius: 2 } },
         colors: ['#1a3767', '#90aad4'],
         dataLabels: { enabled: false },
@@ -88,7 +88,7 @@ function renderCaMensuelChart(data, selector) {
 }
 
 // CA Annuel — 4 barres : Total N-1, Total N, YTD N-1, YTD N
-function renderCaAnnuelChart(data, selector, unit = '€') {
+function renderCaAnnuelChart(data, selector, unit = '€', height = 195) {
     const el = destroyExistingChart(selector);
     if (!el) return;
 
@@ -99,7 +99,7 @@ function renderCaAnnuelChart(data, selector, unit = '€') {
     const caYtdN1  = data.ca_ytd_n1 || 0;
 
     const options = {
-        chart: { type: 'bar', height: 195, toolbar: { show: false } },
+        chart: { type: 'bar', height: height, toolbar: { show: false } },
         plotOptions: { bar: { horizontal: false, columnWidth: '70%', borderRadius: 2 } },
         colors: ['#1a3767', '#90aad4'],
         dataLabels: { enabled: false },
@@ -829,6 +829,18 @@ function switchTopProduit(family) {
 }
 
 function loadDashboardData() {
+    const isBoutique = getSelectedNetwork() === 'boutique';
+
+    const stdEl = document.getElementById('dashboard-standard');
+    const bouEl = document.getElementById('dashboard-boutique');
+    if (stdEl) stdEl.style.display = isBoutique ? 'none' : '';
+    if (bouEl) bouEl.style.display = isBoutique ? ''     : 'none';
+
+    if (isBoutique) {
+        loadBoutiqueData();
+        return;
+    }
+
     renderCaVentesBlock(window.dashboardRoutes.caParMois);
 
     renderSalesMonthChart(
@@ -844,4 +856,60 @@ function loadDashboardData() {
     renderSalesEvolutionChart(window.dashboardRoutes.salesEvolution5y, '#userflow', null);
     chargerCaJour(window.dashboardRoutes.caToday);
     renderBacklogClientChart(window.dashboardRoutes.backlogClient, '#chart-backlog-client', '#table-backlog-client');
+}
+
+// ── BOUTIQUE GROUPS ──
+
+function loadBoutiqueGroupData(group) {
+    const ventesUrl    = window.dashboardRoutes.boutiqueGroupVentes + '?group=' + group;
+    const produitsBase = window.dashboardRoutes.boutiqueGroupTopProduits + '?group=' + group;
+
+    $.getJSON(ventesUrl, function(data) {
+        const variation = Number(data?.variation || 0);
+        let varHtml = '';
+        if (data.variation !== null && data.variation !== undefined) {
+            if (variation > 0) {
+                varHtml = `<span class="text-success">${variation.toFixed(1)}% <i class="fa fa-arrow-up"></i></span> vs N-1 YTD`;
+            } else if (variation < 0) {
+                varHtml = `<span class="text-danger">${Math.abs(variation).toFixed(1)}% <i class="fa fa-arrow-down"></i></span> vs N-1 YTD`;
+            } else {
+                varHtml = `<span class="text-muted">0% stable</span>`;
+            }
+        }
+        const varEl = document.getElementById('boutique-' + group + '-variation');
+        if (varEl) varEl.innerHTML = varHtml;
+
+        renderCaMensuelChart(data, '#boutique-' + group + '-mensuel', 300);
+        renderCaAnnuelChart(data, '#boutique-' + group + '-annuel', '€', 300);
+    });
+
+    renderTopProductSalesChart(
+        produitsBase + '&family=FTW',
+        '#boutique-' + group + '-product',
+        TOP_PRODUIT_COLORS.FTW
+    );
+}
+
+function switchBoutiqueTopProduit(group, family) {
+    const color = TOP_PRODUIT_COLORS[family] || '#775DD0';
+    renderTopProductSalesChart(
+        window.dashboardRoutes.boutiqueGroupTopProduits + '?group=' + group + '&family=' + family,
+        '#boutique-' + group + '-product',
+        color
+    );
+    ['FTW', 'APL'].forEach(f => {
+        const btn = document.getElementById('boutique-' + group + '-btn-' + f.toLowerCase());
+        if (!btn) return;
+        if (f === family) {
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-primary', 'active');
+        } else {
+            btn.classList.remove('btn-primary', 'active');
+            btn.classList.add('btn-outline-primary');
+        }
+    });
+}
+
+function loadBoutiqueData() {
+    ['propres', 'affilies', 'outlet'].forEach(group => loadBoutiqueGroupData(group));
 }

@@ -164,7 +164,7 @@ function loadSellOutDashboardData() {
 
     renderBacklogClientChart(
         r.backlog, '#so-chart-backlog', '#so-table-backlog',
-        ['#0f9b8e', '#f4b942', '#ff6f59']
+        ['#2196F3', '#FF9800', '#e53935']
     );
 
     renderSalesEvolutionChart(

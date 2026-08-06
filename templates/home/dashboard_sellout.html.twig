@@ -87,16 +87,16 @@
                 <div class="box min-h-248-box so-row1-box">
                     <div class="box-body">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="box-title mb-0">Ventes {{ "now"|date("Y") }} vs {{ ("now"|date("Y")) - 1 }} <small>(semaine par semaine)</small></h6>
+                            <h6 class="box-title mb-0">Volume de ventes {{ "now"|date("Y") }} vs {{ ("now"|date("Y")) - 1 }} <small>(semaine par semaine)</small></h6>
                             <span id="so-variation-ytd" class="small"></span>
                         </div>
                         <div class="d-flex gap-3">
                             <div style="flex: 3; min-width: 0;">
-                                <div class="text-muted small mb-1">CA Hebdomadaire</div>
+                                <div class="text-muted small mb-1">Volume hebdomadaire</div>
                                 <div id="so-chart-weekly"></div>
                             </div>
                             <div style="flex: 1; min-width: 160px;">
-                                <div class="text-muted small mb-1">CA Annuel</div>
+                                <div class="text-muted small mb-1">Volume annuel</div>
                                 <div id="so-chart-annuel"></div>
                             </div>
                         </div>
@@ -108,7 +108,7 @@
             <div class="col-lg-3 col-md-6 so-row1-col">
                 <div class="box min-h-248-box so-row1-box">
                     <div class="box-body">
-                        <h6 class="box-title">Ventes semaine <span id="so-semaine-num" class="text-info fw-bold">—</span></h6>
+                        <h6 class="box-title">Volume de vente <span id="so-semaine-num" class="text-info fw-bold">—</span></h6>
                         <div class="d-flex d-lg-block d-xl-flex align-items-end">
                             <h3 class="mb-0 me-5" id="so-ca-semaine">—</h3>
                             <p class="mb-0" id="so-variation-semaine"></p>
@@ -124,7 +124,7 @@
             <div class="col-lg-4 col-md-6">
                 <div class="box min-h-box">
                     <div class="box-body pt-10 pb-10">
-                        <span class="text-muted small">CA par enseigne {{ "now"|date("Y") }}</span>
+                        <span class="text-muted small">Volume par enseigne {{ "now"|date("Y") }}</span>
                         <div id="so-chart-top-clients" style="height:360px;"></div>
                     </div>
                 </div>
@@ -134,7 +134,7 @@
             <div class="col-lg-4 col-md-6">
                 <div class="box min-h-box">
                     <div class="box-body text-center p-10">
-                        <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par famille</span>
+                        <span class="text-muted small">Répartition volume {{ "now"|date("Y") }} par famille</span>
                         <div id="so-chart-famille" class="mb-20"></div>
                         <div id="so-table-famille"></div>
                     </div>
@@ -170,31 +170,14 @@
                 </div>
             </div>
 
-            {# Évolution CA 12 semaines — barres + companion totaux #}
-            <div class="col-lg-8 col-md-6">
-                <div class="box">
-                    <div class="box-body">
-                        <span class="text-muted small">Évolution du CA — 12 semaines glissantes</span>
-                        <div class="d-flex gap-3 mt-1">
-                            <div style="flex: 3; min-width: 0;">
-                                <div id="so-chart-evolution"></div>
-                            </div>
-                            <div style="flex: 1; min-width: 140px;">
-                                <div class="text-muted small mb-1">Total par année</div>
-                                <div id="so-chart-evolution-totals"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
         </div>
     </section>
 {% endblock %}
 
 {% block javascripts %}
-    <script src="{{ asset('assets/js/dashboard.js') }}?v=3.1"></script>
-    <script src="{{ asset('assets/js/dashboard_sellout.js') }}?v=2.2"></script>
+    <script src="{{ asset('assets/js/dashboard.js') }}?v=3.4"></script>
+    <script src="{{ asset('assets/js/dashboard_sellout.js') }}?v=2.3"></script>
     <script>
         $(function () {
             'use strict';
