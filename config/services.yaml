@@ -92,3 +92,10 @@ services:
     App\Infrastructure\Sql\SqlFileLoader:
         arguments:
             $projectDir: '%kernel.project_dir%'
+
+    App\Service\Webservice\SageX3Client:
+        arguments:
+            $wsdlUrl:   '%env(resolve:SAGE_X3_WSDL)%'
+            $login:     '%env(resolve:SAGE_X3_LOGIN)%'
+            $password:  '%env(resolve:SAGE_X3_PASSWORD)%'
+            $poolAlias: '%env(resolve:SAGE_X3_POOL_ALIAS)%'
