@@ -21,6 +21,24 @@ final class ImportOdController extends AbstractController
         ]);
     }
 
+    #[Route('/module/import_od/validate-lignes', name: 'app_module_import_od_validate_lignes', methods: ['POST'])]
+    public function validateLignes(Request $request, ImportOdService $service): JsonResponse
+    {
+        $body   = json_decode($request->getContent(), true);
+        $lignes = $body['lignes'] ?? [];
+
+        if (empty($lignes)) {
+            return new JsonResponse(['success' => false, 'message' => 'Aucune ligne à valider.'], 400);
+        }
+
+        $errors = $service->validateLignes($lignes);
+
+        return new JsonResponse([
+            'success' => empty($errors),
+            'errors'  => $errors,
+        ]);
+    }
+
     #[Route('/module/import_od/generate', name: 'app_module_import_od_generate', methods: ['POST'])]
     public function generate(Request $request, ImportOdService $service): JsonResponse
     {
