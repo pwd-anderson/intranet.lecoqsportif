@@ -29,17 +29,21 @@ final class ImportOdService
     }
 
     /**
-     * Valide les lignes OD : Axe1, Compte (existence + collectif), Tiers.
-     * Retourne un tableau d'erreurs par numéro de ligne (index 0-based).
+     * Valide les lignes OD : Axe analytique, Compte (existence + collectif), Tiers.
+     * Retourne un tableau d'erreurs indexé par numéro de ligne (1-based).
      */
     public function validateLignes(array $lignes): array
     {
-        // ── 1. Requête Axe1 ─────────────────────────────────────────────────
-        $axe1Values = $this->uniqueNonEmpty(array_column($lignes, 'Axe'));
-        $validAxe1  = [];
-        if (!empty($axe1Values)) {
-            [$sql, $params] = $this->inClause('CAE.CCE_0', $axe1Values, 'axe1');
-            $validAxe1 = array_column(
+        // ── 1. Requête Axe analytique ────────────────────────────────────────
+        // On extrait uniquement les 3 premiers segments : "04_1_1_LIBELLE" → "04_1_1"
+        $axeRaw    = array_column($lignes, 'Axe');
+        $axeCodes  = array_map(fn($v) => $this->extractAxeCode($v), $axeRaw);
+        $axeValues = $this->uniqueNonEmpty($axeCodes);
+
+        $validAxe = [];
+        if (!empty($axeValues)) {
+            [$sql, $params] = $this->inClause('CAE.CCE_0', $axeValues, 'axe');
+            $validAxe = array_column(
                 $this->mssqlLcs->executeQueryWithParams("SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE $sql", $params),
                 'CCE_0'
             );
@@ -79,20 +83,25 @@ final class ImportOdService
             $lineErrors = [];
             $lineNum    = $i + 1;
 
-            // Axe analytique
-            $axe1 = trim($ligne['Axe'] ?? '');
-            if ($axe1 !== '' && !in_array($axe1, $validAxe1, true)) {
-                $lineErrors[] = "Axe analytique « $axe1 » inconnu";
+            $compte  = trim($ligne['Compte'] ?? '');
+            $axeCode = $this->extractAxeCode($ligne['Axe'] ?? '');
+
+            // Axe analytique obligatoire si compte commence par 2, 6 ou 7
+            if ($compte !== '' && in_array($compte[0], ['2', '6', '7'], true) && $axeCode === '') {
+                $lineErrors[] = "Axe analytique obligatoire pour le compte « $compte »";
+            }
+
+            // Axe analytique — validation si rempli
+            if ($axeCode !== '' && !in_array($axeCode, $validAxe, true)) {
+                $lineErrors[] = "Axe analytique « $axeCode » inconnu";
             }
 
             // Compte
-            $compte = trim($ligne['Compte'] ?? '');
             if ($compte === '') {
                 $lineErrors[] = 'Compte manquant';
             } elseif (!array_key_exists($compte, $compteMap)) {
                 $lineErrors[] = "Compte « $compte » inconnu";
             } else {
-                // Compte collectif → Tiers obligatoire
                 $tiers = trim($ligne['Tiers'] ?? '');
                 if ($compteMap[$compte] === 1) {
                     if ($tiers === '') {
@@ -113,6 +122,26 @@ final class ImportOdService
         return $errors;
     }
 
+    /**
+     * Extrait le code axe analytique : segments numériques de tête uniquement.
+     * "04_1_1_PRODUCT FEES_SPORT MARKETING" → "04_1_1"
+     * "04_1_12"                             → "04_1_12"
+     * "03_2_1_12"                           → "03_2_1_12"
+     */
+    private function extractAxeCode(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') return '';
+
+        $numericParts = [];
+        foreach (explode('_', $value) as $part) {
+            if (!ctype_digit($part)) break;
+            $numericParts[] = $part;
+        }
+
+        return implode('_', $numericParts);
+    }
+
     private function uniqueNonEmpty(array $values): array
     {
         return array_values(array_unique(array_filter($values, fn($v) => $v !== '' && $v !== null)));
@@ -120,10 +149,10 @@ final class ImportOdService
 
     private function inClause(string $column, array $values, string $prefix): array
     {
-        $params = [];
+        $params       = [];
         $placeholders = [];
         foreach ($values as $i => $v) {
-            $key = $prefix . '_' . $i;
+            $key            = $prefix . '_' . $i;
             $placeholders[] = ':' . $key;
             $params[$key]   = $v;
         }

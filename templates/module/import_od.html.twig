@@ -21,6 +21,8 @@
         }
         .paste-zone {
             min-height: 80px;
+            max-height: 150px;
+            overflow: auto;
             border: 2px dashed #adb5bd;
             border-radius: 6px;
             padding: 10px 12px;
@@ -28,6 +30,8 @@
             cursor: text;
             font-size: 13px;
             color: #555;
+            white-space: pre;
+            word-break: keep-all;
         }
         .paste-zone:focus {
             outline: none;
@@ -43,6 +47,9 @@
             font-size: 13px;
             font-weight: 500;
             white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 1;
         }
         #lignesTable td { padding: 3px 4px; }
         #lignesTable td input {
@@ -150,11 +157,6 @@
                                 <input type="date" id="date_extourne" class="form-control form-control-sm">
                             </div>
 
-                            <div class="col-md-4">
-                                <label class="form-label small fw-semibold">Libellé <span class="text-danger">*</span></label>
-                                <input type="text" id="libelle" class="form-control form-control-sm" placeholder="Libellé de la pièce">
-                            </div>
-
                         </div>
                     </div>
 
@@ -177,8 +179,8 @@
                             <span id="balanceInfo" class="ms-3 small"></span>
                         </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-sm" id="lignesTable">
+                        <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
+                            <table class="table table-bordered table-sm" id="lignesTable" style="margin-bottom:0; min-width:900px;">
                                 <thead>
                                     <tr>
                                         <th>Réf. pièce</th>
@@ -364,7 +366,6 @@
             ref:           document.getElementById('ref').value,
             extourne:      document.getElementById('extourne').value,
             date_extourne: document.getElementById('date_extourne').value,
-            libelle:       document.getElementById('libelle').value,
         };
     }
 
@@ -379,7 +380,6 @@
             { id: 'type',     label: 'Type',     ts: true },
             { id: 'journal',  label: 'Journal',  ts: true },
             { id: 'devise',   label: 'Devise',   ts: true },
-            { id: 'libelle',  label: 'Libellé',  ts: false },
         ];
 
         const manquants = required
@@ -485,7 +485,7 @@
         ['societe','site','type','journal','devise'].forEach(id => {
             if (tsInstances[id]) tsInstances[id].clear();
         });
-        ['date','date_extourne','ref','libelle']
+        ['date','date_extourne','ref']
             .forEach(id => document.getElementById(id).value = '');
         document.getElementById('extourne').value = 'non';
         document.getElementById('date-extourne-wrapper').style.display = 'none';

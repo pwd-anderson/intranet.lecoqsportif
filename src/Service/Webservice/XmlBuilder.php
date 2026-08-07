@@ -16,10 +16,11 @@ final class XmlBuilder
         self::fld($grp, 'HAE_JOU',    $entete['journal'] ?? '');
         self::fld($grp, 'HAE_ACCDAT', self::formatDate($entete['date'] ?? ''));
         self::fld($grp, 'HAE_REF',    $entete['ref']     ?? '');
-        self::fld($grp, 'HAE_BPRVCR', $entete['bprvcr']  ?? '');
+        self::fld($grp, 'HAE_BPRVCR', '');
         self::fld($grp, 'HAE_CUR',    $entete['devise']  ?? '');
 
-        $bprvcr  = $entete['bprvcr'] ?? '';
+        $isExtourne   = ($entete['extourne'] ?? 'non') === 'oui';
+        $dateExtourne = self::formatDate($entete['date_extourne'] ?? '');
         $nbLignes = count($lignes);
 
         $tab = $root->addChild('TAB');
@@ -40,12 +41,12 @@ final class XmlBuilder
             self::fld($lin, 'DAE_DES',    $ligne['Libelle'] ?? '');
             self::fld($lin, 'DAE_AMTCUR', (string) $amtcur);
             self::fld($lin, 'DAE_TAX',    $ligne['Taxe']    ?? '');
-            self::fld($lin, 'DAE_FREREF', $bprvcr);
-            self::fld($lin, 'DAE_CCE1',   $ligne['Axe1']    ?? '');
-            self::fld($lin, 'DAE_CCE2',   $ligne['Axe2']    ?? '');
+            self::fld($lin, 'DAE_CCE1',   self::extractAxeCode($ligne['Axe'] ?? ''));
+            self::fld($lin, 'HAE_RVS',    $isExtourne ? '2' : '1');
+            self::fld($lin, 'HAE_RVSDAT', $isExtourne ? $dateExtourne : '');
         }
 
-        return $root->asXML();
+        return self::forcePairedTags($root->asXML());
     }
 
     public static function buildRetourClient(array $entete, array $lignes): string
@@ -97,6 +98,25 @@ final class XmlBuilder
         }
 
         return $root->asXML();
+    }
+
+    private static function forcePairedTags(string $xml): string
+    {
+        return preg_replace('/<FLD([^>]*)\/>/', '<FLD$1></FLD>', $xml);
+    }
+
+    private static function extractAxeCode(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') return '';
+
+        $numericParts = [];
+        foreach (explode('_', $value) as $part) {
+            if (!ctype_digit($part)) break;
+            $numericParts[] = $part;
+        }
+
+        return implode('_', $numericParts);
     }
 
     private static function fld(\SimpleXMLElement $parent, string $name, string $value): void
