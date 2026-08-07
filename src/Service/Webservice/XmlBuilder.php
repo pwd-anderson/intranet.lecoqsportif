@@ -21,6 +21,10 @@ final class XmlBuilder
 
         $isExtourne   = ($entete['extourne'] ?? 'non') === 'oui';
         $dateExtourne = self::formatDate($entete['date_extourne'] ?? '');
+
+        self::fld($grp, 'HAE_RVS',    $isExtourne ? '2' : '1');
+        self::fld($grp, 'HAE_RVSDAT', $isExtourne ? $dateExtourne : '');
+
         $nbLignes = count($lignes);
 
         $tab = $root->addChild('TAB');
@@ -42,8 +46,6 @@ final class XmlBuilder
             self::fld($lin, 'DAE_AMTCUR', (string) $amtcur);
             self::fld($lin, 'DAE_TAX',    $ligne['Taxe']    ?? '');
             self::fld($lin, 'DAE_CCE1',   self::extractAxeCode($ligne['Axe'] ?? ''));
-            self::fld($lin, 'HAE_RVS',    $isExtourne ? '2' : '1');
-            self::fld($lin, 'HAE_RVSDAT', $isExtourne ? $dateExtourne : '');
         }
 
         return self::forcePairedTags($root->asXML());
