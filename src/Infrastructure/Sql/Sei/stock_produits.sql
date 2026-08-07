@@ -24,6 +24,7 @@ SELECT
     ITM.TSICOD_0 AS GENRE,
     ITM.CUSREF_0 AS CODE_DOUANIER,
     ZIC.ZCRYORI_0 AS ORIGINE,
+    PLM.CategoryName AS SOUS_CATEGORY,
     PLM.SMUCustomer,
     PLM.Division,
     PLM.ProductLineCode

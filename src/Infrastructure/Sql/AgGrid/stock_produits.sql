@@ -32,15 +32,19 @@ VALUES
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,7,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
--- ============ 3 NOUVELLES COLONNES (PLM) ============
-('stock_produits_grid','SMUCustomer','SMU CUSTOMER','string',130,1,'agTextColumnFilter',
+-- ============ 4 NOUVELLES COLONNES (PLM) ============
+('stock_produits_grid','SOUS_CATEGORY','SOUS-CATÉGORIE','string',140,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,8,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
-('stock_produits_grid','Division','DIVISION','string',120,1,'agTextColumnFilter',
+('stock_produits_grid','SMUCustomer','SMU CUSTOMER','string',130,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,9,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
+('stock_produits_grid','Division','DIVISION','string',120,1,'agTextColumnFilter',
+ JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,10,NULL,0,NULL,NULL,NULL,NULL,NULL),
+
 ('stock_produits_grid','ProductLineCode','PRODUCT LINE CODE','string',150,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,10,NULL,0,NULL,NULL,NULL,NULL,NULL);
+ NULL,NULL,1,11,NULL,0,NULL,NULL,NULL,NULL,NULL);
