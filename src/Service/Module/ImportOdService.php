@@ -43,8 +43,8 @@ final class ImportOdService
         $validAxe = [];
         if (!empty($axeValues)) {
             $in       = $this->inClause($axeValues);
-            $rows     = $this->mssqlLcs->executeQuery("SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE CAE.CCE_0 IN ($in)");
-            $validAxe = array_map(fn($r) => $r->CCE_0, $rows);
+            $rows     = $this->mssqlLcs->executeQueryAsArray("SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE CAE.CCE_0 IN ($in)");
+            $validAxe = array_column($rows, 'CCE_0');
         }
 
         // ── 2. Requête Compte : existence + flag collectif (SAC_0) ──────────
@@ -52,11 +52,11 @@ final class ImportOdService
         $compteMap    = [];
         if (!empty($compteValues)) {
             $in   = $this->inClause($compteValues);
-            $rows = $this->mssqlLcs->executeQuery(
-                "SELECT GAC.ACC_0, GAC.SAC_0 FROM X3_LCS.GACCOUNT GAC WHERE GAC.COA_0 = 'FRA' AND GAC.ACC_0 IN ($in)"
+            $rows = $this->mssqlLcs->executeQueryAsArray(
+                "SELECT GAC.ACC_0, GAC.SAC_0 FROM X3_LCS.GACCOUNT GAC WHERE GAC.ACC_0 IN ($in)"
             );
             foreach ($rows as $row) {
-                $compteMap[$row->ACC_0] = (int) $row->SAC_0;
+                $compteMap[$row['ACC_0']] = (int) $row['SAC_0'];
             }
         }
 
@@ -65,8 +65,8 @@ final class ImportOdService
         $validTiers  = [];
         if (!empty($tiersValues)) {
             $in         = $this->inClause($tiersValues);
-            $rows       = $this->mssqlLcs->executeQuery("SELECT BPR.BPRNUM_0 FROM X3_LCS.BPARTNER BPR WHERE BPR.BPRNUM_0 IN ($in)");
-            $validTiers = array_map(fn($r) => $r->BPRNUM_0, $rows);
+            $rows       = $this->mssqlLcs->executeQueryAsArray("SELECT BPR.BPRNUM_0 FROM X3_LCS.BPARTNER BPR WHERE BPR.BPRNUM_0 IN ($in)");
+            $validTiers = array_column($rows, 'BPRNUM_0');
         }
 
         // ── 4. Contrôle ligne par ligne ─────────────────────────────────────
