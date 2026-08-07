@@ -181,14 +181,14 @@
                             <table class="table table-bordered table-sm" id="lignesTable">
                                 <thead>
                                     <tr>
+                                        <th>Réf. pièce</th>
                                         <th style="width:100px">Compte</th>
+                                        <th style="width:160px">Axe analytique</th>
                                         <th style="width:100px">Tiers</th>
+                                        <th>Libellé</th>
                                         <th style="width:100px">Débit</th>
                                         <th style="width:100px">Crédit</th>
-                                        <th>Libellé</th>
-                                        <th style="width:110px">Axe 1</th>
-                                        <th style="width:110px">Axe 2</th>
-                                        <th style="width:90px">Taxe</th>
+                                        <th style="width:70px">Taxe</th>
                                         <th style="width:36px"></th>
                                     </tr>
                                 </thead>
@@ -287,9 +287,9 @@
     }
 
     function ajouterLigne(cols = []) {
-        const keys   = ['Compte', 'Tiers', 'Debit', 'Credit', 'Libelle', 'Axe1', 'Axe2', 'Taxe'];
-        const tbody  = document.querySelector('#lignesTable tbody');
-        const tr     = document.createElement('tr');
+        const keys  = ['RefPiece', 'Compte', 'Axe', 'Tiers', 'Libelle', 'Debit', 'Credit', 'Taxe'];
+        const tbody = document.querySelector('#lignesTable tbody');
+        const tr    = document.createElement('tr');
 
         keys.forEach((key, i) => {
             const td    = document.createElement('td');
@@ -319,8 +319,8 @@
 
         document.querySelectorAll('#lignesTable tbody tr').forEach(tr => {
             const inputs = tr.querySelectorAll('input');
-            debit  += parseFloat((inputs[2].value || '0').replace(',', '.')) || 0;
-            credit += parseFloat((inputs[3].value || '0').replace(',', '.')) || 0;
+            debit  += parseFloat((inputs[5].value || '0').replace(',', '.')) || 0;
+            credit += parseFloat((inputs[6].value || '0').replace(',', '.')) || 0;
         });
 
         const diff = Math.round((debit - credit) * 100) / 100;
@@ -341,14 +341,14 @@
         return Array.from(document.querySelectorAll('#lignesTable tbody tr')).map(tr => {
             const inputs = tr.querySelectorAll('input');
             return {
-                Compte:  inputs[0].value.trim(),
-                Tiers:   inputs[1].value.trim(),
-                Debit:   inputs[2].value.trim(),
-                Credit:  inputs[3].value.trim(),
-                Libelle: inputs[4].value.trim(),
-                Axe1:    inputs[5].value.trim(),
-                Axe2:    inputs[6].value.trim(),
-                Taxe:    inputs[7].value.trim(),
+                RefPiece: inputs[0].value.trim(),
+                Compte:   inputs[1].value.trim(),
+                Axe:      inputs[2].value.trim(),
+                Tiers:    inputs[3].value.trim(),
+                Libelle:  inputs[4].value.trim(),
+                Debit:    inputs[5].value.trim(),
+                Credit:   inputs[6].value.trim(),
+                Taxe:     inputs[7].value.trim(),
             };
         });
     }
@@ -422,11 +422,15 @@
                 showModal('info', `${lignes.length} ligne(s) validée(s) avec succès.`, 'Validation OK');
                 document.getElementById('genererBtn').disabled = false;
             } else {
-                const errLines = Object.entries(data.errors || {}).map(([champ, vals]) =>
-                    `<li><strong>${champ}</strong> : valeur(s) inconnue(s) → <code>${vals.join(', ')}</code></li>`
+                const errEntries = Object.entries(data.errors || {});
+                const total = errEntries.length;
+                const shown = errEntries.slice(0, 10);
+                const errLines = shown.map(([lineNum, msgs]) =>
+                    `<li><strong>Ligne ${lineNum}</strong> : ${msgs.join(' — ')}</li>`
                 ).join('');
+                const more = total > 10 ? `<p class="text-muted small mt-2 mb-0">… et ${total - 10} autre(s) erreur(s).</p>` : '';
                 showModal('warning',
-                    `Des valeurs invalides ont été détectées :<ul class="mb-0 mt-2">${errLines}</ul>`,
+                    `${total} ligne(s) en erreur :<ul class="mb-0 mt-2">${errLines}</ul>${more}`,
                     'Erreurs de validation'
                 );
             }

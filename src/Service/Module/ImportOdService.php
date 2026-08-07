@@ -29,35 +29,104 @@ final class ImportOdService
     }
 
     /**
-     * Valide les axes analytiques (CACCE) pour un lot de lignes.
-     * Retourne la liste des valeurs invalides pour chaque champ validé.
+     * Valide les lignes OD : Axe1, Compte (existence + collectif), Tiers.
+     * Retourne un tableau d'erreurs par numéro de ligne (index 0-based).
      */
     public function validateLignes(array $lignes): array
     {
-        $errors = [];
-
-        // Collecte les valeurs uniques d'Axe1 non vides
-        $axe1Values = array_values(array_unique(array_filter(
-            array_column($lignes, 'Axe1'),
-            fn($v) => $v !== '' && $v !== null
-        )));
-
+        // ── 1. Requête Axe1 ─────────────────────────────────────────────────
+        $axe1Values = $this->uniqueNonEmpty(array_column($lignes, 'Axe'));
+        $validAxe1  = [];
         if (!empty($axe1Values)) {
-            $placeholders = implode(',', array_map(fn($i) => ':axe1_' . $i, array_keys($axe1Values)));
-            $params = [];
-            foreach ($axe1Values as $i => $v) {
-                $params['axe1_' . $i] = $v;
+            [$sql, $params] = $this->inClause('CAE.CCE_0', $axe1Values, 'axe1');
+            $validAxe1 = array_column(
+                $this->mssqlLcs->executeQueryWithParams("SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE $sql", $params),
+                'CCE_0'
+            );
+        }
+
+        // ── 2. Requête Compte : existence + flag collectif (SAC_0) ──────────
+        $compteValues = $this->uniqueNonEmpty(array_column($lignes, 'Compte'));
+        $compteMap    = []; // ACC_0 => SAC_0
+        if (!empty($compteValues)) {
+            [$sql, $params] = $this->inClause('GAC.ACC_0', $compteValues, 'cpt');
+            $rows = $this->mssqlLcs->executeQueryWithParams(
+                "SELECT GAC.ACC_0, GAC.SAC_0 FROM X3_LCS.GACCOUNT GAC WHERE GAC.COA_0 = 'FRA' AND $sql",
+                $params
+            );
+            foreach ($rows as $row) {
+                $compteMap[$row['ACC_0']] = (int) $row['SAC_0'];
+            }
+        }
+
+        // ── 3. Requête Tiers ────────────────────────────────────────────────
+        $tiersValues = $this->uniqueNonEmpty(array_column($lignes, 'Tiers'));
+        $validTiers  = [];
+        if (!empty($tiersValues)) {
+            [$sql, $params] = $this->inClause('BPR.BPRNUM_0', $tiersValues, 'tiers');
+            $validTiers = array_column(
+                $this->mssqlLcs->executeQueryWithParams(
+                    "SELECT BPR.BPRNUM_0 FROM X3_LCS.BPARTNER BPR WHERE $sql",
+                    $params
+                ),
+                'BPRNUM_0'
+            );
+        }
+
+        // ── 4. Contrôle ligne par ligne ─────────────────────────────────────
+        $errors = [];
+        foreach ($lignes as $i => $ligne) {
+            $lineErrors = [];
+            $lineNum    = $i + 1;
+
+            // Axe analytique
+            $axe1 = trim($ligne['Axe'] ?? '');
+            if ($axe1 !== '' && !in_array($axe1, $validAxe1, true)) {
+                $lineErrors[] = "Axe analytique « $axe1 » inconnu";
             }
 
-            $sql = "SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE CAE.CCE_0 IN ($placeholders)";
-            $found = array_column($this->mssqlLcs->executeQueryWithParams($sql, $params), 'CCE_0');
+            // Compte
+            $compte = trim($ligne['Compte'] ?? '');
+            if ($compte === '') {
+                $lineErrors[] = 'Compte manquant';
+            } elseif (!array_key_exists($compte, $compteMap)) {
+                $lineErrors[] = "Compte « $compte » inconnu";
+            } else {
+                // Compte collectif → Tiers obligatoire
+                $tiers = trim($ligne['Tiers'] ?? '');
+                if ($compteMap[$compte] === 1) {
+                    if ($tiers === '') {
+                        $lineErrors[] = "Compte « $compte » est collectif : Tiers obligatoire";
+                    } elseif (!in_array($tiers, $validTiers, true)) {
+                        $lineErrors[] = "Tiers « $tiers » inconnu";
+                    }
+                } elseif ($tiers !== '' && !in_array($tiers, $validTiers, true)) {
+                    $lineErrors[] = "Tiers « $tiers » inconnu";
+                }
+            }
 
-            $invalid = array_values(array_diff($axe1Values, $found));
-            if (!empty($invalid)) {
-                $errors['Axe1'] = $invalid;
+            if (!empty($lineErrors)) {
+                $errors[$lineNum] = $lineErrors;
             }
         }
 
         return $errors;
+    }
+
+    private function uniqueNonEmpty(array $values): array
+    {
+        return array_values(array_unique(array_filter($values, fn($v) => $v !== '' && $v !== null)));
+    }
+
+    private function inClause(string $column, array $values, string $prefix): array
+    {
+        $params = [];
+        $placeholders = [];
+        foreach ($values as $i => $v) {
+            $key = $prefix . '_' . $i;
+            $placeholders[] = ':' . $key;
+            $params[$key]   = $v;
+        }
+        return ["{$column} IN (" . implode(',', $placeholders) . ")", $params];
     }
 }
