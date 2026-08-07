@@ -28,9 +28,11 @@
 
     {% include 'partials/_footer.html.twig' %}
     {% include 'partials/_control_sidebar.html.twig' %}
+    {% include 'partials/_modals.html.twig' %}
 </div>
 
 <script src="{{ asset('assets/js/vendors.min.js') }}"></script>
+<script src="{{ asset('assets/vendor_components/bootstrap/dist/js/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ asset('assets/js/pages/chat-popup.js') }}"></script>
 <script src="{{ asset('assets/icons/feather-icons/feather.min.js') }}"></script>
 <script src="{{ asset('assets/vendor_components/apexcharts-bundle/irregular-data-series.js') }}"></script>
@@ -39,6 +41,7 @@
 <script src="{{ asset('assets/vendor_components/jvectormap/lib2/jquery-jvectormap-world-mill-en.js') }}"></script>
 <script src="{{ asset('assets/vendor_components/chart.js-master/Chart.min.js') }}"></script>
 <script src="{{ asset('assets/js/template.js') }}"></script>
+<script src="{{ asset('assets/js/modals.js') }}"></script>
 
 {% block javascripts %}{% endblock %}
 

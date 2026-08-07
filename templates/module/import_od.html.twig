@@ -76,6 +76,17 @@
 
                 <div class="box-body">
 
+                    {# ===== LOADING ===== #}
+                    <div id="listes-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status" style="width:2rem;height:2rem;">
+                            <span class="visually-hidden">Chargement…</span>
+                        </div>
+                        <p class="text-muted small mt-2 mb-0">Chargement des listes…</p>
+                    </div>
+
+                    {# ===== CONTENU (masqué pendant le loading) ===== #}
+                    <div id="listes-content" style="display:none">
+
                     {# ===== ENTÊTE ===== #}
                     <div class="form-section">
                         <h5>Entête de la pièce</h5>
@@ -127,22 +138,15 @@
                             </div>
 
                             <div class="col-md-2">
-                                <label class="form-label small fw-semibold">BPRVCR</label>
-                                <input type="text" id="bprvcr" class="form-control form-control-sm">
-                            </div>
-
-                            <div class="col-md-2">
-                                <label class="form-label small fw-semibold">Date échéance</label>
-                                <input type="date" id="date_echeance" class="form-control form-control-sm">
-                            </div>
-
-                            <div class="col-md-2">
                                 <label class="form-label small fw-semibold">Extourne</label>
-                                <input type="text" id="extourne" class="form-control form-control-sm" placeholder="">
+                                <select id="extourne" class="form-select form-select-sm" onchange="toggleDateExtourne()">
+                                    <option value="non">Non</option>
+                                    <option value="oui">Oui</option>
+                                </select>
                             </div>
 
-                            <div class="col-md-2">
-                                <label class="form-label small fw-semibold">Date extourne</label>
+                            <div class="col-md-2" id="date-extourne-wrapper" style="display:none">
+                                <label class="form-label small fw-semibold">Date extourne <span class="text-danger">*</span></label>
                                 <input type="date" id="date_extourne" class="form-control form-control-sm">
                             </div>
 
@@ -200,6 +204,8 @@
                         <button class="btn btn-danger btn-sm" onclick="resetAll()">Reset</button>
                     </div>
 
+                    </div>{# /listes-content #}
+
                 </div>
             </div>
         </div>
@@ -211,8 +217,9 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
     <script>
-    const LISTES_URL   = '{{ listesUrl }}';
-    const GENERATE_URL = '{{ generateUrl }}';
+    const LISTES_URL    = '{{ listesUrl }}';
+    const GENERATE_URL  = '{{ generateUrl }}';
+    const VALIDATE_URL  = '{{ path('app_module_import_od_validate_lignes') }}';
 
     const tsInstances = {};
 
@@ -234,6 +241,13 @@
         return tsInstances[selectId] ? tsInstances[selectId].getValue() : document.getElementById(selectId).value;
     }
 
+    function toggleDateExtourne() {
+        const isOui = document.getElementById('extourne').value === 'oui';
+        const wrapper = document.getElementById('date-extourne-wrapper');
+        wrapper.style.display = isOui ? '' : 'none';
+        document.getElementById('date_extourne').value = isOui ? document.getElementById('date_extourne').value : '';
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         fetch(LISTES_URL)
             .then(r => r.json())
@@ -243,6 +257,13 @@
                 initTomSelect('type',    data.types);
                 initTomSelect('journal', data.journaux);
                 initTomSelect('devise',  data.devises, 'EUR');
+
+                document.getElementById('listes-loading').style.display = 'none';
+                document.getElementById('listes-content').style.display = '';
+            })
+            .catch(() => {
+                document.getElementById('listes-loading').innerHTML =
+                    '<p class="text-danger small">❌ Erreur lors du chargement des listes.</p>';
             });
     });
 
@@ -341,8 +362,6 @@
             journal:       getTsValue('journal'),
             devise:        getTsValue('devise'),
             ref:           document.getElementById('ref').value,
-            bprvcr:        document.getElementById('bprvcr').value,
-            date_echeance: document.getElementById('date_echeance').value,
             extourne:      document.getElementById('extourne').value,
             date_extourne: document.getElementById('date_extourne').value,
             libelle:       document.getElementById('libelle').value,
@@ -352,16 +371,77 @@
     // -------------------------------------------------------
     // Validation
     // -------------------------------------------------------
-    function valider() {
+    function validateEntete() {
+        const required = [
+            { id: 'societe',  label: 'Société',  ts: true },
+            { id: 'site',     label: 'Site',     ts: true },
+            { id: 'date',     label: 'Date',     ts: false },
+            { id: 'type',     label: 'Type',     ts: true },
+            { id: 'journal',  label: 'Journal',  ts: true },
+            { id: 'devise',   label: 'Devise',   ts: true },
+            { id: 'libelle',  label: 'Libellé',  ts: false },
+        ];
+
+        const manquants = required
+            .filter(f => !(f.ts ? getTsValue(f.id) : document.getElementById(f.id).value).trim())
+            .map(f => `<li>${f.label}</li>`);
+
+        if (document.getElementById('extourne').value === 'oui' && !document.getElementById('date_extourne').value.trim()) {
+            manquants.push('<li>Date extourne</li>');
+        }
+
+        if (manquants.length) {
+            showModal('warning',
+                `Les champs obligatoires suivants ne sont pas remplis :<ul class="mb-0 mt-2">${manquants.join('')}</ul>`,
+                'Champs manquants'
+            );
+            return false;
+        }
+        return true;
+    }
+
+    async function valider() {
         const lignes = getLignes();
-        if (!lignes.length) { alert('Aucune ligne à valider.'); return; }
-        // TODO : POST /module/import_od/validate
-        alert('Validation à brancher.');
+        if (!lignes.length) { showModal('warning', 'Aucune ligne à valider.'); return; }
+        if (!validateEntete()) return;
+
+        const btn = document.querySelector('button[onclick="valider()"]');
+        const originalLabel = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Validation…';
+
+        try {
+            const resp = await fetch(VALIDATE_URL, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ lignes }),
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                showModal('info', `${lignes.length} ligne(s) validée(s) avec succès.`, 'Validation OK');
+                document.getElementById('genererBtn').disabled = false;
+            } else {
+                const errLines = Object.entries(data.errors || {}).map(([champ, vals]) =>
+                    `<li><strong>${champ}</strong> : valeur(s) inconnue(s) → <code>${vals.join(', ')}</code></li>`
+                ).join('');
+                showModal('warning',
+                    `Des valeurs invalides ont été détectées :<ul class="mb-0 mt-2">${errLines}</ul>`,
+                    'Erreurs de validation'
+                );
+            }
+        } catch (e) {
+            showModal('alert', 'Erreur réseau lors de la validation : ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalLabel;
+        }
     }
 
     async function generer() {
         const lignes = getLignes();
-        if (!lignes.length) { alert('Aucune ligne à traiter.'); return; }
+        if (!lignes.length) { showModal('warning', 'Aucune ligne à traiter.'); return; }
+        if (!validateEntete()) return;
 
         const btn = document.getElementById('genererBtn');
         btn.disabled = true;
@@ -376,12 +456,12 @@
             const data = await resp.json();
 
             if (data.success) {
-                alert(`✅ ${data.message}\nLancer : symfony console app:sales:webservices:execute`);
+                showModal('info', data.message + '<br><code class="small">symfony console app:sales:webservices:execute</code>', 'Import généré');
             } else {
-                alert('❌ Erreur : ' + (data.message || 'Inconnue'));
+                showModal('alert', data.message || 'Une erreur inconnue est survenue.');
             }
         } catch (e) {
-            alert('❌ Erreur réseau : ' + e.message);
+            showModal('alert', 'Erreur réseau : ' + e.message);
         } finally {
             btn.disabled = false;
             btn.textContent = 'Générer XML';
@@ -401,8 +481,10 @@
         ['societe','site','type','journal','devise'].forEach(id => {
             if (tsInstances[id]) tsInstances[id].clear();
         });
-        ['date','date_echeance','extourne','date_extourne','ref','bprvcr','libelle']
+        ['date','date_extourne','ref','libelle']
             .forEach(id => document.getElementById(id).value = '');
+        document.getElementById('extourne').value = 'non';
+        document.getElementById('date-extourne-wrapper').style.display = 'none';
         resetLignes();
     }
     </script>
