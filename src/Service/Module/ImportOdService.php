@@ -16,7 +16,7 @@ final class ImportOdService
     public function __construct(
         private WebServiceDispatcher $dispatcher,
         MssqlManagerFactory $mssqlManagerFactory,
-        #[Autowire('%db.lcs%')]
+        #[Autowire('%db.lcs_sei%')]
         string $dbLcs,
     ) {
         $this->mssqlLcs = $mssqlManagerFactory->create($dbLcs);
@@ -44,8 +44,7 @@ final class ImportOdService
         if (!empty($axeValues)) {
             $in       = $this->inClause($axeValues);
             $rows     = $this->mssqlLcs->executeQuery("SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE CAE.CCE_0 IN ($in)");
-            $validAxe = array_map(fn($r) => (array) $r, $rows);
-            $validAxe = array_column($validAxe, 'CCE_0');
+            $validAxe = array_column(array_map(fn($r) => (array) $r, $rows), 'CCE_0');
         }
 
         // ── 2. Requête Compte : existence + flag collectif (SAC_0) ──────────
