@@ -1,0 +1,122 @@
+{# ── Modals génériques — inclus une fois dans base.html.twig ── #}
+<style>
+    .gmodal-header {
+        padding: 14px 20px;
+        border-radius: 4px 4px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .gmodal-header .modal-title {
+        font-size: 15px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #fff;
+    }
+    .gmodal-header .btn-close {
+        filter: brightness(0) invert(1);
+        opacity: .8;
+    }
+    .gmodal-header .btn-close:hover { opacity: 1; }
+
+    .gmodal-header.is-info    { background: #1976d2; }
+    .gmodal-header.is-warning { background: #f57c00; }
+    .gmodal-header.is-alert   { background: #c62828; }
+    .gmodal-header.is-confirm { background: #37474f; }
+
+    .gmodal-body {
+        padding: 20px 20px 10px;
+        font-size: 14px;
+        color: #333;
+        line-height: 1.6;
+    }
+    .gmodal-body ul { padding-left: 18px; margin-top: 6px; }
+    .gmodal-body li { margin-bottom: 3px; }
+
+    .gmodal-footer {
+        padding: 10px 20px 16px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #f0f0f0;
+    }
+</style>
+
+{# Info #}
+<div class="modal fade" id="modal-info" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="gmodal-header is-info">
+                <h6 class="modal-title">
+                    <i class="fa fa-info-circle"></i>
+                    <span id="modal-info-title">Information</span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="gmodal-body" id="modal-info-body"></div>
+            <div class="gmodal-footer">
+                <button type="button" class="btn btn-primary btn-sm px-4" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Warning #}
+<div class="modal fade" id="modal-warning" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="gmodal-header is-warning">
+                <h6 class="modal-title">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    <span id="modal-warning-title">Avertissement</span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="gmodal-body" id="modal-warning-body"></div>
+            <div class="gmodal-footer">
+                <button type="button" class="btn btn-warning btn-sm px-4 text-white" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Alert (erreur) #}
+<div class="modal fade" id="modal-alert" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="gmodal-header is-alert">
+                <h6 class="modal-title">
+                    <i class="fa fa-times-circle"></i>
+                    <span id="modal-alert-title">Erreur</span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="gmodal-body" id="modal-alert-body"></div>
+            <div class="gmodal-footer">
+                <button type="button" class="btn btn-danger btn-sm px-4" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Confirm — avec callback JS #}
+<div class="modal fade" id="modal-confirm" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="gmodal-header is-confirm">
+                <h6 class="modal-title">
+                    <i class="fa fa-question-circle"></i>
+                    <span id="modal-confirm-title">Confirmation</span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="gmodal-body" id="modal-confirm-body"></div>
+            <div class="gmodal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-4" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-dark btn-sm px-4" id="modal-confirm-ok">Confirmer</button>
+            </div>
+        </div>
+    </div>
+</div>
