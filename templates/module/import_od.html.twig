@@ -140,8 +140,8 @@
                             </div>
 
                             <div class="col-md-2">
-                                <label class="form-label small fw-semibold">Référence</label>
-                                <input type="text" id="ref" class="form-control form-control-sm">
+                                <label class="form-label small fw-semibold">BPRVCR <span class="text-danger">*</span></label>
+                                <input type="text" id="bprvcr" class="form-control form-control-sm" placeholder="Document d'origine">
                             </div>
 
                             <div class="col-md-2">
@@ -363,7 +363,7 @@
             type:          getTsValue('type'),
             journal:       getTsValue('journal'),
             devise:        getTsValue('devise'),
-            ref:           document.getElementById('ref').value,
+            bprvcr:        document.getElementById('bprvcr').value,
             extourne:      document.getElementById('extourne').value,
             date_extourne: document.getElementById('date_extourne').value,
         };
@@ -380,6 +380,7 @@
             { id: 'type',     label: 'Type',     ts: true },
             { id: 'journal',  label: 'Journal',  ts: true },
             { id: 'devise',   label: 'Devise',   ts: true },
+            { id: 'bprvcr',   label: 'Référence externe', ts: false },
         ];
 
         const manquants = required
@@ -485,7 +486,7 @@
         ['societe','site','type','journal','devise'].forEach(id => {
             if (tsInstances[id]) tsInstances[id].clear();
         });
-        ['date','date_extourne','ref']
+        ['date','date_extourne','bprvcr']
             .forEach(id => document.getElementById(id).value = '');
         document.getElementById('extourne').value = 'non';
         document.getElementById('date-extourne-wrapper').style.display = 'none';
