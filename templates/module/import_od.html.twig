@@ -201,8 +201,8 @@
 
                     {# ===== ACTIONS ===== #}
                     <div class="d-flex gap-2">
-                        <button class="btn btn-primary btn-sm" onclick="valider()">Valider</button>
-                        <button class="btn btn-success btn-sm" id="genererBtn" disabled onclick="generer()">Générer XML</button>
+                        <button class="btn btn-primary btn-sm" id="validerBtn" style="display:none" onclick="valider()">Valider</button>
+                        <button class="btn btn-success btn-sm" id="genererBtn" style="display:none" onclick="generer()">Générer XML</button>
                         <button class="btn btn-danger btn-sm" onclick="resetAll()">Reset</button>
                     </div>
 
@@ -285,7 +285,8 @@
         });
 
         updateBalance();
-        document.getElementById('genererBtn').disabled = false;
+        document.getElementById('validerBtn').style.display = '';
+        document.getElementById('genererBtn').style.display = 'none';
     }
 
     function ajouterLigne(cols = []) {
@@ -421,7 +422,7 @@
 
             if (data.success) {
                 showModal('info', `${lignes.length} ligne(s) validée(s) avec succès.`, 'Validation OK');
-                document.getElementById('genererBtn').disabled = false;
+                document.getElementById('genererBtn').style.display = '';
             } else {
                 const errEntries = Object.entries(data.errors || {});
                 const total = errEntries.length;
@@ -480,6 +481,8 @@
         document.getElementById('pasteZone').innerHTML = '';
         document.querySelector('#lignesTable tbody').innerHTML = '';
         document.getElementById('balanceInfo').innerHTML = '';
+        document.getElementById('validerBtn').style.display = 'none';
+        document.getElementById('genererBtn').style.display = 'none';
     }
 
     function resetAll() {
