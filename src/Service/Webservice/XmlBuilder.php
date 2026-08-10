@@ -18,6 +18,11 @@ final class XmlBuilder
         self::fld($grp, 'HAE_BPRVCR', $entete['bprvcr'] ?? '');
         self::fld($grp, 'HAE_CUR',    $entete['devise'] ?? '');
 
+        $isExtourne   = ($entete['extourne'] ?? 'non') === 'oui';
+        $dateExtourne = self::formatDate($entete['date_extourne'] ?? '');
+        self::fld($grp, 'HAE_RVS',    $isExtourne ? '2' : '1');
+        self::fld($grp, 'HAE_RVSDAT', $isExtourne ? $dateExtourne : '');
+
         $nbLignes = count($lignes);
 
         $tab = $root->addChild('TAB');
