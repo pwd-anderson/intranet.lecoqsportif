@@ -16,11 +16,26 @@ final class ImportOdController extends AbstractController
     {
         return $this->render('module/import_od.html.twig', [
             'title'       => 'Import OD',
-            'societesUrl' => $this->generateUrl('divers_societes_json'),
-            'typesUrl'    => $this->generateUrl('divers_types_accent_json'),
-            'journauxUrl' => $this->generateUrl('divers_journaux_json'),
-            'devisesUrl'  => $this->generateUrl('divers_devises_json'),
+            'listesUrl'   => $this->generateUrl('divers_import_od_listes_json'),
             'generateUrl' => $this->generateUrl('app_module_import_od_generate'),
+        ]);
+    }
+
+    #[Route('/module/import_od/validate-lignes', name: 'app_module_import_od_validate_lignes', methods: ['POST'])]
+    public function validateLignes(Request $request, ImportOdService $service): JsonResponse
+    {
+        $body   = json_decode($request->getContent(), true);
+        $lignes = $body['lignes'] ?? [];
+
+        if (empty($lignes)) {
+            return new JsonResponse(['success' => false, 'message' => 'Aucune ligne à valider.'], 400);
+        }
+
+        $errors = $service->validateLignes($lignes);
+
+        return new JsonResponse([
+            'success' => empty($errors),
+            'errors'  => $errors,
         ]);
     }
 
@@ -35,12 +50,13 @@ final class ImportOdController extends AbstractController
             return new JsonResponse(['success' => false, 'message' => 'Aucune ligne à traiter.'], 400);
         }
 
-        $ws = $service->generate($entete, $lignes);
+        $result = $service->generate($entete, $lignes);
 
         return new JsonResponse([
-            'success' => true,
-            'id'      => $ws->getId(),
-            'message' => sprintf('%d ligne(s) mise(s) en file d\'attente.', count($lignes)),
+            'success'       => true,
+            'erpDocumentId' => $result['erpDocumentId'],
+            'message'       => $result['message'],
+            'nbLignes'      => count($lignes),
         ]);
     }
 }

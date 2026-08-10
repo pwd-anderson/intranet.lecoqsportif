@@ -21,6 +21,8 @@
         }
         .paste-zone {
             min-height: 80px;
+            max-height: 150px;
+            overflow: auto;
             border: 2px dashed #adb5bd;
             border-radius: 6px;
             padding: 10px 12px;
@@ -28,6 +30,8 @@
             cursor: text;
             font-size: 13px;
             color: #555;
+            white-space: pre;
+            word-break: keep-all;
         }
         .paste-zone:focus {
             outline: none;
@@ -43,6 +47,9 @@
             font-size: 13px;
             font-weight: 500;
             white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 1;
         }
         #lignesTable td { padding: 3px 4px; }
         #lignesTable td input {
@@ -76,6 +83,17 @@
 
                 <div class="box-body">
 
+                    {# ===== LOADING ===== #}
+                    <div id="listes-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status" style="width:2rem;height:2rem;">
+                            <span class="visually-hidden">Chargement…</span>
+                        </div>
+                        <p class="text-muted small mt-2 mb-0">Chargement des listes…</p>
+                    </div>
+
+                    {# ===== CONTENU (masqué pendant le loading) ===== #}
+                    <div id="listes-content" style="display:none">
+
                     {# ===== ENTÊTE ===== #}
                     <div class="form-section">
                         <h5>Entête de la pièce</h5>
@@ -84,6 +102,13 @@
                             <div class="col-md-2">
                                 <label class="form-label small fw-semibold">Société <span class="text-danger">*</span></label>
                                 <select id="societe" class="form-select form-select-sm">
+                                    <option value="">-- Choisir --</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Site <span class="text-danger">*</span></label>
+                                <select id="site" class="form-select form-select-sm">
                                     <option value="">-- Choisir --</option>
                                 </select>
                             </div>
@@ -115,33 +140,21 @@
                             </div>
 
                             <div class="col-md-2">
-                                <label class="form-label small fw-semibold">Référence</label>
-                                <input type="text" id="ref" class="form-control form-control-sm">
-                            </div>
-
-                            <div class="col-md-2">
-                                <label class="form-label small fw-semibold">BPRVCR</label>
-                                <input type="text" id="bprvcr" class="form-control form-control-sm">
-                            </div>
-
-                            <div class="col-md-2">
-                                <label class="form-label small fw-semibold">Date échéance</label>
-                                <input type="date" id="date_echeance" class="form-control form-control-sm">
+                                <label class="form-label small fw-semibold">BPRVCR <span class="text-danger">*</span></label>
+                                <input type="text" id="bprvcr" class="form-control form-control-sm" placeholder="Document d'origine">
                             </div>
 
                             <div class="col-md-2">
                                 <label class="form-label small fw-semibold">Extourne</label>
-                                <input type="text" id="extourne" class="form-control form-control-sm" placeholder="">
+                                <select id="extourne" class="form-select form-select-sm" onchange="toggleDateExtourne()">
+                                    <option value="non">Non</option>
+                                    <option value="oui">Oui</option>
+                                </select>
                             </div>
 
-                            <div class="col-md-2">
-                                <label class="form-label small fw-semibold">Date extourne</label>
+                            <div class="col-md-2" id="date-extourne-wrapper" style="display:none">
+                                <label class="form-label small fw-semibold">Date extourne <span class="text-danger">*</span></label>
                                 <input type="date" id="date_extourne" class="form-control form-control-sm">
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label small fw-semibold">Libellé <span class="text-danger">*</span></label>
-                                <input type="text" id="libelle" class="form-control form-control-sm" placeholder="Libellé de la pièce">
                             </div>
 
                         </div>
@@ -166,18 +179,18 @@
                             <span id="balanceInfo" class="ms-3 small"></span>
                         </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-sm" id="lignesTable">
+                        <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
+                            <table class="table table-bordered table-sm" id="lignesTable" style="margin-bottom:0; min-width:900px;">
                                 <thead>
                                     <tr>
+                                        <th>Réf. pièce</th>
                                         <th style="width:100px">Compte</th>
+                                        <th style="width:160px">Axe analytique</th>
                                         <th style="width:100px">Tiers</th>
+                                        <th>Libellé</th>
                                         <th style="width:100px">Débit</th>
                                         <th style="width:100px">Crédit</th>
-                                        <th>Libellé</th>
-                                        <th style="width:110px">Axe 1</th>
-                                        <th style="width:110px">Axe 2</th>
-                                        <th style="width:90px">Taxe</th>
+                                        <th style="width:70px">Taxe</th>
                                         <th style="width:36px"></th>
                                     </tr>
                                 </thead>
@@ -188,10 +201,12 @@
 
                     {# ===== ACTIONS ===== #}
                     <div class="d-flex gap-2">
-                        <button class="btn btn-primary btn-sm" onclick="valider()">Valider</button>
-                        <button class="btn btn-success btn-sm" id="genererBtn" disabled onclick="generer()">Générer XML</button>
+                        <button class="btn btn-primary btn-sm" id="validerBtn" style="display:none" onclick="valider()">Valider</button>
+                        <button class="btn btn-success btn-sm" id="genererBtn" style="display:none" onclick="confirmerImport()">Importer</button>
                         <button class="btn btn-danger btn-sm" onclick="resetAll()">Reset</button>
                     </div>
+
+                    </div>{# /listes-content #}
 
                 </div>
             </div>
@@ -204,38 +219,54 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
     <script>
-    const SOCIETES_URL = '{{ societesUrl }}';
-    const TYPES_URL    = '{{ typesUrl }}';
-    const JOURNAUX_URL = '{{ journauxUrl }}';
-    const DEVISES_URL  = '{{ devisesUrl }}';
-    const GENERATE_URL = '{{ generateUrl }}';
+    const LISTES_URL    = '{{ listesUrl }}';
+    const GENERATE_URL  = '{{ generateUrl }}';
+    const VALIDATE_URL  = '{{ path('app_module_import_od_validate_lignes') }}';
 
-    function initTomSelect(selectId, url, defaultValue = null) {
+    const tsInstances = {};
+
+    function initTomSelect(selectId, values, defaultValue = null) {
         const ts = new TomSelect('#' + selectId, {
             valueField: 'v',
             labelField: 'v',
             searchField: 'v',
-            options: [],
+            options: values.map(v => ({ v })),
             placeholder: '-- Choisir --',
             maxOptions: 1000,
         });
-
-        fetch(url)
-            .then(r => r.json())
-            .then(values => {
-                const opts = values.map(v => ({ v }));
-                ts.addOptions(opts);
-                if (defaultValue) ts.setValue(defaultValue);
-            });
-
+        if (defaultValue) ts.setValue(defaultValue);
+        tsInstances[selectId] = ts;
         return ts;
     }
 
+    function getTsValue(selectId) {
+        return tsInstances[selectId] ? tsInstances[selectId].getValue() : document.getElementById(selectId).value;
+    }
+
+    function toggleDateExtourne() {
+        const isOui = document.getElementById('extourne').value === 'oui';
+        const wrapper = document.getElementById('date-extourne-wrapper');
+        wrapper.style.display = isOui ? '' : 'none';
+        document.getElementById('date_extourne').value = isOui ? document.getElementById('date_extourne').value : '';
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        initTomSelect('societe', SOCIETES_URL);
-        initTomSelect('type',    TYPES_URL);
-        initTomSelect('journal', JOURNAUX_URL);
-        initTomSelect('devise',  DEVISES_URL, 'EUR');
+        fetch(LISTES_URL)
+            .then(r => r.json())
+            .then(data => {
+                initTomSelect('societe', data.societes);
+                initTomSelect('site',    data.sites);
+                initTomSelect('type',    data.types);
+                initTomSelect('journal', data.journaux);
+                initTomSelect('devise',  data.devises, 'EUR');
+
+                document.getElementById('listes-loading').style.display = 'none';
+                document.getElementById('listes-content').style.display = '';
+            })
+            .catch(() => {
+                document.getElementById('listes-loading').innerHTML =
+                    '<p class="text-danger small">❌ Erreur lors du chargement des listes.</p>';
+            });
     });
 
     // -------------------------------------------------------
@@ -254,13 +285,14 @@
         });
 
         updateBalance();
-        document.getElementById('genererBtn').disabled = false;
+        document.getElementById('validerBtn').style.display = '';
+        document.getElementById('genererBtn').style.display = 'none';
     }
 
     function ajouterLigne(cols = []) {
-        const keys   = ['Compte', 'Tiers', 'Debit', 'Credit', 'Libelle', 'Axe1', 'Axe2', 'Taxe'];
-        const tbody  = document.querySelector('#lignesTable tbody');
-        const tr     = document.createElement('tr');
+        const keys  = ['RefPiece', 'Compte', 'Axe', 'Tiers', 'Libelle', 'Debit', 'Credit', 'Taxe'];
+        const tbody = document.querySelector('#lignesTable tbody');
+        const tr    = document.createElement('tr');
 
         keys.forEach((key, i) => {
             const td    = document.createElement('td');
@@ -290,8 +322,8 @@
 
         document.querySelectorAll('#lignesTable tbody tr').forEach(tr => {
             const inputs = tr.querySelectorAll('input');
-            debit  += parseFloat((inputs[2].value || '0').replace(',', '.')) || 0;
-            credit += parseFloat((inputs[3].value || '0').replace(',', '.')) || 0;
+            debit  += parseFloat((inputs[5].value || '0').replace(',', '.')) || 0;
+            credit += parseFloat((inputs[6].value || '0').replace(',', '.')) || 0;
         });
 
         const diff = Math.round((debit - credit) * 100) / 100;
@@ -312,51 +344,124 @@
         return Array.from(document.querySelectorAll('#lignesTable tbody tr')).map(tr => {
             const inputs = tr.querySelectorAll('input');
             return {
-                Compte:  inputs[0].value.trim(),
-                Tiers:   inputs[1].value.trim(),
-                Debit:   inputs[2].value.trim(),
-                Credit:  inputs[3].value.trim(),
-                Libelle: inputs[4].value.trim(),
-                Axe1:    inputs[5].value.trim(),
-                Axe2:    inputs[6].value.trim(),
-                Taxe:    inputs[7].value.trim(),
+                RefPiece: inputs[0].value.trim(),
+                Compte:   inputs[1].value.trim(),
+                Axe:      inputs[2].value.trim(),
+                Tiers:    inputs[3].value.trim(),
+                Libelle:  inputs[4].value.trim(),
+                Debit:    inputs[5].value.trim(),
+                Credit:   inputs[6].value.trim(),
+                Taxe:     inputs[7].value.trim(),
             };
         });
     }
 
     function getEntete() {
         return {
-            societe:       document.getElementById('societe').value,
+            societe:       getTsValue('societe'),
+            site:          getTsValue('site'),
             date:          document.getElementById('date').value,
-            type:          document.getElementById('type').value,
-            journal:       document.getElementById('journal').value,
-            devise:        document.getElementById('devise').value,
-            ref:           document.getElementById('ref').value,
+            type:          getTsValue('type'),
+            journal:       getTsValue('journal'),
+            devise:        getTsValue('devise'),
             bprvcr:        document.getElementById('bprvcr').value,
-            date_echeance: document.getElementById('date_echeance').value,
             extourne:      document.getElementById('extourne').value,
             date_extourne: document.getElementById('date_extourne').value,
-            libelle:       document.getElementById('libelle').value,
         };
     }
 
     // -------------------------------------------------------
     // Validation
     // -------------------------------------------------------
-    function valider() {
+    function validateEntete() {
+        const required = [
+            { id: 'societe',  label: 'Société',  ts: true },
+            { id: 'site',     label: 'Site',     ts: true },
+            { id: 'date',     label: 'Date',     ts: false },
+            { id: 'type',     label: 'Type',     ts: true },
+            { id: 'journal',  label: 'Journal',  ts: true },
+            { id: 'devise',   label: 'Devise',   ts: true },
+            { id: 'bprvcr',   label: 'Référence externe', ts: false },
+        ];
+
+        const manquants = required
+            .filter(f => !(f.ts ? getTsValue(f.id) : document.getElementById(f.id).value).trim())
+            .map(f => `<li>${f.label}</li>`);
+
+        if (document.getElementById('extourne').value === 'oui' && !document.getElementById('date_extourne').value.trim()) {
+            manquants.push('<li>Date extourne</li>');
+        }
+
+        if (manquants.length) {
+            showModal('warning',
+                `Les champs obligatoires suivants ne sont pas remplis :<ul class="mb-0 mt-2">${manquants.join('')}</ul>`,
+                'Champs manquants'
+            );
+            return false;
+        }
+        return true;
+    }
+
+    async function valider() {
         const lignes = getLignes();
-        if (!lignes.length) { alert('Aucune ligne à valider.'); return; }
-        // TODO : POST /module/import_od/validate
-        alert('Validation à brancher.');
+        if (!lignes.length) { showModal('warning', 'Aucune ligne à valider.'); return; }
+        if (!validateEntete()) return;
+
+        const btn = document.querySelector('button[onclick="valider()"]');
+        const originalLabel = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Validation…';
+
+        try {
+            const resp = await fetch(VALIDATE_URL, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ lignes }),
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                showModal('info', `${lignes.length} ligne(s) validée(s) avec succès.`, 'Validation OK');
+                document.getElementById('genererBtn').style.display = '';
+            } else {
+                const errEntries = Object.entries(data.errors || {});
+                const total = errEntries.length;
+                const shown = errEntries.slice(0, 10);
+                const errLines = shown.map(([lineNum, msgs]) =>
+                    `<li><strong>Ligne ${lineNum}</strong> : ${msgs.join(' — ')}</li>`
+                ).join('');
+                const more = total > 10 ? `<p class="text-muted small mt-2 mb-0">… et ${total - 10} autre(s) erreur(s).</p>` : '';
+                showModal('warning',
+                    `${total} ligne(s) en erreur :<ul class="mb-0 mt-2">${errLines}</ul>${more}`,
+                    'Erreurs de validation'
+                );
+            }
+        } catch (e) {
+            showModal('alert', 'Erreur réseau lors de la validation : ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalLabel;
+        }
+    }
+
+    function confirmerImport() {
+        const lignes = getLignes();
+        if (!lignes.length) { showModal('warning', 'Aucune ligne à traiter.'); return; }
+        if (!validateEntete()) return;
+
+        confirmModal(
+            `Vous êtes sur le point d'importer <strong>${lignes.length} ligne(s)</strong> dans Sage X3.<br>Cette action est irréversible.`,
+            () => generer(),
+            'Confirmer l\'import'
+        );
     }
 
     async function generer() {
         const lignes = getLignes();
-        if (!lignes.length) { alert('Aucune ligne à traiter.'); return; }
+        const btn    = document.getElementById('genererBtn');
 
-        const btn = document.getElementById('genererBtn');
         btn.disabled = true;
-        btn.textContent = 'Envoi en cours…';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Import en cours…';
 
         try {
             const resp = await fetch(GENERATE_URL, {
@@ -367,15 +472,59 @@
             const data = await resp.json();
 
             if (data.success) {
-                alert(`✅ ${data.message}\nLancer : symfony console app:sales:webservices:execute`);
+                if (data.erpDocumentId) {
+                    showModal('info',
+                        `<div class="d-flex align-items-center gap-3">
+                            <i class="fa fa-check-circle fa-2x text-success"></i>
+                            <div>
+                                <div class="fw-semibold">${data.nbLignes} ligne(s) importée(s) avec succès.</div>
+                                <div class="mt-1">Pièce Sage X3 créée : <code class="fs-6">${data.erpDocumentId}</code></div>
+                            </div>
+                        </div>`,
+                        'Import réussi'
+                    );
+                    resetAll();
+                } else {
+                    const msg = data.message
+                        ? data.message.replace(/\n/g, '<br>')
+                        : 'La pièce n\'a pas pu être créée dans Sage X3.';
+                    showModal('warning',
+                        `<div class="d-flex align-items-start gap-3">
+                            <i class="fa fa-exclamation-triangle fa-2x text-warning mt-1"></i>
+                            <div>
+                                <div class="fw-semibold mb-1">Import transmis, mais aucune pièce créée.</div>
+                                <div class="text-muted small">${msg}</div>
+                            </div>
+                        </div>`,
+                        'Import en attente'
+                    );
+                }
             } else {
-                alert('❌ Erreur : ' + (data.message || 'Inconnue'));
+                showModal('alert',
+                    `<div class="d-flex align-items-start gap-3">
+                        <i class="fa fa-times-circle fa-2x text-danger mt-1"></i>
+                        <div>
+                            <div class="fw-semibold mb-1">Erreur lors de l'import.</div>
+                            <div class="text-muted small">${data.message || 'Une erreur inconnue est survenue.'}</div>
+                        </div>
+                    </div>`,
+                    'Erreur d\'import'
+                );
             }
         } catch (e) {
-            alert('❌ Erreur réseau : ' + e.message);
+            showModal('alert',
+                `<div class="d-flex align-items-start gap-3">
+                    <i class="fa fa-times-circle fa-2x text-danger mt-1"></i>
+                    <div>
+                        <div class="fw-semibold mb-1">Erreur réseau.</div>
+                        <div class="text-muted small">${e.message}</div>
+                    </div>
+                </div>`,
+                'Erreur réseau'
+            );
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Générer XML';
+            btn.innerHTML = 'Importer';
         }
     }
 
@@ -386,15 +535,18 @@
         document.getElementById('pasteZone').innerHTML = '';
         document.querySelector('#lignesTable tbody').innerHTML = '';
         document.getElementById('balanceInfo').innerHTML = '';
+        document.getElementById('validerBtn').style.display = 'none';
+        document.getElementById('genererBtn').style.display = 'none';
     }
 
     function resetAll() {
-        ['societe','type','journal','devise'].forEach(id => {
-            const ts = TomSelect.getInstance(document.getElementById(id));
-            if (ts) ts.clear();
+        ['societe','site','type','journal','devise'].forEach(id => {
+            if (tsInstances[id]) tsInstances[id].clear();
         });
-        ['date','date_echeance','extourne','date_extourne','ref','bprvcr','libelle']
+        ['date','date_extourne','bprvcr']
             .forEach(id => document.getElementById(id).value = '');
+        document.getElementById('extourne').value = 'non';
+        document.getElementById('date-extourne-wrapper').style.display = 'none';
         resetLignes();
     }
     </script>
