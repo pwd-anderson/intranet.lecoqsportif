@@ -96,7 +96,7 @@ final class ImportOdService
                 $lineErrors[] = "Compte « $compte » inconnu";
             } else {
                 $tiers = trim($ligne['Tiers'] ?? '');
-                if ($compteMap[$compte] === 1) {
+                if ($compteMap[$compte] === 2) {
                     if ($tiers === '') {
                         $lineErrors[] = "Compte « $compte » est collectif : Tiers obligatoire";
                     } elseif (!in_array($tiers, $validTiers, true)) {
