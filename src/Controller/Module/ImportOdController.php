@@ -50,12 +50,13 @@ final class ImportOdController extends AbstractController
             return new JsonResponse(['success' => false, 'message' => 'Aucune ligne à traiter.'], 400);
         }
 
-        $ws = $service->generate($entete, $lignes);
+        $result = $service->generate($entete, $lignes);
 
         return new JsonResponse([
-            'success' => true,
-            'id'      => $ws->getId(),
-            'message' => sprintf('%d ligne(s) mise(s) en file d\'attente.', count($lignes)),
+            'success'       => true,
+            'erpDocumentId' => $result['erpDocumentId'],
+            'message'       => $result['message'],
+            'nbLignes'      => count($lignes),
         ]);
     }
 }

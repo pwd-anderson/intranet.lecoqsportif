@@ -5,8 +5,10 @@ namespace App\Service\Module;
 use App\Entity\SalesWebService;
 use App\Factory\MssqlManagerFactory;
 use App\Service\Tools\MssqlManager;
+use App\Service\Webservice\SageX3Client;
 use App\Service\Webservice\WebServiceDispatcher;
 use App\Service\Webservice\XmlBuilder;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final class ImportOdService
@@ -15,6 +17,8 @@ final class ImportOdService
 
     public function __construct(
         private WebServiceDispatcher $dispatcher,
+        private SageX3Client $sageClient,
+        private EntityManagerInterface $em,
         MssqlManagerFactory $mssqlManagerFactory,
         #[Autowire('%db.lcs_sei%')]
         string $dbLcs,
@@ -22,10 +26,54 @@ final class ImportOdService
         $this->mssqlLcs = $mssqlManagerFactory->create($dbLcs);
     }
 
-    public function generate(array $entete, array $lignes): SalesWebService
+    /**
+     * Génère le XML, appelle X3 immédiatement et retourne le résultat.
+     * Retourne ['erpDocumentId' => string|null, 'message' => string]
+     */
+    public function generate(array $entete, array $lignes): array
     {
         $xml = XmlBuilder::buildOD($entete, $lignes);
-        return $this->dispatcher->dispatch('ZWSIMPOD', $xml);
+
+        $ws = new SalesWebService();
+        $ws->setName('ZWSIMPOD');
+        $ws->setParameter($xml);
+        $this->em->persist($ws);
+
+        $erpDocumentId = null;
+        $message       = '';
+
+        try {
+            $result = $this->sageClient->run('ZWSIMPOD', $xml);
+
+            if (isset($result->resultXml)) {
+                $ws->setResult($result->resultXml);
+                $xml = simplexml_load_string($result->resultXml);
+                if ($xml instanceof \SimpleXMLElement) {
+                    $docId = (string) ($xml->GRP[1]?->FLD ?? '');
+                    if ($docId !== '') {
+                        $erpDocumentId = $docId;
+                        $ws->setErpDocumentId($docId);
+                    }
+                }
+            }
+
+            if (isset($result->messages)) {
+                $messages = array_map(fn($m) => $m->message, (array) $result->messages);
+                $message  = implode("\n", $messages);
+                $ws->setMessage($message);
+            }
+
+            $ws->setExecuted(true);
+
+        } catch (\Throwable $e) {
+            $message = $e->getMessage();
+            $ws->setMessage($message);
+        }
+
+        $ws->setUpdatedAt(new \DateTime());
+        $this->em->flush();
+
+        return ['erpDocumentId' => $erpDocumentId, 'message' => $message];
     }
 
     /**

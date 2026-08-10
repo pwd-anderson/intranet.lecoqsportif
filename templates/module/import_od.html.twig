@@ -202,7 +202,7 @@
                     {# ===== ACTIONS ===== #}
                     <div class="d-flex gap-2">
                         <button class="btn btn-primary btn-sm" id="validerBtn" style="display:none" onclick="valider()">Valider</button>
-                        <button class="btn btn-success btn-sm" id="genererBtn" style="display:none" onclick="generer()">Générer XML</button>
+                        <button class="btn btn-success btn-sm" id="genererBtn" style="display:none" onclick="confirmerImport()">Importer</button>
                         <button class="btn btn-danger btn-sm" onclick="resetAll()">Reset</button>
                     </div>
 
@@ -444,14 +444,24 @@
         }
     }
 
-    async function generer() {
+    function confirmerImport() {
         const lignes = getLignes();
         if (!lignes.length) { showModal('warning', 'Aucune ligne à traiter.'); return; }
         if (!validateEntete()) return;
 
-        const btn = document.getElementById('genererBtn');
+        confirmModal(
+            `Vous êtes sur le point d'importer <strong>${lignes.length} ligne(s)</strong> dans Sage X3.<br>Cette action est irréversible.`,
+            () => generer(),
+            'Confirmer l\'import'
+        );
+    }
+
+    async function generer() {
+        const lignes = getLignes();
+        const btn    = document.getElementById('genererBtn');
+
         btn.disabled = true;
-        btn.textContent = 'Envoi en cours…';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Import en cours…';
 
         try {
             const resp = await fetch(GENERATE_URL, {
@@ -462,15 +472,59 @@
             const data = await resp.json();
 
             if (data.success) {
-                showModal('info', data.message + '<br><code class="small">symfony console app:sales:webservices:execute</code>', 'Import généré');
+                if (data.erpDocumentId) {
+                    showModal('info',
+                        `<div class="d-flex align-items-center gap-3">
+                            <i class="fa fa-check-circle fa-2x text-success"></i>
+                            <div>
+                                <div class="fw-semibold">${data.nbLignes} ligne(s) importée(s) avec succès.</div>
+                                <div class="mt-1">Pièce Sage X3 créée : <code class="fs-6">${data.erpDocumentId}</code></div>
+                            </div>
+                        </div>`,
+                        'Import réussi'
+                    );
+                    resetAll();
+                } else {
+                    const msg = data.message
+                        ? data.message.replace(/\n/g, '<br>')
+                        : 'La pièce n\'a pas pu être créée dans Sage X3.';
+                    showModal('warning',
+                        `<div class="d-flex align-items-start gap-3">
+                            <i class="fa fa-exclamation-triangle fa-2x text-warning mt-1"></i>
+                            <div>
+                                <div class="fw-semibold mb-1">Import transmis, mais aucune pièce créée.</div>
+                                <div class="text-muted small">${msg}</div>
+                            </div>
+                        </div>`,
+                        'Import en attente'
+                    );
+                }
             } else {
-                showModal('alert', data.message || 'Une erreur inconnue est survenue.');
+                showModal('alert',
+                    `<div class="d-flex align-items-start gap-3">
+                        <i class="fa fa-times-circle fa-2x text-danger mt-1"></i>
+                        <div>
+                            <div class="fw-semibold mb-1">Erreur lors de l'import.</div>
+                            <div class="text-muted small">${data.message || 'Une erreur inconnue est survenue.'}</div>
+                        </div>
+                    </div>`,
+                    'Erreur d\'import'
+                );
             }
         } catch (e) {
-            showModal('alert', 'Erreur réseau : ' + e.message);
+            showModal('alert',
+                `<div class="d-flex align-items-start gap-3">
+                    <i class="fa fa-times-circle fa-2x text-danger mt-1"></i>
+                    <div>
+                        <div class="fw-semibold mb-1">Erreur réseau.</div>
+                        <div class="text-muted small">${e.message}</div>
+                    </div>
+                </div>`,
+                'Erreur réseau'
+            );
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Générer XML';
+            btn.innerHTML = 'Importer';
         }
     }
 
