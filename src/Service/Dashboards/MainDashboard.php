@@ -636,23 +636,21 @@ class MainDashboard
     private function buildEcomGroupWhere(string $group, string $alias = ''): string
     {
         $p = fn(string $c) => $alias ? "$alias.$c" : $c;
-        $aggYear   = $this->table('INTRANET_SALES_AGG_YEAR');
-        $amazonSub = "SELECT DISTINCT customer_no FROM {$aggYear} WHERE UPPER(customer_name) LIKE '%AMAZON%' AND customer_no IS NOT NULL";
 
         return match ($group) {
             'lcs_shop'      => " AND {$p('mainnetwork')} IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
             'amazon_vendor' => " AND {$p('reportingdimension')} LIKE '%WHOLESALE%'"
                              . " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
-                             . " AND {$p('customer_no')} IN ({$amazonSub})",
+                             . " AND UPPER({$p('customer_name')}) LIKE '%AMAZON%'",
             'amazon_seller' => " AND {$p('mainnetwork')} IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE')"
-                             . " AND {$p('customer_no')} IN ({$amazonSub})",
+                             . " AND UPPER({$p('customer_name')}) LIKE '%AMAZON%'",
             'autres_web'    => " AND (("
                              .     "{$p('reportingdimension')} LIKE '%WHOLESALE%'"
                              .     " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
-                             .     " AND {$p('customer_no')} NOT IN ({$amazonSub})"
+                             .     " AND UPPER({$p('customer_name')}) NOT LIKE '%AMAZON%'"
                              . ") OR ("
                              .     "{$p('mainnetwork')} IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE')"
-                             .     " AND {$p('customer_no')} NOT IN ({$amazonSub})"
+                             .     " AND UPPER({$p('customer_name')}) NOT LIKE '%AMAZON%'"
                              . "))",
             default         => '',
         };
@@ -775,15 +773,13 @@ class MainDashboard
     {
         try {
             $table    = $this->table('INTRANET_SALES_AGG_YEAR');
-            $aggYear  = $table;
-            $amazonSub = "SELECT DISTINCT customer_no FROM {$aggYear} WHERE UPPER(customer_name) LIKE '%AMAZON%' AND customer_no IS NOT NULL";
 
             $groupWhere = match ($group) {
                 'global'        => $this->buildNetworkWhereClause('ecom'),
                 'lcs_shop'      => " AND mainnetwork IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
-                'amazon_vendor' => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND customer_no IN ({$amazonSub})",
-                'amazon_seller' => " AND mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND customer_no IN ({$amazonSub})",
-                'autres_web'    => " AND ((reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND customer_no NOT IN ({$amazonSub})) OR (mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND customer_no NOT IN ({$amazonSub})))",
+                'amazon_vendor' => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) LIKE '%AMAZON%'",
+                'amazon_seller' => " AND mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND UPPER(customer_name) LIKE '%AMAZON%'",
+                'autres_web'    => " AND ((reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) NOT LIKE '%AMAZON%') OR (mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND UPPER(customer_name) NOT LIKE '%AMAZON%'))",
                 default         => ' AND 1=0',
             };
 
@@ -960,7 +956,7 @@ class MainDashboard
             $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
             $insertQuery = "
-        INSERT INTO {$table} (date, annee, mois, jour, ca, mainnetwork, reportingdimension, distributionchannel, customer_no)
+        INSERT INTO {$table} (date, annee, mois, jour, ca, mainnetwork, reportingdimension, distributionchannel, customer_no, customer_name)
 
         SELECT
             CAST(I.DOCUMENTPOSTINGDATE AS DATE) AS [date],
@@ -971,7 +967,8 @@ class MainDashboard
             CUST.MAINNETWORK,
             CUST.REPORTINGDIMENSION,
             CUST.DISTRIBUTIONCHANNEL,
-            I.CUSTOMERNO                        AS customer_no
+            I.CUSTOMERNO                        AS customer_no,
+            CUST.CUSTOMER_NAME                  AS customer_name
 
         FROM SEI_X3_LCS.CONSO_INVOICES I
 
@@ -999,7 +996,8 @@ class MainDashboard
             CUST.MAINNETWORK,
             CUST.REPORTINGDIMENSION,
             CUST.DISTRIBUTIONCHANNEL,
-            I.CUSTOMERNO
+            I.CUSTOMERNO,
+            CUST.CUSTOMER_NAME
 
         ORDER BY [date];";
 
@@ -1089,6 +1087,9 @@ class MainDashboard
     public function refreshAllSalesCubes(): array
     {
         return [
+            'Cube CA mensuel'          => $this->refreshSalesAggMonth(),
+            'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
+            'Cube ventes journalières' => $this->refreshSalesDaily(),
             'Cube backlog client'      => $this->refreshBacklogClient(),
         ];
     }
