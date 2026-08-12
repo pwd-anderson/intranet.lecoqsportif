@@ -213,6 +213,18 @@ function asciiFr(s) {
 // =============================================================================
 // GÉNÉRATION ZPL (102x102mm, layout identique au module standalone)
 // =============================================================================
+function computeSizeFontSize(text) {
+    const len = Math.max(1, String(text || "").length);
+    const MAX_FONT = 90;
+    const MIN_FONT = 16;
+    const BOX_WIDTH = 170;
+    const CHAR_WIDTH_FACTOR = 0.62;
+    let fontSize = Math.floor(BOX_WIDTH / (len * CHAR_WIDTH_FACTOR));
+    fontSize = Math.min(fontSize, MAX_FONT);
+    fontSize = Math.max(fontSize, MIN_FONT);
+    return fontSize;
+}
+
 function buildZpl(otb, sku, taille, qty, itemName) {
     otb      = zplSafe(otb);
     sku      = asciiFr(sku);
@@ -245,7 +257,17 @@ function buildZpl(otb, sku, taille, qty, itemName) {
     z.push("^FO89,259^A0N,20,20^FDItem Name^FS");
     z.push(`^FO89,284^FB460,2,0,L,0^A0N,26,26^FD${itemName}^FS`);
     z.push("^FO569,174^FB178,1,0,C,0^A0N,20,20^FDSize^FS");
-    z.push(`^FO580,214^FB178,1,0,C,0^A0N,90,90^FD${taille}^FS`);
+    const sizeFontSize = computeSizeFontSize(taille);
+    const SIZE_VALUE_AREA_TOP = 204;
+    const SIZE_VALUE_AREA_BOTTOM = 329;
+    const sizeAreaCenter = (SIZE_VALUE_AREA_TOP + SIZE_VALUE_AREA_BOTTOM) / 2;
+    const sizeY = Math.round(sizeAreaCenter - sizeFontSize / 2);
+    const SIZE_BOX_LEFT = 569;
+    const SIZE_BOX_WIDTH = 178;
+    const SIZE_BOX_MARGIN = 4;
+    const sizeFieldX = SIZE_BOX_LEFT + SIZE_BOX_MARGIN;
+    const sizeFieldWidth = SIZE_BOX_WIDTH - 2 * SIZE_BOX_MARGIN;
+    z.push(`^FO${sizeFieldX},${sizeY}^FB${sizeFieldWidth},1,0,C,0^A0N,${sizeFontSize},${sizeFontSize}^FD${taille}^FS`);
 
     // Adresse
     z.push("^FO69,344^GB678,120,2^FS");
