@@ -82,18 +82,22 @@ final class ImportOdService
      */
     public function validateLignes(array $lignes): array
     {
-        // ── 1. Requête Axe 1 + Axe 2 ────────────────────────────────────────
-        $axeRaw    = array_column($lignes, 'Axe');
-        $axe2Raw   = array_column($lignes, 'Axe2');
-        $axeCodes  = array_map(fn($v) => $this->extractAxeCode($v), $axeRaw);
-        $axe2Codes = array_map(fn($v) => $this->extractAxeCode($v), $axe2Raw);
-        $axeValues = $this->uniqueNonEmpty(array_merge($axeCodes, $axe2Codes));
+        // ── 1. Validation Axe 1 (DIE_0 = 'AX1') et Axe 2 (DIE_0 = 'AX2') ──
+        $axe1Values = $this->uniqueNonEmpty(array_map(fn($v) => trim($v), array_column($lignes, 'Axe')));
+        $axe2Values = $this->uniqueNonEmpty(array_map(fn($v) => trim($v), array_column($lignes, 'Axe2')));
 
-        $validAxe = [];
-        if (!empty($axeValues)) {
-            $in       = $this->inClause($axeValues);
-            $rows     = $this->mssqlLcs->executeQuery("SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE CAE.CCE_0 IN ($in)");
-            $validAxe = array_column(array_map(fn($r) => (array) $r, $rows), 'CCE_0');
+        $validAxe1 = [];
+        if (!empty($axe1Values)) {
+            $in        = $this->inClause($axe1Values);
+            $rows      = $this->mssqlLcs->executeQuery("SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE CAE.CCE_0 IN ($in) AND CAE.DIE_0 = 'AX1'");
+            $validAxe1 = array_column(array_map(fn($r) => (array) $r, $rows), 'CCE_0');
+        }
+
+        $validAxe2 = [];
+        if (!empty($axe2Values)) {
+            $in        = $this->inClause($axe2Values);
+            $rows      = $this->mssqlLcs->executeQuery("SELECT CAE.CCE_0 FROM X3_LCS.CACCE CAE WHERE CAE.CCE_0 IN ($in) AND CAE.DIE_0 = 'AX2'");
+            $validAxe2 = array_column(array_map(fn($r) => (array) $r, $rows), 'CCE_0');
         }
 
         // ── 2. Requête Compte : existence + flag collectif (SAC_0) ──────────
@@ -126,8 +130,8 @@ final class ImportOdService
             $lineNum    = $i + 1;
 
             $compte   = trim($ligne['Compte'] ?? '');
-            $axeCode  = $this->extractAxeCode($ligne['Axe']  ?? '');
-            $axe2Code = $this->extractAxeCode($ligne['Axe2'] ?? '');
+            $axeCode  = trim($ligne['Axe']  ?? '');
+            $axe2Code = trim($ligne['Axe2'] ?? '');
 
             // Axe 1 obligatoire si compte commence par 2, 6 ou 7
             if ($compte !== '' && in_array($compte[0], ['2', '6', '7'], true) && $axeCode === '') {
@@ -135,12 +139,12 @@ final class ImportOdService
             }
 
             // Axe 1 — validation si rempli
-            if ($axeCode !== '' && !in_array($axeCode, $validAxe, true)) {
+            if ($axeCode !== '' && !in_array($axeCode, $validAxe1, true)) {
                 $lineErrors[] = "Axe 1 « $axeCode » inconnu";
             }
 
             // Axe 2 — validation si rempli (facultatif)
-            if ($axe2Code !== '' && !in_array($axe2Code, $validAxe, true)) {
+            if ($axe2Code !== '' && !in_array($axe2Code, $validAxe2, true)) {
                 $lineErrors[] = "Axe 2 « $axe2Code » inconnu";
             }
 
@@ -168,26 +172,6 @@ final class ImportOdService
         }
 
         return $errors;
-    }
-
-    /**
-     * Extrait le code axe analytique : segments numériques de tête uniquement.
-     * "04_1_1_PRODUCT FEES_SPORT MARKETING" → "04_1_1"
-     * "04_1_12"                             → "04_1_12"
-     * "03_2_1_12"                           → "03_2_1_12"
-     */
-    private function extractAxeCode(string $value): string
-    {
-        $value = trim($value);
-        if ($value === '') return '';
-
-        $numericParts = [];
-        foreach (explode('_', $value) as $part) {
-            if (!ctype_digit($part)) break;
-            $numericParts[] = $part;
-        }
-
-        return implode('_', $numericParts);
     }
 
     private function uniqueNonEmpty(array $values): array

@@ -48,8 +48,8 @@ final class XmlBuilder
             self::fld($lin, 'DAE_AMTCUR', (string) $amtcur);
             self::fld($lin, 'DAE_TAX',    $ligne['Taxe']    ?? '');
             self::fld($lin, 'DAE_FREREF', $ligne['RefPiece'] ?? '');
-            self::fld($lin, 'DAE_CCE1',   self::extractAxeCode($ligne['Axe']  ?? ''));
-            self::fld($lin, 'DAE_CCE2',   self::extractAxeCode($ligne['Axe2'] ?? ''));
+            self::fld($lin, 'DAE_CCE1',   trim($ligne['Axe']  ?? ''));
+            self::fld($lin, 'DAE_CCE2',   trim($ligne['Axe2'] ?? ''));
         }
 
         return self::forcePairedTags($root->asXML());
@@ -109,20 +109,6 @@ final class XmlBuilder
     private static function forcePairedTags(string $xml): string
     {
         return preg_replace('/<FLD([^>]*)\/>/', '<FLD$1></FLD>', $xml);
-    }
-
-    private static function extractAxeCode(string $value): string
-    {
-        $value = trim($value);
-        if ($value === '') return '';
-
-        $numericParts = [];
-        foreach (explode('_', $value) as $part) {
-            if (!ctype_digit($part)) break;
-            $numericParts[] = $part;
-        }
-
-        return implode('_', $numericParts);
     }
 
     private static function fld(\SimpleXMLElement $parent, string $name, string $value): void
