@@ -82,11 +82,12 @@ final class ImportOdService
      */
     public function validateLignes(array $lignes): array
     {
-        // ── 1. Requête Axe analytique ────────────────────────────────────────
-        // On extrait uniquement les 3 premiers segments : "04_1_1_LIBELLE" → "04_1_1"
+        // ── 1. Requête Axe 1 + Axe 2 ────────────────────────────────────────
         $axeRaw    = array_column($lignes, 'Axe');
+        $axe2Raw   = array_column($lignes, 'Axe2');
         $axeCodes  = array_map(fn($v) => $this->extractAxeCode($v), $axeRaw);
-        $axeValues = $this->uniqueNonEmpty($axeCodes);
+        $axe2Codes = array_map(fn($v) => $this->extractAxeCode($v), $axe2Raw);
+        $axeValues = $this->uniqueNonEmpty(array_merge($axeCodes, $axe2Codes));
 
         $validAxe = [];
         if (!empty($axeValues)) {
@@ -124,17 +125,23 @@ final class ImportOdService
             $lineErrors = [];
             $lineNum    = $i + 1;
 
-            $compte  = trim($ligne['Compte'] ?? '');
-            $axeCode = $this->extractAxeCode($ligne['Axe'] ?? '');
+            $compte   = trim($ligne['Compte'] ?? '');
+            $axeCode  = $this->extractAxeCode($ligne['Axe']  ?? '');
+            $axe2Code = $this->extractAxeCode($ligne['Axe2'] ?? '');
 
-            // Axe analytique obligatoire si compte commence par 2, 6 ou 7
+            // Axe 1 obligatoire si compte commence par 2, 6 ou 7
             if ($compte !== '' && in_array($compte[0], ['2', '6', '7'], true) && $axeCode === '') {
-                $lineErrors[] = "Axe analytique obligatoire pour le compte « $compte »";
+                $lineErrors[] = "Axe 1 obligatoire pour le compte « $compte »";
             }
 
-            // Axe analytique — validation si rempli
+            // Axe 1 — validation si rempli
             if ($axeCode !== '' && !in_array($axeCode, $validAxe, true)) {
-                $lineErrors[] = "Axe analytique « $axeCode » inconnu";
+                $lineErrors[] = "Axe 1 « $axeCode » inconnu";
+            }
+
+            // Axe 2 — validation si rempli (facultatif)
+            if ($axe2Code !== '' && !in_array($axe2Code, $validAxe, true)) {
+                $lineErrors[] = "Axe 2 « $axe2Code » inconnu";
             }
 
             // Compte

@@ -114,11 +114,6 @@
                             </div>
 
                             <div class="col-md-2">
-                                <label class="form-label small fw-semibold">Date <span class="text-danger">*</span></label>
-                                <input type="date" id="date" class="form-control form-control-sm">
-                            </div>
-
-                            <div class="col-md-2">
                                 <label class="form-label small fw-semibold">Type <span class="text-danger">*</span></label>
                                 <select id="type" class="form-select form-select-sm">
                                     <option value="">-- Choisir --</option>
@@ -165,7 +160,7 @@
                         <h5>Lignes de la pièce</h5>
 
                         <p class="text-muted small mb-2">
-                            Copiez vos lignes depuis Excel (colonnes : Compte, Tiers, Débit, Crédit, Libellé, Axe1, Axe2, Taxe) et collez ci-dessous.
+                            Copiez vos lignes depuis Excel (colonnes : Réf. pièce, Date, Compte, Axe 1, Axe 2, Tiers, Libellé, Débit, Crédit, Taxe) et collez ci-dessous.
                         </p>
 
                         <div id="pasteZone"
@@ -184,8 +179,10 @@
                                 <thead>
                                     <tr>
                                         <th>Réf. pièce</th>
+                                        <th style="width:110px">Date</th>
                                         <th style="width:100px">Compte</th>
-                                        <th style="width:160px">Axe analytique</th>
+                                        <th style="width:120px">Axe 1</th>
+                                        <th style="width:120px">Axe 2</th>
                                         <th style="width:100px">Tiers</th>
                                         <th>Libellé</th>
                                         <th style="width:100px">Débit</th>
@@ -290,14 +287,23 @@
     }
 
     function ajouterLigne(cols = []) {
-        const keys  = ['RefPiece', 'Compte', 'Axe', 'Tiers', 'Libelle', 'Debit', 'Credit', 'Taxe'];
+        const keys  = ['RefPiece', 'Date', 'Compte', 'Axe', 'Axe2', 'Tiers', 'Libelle', 'Debit', 'Credit', 'Taxe'];
         const tbody = document.querySelector('#lignesTable tbody');
         const tr    = document.createElement('tr');
 
         keys.forEach((key, i) => {
             const td    = document.createElement('td');
             const input = document.createElement('input');
-            input.value = (cols[i] || '').trim();
+            if (key === 'Date') {
+                input.type = 'date';
+                input.style.width = '110px';
+                // Convertit dd-mm-yyyy ou dd.mm.yyyy ou dd/mm/yyyy → yyyy-mm-dd
+                const raw = (cols[i] || '').trim();
+                const m = raw.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})$/);
+                input.value = m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : raw;
+            } else {
+                input.value = (cols[i] || '').trim();
+            }
             if (key === 'Debit' || key === 'Credit') {
                 input.style.textAlign = 'right';
                 input.addEventListener('input', updateBalance);
@@ -322,8 +328,8 @@
 
         document.querySelectorAll('#lignesTable tbody tr').forEach(tr => {
             const inputs = tr.querySelectorAll('input');
-            debit  += parseFloat((inputs[5].value || '0').replace(',', '.')) || 0;
-            credit += parseFloat((inputs[6].value || '0').replace(',', '.')) || 0;
+            debit  += parseFloat((inputs[7].value || '0').replace(',', '.')) || 0;
+            credit += parseFloat((inputs[8].value || '0').replace(',', '.')) || 0;
         });
 
         const diff = Math.round((debit - credit) * 100) / 100;
@@ -345,13 +351,15 @@
             const inputs = tr.querySelectorAll('input');
             return {
                 RefPiece: inputs[0].value.trim(),
-                Compte:   inputs[1].value.trim(),
-                Axe:      inputs[2].value.trim(),
-                Tiers:    inputs[3].value.trim(),
-                Libelle:  inputs[4].value.trim(),
-                Debit:    inputs[5].value.trim(),
-                Credit:   inputs[6].value.trim(),
-                Taxe:     inputs[7].value.trim(),
+                Date:     inputs[1].value.trim(),
+                Compte:   inputs[2].value.trim(),
+                Axe:      inputs[3].value.trim(),
+                Axe2:     inputs[4].value.trim(),
+                Tiers:    inputs[5].value.trim(),
+                Libelle:  inputs[6].value.trim(),
+                Debit:    inputs[7].value.trim(),
+                Credit:   inputs[8].value.trim(),
+                Taxe:     inputs[9].value.trim(),
             };
         });
     }
@@ -360,7 +368,7 @@
         return {
             societe:       getTsValue('societe'),
             site:          getTsValue('site'),
-            date:          document.getElementById('date').value,
+            date:          '',
             type:          getTsValue('type'),
             journal:       getTsValue('journal'),
             devise:        getTsValue('devise'),
@@ -377,7 +385,6 @@
         const required = [
             { id: 'societe',  label: 'Société',  ts: true },
             { id: 'site',     label: 'Site',     ts: true },
-            { id: 'date',     label: 'Date',     ts: false },
             { id: 'type',     label: 'Type',     ts: true },
             { id: 'journal',  label: 'Journal',  ts: true },
             { id: 'devise',   label: 'Devise',   ts: true },
@@ -405,6 +412,7 @@
     async function valider() {
         const lignes = getLignes();
         if (!lignes.length) { showModal('warning', 'Aucune ligne à valider.'); return; }
+        if (!lignes.some(l => l.Date)) { showModal('warning', 'Au moins une ligne doit avoir une date.'); return; }
         if (!validateEntete()) return;
 
         const btn = document.querySelector('button[onclick="valider()"]');
@@ -543,7 +551,7 @@
         ['societe','site','type','journal','devise'].forEach(id => {
             if (tsInstances[id]) tsInstances[id].clear();
         });
-        ['date','date_extourne','bprvcr']
+        ['date_extourne','bprvcr']
             .forEach(id => document.getElementById(id).value = '');
         document.getElementById('extourne').value = 'non';
         document.getElementById('date-extourne-wrapper').style.display = 'none';

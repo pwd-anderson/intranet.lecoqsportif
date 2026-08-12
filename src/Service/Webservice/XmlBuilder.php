@@ -14,7 +14,11 @@ final class XmlBuilder
         self::fld($grp, 'HAE_TYP',    $entete['type']    ?? '');
         self::fld($grp, 'HAE_FCY',    $entete['site']    ?? '');
         self::fld($grp, 'HAE_JOU',    $entete['journal'] ?? '');
-        self::fld($grp, 'HAE_ACCDAT', self::formatDate($entete['date'] ?? ''));
+        $firstDate = '';
+        foreach ($lignes as $l) {
+            if (!empty($l['Date'])) { $firstDate = $l['Date']; break; }
+        }
+        self::fld($grp, 'HAE_ACCDAT', self::formatDate($firstDate));
         self::fld($grp, 'HAE_BPRVCR', $entete['bprvcr'] ?? '');
         self::fld($grp, 'HAE_CUR',    $entete['devise'] ?? '');
 
@@ -44,8 +48,8 @@ final class XmlBuilder
             self::fld($lin, 'DAE_AMTCUR', (string) $amtcur);
             self::fld($lin, 'DAE_TAX',    $ligne['Taxe']    ?? '');
             self::fld($lin, 'DAE_FREREF', $ligne['RefPiece'] ?? '');
-            self::fld($lin, 'DAE_CCE1',   self::extractAxeCode($ligne['Axe'] ?? ''));
-            self::fld($lin, 'DAE_CCE2',   '');
+            self::fld($lin, 'DAE_CCE1',   self::extractAxeCode($ligne['Axe']  ?? ''));
+            self::fld($lin, 'DAE_CCE2',   self::extractAxeCode($ligne['Axe2'] ?? ''));
         }
 
         return self::forcePairedTags($root->asXML());
