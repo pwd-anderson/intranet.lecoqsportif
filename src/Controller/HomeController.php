@@ -246,9 +246,12 @@ final class HomeController extends AbstractController
     public function backlogClientDashboard(Request $request): JsonResponse
     {
         $network = $this->getNetworkFromRequest($request);
+        $mode    = in_array($request->query->get('mode'), ['mois', 'collection'], true)
+            ? $request->query->get('mode')
+            : 'mois';
 
         return $this->json(
-            $this->mainDashboard->getBacklogClientDonut($network)
+            $this->mainDashboard->getBacklogClientDonut($network, $mode)
         );
     }
 
@@ -310,6 +313,115 @@ final class HomeController extends AbstractController
         $family  = in_array($family, $allowed, true) ? $family : null;
 
         $data     = $this->mainDashboard->getBoutiqueGroupTopProduits($group, $family);
+        $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
+
+        return new JsonResponse($dataUtf8);
+    }
+
+    private function getEcomGroupFromRequest(Request $request): ?string
+    {
+        $group = $request->query->get('group', '');
+        return in_array($group, ['global', 'lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'], true)
+            ? $group : null;
+    }
+
+    #[Route('/api/dashboard/ecom-group-ventes', name: 'api_dashboard_ecom_group_ventes')]
+    public function getEcomGroupVentes(Request $request): JsonResponse
+    {
+        $group = $this->getEcomGroupFromRequest($request);
+        if ($group === null) {
+            return new JsonResponse(['error' => 'Groupe invalide'], 400);
+        }
+
+        $dataAnnual  = $this->mainDashboard->getEcomGroupVentesYears($group);
+        $dataByMonth = $this->mainDashboard->getEcomGroupVentesByMonths($group);
+
+        $labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+        $caN    = array_fill(0, 12, 0);
+        $caN1   = array_fill(0, 12, 0);
+
+        foreach ($dataByMonth as $row) {
+            $index = (int) $row->mois - 1;
+            if ($index >= 0 && $index < 12) {
+                $caN[$index]  = round((float) $row->ca_n,   2);
+                $caN1[$index] = round((float) $row->ca_n_1, 2);
+            }
+        }
+
+        $year = (int) date('Y');
+
+        return new JsonResponse([
+            'ca_n'      => round((float) ($dataAnnual[0]->ca_n         ?? 0), 2),
+            'ca_n_1'    => round((float) ($dataAnnual[0]->ca_n_1       ?? 0), 2),
+            'ca_ytd_n1' => round((float) ($dataAnnual[0]->ca_ytd_n1    ?? 0), 2),
+            'variation' => $dataAnnual[0]->variation_pourcent ?? null,
+            'year'      => $year,
+            'labels'    => $labels,
+            'series'    => [
+                ['name' => 'CA ' . $year,       'data' => $caN],
+                ['name' => 'CA ' . ($year - 1), 'data' => $caN1],
+            ],
+        ]);
+    }
+
+    #[Route('/api/dashboard/ecom-global-ventes', name: 'api_dashboard_ecom_global_ventes')]
+    public function getEcomGlobalVentes(): JsonResponse
+    {
+        $rows    = $this->mainDashboard->getEcomGlobalVentesByMonths();
+        $year    = (int) date('Y');
+        $labels  = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+
+        $groups = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'];
+        $data   = [];
+        foreach ($groups as $g) {
+            $data[$g] = ['n' => array_fill(0, 12, 0), 'n1' => array_fill(0, 12, 0)];
+        }
+
+        foreach ($rows as $row) {
+            $i = (int) $row->mois - 1;
+            if ($i < 0 || $i > 11) continue;
+            $data['lcs_shop']['n'][$i]       = round((float) ($row->lcs_shop_n       ?? 0), 2);
+            $data['lcs_shop']['n1'][$i]      = round((float) ($row->lcs_shop_n1      ?? 0), 2);
+            $data['amazon_vendor']['n'][$i]  = round((float) ($row->amazon_vendor_n  ?? 0), 2);
+            $data['amazon_vendor']['n1'][$i] = round((float) ($row->amazon_vendor_n1 ?? 0), 2);
+            $data['amazon_seller']['n'][$i]  = round((float) ($row->amazon_seller_n  ?? 0), 2);
+            $data['amazon_seller']['n1'][$i] = round((float) ($row->amazon_seller_n1 ?? 0), 2);
+            $data['autres_web']['n'][$i]     = round((float) ($row->autres_web_n     ?? 0), 2);
+            $data['autres_web']['n1'][$i]    = round((float) ($row->autres_web_n1    ?? 0), 2);
+        }
+
+        $groupLabels = [
+            'lcs_shop'      => 'LCS Shop',
+            'amazon_vendor' => 'Amazon Vendor',
+            'amazon_seller' => 'Amazon Seller',
+            'autres_web'    => 'Autres Web',
+        ];
+
+        $series = [];
+        foreach ($groups as $g) {
+            $series[] = ['name' => $groupLabels[$g] . ' ' . ($year - 1), 'data' => $data[$g]['n1'], 'group' => $g];
+            $series[] = ['name' => $groupLabels[$g] . ' ' . $year,       'data' => $data[$g]['n'],  'group' => $g];
+        }
+
+        return new JsonResponse([
+            'year'   => $year,
+            'labels' => $labels,
+            'series' => $series,
+        ]);
+    }
+
+    #[Route('/api/dashboard/ecom-group-top-produits', name: 'api_dashboard_ecom_group_top_produits')]
+    public function getEcomGroupTopProduits(Request $request): JsonResponse
+    {
+        $group = $this->getEcomGroupFromRequest($request);
+        if ($group === null) {
+            return new JsonResponse(['error' => 'Groupe invalide'], 400);
+        }
+
+        $family  = $request->query->get('family');
+        $family  = in_array($family, ['FTW', 'APL', 'HDW'], true) ? $family : null;
+
+        $data     = $this->mainDashboard->getEcomGroupTopProduits($group, $family);
         $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);

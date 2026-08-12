@@ -414,7 +414,7 @@ class MainDashboard
         }
     }
 
-    public function getBacklogClientDonut(string $network = 'global'): array
+    public function getBacklogClientDonut(string $network = 'global', string $mode = 'mois'): array
     {
         try {
             $normalized = $this->normalizeNetworkFilter($network);
@@ -427,28 +427,42 @@ class MainDashboard
                 ? " AND reportingdimension = 'WHOLESALE INTERNATIONAL'"
                 : $this->buildNetworkWhereClause($network, 'mainnetwork', 'reportingdimension', null);
 
-            $query = "
-            SELECT
-                retard,
-                SUM(quantite)     AS quantite,
-                SUM(montant_ht_eur) AS montant
-            FROM {$table}
-            WHERE 1=1 {$networkWhere}
-            GROUP BY retard
-            ORDER BY
-                CASE retard
-                    WHEN 'MOIS' THEN 1
-                    WHEN 'MOIS + 1' THEN 2
-                    ELSE 3
-                END";
-            $results = $this->mssqlMade2design->executeQuery($query);
+            if ($mode === 'collection') {
+                $query = "
+                SELECT
+                    CASE WHEN collection <= '2025-02-FW' THEN '2025-02-FW et precedentes' ELSE collection END AS collection,
+                    SUM(quantite)       AS quantite,
+                    SUM(montant_ht_eur) AS montant
+                FROM {$table}
+                WHERE 1=1 {$networkWhere}
+                GROUP BY CASE WHEN collection <= '2025-02-FW' THEN '2025-02-FW et precedentes' ELSE collection END
+                ORDER BY collection DESC";
+                $labelField = 'collection';
+            } else {
+                $query = "
+                SELECT
+                    retard,
+                    SUM(quantite)       AS quantite,
+                    SUM(montant_ht_eur) AS montant
+                FROM {$table}
+                WHERE 1=1 {$networkWhere}
+                GROUP BY retard
+                ORDER BY
+                    CASE retard
+                        WHEN 'MOIS' THEN 1
+                        WHEN 'MOIS + 1' THEN 2
+                        ELSE 3
+                    END";
+                $labelField = 'retard';
+            }
 
+            $results    = $this->mssqlMade2design->executeQuery($query);
             $labels     = [];
             $values     = [];
             $quantities = [];
 
             foreach ($results as $row) {
-                $labels[]     = $row->retard;
+                $labels[]     = $row->$labelField;
                 $values[]     = (float) $row->montant;
                 $quantities[] = (float) $row->quantite;
             }
@@ -609,6 +623,213 @@ class MainDashboard
             return [];
         }
     }
+
+    // ─── E-COM GROUPS ────────────────────────────────────────────────────────
+
+    private const ECOM_GROUP_LABELS = [
+        'lcs_shop'      => 'LCS Shop',
+        'amazon_vendor' => 'Amazon Vendor',
+        'amazon_seller' => 'Amazon Seller',
+        'autres_web'    => 'Autres clients Web',
+    ];
+
+    private function buildEcomGroupWhere(string $group, string $alias = ''): string
+    {
+        $p = fn(string $c) => $alias ? "$alias.$c" : $c;
+        $aggYear   = $this->table('INTRANET_SALES_AGG_YEAR');
+        $amazonSub = "SELECT DISTINCT customer_no FROM {$aggYear} WHERE UPPER(customer_name) LIKE '%AMAZON%' AND customer_no IS NOT NULL";
+
+        return match ($group) {
+            'lcs_shop'      => " AND {$p('mainnetwork')} IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
+            'amazon_vendor' => " AND {$p('reportingdimension')} LIKE '%WHOLESALE%'"
+                             . " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
+                             . " AND {$p('customer_no')} IN ({$amazonSub})",
+            'amazon_seller' => " AND {$p('mainnetwork')} IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE')"
+                             . " AND {$p('customer_no')} IN ({$amazonSub})",
+            'autres_web'    => " AND (("
+                             .     "{$p('reportingdimension')} LIKE '%WHOLESALE%'"
+                             .     " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
+                             .     " AND {$p('customer_no')} NOT IN ({$amazonSub})"
+                             . ") OR ("
+                             .     "{$p('mainnetwork')} IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE')"
+                             .     " AND {$p('customer_no')} NOT IN ({$amazonSub})"
+                             . "))",
+            default         => '',
+        };
+    }
+
+    public function getEcomGroupVentesYears(string $group): array
+    {
+        if ($group === 'global') {
+            return $this->getSalesComparaisonYears('ecom');
+        }
+
+        if (!array_key_exists($group, self::ECOM_GROUP_LABELS)) {
+            return [];
+        }
+
+        try {
+            $table      = $this->table('INTRANET_SALES_DAILY');
+            $groupWhere = $this->buildEcomGroupWhere($group);
+
+            $query = "
+            SELECT
+                SUM(CASE WHEN annee = YEAR(GETDATE())
+                          AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                         THEN ca ELSE 0 END) AS ca_n,
+                SUM(CASE WHEN annee = YEAR(GETDATE()) - 1
+                          AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                         THEN ca ELSE 0 END) AS ca_ytd_n1,
+                SUM(CASE WHEN annee = YEAR(GETDATE()) - 1 THEN ca ELSE 0 END) AS ca_n_1,
+                ROUND(
+                    CASE WHEN SUM(CASE WHEN annee = YEAR(GETDATE()) - 1
+                                      AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                                     THEN ca ELSE 0 END) = 0 THEN NULL
+                    ELSE (
+                        SUM(CASE WHEN annee = YEAR(GETDATE())
+                                  AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                                 THEN ca ELSE 0 END)
+                        - SUM(CASE WHEN annee = YEAR(GETDATE()) - 1
+                                    AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                                   THEN ca ELSE 0 END)
+                    ) / SUM(CASE WHEN annee = YEAR(GETDATE()) - 1
+                                  AND (mois < MONTH(GETDATE()) OR (mois = MONTH(GETDATE()) AND jour <= DAY(GETDATE())))
+                                 THEN ca ELSE 0 END) * 100 END
+                , 2) AS variation_pourcent
+            FROM {$table}
+            WHERE 1=1 {$groupWhere}";
+
+            return $this->mssqlMade2design->executeQuery($query);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError("❌ Dashboard ecom groupe ventes années [{$group}]", $e);
+            $this->logger->error('Erreur ecom groupe ventes années', ['group' => $group, 'exception' => $e]);
+            return [];
+        }
+    }
+
+    public function getEcomGroupVentesByMonths(string $group): array
+    {
+        if ($group === 'global') {
+            return $this->getSalesComparaisonByMonths('ecom');
+        }
+
+        if (!array_key_exists($group, self::ECOM_GROUP_LABELS)) {
+            return [];
+        }
+
+        try {
+            $table      = $this->table('INTRANET_SALES_DAILY');
+            $groupWhere = $this->buildEcomGroupWhere($group);
+
+            $query = "
+            SELECT
+                mois,
+                SUM(CASE WHEN annee = YEAR(GETDATE())      THEN ca ELSE 0 END) AS ca_n,
+                SUM(CASE WHEN annee = YEAR(GETDATE()) - 1  THEN ca ELSE 0 END) AS ca_n_1
+            FROM {$table}
+            WHERE 1=1 {$groupWhere}
+            GROUP BY mois
+            ORDER BY mois";
+
+            return $this->mssqlMade2design->executeQuery($query);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError("❌ Dashboard ecom groupe ventes mensuel [{$group}]", $e);
+            $this->logger->error('Erreur ecom groupe ventes mensuel', ['group' => $group, 'exception' => $e]);
+            return [];
+        }
+    }
+
+    public function getEcomGlobalVentesByMonths(): array
+    {
+        $groups  = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'];
+        $merged  = [];
+
+        foreach ($groups as $group) {
+            $rows = $this->getEcomGroupVentesByMonths($group);
+            foreach ($rows as $row) {
+                $mois = (int) $row->mois;
+                if (!isset($merged[$mois])) {
+                    $merged[$mois] = (object) ['mois' => $mois];
+                }
+                $merged[$mois]->{$group . '_n'}  = $row->ca_n;
+                $merged[$mois]->{$group . '_n1'} = $row->ca_n_1;
+            }
+        }
+
+        // Garantir les 12 mois avec zéros si absents
+        for ($m = 1; $m <= 12; $m++) {
+            if (!isset($merged[$m])) {
+                $merged[$m] = (object) ['mois' => $m];
+            }
+            foreach ($groups as $g) {
+                if (!isset($merged[$m]->{$g . '_n'}))  $merged[$m]->{$g . '_n'}  = 0;
+                if (!isset($merged[$m]->{$g . '_n1'})) $merged[$m]->{$g . '_n1'} = 0;
+            }
+        }
+
+        ksort($merged);
+        return array_values($merged);
+    }
+
+    public function getEcomGroupTopProduits(string $group, ?string $familyCode = null): array
+    {
+        try {
+            $table    = $this->table('INTRANET_SALES_AGG_YEAR');
+            $aggYear  = $table;
+            $amazonSub = "SELECT DISTINCT customer_no FROM {$aggYear} WHERE UPPER(customer_name) LIKE '%AMAZON%' AND customer_no IS NOT NULL";
+
+            $groupWhere = match ($group) {
+                'global'        => $this->buildNetworkWhereClause('ecom'),
+                'lcs_shop'      => " AND mainnetwork IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
+                'amazon_vendor' => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND customer_no IN ({$amazonSub})",
+                'amazon_seller' => " AND mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND customer_no IN ({$amazonSub})",
+                'autres_web'    => " AND ((reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND customer_no NOT IN ({$amazonSub})) OR (mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND customer_no NOT IN ({$amazonSub})))",
+                default         => ' AND 1=0',
+            };
+
+            $familyWhere = '';
+            if ($familyCode !== null && in_array($familyCode, ['FTW', 'APL', 'HDW'], true)) {
+                $familyWhere = " AND item_family_code = '{$familyCode}'";
+            }
+
+            $query = "
+            SELECT TOP 5
+                item_no          AS ItemNo,
+                item_description AS ItemDescription,
+                SUM(ca)          AS TotalSales
+            FROM {$table}
+            WHERE annee = YEAR(GETDATE())
+              {$groupWhere}
+              {$familyWhere}
+            GROUP BY item_no, item_description
+            ORDER BY TotalSales DESC";
+
+            $rows = $this->mssqlMade2design->executeQuery($query);
+
+            $out = [];
+            foreach ($rows as $r) {
+                $itemNo = trim((string) ($r->ItemNo ?? ''));
+                if ($itemNo === '') {
+                    continue;
+                }
+                $base  = explode('_', $itemNo)[0] ?? $itemNo;
+                $out[] = [
+                    'image' => "https://www.lecoqsportif.com/cdn/shop/files/" . rawurlencode($base) . "_2.jpg",
+                    'code'  => $itemNo,
+                    'label' => (string) ($r->ItemDescription ?? ''),
+                    'value' => (float)  ($r->TotalSales ?? 0),
+                ];
+            }
+
+            return $out;
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError("❌ Dashboard ecom groupe top produits [{$group}]", $e);
+            $this->logger->error('Erreur ecom groupe top produits', ['group' => $group, 'exception' => $e]);
+            return [];
+        }
+    }
+
+    // ─── REFRESH ─────────────────────────────────────────────────────────────
 
     public function refreshSalesAggMonth(): int
     {
@@ -799,10 +1020,11 @@ class MainDashboard
             $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
             $insertQuery = "
-        INSERT INTO {$table} (retard, quantite, montant_ht_eur, reportingdimension, date_refresh)
+        INSERT INTO {$table} (retard, collection, quantite, montant_ht_eur, reportingdimension, date_refresh)
 
         SELECT
             retard,
+            collection,
             SUM(quantite)    AS quantite,
             SUM(montant_eur) AS montant_ht_eur,
             reportingdimension,
@@ -814,6 +1036,8 @@ class MainDashboard
                     WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE())) THEN 'MOIS + 1'
                     ELSE '>MOIS + 2'
                 END AS retard,
+
+                SOQ.YCOLLECT_0 AS collection,
 
                 CAST(ROUND(SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0, 0) AS INT) AS quantite,
 
@@ -849,9 +1073,9 @@ class MainDashboard
             WHERE SOQ.SOQSTA_0 <> 3
               AND (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) > 0
               AND BPC.BCGCOD_0 <> 'INTER'
-                AND SOH.ZSOHVALSTA_0 <> 3
+              AND SOH.ZSOHVALSTA_0 <> 3
         ) t
-        GROUP BY retard, reportingdimension;";
+        GROUP BY retard, collection, reportingdimension;";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
@@ -865,10 +1089,6 @@ class MainDashboard
     public function refreshAllSalesCubes(): array
     {
         return [
-            'Cube CA mensuel'          => $this->refreshSalesAggMonth(),
-            'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
-            'Cube ventes journalières' => $this->refreshSalesDaily(),
-
             'Cube backlog client'      => $this->refreshBacklogClient(),
         ];
     }

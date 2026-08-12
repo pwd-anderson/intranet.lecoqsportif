@@ -48,7 +48,7 @@ function chargerTauxHeaderSimple(path) {
 }
 
 // CA Mensuel N vs N-1 — barres groupées
-function renderCaMensuelChart(data, selector, height = 195) {
+function renderCaMensuelChart(data, selector, height = 195, colors = ['#1a3767', '#90aad4']) {
     const el = destroyExistingChart(selector);
     if (!el) return;
 
@@ -59,7 +59,7 @@ function renderCaMensuelChart(data, selector, height = 195) {
     const options = {
         chart: { type: 'bar', height: height, toolbar: { show: false } },
         plotOptions: { bar: { horizontal: false, columnWidth: '80%', borderRadius: 2 } },
-        colors: ['#1a3767', '#90aad4'],
+        colors: colors,
         dataLabels: { enabled: false },
         series: [...series].reverse(),
         xaxis: {
@@ -88,7 +88,7 @@ function renderCaMensuelChart(data, selector, height = 195) {
 }
 
 // CA Annuel — 4 barres : Total N-1, Total N, YTD N-1, YTD N
-function renderCaAnnuelChart(data, selector, unit = '€', height = 195) {
+function renderCaAnnuelChart(data, selector, unit = '€', height = 195, colors = ['#1a3767', '#90aad4']) {
     const el = destroyExistingChart(selector);
     if (!el) return;
 
@@ -101,7 +101,7 @@ function renderCaAnnuelChart(data, selector, unit = '€', height = 195) {
     const options = {
         chart: { type: 'bar', height: height, toolbar: { show: false } },
         plotOptions: { bar: { horizontal: false, columnWidth: '70%', borderRadius: 2 } },
-        colors: ['#1a3767', '#90aad4'],
+        colors: colors,
         dataLabels: { enabled: false },
         series: [
             { name: year - 1,   data: [caN1,   caYtdN1] },
@@ -632,7 +632,14 @@ function renderSalesEvolutionChart(apiUrl, selector, legendSelector, colors = ['
 
         // Graphique principal — barres mensuelles par année
         const options = {
-            chart: { type: 'bar', height: 310, toolbar: { show: false } },
+            chart: { type: 'bar', height: 310, toolbar: { show: false }, events: {
+                legendClick: function(ctx, seriesIndex, config) {
+                    const name = config.config.series[seriesIndex]?.name;
+                    if (name && totalsEl && totalsEl._chart) {
+                        totalsEl._chart.toggleSeries(name);
+                    }
+                }
+            }},
             plotOptions: { bar: { horizontal: false, columnWidth: '60%', borderRadius: 1 } },
             colors: colors,
             dataLabels: { enabled: false },
@@ -727,7 +734,7 @@ function chargerCaJour(apiUrl) {
     });
 }
 
-function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutColors = ['#00C9A7', '#FFC75F', '#FF6F61']) {
+function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutColors = ['#00C9A7', '#FFC75F', '#FF6F61'], height = 220) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
@@ -746,10 +753,17 @@ function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutCol
         const safeValues = result.values.map(v => Number(v) || 0);
         const safeQuantities = result.quantities.map(v => Number(v) || 0);
 
+        const totalEl = document.getElementById('backlog-client-total');
+        if (totalEl) {
+            const totalMontant = safeValues.reduce((s, v) => s + v, 0);
+            const totalQty = safeQuantities.reduce((s, v) => s + v, 0);
+            totalEl.innerHTML = '<span class="text-dark fw-semibold">Total</span> : ' + formatNumber(totalMontant, 0) + ' € / ' + formatNumber(totalQty, 0) + ' pcs';
+        }
+
         const options = {
             chart: {
                 type: 'donut',
-                height: 240,
+                height: height,
                 toolbar: { show: false }
             },
             labels: result.labels,
@@ -829,15 +843,24 @@ function switchTopProduit(family) {
 }
 
 function loadDashboardData() {
-    const isBoutique = getSelectedNetwork() === 'boutique';
+    const network    = getSelectedNetwork();
+    const isBoutique = network === 'boutique';
+    const isEcom     = network === 'ecom';
 
     const stdEl = document.getElementById('dashboard-standard');
     const bouEl = document.getElementById('dashboard-boutique');
-    if (stdEl) stdEl.style.display = isBoutique ? 'none' : '';
-    if (bouEl) bouEl.style.display = isBoutique ? ''     : 'none';
+    const ecoEl = document.getElementById('dashboard-ecom');
+    if (stdEl) stdEl.style.display = (!isBoutique && !isEcom) ? '' : 'none';
+    if (bouEl) bouEl.style.display = isBoutique ? '' : 'none';
+    if (ecoEl) ecoEl.style.display = isEcom     ? '' : 'none';
 
     if (isBoutique) {
         loadBoutiqueData();
+        return;
+    }
+
+    if (isEcom) {
+        loadEcomData();
         return;
     }
 
@@ -855,7 +878,26 @@ function loadDashboardData() {
     renderTopProductSalesChart(window.dashboardRoutes.topProductSales + '?family=FTW', '#chart-top-product', TOP_PRODUIT_COLORS.FTW);
     renderSalesEvolutionChart(window.dashboardRoutes.salesEvolution5y, '#userflow', null);
     chargerCaJour(window.dashboardRoutes.caToday);
-    renderBacklogClientChart(window.dashboardRoutes.backlogClient, '#chart-backlog-client', '#table-backlog-client');
+    renderBacklogClientChart(window.dashboardRoutes.backlogClient + '?mode=mois', '#chart-backlog-client', '#table-backlog-client');
+}
+
+function switchBacklogMode(mode) {
+    renderBacklogClientChart(
+        window.dashboardRoutes.backlogClient + '?mode=' + mode,
+        '#chart-backlog-client',
+        '#table-backlog-client'
+    );
+    ['mois', 'collection'].forEach(m => {
+        const btn = document.getElementById('btn-backlog-' + m);
+        if (!btn) return;
+        if (m === mode) {
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-primary', 'active');
+        } else {
+            btn.classList.remove('btn-primary', 'active');
+            btn.classList.add('btn-outline-primary');
+        }
+    });
 }
 
 // ── BOUTIQUE GROUPS ──
@@ -912,4 +954,171 @@ function switchBoutiqueTopProduit(group, family) {
 
 function loadBoutiqueData() {
     ['propres', 'affilies', 'outlet'].forEach(group => loadBoutiqueGroupData(group));
+}
+
+// ── E-COM GROUPS ──
+
+const ECOM_GROUP_COLORS = {
+    lcs_shop:      ['#008FFB', '#69D2E7'],
+    amazon_vendor: ['#FF4560', '#F9A8B8'],
+    amazon_seller: ['#00E396', '#A8E6CF'],
+    autres_web:    ['#775DD0', '#C4B5FD'],
+};
+
+function renderEcomGlobalAnnuelChart(totals, groups, glabels, year, selector) {
+    const el = destroyExistingChart(selector);
+    if (!el) return;
+    // 8 séries × 2 catégories (Total + YTD) = 16 barres, mêmes couleurs que le mensuel
+    const series = [];
+    const colors = [];
+    groups.forEach((g, i) => {
+        const c = ECOM_GROUP_COLORS[g] || ['#888', '#ccc'];
+        series.push({ name: glabels[i] + ' ' + (year - 1), data: [Math.round(totals[g].n1), Math.round(totals[g].ytdN1)] });
+        colors.push(c[1]);
+        series.push({ name: glabels[i] + ' ' + year,       data: [Math.round(totals[g].n),  Math.round(totals[g].ytdN)]  });
+        colors.push(c[0]);
+    });
+    const chart = new ApexCharts(el, {
+        chart:       { type: 'bar', height: 195, toolbar: { show: false } },
+        series:      series,
+        colors:      colors,
+        plotOptions: { bar: { columnWidth: '80%', borderRadius: 2 } },
+        dataLabels:  { enabled: false },
+        legend:      { show: false },
+        xaxis:       {
+            categories: ['Total année', 'YTD'],
+            labels: { style: { fontSize: '11px' } },
+            axisBorder: { show: false }, axisTicks: { show: false }
+        },
+        yaxis: { labels: { formatter: v => {
+            if (Math.abs(v) >= 1000000) return (v/1000000).toFixed(1)+'M';
+            if (Math.abs(v) >= 1000)    return (v/1000).toFixed(0)+'k';
+            return formatNumber(v, 0);
+        }, style: { fontSize: '10px' } } },
+        tooltip: { shared: false, y: { formatter: v => formatNumber(v, 2) + ' €' } },
+    });
+    chart.render();
+    el._chart = chart;
+}
+
+function renderEcomGlobalChart(data, selector) {
+    const el = destroyExistingChart(selector);
+    if (!el || !data || !data.series) return;
+
+    const year   = data.year;
+    const labels = data.labels || [];
+    const colors = [];
+    const series = data.series.map(s => {
+        const g     = s.group;
+        const isN   = s.name.includes(String(year));
+        const color = ECOM_GROUP_COLORS[g] ? (isN ? ECOM_GROUP_COLORS[g][0] : ECOM_GROUP_COLORS[g][1]) : '#ccc';
+        colors.push(color);
+        return { name: s.name, data: s.data };
+    });
+
+    const chart = new ApexCharts(el, {
+        chart:    { type: 'bar', height: 300, toolbar: { show: false }, stacked: false },
+        series:   series,
+        colors:   colors,
+        xaxis:    { categories: labels, labels: { style: { fontSize: '11px' } } },
+        yaxis:    { labels: { formatter: v => formatNumber(v / 1000, 0) + 'k' } },
+        dataLabels: { enabled: false },
+        legend:   { position: 'bottom', fontSize: '11px' },
+        tooltip:  { y: { formatter: v => formatNumber(v, 2) + ' €' } },
+        plotOptions: { bar: { columnWidth: '80%' } },
+    });
+    chart.render();
+    el._chart = chart;
+}
+
+function renderVariationBadge(selector, variation) {
+    const el = document.getElementById(selector);
+    if (!el) return;
+    if (variation === null || variation === undefined) { el.innerHTML = ''; return; }
+    const v = Number(variation);
+    if (v > 0) {
+        el.innerHTML = `<span class="text-success">${v.toFixed(1)}% <i class="fa fa-arrow-up"></i></span> vs N-1 YTD`;
+    } else if (v < 0) {
+        el.innerHTML = `<span class="text-danger">${Math.abs(v).toFixed(1)}% <i class="fa fa-arrow-down"></i></span> vs N-1 YTD`;
+    } else {
+        el.innerHTML = `<span class="text-muted">0% stable</span>`;
+    }
+}
+
+function loadEcomGroupData(group) {
+    const ventesUrl    = window.dashboardRoutes.ecomGroupVentes + '?group=' + group;
+    const produitsBase = window.dashboardRoutes.ecomGroupTopProduits + '?group=' + group;
+    const c            = ECOM_GROUP_COLORS[group] || ['#1a3767', '#90aad4'];
+    // N-1 = couleur claire [1], N = couleur foncée [0]
+    const groupColors  = [c[1], c[0]];
+
+    $.getJSON(ventesUrl, function(data) {
+        renderVariationBadge('ecom-' + group + '-variation', data?.variation);
+        renderCaMensuelChart(data, '#ecom-' + group + '-mensuel', 300, groupColors);
+        renderCaAnnuelChart(data, '#ecom-' + group + '-annuel', '€', 300, groupColors);
+    });
+
+    renderTopProductSalesChart(
+        produitsBase + '&family=FTW',
+        '#ecom-' + group + '-product',
+        TOP_PRODUIT_COLORS.FTW
+    );
+}
+
+function switchEcomTopProduit(group, family) {
+    const color = TOP_PRODUIT_COLORS[family] || '#775DD0';
+    renderTopProductSalesChart(
+        window.dashboardRoutes.ecomGroupTopProduits + '?group=' + group + '&family=' + family,
+        '#ecom-' + group + '-product',
+        color
+    );
+    ['FTW', 'APL'].forEach(f => {
+        const btn = document.getElementById('ecom-' + group + '-btn-' + f.toLowerCase());
+        if (!btn) return;
+        if (f === family) {
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-primary', 'active');
+        } else {
+            btn.classList.remove('btn-primary', 'active');
+            btn.classList.add('btn-outline-primary');
+        }
+    });
+}
+
+function loadEcomData() {
+    // Global : chart 8 séries
+    $.getJSON(window.dashboardRoutes.ecomGlobalVentes, function(data) {
+        renderEcomGlobalChart(data, '#ecom-global-mensuel');
+
+        // CA annuel global : 4 groupes × N et N-1 — Total + YTD (16 barres)
+        const year     = data.year || new Date().getFullYear();
+        const curMonth = new Date().getMonth(); // 0-based : mois en cours non complet
+        const groups   = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'];
+        const glabels  = ['LCS Shop', 'Amazon Vendor', 'Amazon Seller', 'Autres Web'];
+        const totals   = {};
+        groups.forEach(g => { totals[g] = { n: 0, n1: 0, ytdN: 0, ytdN1: 0 }; });
+        (data.series || []).forEach(s => {
+            const g   = s.group;
+            const isN = s.name.includes(String(year));
+            if (!totals[g]) return;
+            const sum = (s.data || []).reduce((a, v) => a + (v || 0), 0);
+            const ytd = (s.data || []).slice(0, curMonth).reduce((a, v) => a + (v || 0), 0);
+            if (isN) { totals[g].n   += sum; totals[g].ytdN  += ytd; }
+            else     { totals[g].n1  += sum; totals[g].ytdN1 += ytd; }
+        });
+        renderEcomGlobalAnnuelChart(totals, groups, glabels, year, '#ecom-global-annuel');
+    });
+    renderTopProductSalesChart(
+        window.dashboardRoutes.ecomGroupTopProduits + '?group=global&family=FTW',
+        '#ecom-global-product',
+        TOP_PRODUIT_COLORS.FTW
+    );
+
+    // Sous-groupes
+    ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'].forEach(g => loadEcomGroupData(g));
+
+    // Blocs synthèse globale E-com
+    renderTopClientsChart(window.dashboardRoutes.topClients + '?network=ecom', '#ecom-chart-top-clients');
+    renderTopCompanySalesChart(window.dashboardRoutes.topFamilySales + '?network=ecom', '#ecom-chart-top-family-sales', '#ecom-table-top-family-sales');
+    renderSalesEvolutionChart(window.dashboardRoutes.salesEvolution5y + '?network=ecom', '#ecom-userflow', null, undefined, '#ecom-chart-ca-5y-totals');
 }

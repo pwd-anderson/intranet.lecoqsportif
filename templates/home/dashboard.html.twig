@@ -219,19 +219,26 @@
             </div>
 
             <div class="col-lg-4 col-md-6">
-                <div class="box">
+                <div class="box" style="min-height:390px;">
                     <div class="box-body text-center p-10">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Répartition backlog clients</span>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="text-start">
+                                <div class="text-muted small">Répartition backlog clients</div>
+                                <div id="backlog-client-total" class="text-muted mt-1" style="font-size:11px;"></div>
+                            </div>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button id="btn-backlog-mois" class="btn btn-primary btn-sm active" onclick="switchBacklogMode('mois')">Mois</button>
+                                <button id="btn-backlog-collection" class="btn btn-outline-primary btn-sm" onclick="switchBacklogMode('collection')">Collection</button>
+                            </div>
                         </div>
-                        <div id="chart-backlog-client" class="mb-20"></div>
-                        <div id="table-backlog-client"></div>
+                        <div id="chart-backlog-client" class="mb-10"></div>
+                        <div id="table-backlog-client" style="font-size:12px;"></div>
                     </div>
                 </div>
             </div>
 
             <div class="col-lg-8 col-md-6">
-                <div class="box">
+                <div class="box" style="min-height:390px;">
                     <div class="box-body">
                         <span class="text-muted small">Évolution du CA sur 5 ans</span>
                         <div class="d-flex gap-3 mt-1">
@@ -304,10 +311,151 @@
             {% endfor %}
         </div>{# /dashboard-boutique #}
 
+        {# ── E-COM GROUPS ── #}
+        <div id="dashboard-ecom" style="display:none">
+
+            {# Row Global : chart 8 séries #}
+            <div class="row mb-3" style="display:flex; align-items:stretch;">
+                <div class="col-12 mb-1 mt-2">
+                    <span class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">Global E-com</span>
+                </div>
+                <div class="col-lg-8" style="display:flex; flex-direction:column;">
+                    <div class="box" style="flex:1; margin-bottom:0;">
+                        <div class="box-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="box-title mb-0">Ventes {{ "now"|date("Y") }} <small>(EUR)</small></h6>
+                                <span id="ecom-global-variation" class="small"></span>
+                            </div>
+                            <div class="d-flex gap-3">
+                                <div style="flex: 3; min-width: 0;">
+                                    <div class="text-muted small mb-1">CA Mensuel</div>
+                                    <div id="ecom-global-mensuel"></div>
+                                </div>
+                                <div style="flex: 1; min-width: 160px;">
+                                    <div class="text-muted small mb-1">CA Annuel</div>
+                                    <div id="ecom-global-annuel"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4" style="display:flex; flex-direction:column;">
+                    <div class="box" style="flex:1; margin-bottom:0;">
+                        <div class="box-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">Top produits {{ "now"|date("Y") }}</span>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button id="ecom-global-btn-ftw" class="btn btn-primary btn-sm active" onclick="switchEcomTopProduit('global','FTW')">Footwear</button>
+                                    <button id="ecom-global-btn-apl" class="btn btn-outline-primary btn-sm" onclick="switchEcomTopProduit('global','APL')">Textile</button>
+                                </div>
+                            </div>
+                            <div id="ecom-global-product" class="mt-2 top-product-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Rows sous-groupes #}
+            {% set ecom_groups = [
+                { id: 'lcs_shop',      label: 'LCS Shop' },
+                { id: 'amazon_vendor', label: 'Amazon Vendor' },
+                { id: 'amazon_seller', label: 'Amazon Seller' },
+                { id: 'autres_web',    label: 'Autres clients Web' },
+            ] %}
+            {% for grp in ecom_groups %}
+            <div class="row mb-3" style="display:flex; align-items:stretch;">
+                <div class="col-12 mb-1 mt-2">
+                    <span class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">{{ grp.label }}</span>
+                </div>
+                <div class="col-lg-8" style="display:flex; flex-direction:column;">
+                    <div class="box" style="flex:1; margin-bottom:0;">
+                        <div class="box-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="box-title mb-0">Ventes {{ "now"|date("Y") }} <small>(EUR)</small></h6>
+                                <span id="ecom-{{ grp.id }}-variation" class="small"></span>
+                            </div>
+                            <div class="d-flex gap-3">
+                                <div style="flex: 3; min-width: 0;">
+                                    <div class="text-muted small mb-1">CA Mensuel</div>
+                                    <div id="ecom-{{ grp.id }}-mensuel"></div>
+                                </div>
+                                <div style="flex: 1; min-width: 160px;">
+                                    <div class="text-muted small mb-1">CA Annuel</div>
+                                    <div id="ecom-{{ grp.id }}-annuel"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4" style="display:flex; flex-direction:column;">
+                    <div class="box" style="flex:1; margin-bottom:0;">
+                        <div class="box-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">Top produits {{ "now"|date("Y") }}</span>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button id="ecom-{{ grp.id }}-btn-ftw" class="btn btn-primary btn-sm active" onclick="switchEcomTopProduit('{{ grp.id }}','FTW')">Footwear</button>
+                                    <button id="ecom-{{ grp.id }}-btn-apl" class="btn btn-outline-primary btn-sm" onclick="switchEcomTopProduit('{{ grp.id }}','APL')">Textile</button>
+                                </div>
+                            </div>
+                            <div id="ecom-{{ grp.id }}-product" class="mt-2 top-product-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {# Blocs globaux E-com #}
+            <div class="row mb-3">
+                <div class="col-12 mb-1 mt-2">
+                    <span class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">Global E-com — Synthèse</span>
+                </div>
+
+                {# Top clients #}
+                <div class="col-lg-4 col-md-6">
+                    <div class="box min-h-box">
+                        <div class="box-body pt-10 pb-10">
+                            <span class="text-muted small">Top 10 Clients E-com {{ "now"|date("Y") }}</span>
+                            <div id="ecom-chart-top-clients" style="height:360px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                {# Répartition famille #}
+                <div class="col-lg-4 col-md-6">
+                    <div class="box min-h-box">
+                        <div class="box-body text-center p-10">
+                            <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par famille</span>
+                            <div id="ecom-chart-top-family-sales" class="mb-20"></div>
+                            <div id="ecom-table-top-family-sales"></div>
+                        </div>
+                    </div>
+                </div>
+
+                {# Évolution CA 5 ans #}
+                <div class="col-lg-4 col-md-6">
+                    <div class="box min-h-box">
+                        <div class="box-body">
+                            <span class="text-muted small">Évolution du CA sur 5 ans</span>
+                            <div class="d-flex gap-3 mt-1">
+                                <div style="flex:3; min-width:0;">
+                                    <div id="ecom-userflow"></div>
+                                </div>
+                                <div style="flex:1; min-width:100px;">
+                                    <div class="text-muted small mb-1">Total par année</div>
+                                    <div id="ecom-chart-ca-5y-totals"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>{# /dashboard-ecom #}
+
     </section>
 {% endblock %}
 {% block javascripts %}
-    <script src="{{ asset('assets/js/dashboard.js') }}?v=3.4"></script>
+    <script src="{{ asset('assets/js/dashboard.js') }}?v=4.4"></script>
     <script>
         $(function () {
 
@@ -330,7 +478,10 @@
                 caToday: '{{ path("api_dashboard_ca_today") }}',
                 backlogClient: '{{ path("api_dashboard_backlog_client") }}',
                 boutiqueGroupVentes: '{{ path("api_dashboard_boutique_group_ventes") }}',
-                boutiqueGroupTopProduits: '{{ path("api_dashboard_boutique_group_top_produits") }}'
+                boutiqueGroupTopProduits: '{{ path("api_dashboard_boutique_group_top_produits") }}',
+                ecomGroupVentes: '{{ path("api_dashboard_ecom_group_ventes") }}',
+                ecomGlobalVentes: '{{ path("api_dashboard_ecom_global_ventes") }}',
+                ecomGroupTopProduits: '{{ path("api_dashboard_ecom_group_top_produits") }}'
             };
 
             const networkSelect = document.querySelector('#network-switcher select');
