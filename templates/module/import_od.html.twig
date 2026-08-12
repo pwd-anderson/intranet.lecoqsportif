@@ -222,6 +222,15 @@
 
     const tsInstances = {};
 
+    // Force le paste en texte brut pour éviter le HTML d'Excel
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('pasteZone').addEventListener('paste', function (e) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+            document.execCommand('insertText', false, text);
+        });
+    });
+
     function initTomSelect(selectId, values, defaultValue = null) {
         const ts = new TomSelect('#' + selectId, {
             valueField: 'v',
