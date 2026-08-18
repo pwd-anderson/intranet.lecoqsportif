@@ -324,7 +324,9 @@
                         const variantKey = String(variant);
 
                         return {
+                            colId: variantKey,
                             field: variantKey,
+                            valueGetter: function(params) { return params.data ? params.data[variantKey] : undefined; },
                             headerName: variantKey,
                             filter: false,
                             sortable: true,
