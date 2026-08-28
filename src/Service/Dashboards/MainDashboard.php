@@ -427,6 +427,55 @@ class MainDashboard
                 ? " AND reportingdimension = 'WHOLESALE INTERNATIONAL'"
                 : $this->buildNetworkWhereClause($network, 'mainnetwork', 'reportingdimension', null);
 
+            // Requête X3 pour COUNT(DISTINCT client) exact par bucket
+            $x3NetworkWhere = $normalized === 'wholesale_int'
+                ? " AND ATX.TEXTE_0 = 'WHOLESALE INTERNATIONAL'"
+                : '';
+
+            $retardCase = "
+                CASE
+                    WHEN SOQ.DEMDLVDAT_0 < DATEADD(MONTH, -2, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) THEN 'MOIS - 3 et avant'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEADD(MONTH, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) THEN 'MOIS - 2'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)                     THEN 'MOIS - 1'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(GETDATE())                                                     THEN 'MOIS'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE()))                                  THEN 'MOIS + 1'
+                    ELSE 'MOIS + 2 et après'
+                END";
+
+            if ($mode === 'collection') {
+                $x3GroupField = "CASE WHEN SOQ.YCOLLECT_0 <= '2025-02-FW' THEN '2025-02-FW et precedentes' ELSE SOQ.YCOLLECT_0 END";
+                $x3OrderBy    = "ORDER BY {$x3GroupField} DESC";
+            } else {
+                $x3GroupField = $retardCase;
+                $x3OrderBy    = "ORDER BY CASE ({$retardCase}) WHEN 'MOIS - 3 et avant' THEN 1 WHEN 'MOIS - 2' THEN 2 WHEN 'MOIS - 1' THEN 3 WHEN 'MOIS' THEN 4 WHEN 'MOIS + 1' THEN 5 ELSE 6 END";
+            }
+
+            $x3Query = "
+            SELECT
+                {$x3GroupField} AS label,
+                COUNT(DISTINCT SOH.BPCORD_0) AS nb_clients
+            FROM X3_LCS.SORDERQ SOQ
+            INNER JOIN X3_LCS.SORDER SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
+            INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
+            LEFT JOIN X3_LCS.ATEXTRA ATX ON ATX.IDENT2_0 = BPC.TSCCOD_2
+                                         AND ATX.CODFIC_0 = 'ATABDIV'
+                                         AND ATX.LANGUE_0 = 'FRA'
+                                         AND ATX.ZONE_0   = 'LNGDES'
+                                         AND ATX.IDENT1_0 = '32'
+            WHERE SOQ.SOQSTA_0 <> 3
+              AND (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) > 0
+              AND BPC.BCGCOD_0 <> 'INTER'
+              AND SOH.ZSOHVALSTA_0 <> 3
+              {$x3NetworkWhere}
+            GROUP BY {$x3GroupField}
+            {$x3OrderBy}";
+
+            $x3Results    = $this->mssqlMade2design->executeQuery($x3Query);
+            $nbClientsMap = [];
+            foreach ($x3Results as $r) {
+                $nbClientsMap[(string) $r->label] = (int) $r->nb_clients;
+            }
+
             if ($mode === 'collection') {
                 $query = "
                 SELECT
@@ -449,9 +498,12 @@ class MainDashboard
                 GROUP BY retard
                 ORDER BY
                     CASE retard
-                        WHEN 'MOIS' THEN 1
-                        WHEN 'MOIS + 1' THEN 2
-                        ELSE 3
+                        WHEN 'MOIS - 3 et avant'  THEN 1
+                        WHEN 'MOIS - 2' THEN 2
+                        WHEN 'MOIS - 1' THEN 3
+                        WHEN 'MOIS'     THEN 4
+                        WHEN 'MOIS + 1' THEN 5
+                        ELSE 6
                     END";
                 $labelField = 'retard';
             }
@@ -460,17 +512,26 @@ class MainDashboard
             $labels     = [];
             $values     = [];
             $quantities = [];
+            $nbClients  = [];
 
             foreach ($results as $row) {
-                $labels[]     = $row->$labelField;
+                $label        = (string) $row->$labelField;
+                $labels[]     = $label;
                 $values[]     = (float) $row->montant;
                 $quantities[] = (float) $row->quantite;
+                $nbClients[]  = $nbClientsMap[$label] ?? 0;
             }
 
+            // Total exact depuis BACKLOG_CLIENT (COUNT DISTINCT rapide sur table cube)
+            $totalResult    = $this->mssqlMade2design->executeQuery("SELECT COUNT(DISTINCT CLIENT_COMMANDE) AS nb_clients_total FROM MASTER_TABLES.BACKLOG_CLIENT");
+            $nbClientsTotal = (int) ($totalResult[0]->nb_clients_total ?? 0);
+
             return [
-                'labels'     => $labels,
-                'values'     => $values,
-                'quantities' => $quantities,
+                'labels'           => $labels,
+                'values'           => $values,
+                'quantities'       => $quantities,
+                'nb_clients'       => $nbClients,
+                'nb_clients_total' => $nbClientsTotal,
             ];
 
         } catch (\Exception $e) {
@@ -480,11 +541,15 @@ class MainDashboard
         }
     }
 
-    public function getBoutiqueGroupVentesYears(string $group): array
+    public function getBoutiqueGroupVentesYears(string $group, ?string $customer = null): array
     {
         $customers = self::BOUTIQUE_GROUPS[$group] ?? null;
         if ($customers === null) {
             return [];
+        }
+
+        if ($customer !== null && in_array($customer, $customers, true)) {
+            $customers = [$customer];
         }
 
         try {
@@ -539,11 +604,15 @@ class MainDashboard
         }
     }
 
-    public function getBoutiqueGroupVentesByMonths(string $group): array
+    public function getBoutiqueGroupVentesByMonths(string $group, ?string $customer = null): array
     {
         $customers = self::BOUTIQUE_GROUPS[$group] ?? null;
         if ($customers === null) {
             return [];
+        }
+
+        if ($customer !== null && in_array($customer, $customers, true)) {
+            $customers = [$customer];
         }
 
         try {
@@ -568,11 +637,15 @@ class MainDashboard
         }
     }
 
-    public function getBoutiqueGroupTopProduits(string $group, ?string $familyCode = null): array
+    public function getBoutiqueGroupTopProduits(string $group, ?string $familyCode = null, ?string $customer = null): array
     {
         $customers = self::BOUTIQUE_GROUPS[$group] ?? null;
         if ($customers === null) {
             return [];
+        }
+
+        if ($customer !== null && in_array($customer, $customers, true)) {
+            $customers = [$customer];
         }
 
         try {
@@ -630,7 +703,8 @@ class MainDashboard
         'lcs_shop'      => 'LCS Shop',
         'amazon_vendor' => 'Amazon Vendor',
         'amazon_seller' => 'Amazon Seller',
-        'autres_web'    => 'Autres clients Web',
+        'autres_mkp'    => 'Autres Marketplaces',
+        'ecom_btb'      => 'E-commerce BTB',
     ];
 
     private function buildEcomGroupWhere(string $group, string $alias = ''): string
@@ -642,16 +716,13 @@ class MainDashboard
             'amazon_vendor' => " AND {$p('reportingdimension')} LIKE '%WHOLESALE%'"
                              . " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
                              . " AND UPPER({$p('customer_name')}) LIKE '%AMAZON%'",
-            'amazon_seller' => " AND {$p('mainnetwork')} IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE')"
+            'amazon_seller' => " AND {$p('mainnetwork')} IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE', 'E BUSINESS MKT')"
                              . " AND UPPER({$p('customer_name')}) LIKE '%AMAZON%'",
-            'autres_web'    => " AND (("
-                             .     "{$p('reportingdimension')} LIKE '%WHOLESALE%'"
-                             .     " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
-                             .     " AND UPPER({$p('customer_name')}) NOT LIKE '%AMAZON%'"
-                             . ") OR ("
-                             .     "{$p('mainnetwork')} IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE')"
-                             .     " AND UPPER({$p('customer_name')}) NOT LIKE '%AMAZON%'"
-                             . "))",
+            'autres_mkp'    => " AND {$p('mainnetwork')} IN ('E BUSINESS MARKET PL','E BUSINESS MKT','RETAIL MARKET PLACE')"
+                             . " AND UPPER({$p('customer_name')}) NOT LIKE '%AMAZON%'",
+            'ecom_btb'      => " AND {$p('reportingdimension')} LIKE '%WHOLESALE%'"
+                             . " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
+                             . " AND UPPER({$p('customer_name')}) NOT LIKE '%AMAZON%'",
             default         => '',
         };
     }
@@ -739,7 +810,7 @@ class MainDashboard
 
     public function getEcomGlobalVentesByMonths(): array
     {
-        $groups  = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'];
+        $groups  = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_mkp', 'ecom_btb'];
         $merged  = [];
 
         foreach ($groups as $group) {
@@ -778,8 +849,9 @@ class MainDashboard
                 'global'        => $this->buildNetworkWhereClause('ecom'),
                 'lcs_shop'      => " AND mainnetwork IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
                 'amazon_vendor' => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) LIKE '%AMAZON%'",
-                'amazon_seller' => " AND mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND UPPER(customer_name) LIKE '%AMAZON%'",
-                'autres_web'    => " AND ((reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) NOT LIKE '%AMAZON%') OR (mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND UPPER(customer_name) NOT LIKE '%AMAZON%'))",
+                'amazon_seller' => " AND mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE','E BUSINESS MKT') AND UPPER(customer_name) LIKE '%AMAZON%'",
+                'autres_mkp'    => " AND mainnetwork IN ('E BUSINESS MARKET PL','E BUSINESS MKT','RETAIL MARKET PLACE') AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
+                'ecom_btb'      => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
                 default         => ' AND 1=0',
             };
 
@@ -821,6 +893,43 @@ class MainDashboard
         } catch (\Exception $e) {
             $this->graphMailer->notifyError("❌ Dashboard ecom groupe top produits [{$group}]", $e);
             $this->logger->error('Erreur ecom groupe top produits', ['group' => $group, 'exception' => $e]);
+            return [];
+        }
+    }
+
+    public function getEcomGroupFamilySales(string $group): array
+    {
+        try {
+            $table = $this->table('INTRANET_SALES_AGG_YEAR');
+
+            $groupWhere = match ($group) {
+                'global'        => $this->buildNetworkWhereClause('ecom'),
+                'lcs_shop'      => " AND mainnetwork IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
+                'amazon_vendor' => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) LIKE '%AMAZON%'",
+                'amazon_seller' => " AND mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND UPPER(customer_name) LIKE '%AMAZON%'",
+                'autres_mkp'    => " AND mainnetwork IN ('E BUSINESS MARKET PL','E BUSINESS MKT') AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
+                'ecom_btb'      => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
+                default         => ' AND 1=0',
+            };
+
+            $query = "
+            SELECT
+                CASE
+                    WHEN item_family_code = 'FTW' THEN 'FOOTWEAR'
+                    WHEN item_family_code = 'APL' THEN 'TEXTILE'
+                    WHEN item_family_code = 'HDW' THEN 'HARDWARE'
+                END AS ItemFamilyCode,
+                SUM(ca) AS TotalSales
+            FROM {$table}
+            WHERE annee = YEAR(GETDATE())
+              {$groupWhere}
+            GROUP BY item_family_code
+            ORDER BY TotalSales DESC";
+
+            return $this->mssqlMade2design->executeQuery($query);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError("❌ Dashboard ecom groupe famille CA [{$group}]", $e);
+            $this->logger->error('Erreur ecom groupe famille CA', ['group' => $group, 'exception' => $e]);
             return [];
         }
     }
@@ -1018,24 +1127,28 @@ class MainDashboard
             $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
             $insertQuery = "
-        INSERT INTO {$table} (retard, collection, quantite, montant_ht_eur, reportingdimension, date_refresh)
+        INSERT INTO {$table} (retard, collection, quantite, montant_ht_eur, nb_clients, reportingdimension, date_refresh)
 
         SELECT
             retard,
             collection,
-            SUM(quantite)    AS quantite,
-            SUM(montant_eur) AS montant_ht_eur,
+            SUM(quantite)       AS quantite,
+            SUM(montant_eur)    AS montant_ht_eur,
+            COUNT(DISTINCT bpcord) AS nb_clients,
             reportingdimension,
             GETDATE()
         FROM (
             SELECT
                 CASE
-                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(GETDATE())                    THEN 'MOIS'
-                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE())) THEN 'MOIS + 1'
-                    ELSE '>MOIS + 2'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEADD(MONTH, -2, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) THEN 'MOIS - 3 et avant'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEADD(MONTH, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) THEN 'MOIS - 2'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)                     THEN 'MOIS - 1'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(GETDATE())                                                     THEN 'MOIS'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE()))                                  THEN 'MOIS + 1'
+                    ELSE 'MOIS + 2 et après'
                 END AS retard,
 
-                SOQ.YCOLLECT_0 AS collection,
+                SOQ.YCOLLECT_0  AS collection,
 
                 CAST(ROUND(SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0, 0) AS INT) AS quantite,
 
@@ -1044,7 +1157,9 @@ class MainDashboard
                     ELSE (SOP.NETPRINOT_0 * (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)) / NULLIF(TC.CHGRAT_0, 0)
                 END AS montant_eur,
 
-                ATX.TEXTE_0 AS reportingdimension
+                SOH.BPCORD_0    AS bpcord,
+
+                ATX.TEXTE_0     AS reportingdimension
 
             FROM X3_LCS.SORDERQ SOQ
             INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
@@ -1075,7 +1190,45 @@ class MainDashboard
         ) t
         GROUP BY retard, collection, reportingdimension;";
 
-            return $this->mssqlMade2design->insertData($insertQuery);
+            $result = $this->mssqlMade2design->insertData($insertQuery);
+
+            // Refresh table totaux clients distincts par retard
+            $tableTotal = $this->table('INTRANET_BACKLOG_CLI_TOTAL_CLIENTS');
+            $this->mssqlMade2design->executeDelete("DELETE FROM {$tableTotal}");
+
+            $insertTotal = "
+            INSERT INTO {$tableTotal} (retard, nb_clients, date_refresh)
+            SELECT
+                CASE
+                    WHEN SOQ.DEMDLVDAT_0 < DATEADD(MONTH, -2, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) THEN 'MOIS - 3 et avant'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEADD(MONTH, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) THEN 'MOIS - 2'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)                     THEN 'MOIS - 1'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(GETDATE())                                                     THEN 'MOIS'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE()))                                  THEN 'MOIS + 1'
+                    ELSE 'MOIS + 2 et après'
+                END AS retard,
+                COUNT(DISTINCT SOH.BPCORD_0) AS nb_clients,
+                GETDATE()
+            FROM X3_LCS.SORDERQ SOQ
+            INNER JOIN X3_LCS.SORDER SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
+            INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
+            WHERE SOQ.SOQSTA_0 <> 3
+              AND (SOQ.QTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) > 0
+              AND BPC.BCGCOD_0 <> 'INTER'
+              AND SOH.ZSOHVALSTA_0 <> 3
+            GROUP BY
+                CASE
+                    WHEN SOQ.DEMDLVDAT_0 < DATEADD(MONTH, -2, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) THEN 'MOIS - 3 et avant'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEADD(MONTH, -1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) THEN 'MOIS - 2'
+                    WHEN SOQ.DEMDLVDAT_0 < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)                     THEN 'MOIS - 1'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(GETDATE())                                                     THEN 'MOIS'
+                    WHEN SOQ.DEMDLVDAT_0 <= EOMONTH(DATEADD(MONTH, 1, GETDATE()))                                  THEN 'MOIS + 1'
+                    ELSE 'MOIS + 2 et après'
+                END";
+
+            $this->mssqlMade2design->insertData($insertTotal);
+
+            return $result;
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Erreur recalcul cube backlog client', $e);
@@ -1087,9 +1240,6 @@ class MainDashboard
     public function refreshAllSalesCubes(): array
     {
         return [
-            'Cube CA mensuel'          => $this->refreshSalesAggMonth(),
-            'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
-            'Cube ventes journalières' => $this->refreshSalesDaily(),
             'Cube backlog client'      => $this->refreshBacklogClient(),
         ];
     }
