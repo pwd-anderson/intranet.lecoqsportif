@@ -1240,6 +1240,9 @@ class MainDashboard
     public function refreshAllSalesCubes(): array
     {
         return [
+            'Cube CA mensuel'          => $this->refreshSalesAggMonth(),
+            'Cube ventes client année' => $this->refreshSalesAggMonthClient(),
+            'Cube ventes journalières' => $this->refreshSalesDaily(),
             'Cube backlog client'      => $this->refreshBacklogClient(),
         ];
     }
