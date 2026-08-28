@@ -255,10 +255,23 @@ final class HomeController extends AbstractController
         );
     }
 
+    private const BOUTIQUE_CUSTOMERS = [
+        'propres'  => ['2319', '10700'],
+        'affilies' => ['20425', '20966', '7669', '7754'],
+        'outlet'   => ['11026', '11159', '8606', '9735', '9822'],
+    ];
+
     private function getBoutiqueGroupFromRequest(Request $request): ?string
     {
         $group = $request->query->get('group', '');
         return in_array($group, ['propres', 'affilies', 'outlet'], true) ? $group : null;
+    }
+
+    private function getBoutiqueCustomerFromRequest(Request $request, string $group): ?string
+    {
+        $customer  = $request->query->get('customer', '');
+        $allowed   = self::BOUTIQUE_CUSTOMERS[$group] ?? [];
+        return in_array($customer, $allowed, true) ? $customer : null;
     }
 
     #[Route('/api/dashboard/boutique-group-ventes', name: 'api_dashboard_boutique_group_ventes')]
@@ -269,8 +282,9 @@ final class HomeController extends AbstractController
             return new JsonResponse(['error' => 'Groupe invalide'], 400);
         }
 
-        $dataAnnual   = $this->mainDashboard->getBoutiqueGroupVentesYears($group);
-        $dataByMonth  = $this->mainDashboard->getBoutiqueGroupVentesByMonths($group);
+        $customer     = $this->getBoutiqueCustomerFromRequest($request, $group);
+        $dataAnnual   = $this->mainDashboard->getBoutiqueGroupVentesYears($group, $customer);
+        $dataByMonth  = $this->mainDashboard->getBoutiqueGroupVentesByMonths($group, $customer);
 
         $labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
         $caN    = array_fill(0, 12, 0);
@@ -308,11 +322,12 @@ final class HomeController extends AbstractController
             return new JsonResponse(['error' => 'Groupe invalide'], 400);
         }
 
-        $family  = $request->query->get('family');
-        $allowed = ['FTW', 'APL', 'HDW'];
-        $family  = in_array($family, $allowed, true) ? $family : null;
+        $family   = $request->query->get('family');
+        $allowed  = ['FTW', 'APL', 'HDW'];
+        $family   = in_array($family, $allowed, true) ? $family : null;
+        $customer = $this->getBoutiqueCustomerFromRequest($request, $group);
 
-        $data     = $this->mainDashboard->getBoutiqueGroupTopProduits($group, $family);
+        $data     = $this->mainDashboard->getBoutiqueGroupTopProduits($group, $family, $customer);
         $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);
@@ -321,7 +336,7 @@ final class HomeController extends AbstractController
     private function getEcomGroupFromRequest(Request $request): ?string
     {
         $group = $request->query->get('group', '');
-        return in_array($group, ['global', 'lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'], true)
+        return in_array($group, ['global', 'lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_mkp', 'ecom_btb'], true)
             ? $group : null;
     }
 
@@ -371,7 +386,7 @@ final class HomeController extends AbstractController
         $year    = (int) date('Y');
         $labels  = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
 
-        $groups = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'];
+        $groups = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_mkp', 'ecom_btb'];
         $data   = [];
         foreach ($groups as $g) {
             $data[$g] = ['n' => array_fill(0, 12, 0), 'n1' => array_fill(0, 12, 0)];
@@ -386,15 +401,18 @@ final class HomeController extends AbstractController
             $data['amazon_vendor']['n1'][$i] = round((float) ($row->amazon_vendor_n1 ?? 0), 2);
             $data['amazon_seller']['n'][$i]  = round((float) ($row->amazon_seller_n  ?? 0), 2);
             $data['amazon_seller']['n1'][$i] = round((float) ($row->amazon_seller_n1 ?? 0), 2);
-            $data['autres_web']['n'][$i]     = round((float) ($row->autres_web_n     ?? 0), 2);
-            $data['autres_web']['n1'][$i]    = round((float) ($row->autres_web_n1    ?? 0), 2);
+            $data['autres_mkp']['n'][$i]     = round((float) ($row->autres_mkp_n     ?? 0), 2);
+            $data['autres_mkp']['n1'][$i]    = round((float) ($row->autres_mkp_n1    ?? 0), 2);
+            $data['ecom_btb']['n'][$i]       = round((float) ($row->ecom_btb_n       ?? 0), 2);
+            $data['ecom_btb']['n1'][$i]      = round((float) ($row->ecom_btb_n1      ?? 0), 2);
         }
 
         $groupLabels = [
             'lcs_shop'      => 'LCS Shop',
             'amazon_vendor' => 'Amazon Vendor',
             'amazon_seller' => 'Amazon Seller',
-            'autres_web'    => 'Autres Web',
+            'autres_mkp'    => 'Autres Marketplaces',
+            'ecom_btb'      => 'E-commerce BTB',
         ];
 
         $series = [];
@@ -425,5 +443,23 @@ final class HomeController extends AbstractController
         $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);
+    }
+
+    #[Route('/api/dashboard/ecom-group-family-sales', name: 'api_dashboard_ecom_group_family_sales')]
+    public function getEcomGroupFamilySales(Request $request): JsonResponse
+    {
+        $group = $this->getEcomGroupFromRequest($request);
+        if ($group === null) {
+            return new JsonResponse(['error' => 'Groupe invalide'], 400);
+        }
+
+        $data      = $this->mainDashboard->getEcomGroupFamilySales($group);
+        $dataUtf8  = $this->helpers->convertArrayToUtf8($data);
+        $dataArray = array_map(fn($item) => (array) $item, $dataUtf8);
+
+        return new JsonResponse([
+            'labels' => array_column($dataArray, 'ItemFamilyCode'),
+            'values' => array_map(fn($v) => round((float) $v, 2), array_column($dataArray, 'TotalSales')),
+        ]);
     }
 }

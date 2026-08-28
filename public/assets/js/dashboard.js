@@ -734,7 +734,7 @@ function chargerCaJour(apiUrl) {
     });
 }
 
-function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutColors = ['#00C9A7', '#FFC75F', '#FF6F61'], height = 220) {
+function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutColors = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#90A4AE'], height = 220) {
     const finalUrl = buildUrlWithNetwork(apiUrl);
 
     $.getJSON(finalUrl, function (result) {
@@ -752,13 +752,8 @@ function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutCol
 
         const safeValues = result.values.map(v => Number(v) || 0);
         const safeQuantities = result.quantities.map(v => Number(v) || 0);
-
-        const totalEl = document.getElementById('backlog-client-total');
-        if (totalEl) {
-            const totalMontant = safeValues.reduce((s, v) => s + v, 0);
-            const totalQty = safeQuantities.reduce((s, v) => s + v, 0);
-            totalEl.innerHTML = '<span class="text-dark fw-semibold">Total</span> : ' + formatNumber(totalMontant, 0) + ' € / ' + formatNumber(totalQty, 0) + ' pcs';
-        }
+        const safeNbClients  = Array.isArray(result.nb_clients) ? result.nb_clients.map(v => Number(v) || 0) : result.labels.map(() => 0);
+        const nbClientsTotal = Number(result.nb_clients_total || 0);
 
         const options = {
             chart: {
@@ -803,16 +798,27 @@ function renderBacklogClientChart(apiUrl, chartSelector, tableSelector, donutCol
                 <tr>
                     <td class="text-start">${label}</td>
                     <td class="text-end">
-                        <div class="fw-bold">
-                            ${formatNumber(safeValues[i], 2)} €
-                        </div>
-                        <div class="text-muted small">
-                            ${formatNumber(safeQuantities[i], 0)} pcs
-                        </div>
+                        <div class="fw-bold">${formatNumber(safeValues[i], 2)} €</div>
+                        <div class="text-muted small">${formatNumber(safeQuantities[i], 0)} pcs</div>
+                        <div class="text-muted small">${formatNumber(safeNbClients[i], 0)} clients</div>
                     </td>
                 </tr>
             `;
         });
+
+        const totalMontant = safeValues.reduce((s, v) => s + v, 0);
+        const totalQty = safeQuantities.reduce((s, v) => s + v, 0);
+        const totalClients = nbClientsTotal || safeNbClients.reduce((s, v) => s + v, 0);
+        html += `
+            <tr class="fw-bold border-top">
+                <td class="text-start">Total</td>
+                <td class="text-end">
+                    <div class="fw-bold">${formatNumber(totalMontant, 2)} €</div>
+                    <div class="text-muted small">${formatNumber(totalQty, 0)} pcs</div>
+                    <div class="text-muted small">${formatNumber(totalClients, 0)} clients</div>
+                </td>
+            </tr>
+        `;
 
         html += '</tbody></table>';
         tableEl.innerHTML = html;
@@ -902,9 +908,23 @@ function switchBacklogMode(mode) {
 
 // ── BOUTIQUE GROUPS ──
 
+function onBoutiqueFilterChange(group) {
+    loadBoutiqueGroupData(group);
+}
+
 function loadBoutiqueGroupData(group) {
-    const ventesUrl    = window.dashboardRoutes.boutiqueGroupVentes + '?group=' + group;
-    const produitsBase = window.dashboardRoutes.boutiqueGroupTopProduits + '?group=' + group;
+    const selectEl    = document.getElementById('boutique-' + group + '-filter');
+    const customer    = selectEl ? selectEl.value : '';
+    const customerQs  = customer ? '&customer=' + encodeURIComponent(customer) : '';
+    const ventesUrl   = window.dashboardRoutes.boutiqueGroupVentes + '?group=' + group + customerQs;
+    const produitsBase = window.dashboardRoutes.boutiqueGroupTopProduits + '?group=' + group + customerQs;
+
+    const boutiqueColors = {
+        propres:  ['#1a3767', '#90aad4'],
+        affilies: ['#1a7a4a', '#7acc9e'],
+        outlet:   ['#c45c1a', '#f0aa7a'],
+    };
+    const groupColors = boutiqueColors[group] || ['#1a3767', '#90aad4'];
 
     $.getJSON(ventesUrl, function(data) {
         const variation = Number(data?.variation || 0);
@@ -921,8 +941,8 @@ function loadBoutiqueGroupData(group) {
         const varEl = document.getElementById('boutique-' + group + '-variation');
         if (varEl) varEl.innerHTML = varHtml;
 
-        renderCaMensuelChart(data, '#boutique-' + group + '-mensuel', 300);
-        renderCaAnnuelChart(data, '#boutique-' + group + '-annuel', '€', 300);
+        renderCaMensuelChart(data, '#boutique-' + group + '-mensuel', 300, groupColors);
+        renderCaAnnuelChart(data, '#boutique-' + group + '-annuel', '€', 300, groupColors);
     });
 
     renderTopProductSalesChart(
@@ -933,9 +953,12 @@ function loadBoutiqueGroupData(group) {
 }
 
 function switchBoutiqueTopProduit(group, family) {
-    const color = TOP_PRODUIT_COLORS[family] || '#775DD0';
+    const color      = TOP_PRODUIT_COLORS[family] || '#775DD0';
+    const selectEl   = document.getElementById('boutique-' + group + '-filter');
+    const customer   = selectEl ? selectEl.value : '';
+    const customerQs = customer ? '&customer=' + encodeURIComponent(customer) : '';
     renderTopProductSalesChart(
-        window.dashboardRoutes.boutiqueGroupTopProduits + '?group=' + group + '&family=' + family,
+        window.dashboardRoutes.boutiqueGroupTopProduits + '?group=' + group + '&family=' + family + customerQs,
         '#boutique-' + group + '-product',
         color
     );
@@ -962,7 +985,8 @@ const ECOM_GROUP_COLORS = {
     lcs_shop:      ['#008FFB', '#69D2E7'],
     amazon_vendor: ['#FF4560', '#F9A8B8'],
     amazon_seller: ['#00E396', '#A8E6CF'],
-    autres_web:    ['#775DD0', '#C4B5FD'],
+    autres_mkp:    ['#775DD0', '#C4B5FD'],
+    ecom_btb:      ['#0891B2', '#67E8F9'],
 };
 
 function renderEcomGlobalAnnuelChart(totals, groups, glabels, year, selector) {
@@ -1065,6 +1089,60 @@ function loadEcomGroupData(group) {
     );
 }
 
+function switchEcomFamilleMode(group, mode) {
+    const productEl    = document.getElementById('ecom-' + group + '-product');
+    const familleEl    = document.getElementById('ecom-' + group + '-famille');
+    const familleTabEl = document.getElementById('ecom-' + group + '-famille-table');
+    const btnGroupEl   = document.getElementById('ecom-' + group + '-btn-group-famille');
+    const btnFamille   = document.getElementById('ecom-' + group + '-btn-famille');
+
+    const isFamilleMode = familleEl && familleEl.style.display !== 'none';
+    const goToTop = mode === 'top' || isFamilleMode;
+
+    const titleTopEl = document.getElementById('ecom-' + group + '-title-top');
+
+    if (goToTop) {
+        if (productEl)    productEl.style.display   = '';
+        if (familleEl)    familleEl.style.display    = 'none';
+        if (familleTabEl) familleTabEl.style.display = 'none';
+        if (btnGroupEl)   btnGroupEl.style.display   = '';
+        if (titleTopEl) {
+            titleTopEl.classList.remove('btn-outline-secondary');
+            titleTopEl.classList.add('btn-primary', 'active');
+        }
+        if (btnFamille) {
+            btnFamille.classList.remove('btn-secondary', 'active');
+            btnFamille.classList.add('btn-outline-secondary');
+        }
+    } else {
+        if (productEl)    productEl.style.display   = 'none';
+        if (familleEl) {
+            if (!familleEl._loaded) {
+                familleEl.innerHTML = '<div class="text-center text-muted py-3"><i class="fa fa-spinner fa-spin"></i></div>';
+            }
+            familleEl.style.display = '';
+        }
+        if (familleTabEl) familleTabEl.style.display = '';
+        if (btnGroupEl)   btnGroupEl.style.display   = 'none';
+        if (titleTopEl) {
+            titleTopEl.classList.remove('btn-primary', 'active');
+            titleTopEl.classList.add('btn-outline-secondary');
+        }
+        if (btnFamille) {
+            btnFamille.classList.remove('btn-outline-secondary');
+            btnFamille.classList.add('btn-secondary', 'active');
+        }
+        if (familleEl && !familleEl._loaded) {
+            familleEl._loaded = true;
+            renderTopCompanySalesChart(
+                window.dashboardRoutes.ecomGroupFamilySales + '?group=' + group,
+                '#ecom-' + group + '-famille',
+                '#ecom-' + group + '-famille-table'
+            );
+        }
+    }
+}
+
 function switchEcomTopProduit(group, family) {
     const color = TOP_PRODUIT_COLORS[family] || '#775DD0';
     renderTopProductSalesChart(
@@ -1093,8 +1171,8 @@ function loadEcomData() {
         // CA annuel global : 4 groupes × N et N-1 — Total + YTD (16 barres)
         const year     = data.year || new Date().getFullYear();
         const curMonth = new Date().getMonth(); // 0-based : mois en cours non complet
-        const groups   = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'];
-        const glabels  = ['LCS Shop', 'Amazon Vendor', 'Amazon Seller', 'Autres Web'];
+        const groups   = ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_mkp', 'ecom_btb'];
+        const glabels  = ['LCS Shop', 'Amazon Vendor', 'Amazon Seller', 'Autres Marketplaces', 'E-commerce BTB'];
         const totals   = {};
         groups.forEach(g => { totals[g] = { n: 0, n1: 0, ytdN: 0, ytdN1: 0 }; });
         (data.series || []).forEach(s => {
@@ -1115,7 +1193,7 @@ function loadEcomData() {
     );
 
     // Sous-groupes
-    ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_web'].forEach(g => loadEcomGroupData(g));
+    ['lcs_shop', 'amazon_vendor', 'amazon_seller', 'autres_mkp', 'ecom_btb'].forEach(g => loadEcomGroupData(g));
 
     // Blocs synthèse globale E-com
     renderTopClientsChart(window.dashboardRoutes.topClients + '?network=ecom', '#ecom-chart-top-clients');

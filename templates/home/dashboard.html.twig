@@ -224,7 +224,6 @@
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="text-start">
                                 <div class="text-muted small">Répartition backlog clients</div>
-                                <div id="backlog-client-total" class="text-muted mt-1" style="font-size:11px;"></div>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
                                 <button id="btn-backlog-mois" class="btn btn-primary btn-sm active" onclick="switchBacklogMode('mois')">Mois</button>
@@ -260,14 +259,34 @@
         {# ── BOUTIQUE GROUPS ── #}
         <div id="dashboard-boutique" style="display:none">
             {% set boutique_groups = [
-                { id: 'propres',  label: 'Magasins propres' },
-                { id: 'affilies', label: 'Magasins Affiliés' },
-                { id: 'outlet',   label: 'Factory Outlet' },
+                { id: 'propres',  label: 'Magasins propres', stores: [
+                    { id: '10700', label: 'St-Germain' },
+                    { id: '2319',  label: 'Clearance' },
+                ]},
+                { id: 'affilies', label: 'Magasins Affiliés', stores: [
+                    { id: '7754',  label: 'Bayonne' },
+                    { id: '20425', label: 'Cabourg' },
+                    { id: '20966', label: 'Cagnes-sur-Mer' },
+                    { id: '7669',  label: 'Citadium' },
+                ]},
+                { id: 'outlet',   label: 'Factory Outlet', stores: [
+                    { id: '11159', label: 'Miramas' },
+                    { id: '9735',  label: 'Roppenheim' },
+                    { id: '8606',  label: 'Roubaix' },
+                    { id: '9822',  label: 'Troyes' },
+                    { id: '11026', label: 'Villefontaine' },
+                ]},
             ] %}
             {% for grp in boutique_groups %}
             <div class="row mb-3" style="display:flex; align-items:stretch;">
-                <div class="col-12 mb-1 mt-2">
+                <div class="col-12 mb-1 mt-2 d-flex align-items-center gap-2">
                     <span class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">{{ grp.label }}</span>
+                    <select id="boutique-{{ grp.id }}-filter" onchange="onBoutiqueFilterChange('{{ grp.id }}')" style="border:1px solid #dee2e6;border-radius:4px;background:transparent;font-size:11px;color:#6c757d;cursor:pointer;padding:1px 6px;outline:none;appearance:auto;">
+                        <option value="">Tous</option>
+                        {% for store in grp.stores %}
+                        <option value="{{ store.id }}">{{ store.label }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="col-lg-8" style="display:flex; flex-direction:column;">
                     <div class="box" style="flex:1; margin-bottom:0;">
@@ -343,13 +362,18 @@
                     <div class="box" style="flex:1; margin-bottom:0;">
                         <div class="box-body">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="text-muted small">Top produits {{ "now"|date("Y") }}</span>
-                                <div class="btn-group btn-group-sm" role="group">
+                                <div class="d-flex align-items-center gap-1">
+                                    <button id="ecom-global-title-top" class="btn btn-primary btn-sm active" style="font-size:11px;padding:1px 7px;" onclick="switchEcomFamilleMode('global', 'top')">Top produits</button>
+                                    <button id="ecom-global-btn-famille" class="btn btn-outline-secondary btn-sm" style="font-size:11px;padding:1px 7px;" onclick="switchEcomFamilleMode('global')">Rép. par famille</button>
+                                </div>
+                                <div id="ecom-global-btn-group-famille" class="btn-group btn-group-sm" role="group">
                                     <button id="ecom-global-btn-ftw" class="btn btn-primary btn-sm active" onclick="switchEcomTopProduit('global','FTW')">Footwear</button>
                                     <button id="ecom-global-btn-apl" class="btn btn-outline-primary btn-sm" onclick="switchEcomTopProduit('global','APL')">Textile</button>
                                 </div>
                             </div>
                             <div id="ecom-global-product" class="mt-2 top-product-container"></div>
+                            <div id="ecom-global-famille" class="mt-2" style="display:none;"></div>
+                            <div id="ecom-global-famille-table" style="display:none;font-size:12px;"></div>
                         </div>
                     </div>
                 </div>
@@ -360,7 +384,8 @@
                 { id: 'lcs_shop',      label: 'LCS Shop' },
                 { id: 'amazon_vendor', label: 'Amazon Vendor' },
                 { id: 'amazon_seller', label: 'Amazon Seller' },
-                { id: 'autres_web',    label: 'Autres clients Web' },
+                { id: 'autres_mkp',    label: 'Autres Marketplaces' },
+                { id: 'ecom_btb',      label: 'E-commerce BTB' },
             ] %}
             {% for grp in ecom_groups %}
             <div class="row mb-3" style="display:flex; align-items:stretch;">
@@ -391,13 +416,18 @@
                     <div class="box" style="flex:1; margin-bottom:0;">
                         <div class="box-body">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="text-muted small">Top produits {{ "now"|date("Y") }}</span>
-                                <div class="btn-group btn-group-sm" role="group">
+                                <div class="d-flex align-items-center gap-1">
+                                    <button id="ecom-{{ grp.id }}-title-top" class="btn btn-primary btn-sm active" style="font-size:11px;padding:1px 7px;" onclick="switchEcomFamilleMode('{{ grp.id }}', 'top')">Top produits</button>
+                                    <button id="ecom-{{ grp.id }}-btn-famille" class="btn btn-outline-secondary btn-sm" style="font-size:11px;padding:1px 7px;" onclick="switchEcomFamilleMode('{{ grp.id }}')">Rép. par famille</button>
+                                </div>
+                                <div id="ecom-{{ grp.id }}-btn-group-famille" class="btn-group btn-group-sm" role="group">
                                     <button id="ecom-{{ grp.id }}-btn-ftw" class="btn btn-primary btn-sm active" onclick="switchEcomTopProduit('{{ grp.id }}','FTW')">Footwear</button>
                                     <button id="ecom-{{ grp.id }}-btn-apl" class="btn btn-outline-primary btn-sm" onclick="switchEcomTopProduit('{{ grp.id }}','APL')">Textile</button>
                                 </div>
                             </div>
                             <div id="ecom-{{ grp.id }}-product" class="mt-2 top-product-container"></div>
+                            <div id="ecom-{{ grp.id }}-famille" class="mt-2" style="display:none;"></div>
+                            <div id="ecom-{{ grp.id }}-famille-table" style="display:none;font-size:12px;"></div>
                         </div>
                     </div>
                 </div>
@@ -420,19 +450,8 @@
                     </div>
                 </div>
 
-                {# Répartition famille #}
-                <div class="col-lg-4 col-md-6">
-                    <div class="box min-h-box">
-                        <div class="box-body text-center p-10">
-                            <span class="text-muted small">Répartition CA {{ "now"|date("Y") }} par famille</span>
-                            <div id="ecom-chart-top-family-sales" class="mb-20"></div>
-                            <div id="ecom-table-top-family-sales"></div>
-                        </div>
-                    </div>
-                </div>
-
                 {# Évolution CA 5 ans #}
-                <div class="col-lg-4 col-md-6">
+                <div class="col-lg-8 col-md-6">
                     <div class="box min-h-box">
                         <div class="box-body">
                             <span class="text-muted small">Évolution du CA sur 5 ans</span>
@@ -455,7 +474,7 @@
     </section>
 {% endblock %}
 {% block javascripts %}
-    <script src="{{ asset('assets/js/dashboard.js') }}?v=4.4"></script>
+    <script src="{{ asset('assets/js/dashboard.js') }}?v=4.5"></script>
     <script>
         $(function () {
 
@@ -481,7 +500,8 @@
                 boutiqueGroupTopProduits: '{{ path("api_dashboard_boutique_group_top_produits") }}',
                 ecomGroupVentes: '{{ path("api_dashboard_ecom_group_ventes") }}',
                 ecomGlobalVentes: '{{ path("api_dashboard_ecom_global_ventes") }}',
-                ecomGroupTopProduits: '{{ path("api_dashboard_ecom_group_top_produits") }}'
+                ecomGroupTopProduits: '{{ path("api_dashboard_ecom_group_top_produits") }}',
+                ecomGroupFamilySales: '{{ path("api_dashboard_ecom_group_family_sales") }}'
             };
 
             const networkSelect = document.querySelector('#network-switcher select');
