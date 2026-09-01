@@ -11,9 +11,9 @@ use App\Service\Tools\MssqlManager;
 class MainDashboard
 {
     private const BOUTIQUE_GROUPS = [
-        'propres'  => ['2319', '10700'],
-        'affilies' => ['20425', '20966', '7669', '7754'],
-        'outlet'   => ['11026', '11159', '8606', '9735', '9822'],
+        'propres'  => ['10700', '7669', '2319'],
+        'affilies' => ['7754', '20425', '20966', '20969'],
+        'outlet'   => ['11159', '9735', '8606', '9822', '11026'],
     ];
 
     private MssqlManager $mssqlMade2design;
