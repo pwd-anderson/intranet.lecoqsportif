@@ -727,7 +727,16 @@ class MainDashboard
         };
     }
 
-    public function getEcomGroupVentesYears(string $group): array
+    private function buildEcomCustomerWhere(?array $customers, string $field = 'customer_no'): string
+    {
+        if (empty($customers)) {
+            return '';
+        }
+        $list = implode(',', array_map(fn($c) => "'" . str_replace("'", "''", $c) . "'", $customers));
+        return " AND {$field} IN ({$list})";
+    }
+
+    public function getEcomGroupVentesYears(string $group, ?array $customers = null): array
     {
         if ($group === 'global') {
             return $this->getSalesComparaisonYears('ecom');
@@ -738,8 +747,9 @@ class MainDashboard
         }
 
         try {
-            $table      = $this->table('INTRANET_SALES_DAILY');
-            $groupWhere = $this->buildEcomGroupWhere($group);
+            $table         = $this->table('INTRANET_SALES_DAILY');
+            $groupWhere    = $this->buildEcomGroupWhere($group);
+            $customerWhere = $this->buildEcomCustomerWhere($customers);
 
             $query = "
             SELECT
@@ -766,7 +776,7 @@ class MainDashboard
                                  THEN ca ELSE 0 END) * 100 END
                 , 2) AS variation_pourcent
             FROM {$table}
-            WHERE 1=1 {$groupWhere}";
+            WHERE 1=1 {$groupWhere}{$customerWhere}";
 
             return $this->mssqlMade2design->executeQuery($query);
         } catch (\Exception $e) {
@@ -776,7 +786,7 @@ class MainDashboard
         }
     }
 
-    public function getEcomGroupVentesByMonths(string $group): array
+    public function getEcomGroupVentesByMonths(string $group, ?array $customers = null): array
     {
         if ($group === 'global') {
             return $this->getSalesComparaisonByMonths('ecom');
@@ -787,8 +797,9 @@ class MainDashboard
         }
 
         try {
-            $table      = $this->table('INTRANET_SALES_DAILY');
-            $groupWhere = $this->buildEcomGroupWhere($group);
+            $table         = $this->table('INTRANET_SALES_DAILY');
+            $groupWhere    = $this->buildEcomGroupWhere($group);
+            $customerWhere = $this->buildEcomCustomerWhere($customers);
 
             $query = "
             SELECT
@@ -796,7 +807,7 @@ class MainDashboard
                 SUM(CASE WHEN annee = YEAR(GETDATE())      THEN ca ELSE 0 END) AS ca_n,
                 SUM(CASE WHEN annee = YEAR(GETDATE()) - 1  THEN ca ELSE 0 END) AS ca_n_1
             FROM {$table}
-            WHERE 1=1 {$groupWhere}
+            WHERE 1=1 {$groupWhere}{$customerWhere}
             GROUP BY mois
             ORDER BY mois";
 
@@ -840,7 +851,7 @@ class MainDashboard
         return array_values($merged);
     }
 
-    public function getEcomGroupTopProduits(string $group, ?string $familyCode = null): array
+    public function getEcomGroupTopProduits(string $group, ?string $familyCode = null, ?array $customers = null): array
     {
         try {
             $table    = $this->table('INTRANET_SALES_AGG_YEAR');
@@ -855,10 +866,11 @@ class MainDashboard
                 default         => ' AND 1=0',
             };
 
-            $familyWhere = '';
+            $familyWhere   = '';
             if ($familyCode !== null && in_array($familyCode, ['FTW', 'APL', 'HDW'], true)) {
                 $familyWhere = " AND item_family_code = '{$familyCode}'";
             }
+            $customerWhere = $this->buildEcomCustomerWhere($customers);
 
             $query = "
             SELECT TOP 5
@@ -869,6 +881,7 @@ class MainDashboard
             WHERE annee = YEAR(GETDATE())
               {$groupWhere}
               {$familyWhere}
+              {$customerWhere}
             GROUP BY item_no, item_description
             ORDER BY TotalSales DESC";
 
@@ -897,7 +910,7 @@ class MainDashboard
         }
     }
 
-    public function getEcomGroupFamilySales(string $group): array
+    public function getEcomGroupFamilySales(string $group, ?array $customers = null): array
     {
         try {
             $table = $this->table('INTRANET_SALES_AGG_YEAR');
@@ -912,6 +925,8 @@ class MainDashboard
                 default         => ' AND 1=0',
             };
 
+            $customerWhere = $this->buildEcomCustomerWhere($customers);
+
             $query = "
             SELECT
                 CASE
@@ -923,6 +938,7 @@ class MainDashboard
             FROM {$table}
             WHERE annee = YEAR(GETDATE())
               {$groupWhere}
+              {$customerWhere}
             GROUP BY item_family_code
             ORDER BY TotalSales DESC";
 

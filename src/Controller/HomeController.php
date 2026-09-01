@@ -256,9 +256,9 @@ final class HomeController extends AbstractController
     }
 
     private const BOUTIQUE_CUSTOMERS = [
-        'propres'  => ['2319', '10700'],
-        'affilies' => ['20425', '20966', '7669', '7754'],
-        'outlet'   => ['11026', '11159', '8606', '9735', '9822'],
+        'propres'  => ['10700', '7669', '2319'],
+        'affilies' => ['7754', '20425', '20966', '20969'],
+        'outlet'   => ['11159', '9735', '8606', '9822', '11026'],
     ];
 
     private function getBoutiqueGroupFromRequest(Request $request): ?string
@@ -340,6 +340,35 @@ final class HomeController extends AbstractController
             ? $group : null;
     }
 
+    /** Codes clients autorisés par groupe ecom filtrable (autres_mkp / ecom_btb). */
+    private const ECOM_CUSTOMERS = [
+        'autres_mkp' => [
+            'veepee' => ['20334', '20335', '3265'],
+            '21407'  => ['21407'],
+            '21449'  => ['21449'],
+            '21450'  => ['21450'],
+            '21451'  => ['21451'],
+            '2301'   => ['2301'],
+            '2497'   => ['2497'],
+        ],
+        'ecom_btb' => [
+            '3054' => ['3054'],
+            '7023' => ['7023'],
+            '7271' => ['7271'],
+            '9953' => ['9953'],
+        ],
+    ];
+
+    /** Retourne le/les codes clients à filtrer, ou null si "Tous" / groupe sans filtre. */
+    private function getEcomCustomerFromRequest(Request $request, string $group): ?array
+    {
+        $customer = $request->query->get('customer', '');
+        if ($customer === '') {
+            return null;
+        }
+        return self::ECOM_CUSTOMERS[$group][$customer] ?? null;
+    }
+
     #[Route('/api/dashboard/ecom-group-ventes', name: 'api_dashboard_ecom_group_ventes')]
     public function getEcomGroupVentes(Request $request): JsonResponse
     {
@@ -348,8 +377,9 @@ final class HomeController extends AbstractController
             return new JsonResponse(['error' => 'Groupe invalide'], 400);
         }
 
-        $dataAnnual  = $this->mainDashboard->getEcomGroupVentesYears($group);
-        $dataByMonth = $this->mainDashboard->getEcomGroupVentesByMonths($group);
+        $customers   = $this->getEcomCustomerFromRequest($request, $group);
+        $dataAnnual  = $this->mainDashboard->getEcomGroupVentesYears($group, $customers);
+        $dataByMonth = $this->mainDashboard->getEcomGroupVentesByMonths($group, $customers);
 
         $labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
         $caN    = array_fill(0, 12, 0);
@@ -436,10 +466,11 @@ final class HomeController extends AbstractController
             return new JsonResponse(['error' => 'Groupe invalide'], 400);
         }
 
-        $family  = $request->query->get('family');
-        $family  = in_array($family, ['FTW', 'APL', 'HDW'], true) ? $family : null;
+        $family    = $request->query->get('family');
+        $family    = in_array($family, ['FTW', 'APL', 'HDW'], true) ? $family : null;
+        $customers = $this->getEcomCustomerFromRequest($request, $group);
 
-        $data     = $this->mainDashboard->getEcomGroupTopProduits($group, $family);
+        $data     = $this->mainDashboard->getEcomGroupTopProduits($group, $family, $customers);
         $dataUtf8 = $this->helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);
@@ -453,7 +484,8 @@ final class HomeController extends AbstractController
             return new JsonResponse(['error' => 'Groupe invalide'], 400);
         }
 
-        $data      = $this->mainDashboard->getEcomGroupFamilySales($group);
+        $customers = $this->getEcomCustomerFromRequest($request, $group);
+        $data      = $this->mainDashboard->getEcomGroupFamilySales($group, $customers);
         $dataUtf8  = $this->helpers->convertArrayToUtf8($data);
         $dataArray = array_map(fn($item) => (array) $item, $dataUtf8);
 

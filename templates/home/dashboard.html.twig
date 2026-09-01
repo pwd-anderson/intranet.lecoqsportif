@@ -261,13 +261,14 @@
             {% set boutique_groups = [
                 { id: 'propres',  label: 'Magasins propres', stores: [
                     { id: '10700', label: 'St-Germain' },
+                    { id: '7669',  label: 'Citadium' },
                     { id: '2319',  label: 'Clearance' },
                 ]},
                 { id: 'affilies', label: 'Magasins Affiliés', stores: [
                     { id: '7754',  label: 'Bayonne' },
                     { id: '20425', label: 'Cabourg' },
                     { id: '20966', label: 'Cagnes-sur-Mer' },
-                    { id: '7669',  label: 'Citadium' },
+                    { id: '20969', label: 'Saint-Jean-de-Luz' },
                 ]},
                 { id: 'outlet',   label: 'Factory Outlet', stores: [
                     { id: '11159', label: 'Miramas' },
@@ -384,13 +385,34 @@
                 { id: 'lcs_shop',      label: 'LCS Shop' },
                 { id: 'amazon_vendor', label: 'Amazon Vendor' },
                 { id: 'amazon_seller', label: 'Amazon Seller' },
-                { id: 'autres_mkp',    label: 'Autres Marketplaces' },
-                { id: 'ecom_btb',      label: 'E-commerce BTB' },
+                { id: 'autres_mkp',    label: 'Autres Marketplaces', stores: [
+                    { id: 'veepee',          label: 'Veepee' },
+                    { id: '21407',           label: 'Showroomprive.com' },
+                    { id: '21449',           label: 'Private Sport Shop' },
+                    { id: '21450',           label: 'Vertbaudet' },
+                    { id: '21451',           label: 'Decathlon' },
+                    { id: '2301',            label: 'La Redoute' },
+                    { id: '2497',            label: 'Les Galeries Lafayette' },
+                ]},
+                { id: 'ecom_btb',      label: 'E-commerce BTB', stores: [
+                    { id: '3054',  label: 'The Agent' },
+                    { id: '7023',  label: 'Spartoo' },
+                    { id: '7271',  label: 'Sarenza' },
+                    { id: '9953',  label: 'La Boutique Officielle' },
+                ]},
             ] %}
             {% for grp in ecom_groups %}
             <div class="row mb-3" style="display:flex; align-items:stretch;">
-                <div class="col-12 mb-1 mt-2">
+                <div class="col-12 mb-1 mt-2 d-flex align-items-center gap-2">
                     <span class="fw-semibold text-muted small text-uppercase" style="letter-spacing:.05em">{{ grp.label }}</span>
+                    {% if grp.stores is defined %}
+                    <select id="ecom-{{ grp.id }}-filter" onchange="onEcomFilterChange('{{ grp.id }}')" style="border:1px solid #dee2e6;border-radius:4px;background:transparent;font-size:11px;color:#6c757d;cursor:pointer;padding:1px 6px;outline:none;appearance:auto;">
+                        <option value="">Tous</option>
+                        {% for store in grp.stores %}
+                        <option value="{{ store.id }}">{{ store.label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
                 </div>
                 <div class="col-lg-8" style="display:flex; flex-direction:column;">
                     <div class="box" style="flex:1; margin-bottom:0;">
@@ -474,7 +496,7 @@
     </section>
 {% endblock %}
 {% block javascripts %}
-    <script src="{{ asset('assets/js/dashboard.js') }}?v=4.5"></script>
+    <script src="{{ asset('assets/js/dashboard.js') }}?v=4.6"></script>
     <script>
         $(function () {
 

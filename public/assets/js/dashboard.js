@@ -1069,11 +1069,24 @@ function renderVariationBadge(selector, variation) {
     }
 }
 
+function getEcomCustomer(group) {
+    const sel = document.getElementById('ecom-' + group + '-filter');
+    return sel ? sel.value : '';
+}
+
+function onEcomFilterChange(group) {
+    const familleEl = document.getElementById('ecom-' + group + '-famille');
+    if (familleEl) familleEl._loaded = false;
+    switchEcomFamilleMode(group, 'top');
+    loadEcomGroupData(group);
+}
+
 function loadEcomGroupData(group) {
-    const ventesUrl    = window.dashboardRoutes.ecomGroupVentes + '?group=' + group;
-    const produitsBase = window.dashboardRoutes.ecomGroupTopProduits + '?group=' + group;
+    const customer     = getEcomCustomer(group);
+    const customerParam = customer ? '&customer=' + encodeURIComponent(customer) : '';
+    const ventesUrl    = window.dashboardRoutes.ecomGroupVentes + '?group=' + group + customerParam;
+    const produitsBase = window.dashboardRoutes.ecomGroupTopProduits + '?group=' + group + customerParam;
     const c            = ECOM_GROUP_COLORS[group] || ['#1a3767', '#90aad4'];
-    // N-1 = couleur claire [1], N = couleur foncée [0]
     const groupColors  = [c[1], c[0]];
 
     $.getJSON(ventesUrl, function(data) {
@@ -1134,8 +1147,9 @@ function switchEcomFamilleMode(group, mode) {
         }
         if (familleEl && !familleEl._loaded) {
             familleEl._loaded = true;
+            const customerParam = getEcomCustomer(group) ? '&customer=' + encodeURIComponent(getEcomCustomer(group)) : '';
             renderTopCompanySalesChart(
-                window.dashboardRoutes.ecomGroupFamilySales + '?group=' + group,
+                window.dashboardRoutes.ecomGroupFamilySales + '?group=' + group + customerParam,
                 '#ecom-' + group + '-famille',
                 '#ecom-' + group + '-famille-table'
             );
@@ -1145,8 +1159,9 @@ function switchEcomFamilleMode(group, mode) {
 
 function switchEcomTopProduit(group, family) {
     const color = TOP_PRODUIT_COLORS[family] || '#775DD0';
+    const customerParam = getEcomCustomer(group) ? '&customer=' + encodeURIComponent(getEcomCustomer(group)) : '';
     renderTopProductSalesChart(
-        window.dashboardRoutes.ecomGroupTopProduits + '?group=' + group + '&family=' + family,
+        window.dashboardRoutes.ecomGroupTopProduits + '?group=' + group + '&family=' + family + customerParam,
         '#ecom-' + group + '-product',
         color
     );
