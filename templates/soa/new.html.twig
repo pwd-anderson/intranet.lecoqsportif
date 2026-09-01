@@ -1,0 +1,642 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+<style>
+/* ─── Stepper ────────────────────────────────────────────────── */
+.soa-stepper {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 28px;
+    background: #fff;
+    border: 1px solid #e3e6ef;
+    border-radius: 10px;
+    padding: 20px 24px;
+    overflow-x: auto;
+}
+.soa-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 110px;
+    position: relative;
+}
+.soa-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: calc(50% + 18px);
+    right: calc(-50% + 18px);
+    height: 2px;
+    background: #dee2e6;
+    z-index: 0;
+}
+.soa-step.done:not(:last-child)::after  { background: #198754; }
+.soa-step.active:not(:last-child)::after { background: #dee2e6; }
+
+.soa-step-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    border: 2px solid #dee2e6;
+    background: #f8f9fa;
+    color: #adb5bd;
+    z-index: 1;
+    position: relative;
+}
+.soa-step.done .soa-step-circle {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+.soa-step.active .soa-step-circle {
+    background: #1a3767;
+    border-color: #1a3767;
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(26,55,103,.15);
+}
+.soa-step-label {
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    color: #adb5bd;
+    line-height: 1.3;
+    max-width: 100px;
+}
+.soa-step.done .soa-step-label   { color: #198754; }
+.soa-step.active .soa-step-label { color: #1a3767; }
+
+/* ─── Layout ─────────────────────────────────────────────────── */
+.soa-card {
+    background: #fff;
+    border: 1px solid #e3e6ef;
+    border-radius: 10px;
+    padding: 22px 24px;
+    margin-bottom: 20px;
+}
+.soa-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #1a3767;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.soa-card-title i { font-size: 14px; }
+
+/* ─── Form fields ────────────────────────────────────────────── */
+.soa-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 4px;
+}
+.soa-readonly {
+    background: #f8f9fa;
+    border: 1px solid #e3e6ef;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #6c757d;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+}
+.soa-input {
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 13px;
+    width: 100%;
+    outline: none;
+    transition: border-color .15s;
+}
+.soa-input:focus { border-color: #1a3767; box-shadow: 0 0 0 3px rgba(26,55,103,.1); }
+.soa-input::placeholder { color: #adb5bd; }
+
+.soa-search-wrap { position: relative; }
+.soa-search-wrap .soa-input { padding-right: 32px; }
+.soa-search-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #adb5bd;
+    font-size: 12px;
+    pointer-events: none;
+}
+.soa-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0; right: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.1);
+    z-index: 100;
+    max-height: 220px;
+    overflow-y: auto;
+    display: none;
+}
+.soa-dropdown-item {
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f3f5;
+}
+.soa-dropdown-item:hover { background: #f0f4ff; }
+.soa-dropdown-item .item-code { color: #1a3767; font-weight: 600; margin-right: 6px; }
+.soa-dropdown-item .item-name { color: #495057; }
+
+/* ─── Email checkboxes ────────────────────────────────────────── */
+.soa-email-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.soa-email-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f0f4ff;
+    border: 1px solid #cfe2ff;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: #1a3767;
+    cursor: pointer;
+    user-select: none;
+}
+.soa-email-check input { margin: 0; cursor: pointer; }
+.soa-email-check:has(input:checked) { background: #1a3767; color: #fff; border-color: #1a3767; }
+
+/* ─── Lignes articles ─────────────────────────────────────────── */
+.soa-lines-table { width: 100%; border-collapse: collapse; }
+.soa-lines-table th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #6c757d;
+    padding: 8px 10px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #e3e6ef;
+    white-space: nowrap;
+}
+.soa-lines-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f1f3f5;
+    vertical-align: middle;
+}
+.soa-lines-table tr:last-child td { border-bottom: none; }
+.soa-lines-table .soa-input { font-size: 12px; padding: 5px 8px; }
+.soa-calc-field {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1a3767;
+    background: #f0f4ff;
+    border: 1px solid #cfe2ff;
+    border-radius: 4px;
+    padding: 5px 8px;
+    text-align: right;
+    white-space: nowrap;
+}
+.btn-remove-line {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+.btn-remove-line:hover { background: #fce8ea; }
+.btn-add-line {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #1a3767;
+    border: 1px dashed #90aad4;
+    background: #f0f4ff;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+.btn-add-line:hover { background: #dce8ff; }
+
+/* ─── Actions ─────────────────────────────────────────────────── */
+.soa-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 8px;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid pt-3" style="max-width: 1200px;">
+
+    {# ── Breadcrumb ── #}
+    <nav class="mb-3" style="font-size:12px; color:#6c757d;">
+        <a href="{{ path('app_soa_index') }}" class="text-decoration-none text-secondary">SOA</a>
+        <span class="mx-1">/</span>
+        <span class="text-dark fw-semibold">Nouveau SOA</span>
+    </nav>
+
+    {# ── Stepper ── #}
+    <div class="soa-stepper">
+        <div class="soa-step active">
+            <div class="soa-step-circle">1</div>
+            <div class="soa-step-label">Brouillon</div>
+        </div>
+        <div class="soa-step">
+            <div class="soa-step-circle">2</div>
+            <div class="soa-step-label">En attente de validation</div>
+        </div>
+        <div class="soa-step">
+            <div class="soa-step-circle">3</div>
+            <div class="soa-step-label">Validé par la Direction</div>
+        </div>
+        <div class="soa-step">
+            <div class="soa-step-circle">4</div>
+            <div class="soa-step-label">En attente de preuves</div>
+        </div>
+        <div class="soa-step">
+            <div class="soa-step-circle">5</div>
+            <div class="soa-step-label">En attente de validation finale</div>
+        </div>
+        <div class="soa-step">
+            <div class="soa-step-circle"><i class="fa fa-check" style="font-size:12px;"></i></div>
+            <div class="soa-step-label">Archivé</div>
+        </div>
+    </div>
+
+    {# ── Bloc 1 : En-tête ── #}
+    <div class="soa-card">
+        <div class="soa-card-title">
+            <i class="fa fa-info-circle"></i> En-tête
+        </div>
+        <div class="row g-3">
+
+            <div class="col-md-4">
+                <div class="soa-label">Représentant</div>
+                <div class="soa-readonly" id="soa-representant">{{ representant }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="soa-label">N° SOA</div>
+                <div class="soa-readonly fw-semibold" id="soa-numero" style="color:#1a3767;">{{ numero }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="soa-label">Titre</div>
+                <div class="soa-readonly text-secondary fst-italic" id="soa-titre">Généré après sélection du client</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="soa-label">Date de début <span class="text-danger">*</span></div>
+                <input type="date" class="soa-input" id="soa-date-debut">
+            </div>
+            <div class="col-md-3">
+                <div class="soa-label">Date de fin <span class="text-danger">*</span></div>
+                <input type="date" class="soa-input" id="soa-date-fin">
+            </div>
+
+            <div class="col-md-6">
+                <div class="soa-label">Code Client <span class="text-danger">*</span></div>
+                <div class="soa-search-wrap">
+                    <input type="text" class="soa-input" id="soa-client-search"
+                           placeholder="Rechercher un client (code ou nom)…" autocomplete="off">
+                    <i class="fa fa-search soa-search-icon"></i>
+                    <div class="soa-dropdown" id="soa-client-dropdown"></div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="soa-label">Nom Client</div>
+                <div class="soa-readonly" id="soa-client-nom">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="soa-label">Langue</div>
+                <div class="soa-readonly" id="soa-client-langue">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="soa-label">Devise</div>
+                <div class="soa-readonly" id="soa-client-devise">—</div>
+            </div>
+
+            <div class="col-12" id="soa-emails-wrap" style="display:none;">
+                <div class="soa-label">Adresses email du client <span class="text-danger">*</span></div>
+                <div class="soa-email-list" id="soa-email-list"></div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="soa-label">Focus Produit</div>
+                <textarea class="soa-input" id="soa-focus" rows="2"
+                          placeholder="Décrire le focus produit…" style="resize:vertical;"></textarea>
+            </div>
+            <div class="col-md-6">
+                <div class="soa-label">Commentaire</div>
+                <textarea class="soa-input" id="soa-commentaire" rows="2"
+                          placeholder="Commentaire libre (optionnel)…" style="resize:vertical;"></textarea>
+            </div>
+
+        </div>
+    </div>
+
+    {# ── Bloc 2 : Lignes articles ── #}
+    <div class="soa-card">
+        <div class="soa-card-title">
+            <i class="fa fa-list-ul"></i> Détail SOA — Lignes articles
+        </div>
+
+        {# Dropdown article global — positionné via JS pour éviter overflow du tableau #}
+    <div class="soa-dropdown" id="art-global-dropdown" style="position:fixed;z-index:9999;display:none;min-width:380px;"></div>
+
+    <div style="overflow-x:auto;">
+            <table class="soa-lines-table" id="soa-lines-table">
+                <thead>
+                    <tr>
+                        <th style="min-width:220px;">Article</th>
+                        <th style="width:110px;">PA</th>
+                        <th style="width:110px;">Qté max</th>
+                        <th style="width:130px;">Montant SOA</th>
+                        <th style="width:80px;">Devise</th>
+                        <th style="width:150px;">Montant max à réclamer</th>
+                        <th style="width:160px;">CA facturé (année)</th>
+                        <th style="width:90px;">ROI</th>
+                        <th style="width:40px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="soa-lines-body">
+                    {# lignes injectées par JS #}
+                </tbody>
+            </table>
+        </div>
+
+        <button class="btn-add-line" id="btn-add-line" type="button">
+            <i class="fa fa-plus me-1"></i>Ajouter une ligne
+        </button>
+    </div>
+
+    {# ── Actions ── #}
+    <div class="soa-actions">
+        <a href="{{ path('app_soa_index') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fa fa-arrow-left me-1"></i>Annuler
+        </a>
+        <button class="btn btn-sm btn-outline-primary" id="btn-save-draft" type="button">
+            <i class="fa fa-save me-1"></i>Enregistrer en brouillon
+        </button>
+        <button class="btn btn-sm btn-primary" id="btn-submit" type="button">
+            <i class="fa fa-paper-plane me-1"></i>Valider — Envoyer à la Direction
+        </button>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+const SOA_NUMERO = '{{ numero }}';
+const ROUTES = {
+    clients:      '{{ path("api_soa_clients") }}',
+    articles:     '{{ path("api_soa_articles") }}',
+    articlePrix:  '{{ path("api_soa_article_prix") }}',
+};
+
+// ── Devise héritée du client ──────────────────────────────────
+let clientDevise = 'EUR';
+let lineIndex = 0;
+
+// ── Recherche client (stub — à brancher sur l'API) ────────────
+const clientSearch = document.getElementById('soa-client-search');
+const clientDropdown = document.getElementById('soa-client-dropdown');
+
+let clientSearchTimer = null;
+clientSearch.addEventListener('input', () => {
+    const q = clientSearch.value.trim();
+    if (q.length < 2) { clientDropdown.style.display = 'none'; return; }
+    clearTimeout(clientSearchTimer);
+    clientSearchTimer = setTimeout(() => {
+        fetch(`${ROUTES.clients}?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => renderClientDropdown(data))
+            .catch(() => {});
+    }, 300);
+});
+
+document.addEventListener('click', e => {
+    if (!clientDropdown.contains(e.target) && e.target !== clientSearch) {
+        clientDropdown.style.display = 'none';
+    }
+});
+
+function renderClientDropdown(items) {
+    if (!items.length) { clientDropdown.style.display = 'none'; return; }
+    clientDropdown.innerHTML = items.map(c =>
+        `<div class="soa-dropdown-item" data-code="${c.code}"
+              data-nom="${c.nom}" data-langue="${c.langue}" data-devise="${c.devise}"
+              data-email="${c.email ?? ''}">
+            <span class="item-code">${c.code}</span>
+            <span class="item-name">${c.nom}</span>
+         </div>`
+    ).join('');
+    clientDropdown.style.display = 'block';
+    clientDropdown.querySelectorAll('.soa-dropdown-item').forEach(el => {
+        el.addEventListener('click', () => selectClient(el));
+    });
+}
+
+function selectClient(el) {
+    const code   = el.dataset.code;
+    const nom    = el.dataset.nom;
+    const langue = el.dataset.langue;
+    const devise = el.dataset.devise;
+    const email  = el.dataset.email;
+    const emails = email ? [email] : [];
+
+    clientSearch.value = `${code} — ${nom}`;
+    clientDevise = devise;
+    clientDropdown.style.display = 'none';
+
+    document.getElementById('soa-client-nom').textContent    = nom;
+    document.getElementById('soa-client-langue').textContent = langue;
+    document.getElementById('soa-client-devise').textContent = devise;
+    document.getElementById('soa-titre').textContent = `(N° SOA) — ${nom}`;
+
+    renderEmailList(emails);
+    updateAllDevises();
+}
+
+function renderEmailList(emails) {
+    const wrap = document.getElementById('soa-emails-wrap');
+    const list = document.getElementById('soa-email-list');
+    list.innerHTML = emails.map(e =>
+        `<label class="soa-email-check">
+            <input type="checkbox" value="${e}"> ${e}
+         </label>`
+    ).join('');
+    wrap.style.display = emails.length ? '' : 'none';
+}
+
+// ── Lignes articles ───────────────────────────────────────────
+document.getElementById('btn-add-line').addEventListener('click', addLine);
+
+function addLine() {
+    const tbody = document.getElementById('soa-lines-body');
+    const idx   = lineIndex++;
+    const row   = document.createElement('tr');
+    row.dataset.idx = idx;
+    row.innerHTML = `
+        <td>
+            <div class="soa-search-wrap">
+                <input type="text" class="soa-input line-article" data-idx="${idx}"
+                       placeholder="Rechercher un article…" autocomplete="off">
+                <i class="fa fa-search soa-search-icon"></i>
+            </div>
+        </td>
+        <td><div class="soa-calc-field" id="pa-${idx}">—</div></td>
+        <td><input type="number" class="soa-input line-qte-max" data-idx="${idx}" min="0" placeholder="0"></td>
+        <td><input type="number" class="soa-input line-montant-soa" data-idx="${idx}" min="0" step="0.01" placeholder="0.00"></td>
+        <td><div class="soa-calc-field" id="devise-${idx}">${clientDevise}</div></td>
+        <td><div class="soa-calc-field" id="montant-max-${idx}">0.00</div></td>
+        <td><div class="soa-calc-field" id="ca-${idx}">—</div></td>
+        <td><div class="soa-calc-field" id="roi-${idx}">—</div></td>
+        <td><button class="btn-remove-line" data-idx="${idx}" title="Supprimer"><i class="fa fa-times"></i></button></td>
+    `;
+    tbody.appendChild(row);
+    bindLineEvents(row, idx);
+}
+
+function bindLineEvents(row, idx) {
+    // Calcul montant max
+    const calcMax = () => {
+        const qte     = parseFloat(row.querySelector('.line-qte-max').value) || 0;
+        const montant = parseFloat(row.querySelector('.line-montant-soa').value) || 0;
+        const max     = qte * montant;
+        document.getElementById(`montant-max-${idx}`).textContent =
+            new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(max);
+        calcRoi(idx);
+    };
+    row.querySelector('.line-qte-max').addEventListener('input', calcMax);
+    row.querySelector('.line-montant-soa').addEventListener('input', calcMax);
+
+    // Recherche article (stub)
+    const artInput = row.querySelector('.line-article');
+    let artTimer = null;
+    artInput.addEventListener('input', () => {
+        const q = artInput.value.trim();
+        if (q.length < 2) { hideArtDropdown(); return; }
+        clearTimeout(artTimer);
+        artTimer = setTimeout(() => {
+            fetch(`${ROUTES.articles}?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(data => renderArticleDropdown(artInput, idx, data))
+                .catch(() => {});
+        }, 300);
+    });
+    artInput.addEventListener('focus', () => {
+        if (artInput.value.trim().length >= 2) artInput.dispatchEvent(new Event('input'));
+    });
+
+    // Supprimer ligne
+    row.querySelector('.btn-remove-line').addEventListener('click', () => row.remove());
+}
+
+const artGlobalDrop = document.getElementById('art-global-dropdown');
+let artCurrentInput = null;
+let artCurrentIdx   = null;
+
+function hideArtDropdown() {
+    artGlobalDrop.style.display = 'none';
+    artCurrentInput = null;
+}
+
+function renderArticleDropdown(input, idx, items) {
+    if (!items.length) { hideArtDropdown(); return; }
+
+    artCurrentInput = input;
+    artCurrentIdx   = idx;
+
+    artGlobalDrop.innerHTML = items.map(a =>
+        `<div class="soa-dropdown-item"
+              data-code="${a.code}" data-nom="${a.nom}" data-modele="${a.modele ?? ''}">
+            <span class="item-code">${a.code}</span> — <span class="item-name">${a.nom}</span>
+         </div>`
+    ).join('');
+
+    // Positionner le dropdown sous l'input
+    const rect = input.getBoundingClientRect();
+    artGlobalDrop.style.top  = rect.bottom + 'px';
+    artGlobalDrop.style.left = rect.left + 'px';
+    artGlobalDrop.style.width  = Math.max(rect.width, 380) + 'px';
+    artGlobalDrop.style.display = 'block';
+
+    artGlobalDrop.querySelectorAll('.soa-dropdown-item').forEach(el => {
+        el.addEventListener('mousedown', e => {
+            e.preventDefault(); // évite blur avant click
+            input.value = `${el.dataset.code} — ${el.dataset.nom}`;
+            input.dataset.articleCode   = el.dataset.code;
+            input.dataset.articleNom    = el.dataset.nom;
+            input.dataset.articleModele = el.dataset.modele;
+            hideArtDropdown();
+
+            const paEl = document.getElementById(`pa-${idx}`);
+            paEl.textContent = '…';
+
+            if (el.dataset.modele) {
+                fetch(`${ROUTES.articlePrix}?modele=${encodeURIComponent(el.dataset.modele)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.prix !== null) {
+                            paEl.textContent = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(data.prix) + ' ' + clientDevise;
+                            paEl.dataset.value = data.prix;
+                        } else {
+                            paEl.textContent = 'N/D';
+                            paEl.dataset.value = '';
+                        }
+                    })
+                    .catch(() => { paEl.textContent = 'Erreur'; });
+            } else {
+                paEl.textContent = 'N/D';
+            }
+        });
+    });
+}
+
+function calcRoi(idx) {
+    // ROI = (Montant max réclamer / CA facturé) × 100 — TODO quand CA disponible
+    document.getElementById(`roi-${idx}`).textContent = '—';
+}
+
+function updateAllDevises() {
+    document.querySelectorAll('[id^="devise-"]').forEach(el => {
+        el.textContent = clientDevise;
+    });
+}
+
+// Fermer dropdown article au blur de l'input
+document.addEventListener('click', e => {
+    if (!artGlobalDrop.contains(e.target) && !e.target.classList.contains('line-article')) {
+        hideArtDropdown();
+    }
+});
+
+// ── Ajouter une ligne vide au chargement ─────────────────────
+document.addEventListener('DOMContentLoaded', () => addLine());
+
+// ── Actions boutons ───────────────────────────────────────────
+document.getElementById('btn-save-draft').addEventListener('click', () => {
+    // TODO: POST /soa/api/save {statut: 'brouillon', ...}
+    alert('Brouillon enregistré (à implémenter).');
+});
+document.getElementById('btn-submit').addEventListener('click', () => {
+    // TODO: POST /soa/api/save {statut: 'attente_validation', ...}
+    alert('SOA soumis à la Direction (à implémenter).');
+});
+</script>
+{% endblock %}

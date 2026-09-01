@@ -156,6 +156,16 @@
                     </li>
                     {% endif %}
 
+                    {# SOA : SALES + superusers #}
+                    {% if (isSuperUser or is_granted('ROLE_SALES')) and not is_stat_excluded('module_soa') %}
+                    <li class="{% if currentRoute starts with 'app_soa' %}active{% endif %}">
+                        <a href="{{ path('app_soa_index') }}">
+                            <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
+                            <span>SOA</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
                     {# Import OD : ACCOUNTING, CONTROLLING, MANAGEMENT, ADMIN #}
                     {% if (isSuperUser or is_granted('ROLE_ACCOUNTING')) and not is_stat_excluded('module_import_od') %}
                     <li class="{% if currentRoute == 'app_module_import_od' %}active{% endif %}">

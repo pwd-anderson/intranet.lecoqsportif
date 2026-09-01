@@ -1,0 +1,76 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {# Réutilise les styles de new.html.twig via inclusion future ou CSS dédié #}
+    <link href="{{ asset('assets/css/soa.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid pt-3" style="max-width:1200px;">
+
+    <nav class="mb-3" style="font-size:12px; color:#6c757d;">
+        <a href="{{ path('app_soa_index') }}" class="text-decoration-none text-secondary">SOA</a>
+        <span class="mx-1">/</span>
+        <span class="text-dark fw-semibold" id="soa-numero-breadcrumb">Chargement…</span>
+    </nav>
+
+    {# Stepper — état injecté dynamiquement via JS selon statut du SOA #}
+    <div class="soa-stepper" id="soa-stepper-container">
+        {# généré par JS #}
+    </div>
+
+    <div class="text-center text-secondary py-5" id="soa-loading">
+        <i class="fa fa-spinner fa-spin fa-2x"></i>
+        <div class="mt-2">Chargement du SOA…</div>
+    </div>
+
+    <div id="soa-content" style="display:none;">
+        {# contenu injecté après chargement des données #}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+const SOA_ID = {{ id }};
+const SOA_STEPS = [
+    { key: 'brouillon',           label: 'Brouillon' },
+    { key: 'attente_validation',  label: 'En attente de validation' },
+    { key: 'valide_direction',    label: 'Validé par la Direction' },
+    { key: 'attente_preuves',     label: 'En attente de preuves' },
+    { key: 'attente_val_finale',  label: 'En attente de validation finale' },
+    { key: 'archive',             label: 'Archivé' },
+];
+
+function renderStepper(currentStatus) {
+    const container = document.getElementById('soa-stepper-container');
+    const currentIdx = SOA_STEPS.findIndex(s => s.key === currentStatus);
+    container.innerHTML = SOA_STEPS.map((step, i) => {
+        let cls = '';
+        if (i < currentIdx)  cls = 'done';
+        if (i === currentIdx) cls = 'active';
+        const icon = i < currentIdx ? '<i class="fa fa-check" style="font-size:12px;"></i>' : (i + 1);
+        return `<div class="soa-step ${cls}">
+            <div class="soa-step-circle">${icon}</div>
+            <div class="soa-step-label">${step.label}</div>
+        </div>`;
+    }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // TODO: fetch(`/soa/api/${SOA_ID}`) puis renderStepper(data.statut)
+    // Stub pour l'IHM :
+    renderStepper('valide_direction');
+    document.getElementById('soa-numero-breadcrumb').textContent = `SOA08260000000001`;
+    document.getElementById('soa-loading').style.display = 'none';
+    document.getElementById('soa-content').style.display = '';
+    document.getElementById('soa-content').innerHTML = `
+        <div class="alert alert-info">
+            <i class="fa fa-info-circle me-2"></i>
+            Affichage du détail SOA #${SOA_ID} — à implémenter avec les données réelles.
+        </div>`;
+});
+</script>
+{% endblock %}

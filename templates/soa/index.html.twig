@@ -1,0 +1,109 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+<style>
+.soa-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.soa-header h4 {
+    margin: 0;
+    font-weight: 600;
+    color: #1a3767;
+}
+.soa-badge-status {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.status-brouillon     { background: #e9ecef; color: #6c757d; }
+.status-attente_val   { background: #fff3cd; color: #856404; }
+.status-valide_dir    { background: #cfe2ff; color: #0a4694; }
+.status-attente_preuves { background: #e8d5f5; color: #6f42c1; }
+.status-attente_val_finale { background: #ffe5cc; color: #c45c00; }
+.status-archive       { background: #d1e7dd; color: #0a5c36; }
+#soa-grid { width: 100%; height: calc(100vh - 200px); }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid pt-3">
+
+    <div class="soa-header">
+        <h4><i class="fa fa-file-contract me-2"></i>SOA — Sales Out Allowance</h4>
+        <a href="{{ path('app_soa_new') }}" class="btn btn-primary btn-sm">
+            <i class="fa fa-plus me-1"></i>Nouveau SOA
+        </a>
+    </div>
+
+    <div id="soa-grid" class="ag-theme-alpine"></div>
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+const soaStatusLabel = {
+    brouillon:           'Brouillon',
+    attente_validation:  'En attente de validation',
+    valide_direction:    'Validé par la Direction',
+    attente_preuves:     'En attente de preuves',
+    attente_val_finale:  'En attente de validation finale',
+    archive:             'Archivé',
+};
+const soaStatusClass = {
+    brouillon:           'status-brouillon',
+    attente_validation:  'status-attente_val',
+    valide_direction:    'status-valide_dir',
+    attente_preuves:     'status-attente_preuves',
+    attente_val_finale:  'status-attente_val_finale',
+    archive:             'status-archive',
+};
+
+function statusCellRenderer(params) {
+    const key = params.value || '';
+    const label = soaStatusLabel[key] || key;
+    const cls   = soaStatusClass[key] || '';
+    return `<span class="soa-badge-status ${cls}">${label}</span>`;
+}
+
+const columnDefs = [
+    { headerName: 'N° SOA',        field: 'numero',          width: 180, pinned: 'left',
+      cellRenderer: params => `<a href="/soa/${params.data.id}" class="text-primary fw-semibold">${params.value}</a>` },
+    { headerName: 'Représentant',  field: 'representant',    width: 160 },
+    { headerName: 'Client',        field: 'client_nom',      flex: 1, minWidth: 180 },
+    { headerName: 'Date début',    field: 'date_debut',      width: 120, type: 'dateColumn' },
+    { headerName: 'Date fin',      field: 'date_fin',        width: 120, type: 'dateColumn' },
+    { headerName: 'Montant total', field: 'montant_total',   width: 150,
+      valueFormatter: p => p.value != null ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(p.value) : '' },
+    { headerName: 'Statut',        field: 'statut',          width: 220, cellRenderer: statusCellRenderer },
+    { headerName: 'Créé le',       field: 'created_at',      width: 120, type: 'dateColumn' },
+];
+
+const gridOptions = {
+    columnDefs,
+    rowData: [],
+    defaultColDef: {
+        resizable: true,
+        sortable: true,
+        filter: true,
+    },
+    columnTypes: {
+        dateColumn: { filter: 'agDateColumnFilter' },
+    },
+    pagination: true,
+    paginationPageSize: 50,
+    localeText: agGrid.AG_GRID_LOCALE_FR,
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    agGrid.createGrid(document.getElementById('soa-grid'), gridOptions);
+    // TODO: fetch('/soa/api/list') pour charger les données réelles
+});
+</script>
+{% endblock %}
