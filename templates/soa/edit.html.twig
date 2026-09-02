@@ -1,0 +1,1097 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+/* ─── Stepper ────────────────────────────────────────────────── */
+.soa-stepper {
+    display: flex; align-items: flex-start; gap: 0;
+    margin-bottom: 28px; background: #fff; border: 1px solid #e3e6ef;
+    border-radius: 10px; padding: 20px 24px; overflow-x: auto;
+}
+.soa-step { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 110px; position: relative; }
+.soa-step:not(:last-child)::after {
+    content: ''; position: absolute; top: 16px;
+    left: calc(50% + 18px); right: calc(-50% + 18px);
+    height: 2px; background: #dee2e6; z-index: 0;
+}
+.soa-step.done:not(:last-child)::after   { background: #198754; }
+.soa-step.active:not(:last-child)::after { background: #dee2e6; }
+.soa-step-circle {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; border: 2px solid #dee2e6;
+    background: #f8f9fa; color: #adb5bd; z-index: 1; position: relative;
+}
+.soa-step.done .soa-step-circle   { background: #198754; border-color: #198754; color: #fff; }
+.soa-step.active .soa-step-circle { background: #1a3767; border-color: #1a3767; color: #fff; box-shadow: 0 0 0 4px rgba(26,55,103,.15); }
+.soa-step-label { margin-top: 8px; font-size: 11px; font-weight: 600; text-align: center; color: #adb5bd; line-height: 1.3; max-width: 100px; }
+.soa-step.done .soa-step-label   { color: #198754; }
+.soa-step.active .soa-step-label { color: #1a3767; }
+
+/* ─── Layout ─────────────────────────────────────────────────── */
+.soa-card { background: #fff; border: 1px solid #e3e6ef; border-radius: 10px; padding: 22px 24px; margin-bottom: 20px; }
+.soa-card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #1a3767; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.soa-label { font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 4px; }
+.soa-readonly { background: #f8f9fa; border: 1px solid #e3e6ef; border-radius: 5px; padding: 6px 10px; font-size: 13px; color: #6c757d; min-height: 34px; display: flex; align-items: center; }
+.soa-value { background: #f8f9fa; border: 1px solid #e3e6ef; border-radius: 5px; padding: 6px 10px; font-size: 13px; color: #212529; min-height: 34px; display: flex; align-items: center; }
+
+/* ─── Form-specific ───────────────────────────────────────────── */
+.soa-input { border: 1px solid #ced4da; border-radius: 5px; padding: 6px 10px; font-size: 13px; width: 100%; outline: none; transition: border-color .15s; }
+.soa-input:focus { border-color: #1a3767; box-shadow: 0 0 0 3px rgba(26,55,103,.1); }
+.soa-input::placeholder { color: #adb5bd; }
+.soa-search-wrap { position: relative; }
+.soa-search-wrap .soa-input { padding-right: 32px; }
+.soa-search-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #adb5bd; font-size: 12px; pointer-events: none; }
+.soa-dropdown { position: absolute; top: calc(100% + 2px); left: 0; right: 0; background: #fff; border: 1px solid #dee2e6; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.1); z-index: 100; max-height: 220px; overflow-y: auto; display: none; }
+.soa-dropdown-item { padding: 8px 12px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #f1f3f5; }
+.soa-dropdown-item:hover { background: #f0f4ff; }
+.soa-dropdown-item .item-code { color: #1a3767; font-weight: 600; margin-right: 6px; }
+.soa-dropdown-item .item-name { color: #495057; }
+.soa-email-display { font-size: 13px; color: #1a3767; background: #f0f4ff; border: 1px solid #cfe2ff; border-radius: 6px; padding: 6px 12px; display: inline-block; }
+.soa-lines-table { width: 100%; border-collapse: collapse; }
+.soa-lines-table th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6c757d; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #e3e6ef; white-space: nowrap; }
+.soa-lines-table td { padding: 6px 8px; border-bottom: 1px solid #f1f3f5; vertical-align: middle; }
+.soa-lines-table tr:last-child td { border-bottom: none; }
+.soa-lines-table .soa-input { font-size: 12px; padding: 5px 8px; }
+.soa-calc-field { font-size: 12px; font-weight: 600; color: #1a3767; background: #f0f4ff; border: 1px solid #cfe2ff; border-radius: 4px; padding: 5px 8px; text-align: right; white-space: nowrap; }
+.btn-remove-line { background: none; border: none; color: #dc3545; cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 4px; }
+.btn-remove-line:hover { background: #fce8ea; }
+.btn-add-line { margin-top: 12px; font-size: 12px; color: #1a3767; border: 1px dashed #90aad4; background: #f0f4ff; border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+.btn-add-line:hover:not(:disabled) { background: #dce8ff; }
+.btn-add-line:disabled { opacity: .45; cursor: not-allowed; }
+.soa-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; }
+#edit-loading { background: #fff; border-radius: 10px; border: 1px solid #e3e6ef; padding: 40px; }
+
+/* ─── Validation / Preuves read-only ──────────────────────────── */
+.soa-lines-table-ro { width: 100%; border-collapse: collapse; }
+.soa-lines-table-ro th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6c757d; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #e3e6ef; white-space: nowrap; }
+.soa-lines-table-ro td { padding: 8px 10px; border-bottom: 1px solid #f1f3f5; vertical-align: middle; font-size: 13px; }
+.soa-lines-table-ro tr:last-child td { border-bottom: none; }
+.roi-alert { background: #fce8ea !important; color: #b02a37 !important; border-color: #f5c2c7 !important; }
+.btn-soa-valider { background: #198754; border-color: #198754; color: #fff; }
+.btn-soa-valider:hover { background: #157347; border-color: #157347; color: #fff; }
+.btn-soa-refuser { background: #dc3545; border-color: #dc3545; color: #fff; }
+.btn-soa-refuser:hover { background: #bb2d3b; border-color: #bb2d3b; color: #fff; }
+.preuve-table { width: 100%; border-collapse: collapse; }
+.preuve-table th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6c757d; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #e3e6ef; white-space: nowrap; }
+.preuve-table td { padding: 8px 10px; border-bottom: 1px solid #f1f3f5; vertical-align: middle; font-size: 13px; }
+.preuve-table tr:last-child td { border-bottom: none; }
+.qte-input { width: 90px; text-align: right; }
+.upload-zone { border: 2px dashed #cfe2ff; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; color: #6c757d; font-size: 13px; transition: border-color .2s, background .2s; }
+.upload-zone:hover { border-color: #1a3767; background: #f0f4ff; }
+.proof-file-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #e3e6ef; border-radius: 6px; margin-bottom: 8px; font-size: 13px; }
+.proof-file-item .file-name { flex: 1; color: #212529; }
+.proof-file-item .file-size { color: #6c757d; font-size: 11px; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid pt-3" style="max-width: 1200px;">
+
+    <nav class="mb-3 d-flex align-items-center justify-content-between" style="font-size:12px; color:#6c757d;">
+        <div>
+            <a href="{{ path('app_soa_index') }}" class="text-decoration-none text-secondary">SOA</a>
+            <span class="mx-1">/</span>
+            <a href="{{ path('app_soa_show', {id: soa_id}) }}" class="text-decoration-none text-secondary" id="bc-show">Chargement…</a>
+            <span class="mx-1">/</span>
+            <span class="text-dark fw-semibold">
+                {% if mode == 'form' %}Modifier
+                {% elseif mode == 'validation' %}Valider / Refuser
+                {% else %}Soumettre les preuves{% endif %}
+            </span>
+        </div>
+        <a href="{{ path('app_soa_show', {id: soa_id}) }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fa fa-arrow-left me-1"></i>Retour
+        </a>
+    </nav>
+
+    {# ── Stepper ── #}
+    <div class="soa-stepper" id="soa-stepper-container"></div>
+
+    {# ── Loader ── #}
+    <div id="edit-loading" class="text-center text-secondary mb-4">
+        <i class="fa fa-spinner fa-spin fa-2x"></i>
+        <div class="mt-2">Chargement du SOA…</div>
+    </div>
+
+    {% if mode == 'form' %}
+    {# ═══════════════════════════════════════════════════════════ #}
+    {# MODE FORMULAIRE (brouillon)                                 #}
+    {# ═══════════════════════════════════════════════════════════ #}
+    <div id="edit-form" style="display:none;">
+
+        <div class="soa-card">
+            <div class="soa-card-title"><i class="fa fa-info-circle"></i> En-tête</div>
+            <div class="row g-3">
+
+                <div class="col-md-4">
+                    <div class="soa-label">Représentant</div>
+                    <div class="soa-readonly" id="soa-representant">—</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="soa-label">N° SOA</div>
+                    <div class="soa-readonly fw-semibold" id="soa-numero" style="color:#1a3767;">—</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="soa-label">Titre</div>
+                    <div class="soa-readonly text-secondary fst-italic" id="soa-titre">—</div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="soa-label">Date de début <span class="text-danger">*</span></div>
+                    <input type="date" class="soa-input" id="soa-date-debut">
+                </div>
+                <div class="col-md-3">
+                    <div class="soa-label">Date de fin <span class="text-danger">*</span></div>
+                    <input type="date" class="soa-input" id="soa-date-fin">
+                </div>
+
+                <div class="col-md-6">
+                    <div class="soa-label">Code Client <span class="text-danger">*</span></div>
+                    <div class="soa-search-wrap">
+                        <input type="text" class="soa-input" id="soa-client-search"
+                               placeholder="Rechercher un client (code ou nom)…" autocomplete="off">
+                        <i class="fa fa-search soa-search-icon"></i>
+                        <div class="soa-dropdown" id="soa-client-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="soa-label">Nom Client</div>
+                    <div class="soa-readonly" id="soa-client-nom">—</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="soa-label">Langue</div>
+                    <div class="soa-readonly" id="soa-client-langue">—</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="soa-label">Devise</div>
+                    <div class="soa-readonly" id="soa-client-devise">—</div>
+                </div>
+
+                <div class="col-12" id="soa-emails-wrap" style="display:none;">
+                    <div class="soa-label">Adresse email du client</div>
+                    <div id="soa-email-display"></div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="soa-label">Focus Produit</div>
+                    <textarea class="soa-input" id="soa-focus" rows="2"
+                              placeholder="Décrire le focus produit…" style="resize:vertical;"></textarea>
+                </div>
+                <div class="col-md-6">
+                    <div class="soa-label">Commentaire</div>
+                    <textarea class="soa-input" id="soa-commentaire" rows="2"
+                              placeholder="Commentaire libre (optionnel)…" style="resize:vertical;"></textarea>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="soa-card">
+            <div class="soa-card-title"><i class="fa fa-list-ul"></i> Détail SOA — Lignes articles</div>
+
+            <div class="soa-dropdown" id="art-global-dropdown" style="position:fixed;z-index:9999;display:none;min-width:380px;"></div>
+
+            <div style="overflow-x:auto;">
+                <table class="soa-lines-table" id="soa-lines-table">
+                    <thead>
+                        <tr>
+                            <th style="min-width:220px;">Article</th>
+                            <th style="width:110px;">PA</th>
+                            <th style="width:110px;">Qté max</th>
+                            <th style="width:130px;">Montant SOA</th>
+                            <th style="width:80px;">Devise</th>
+                            <th style="width:150px;">Montant max à réclamer</th>
+                            <th style="width:160px;">CA facturé (année)</th>
+                            <th style="width:90px;">ROI</th>
+                            <th style="width:40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="soa-lines-body"></tbody>
+                </table>
+            </div>
+
+            <button class="btn-add-line" id="btn-add-line" type="button" disabled
+                    title="Sélectionnez d'abord un client">
+                <i class="fa fa-plus me-1"></i>Ajouter une ligne
+            </button>
+        </div>
+
+        <div class="soa-actions">
+            <a href="{{ path('app_soa_show', {id: soa_id}) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fa fa-arrow-left me-1"></i>Annuler
+            </a>
+            <button class="btn btn-sm btn-outline-primary" id="btn-save-draft" type="button">
+                <i class="fa fa-save me-1"></i>Enregistrer en brouillon
+            </button>
+            <button class="btn btn-sm btn-primary" id="btn-submit" type="button">
+                <i class="fa fa-paper-plane me-1"></i>Valider — Envoyer à la Direction
+            </button>
+        </div>
+
+    </div>{# /edit-form #}
+
+    {% elseif mode == 'validation' %}
+    {# ═══════════════════════════════════════════════════════════ #}
+    {# MODE VALIDATION (management)                                #}
+    {# ═══════════════════════════════════════════════════════════ #}
+    <div id="soa-ro-content" style="display:none;"></div>
+
+    <div id="action-bar" style="display:none;" class="soa-card d-flex align-items-center gap-3 py-3">
+        <i class="fa fa-gavel text-secondary fa-lg"></i>
+        <span id="action-label" style="flex:1; font-size:13px; font-weight:600; color:#495057;"></span>
+        <button class="btn btn-soa-valider btn-sm px-4" onclick="doTransition('valider')">
+            <i class="fa fa-check me-1"></i>Valider
+        </button>
+        <button class="btn btn-soa-refuser btn-sm px-4" onclick="doTransition('refuser')">
+            <i class="fa fa-times me-1"></i>Refuser
+        </button>
+    </div>
+
+    {% elseif mode == 'preuves' %}
+    {# ═══════════════════════════════════════════════════════════ #}
+    {# MODE PREUVES (représentant)                                 #}
+    {# ═══════════════════════════════════════════════════════════ #}
+    <div id="soa-ro-content" style="display:none;"></div>
+    <div id="preuves-block" style="display:none;"></div>
+
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+
+{% if mode == 'form' %}
+{# ─── JS Mode formulaire ──────────────────────────────────────── #}
+<script>
+const SOA_ID = {{ soa_id }};
+
+function showAlert(msg, title) {
+    document.getElementById('modal-alert-title').textContent = title || 'Erreur';
+    document.getElementById('modal-alert-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-alert')).show();
+}
+function showWarning(msg, title) {
+    document.getElementById('modal-warning-title').textContent = title || 'Attention';
+    document.getElementById('modal-warning-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-warning')).show();
+}
+function showConfirm(msg, onConfirm, title) {
+    document.getElementById('modal-confirm-title').textContent = title || 'Confirmation';
+    document.getElementById('modal-confirm-body').innerHTML = msg;
+    const oldBtn = document.getElementById('modal-confirm-ok');
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    newBtn.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(document.getElementById('modal-confirm')).hide();
+        onConfirm();
+    });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-confirm')).show();
+}
+const ROUTES = {
+    clients:     '{{ path("api_soa_clients") }}',
+    articles:    '{{ path("api_soa_articles") }}',
+    articlePrix: '{{ path("api_soa_article_prix") }}',
+    caFacture:   '{{ path("api_soa_ca_facture") }}',
+    save:        '{{ path("api_soa_save") }}',
+    show:        '{{ path("app_soa_show", {id: 0}) }}',
+    apiShow:     '{{ path("api_soa_show", {id: 0}) }}',
+};
+
+const SOA_STEPS = [
+    { key: 'brouillon',          label: 'Brouillon' },
+    { key: 'attente_validation', label: 'En attente de validation' },
+    { key: 'valide_direction',   label: 'Validé par la Direction' },
+    { key: 'attente_val_finale', label: 'En attente de validation finale' },
+    { key: 'archive',            label: 'Archivé' },
+];
+
+let SOA_NUMERO      = '';
+let SOA_STATUT      = '';
+let clientDevise    = 'EUR';
+let clientCaFacture = null;
+let clientCode      = null;
+let clientEmails    = [];
+let lineIndex       = 0;
+
+function renderStepper(currentStatus) {
+    const idx = SOA_STEPS.findIndex(s => s.key === currentStatus);
+    document.getElementById('soa-stepper-container').innerHTML = SOA_STEPS.map((step, i) => {
+        const cls  = i < idx ? 'done' : (i === idx ? 'active' : '');
+        const icon = i < idx ? '<i class="fa fa-check" style="font-size:12px;"></i>' : (i + 1);
+        return `<div class="soa-step ${cls}">
+            <div class="soa-step-circle">${icon}</div>
+            <div class="soa-step-label">${step.label}</div>
+        </div>`;
+    }).join('');
+}
+
+function prefillForm(data) {
+    SOA_NUMERO = data.numero;
+    SOA_STATUT = data.statut;
+
+    document.getElementById('soa-representant').textContent = data.representant;
+    document.getElementById('soa-numero').textContent       = data.numero;
+    document.getElementById('soa-titre').textContent        = data.titre;
+    document.getElementById('soa-date-debut').value         = data.date_debut;
+    document.getElementById('soa-date-fin').value           = data.date_fin;
+    document.getElementById('soa-focus').value              = data.focus_produit || '';
+    document.getElementById('soa-commentaire').value        = data.commentaire || '';
+    document.getElementById('bc-show').textContent          = data.numero;
+
+    clientCode   = data.client_code;
+    clientDevise = data.client_devise;
+    clientEmails = data.client_emails || [];
+
+    document.getElementById('soa-client-search').value          = `${data.client_code} — ${data.client_nom}`;
+    document.getElementById('soa-client-nom').textContent        = data.client_nom;
+    document.getElementById('soa-client-langue').textContent     = data.client_langue;
+    document.getElementById('soa-client-devise').textContent     = data.client_devise;
+    renderEmailList(clientEmails);
+
+    const btnAdd = document.getElementById('btn-add-line');
+    btnAdd.disabled = false;
+    btnAdd.title = '';
+
+    fetchCaFacture(data.client_code, () => {
+        data.produits.forEach(p => addLineWithData(p));
+    });
+}
+
+const clientSearch   = document.getElementById('soa-client-search');
+const clientDropdown = document.getElementById('soa-client-dropdown');
+let clientSearchTimer = null;
+
+clientSearch.addEventListener('input', () => {
+    const q = clientSearch.value.trim();
+    if (q.length < 2) { clientDropdown.style.display = 'none'; return; }
+    clearTimeout(clientSearchTimer);
+    clientSearchTimer = setTimeout(() => {
+        fetch(`${ROUTES.clients}?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(renderClientDropdown)
+            .catch(() => {});
+    }, 300);
+});
+
+document.addEventListener('click', e => {
+    if (!clientDropdown.contains(e.target) && e.target !== clientSearch) {
+        clientDropdown.style.display = 'none';
+    }
+});
+
+function renderClientDropdown(items) {
+    if (!items.length) { clientDropdown.style.display = 'none'; return; }
+    clientDropdown.innerHTML = items.map(c =>
+        `<div class="soa-dropdown-item" data-code="${c.code}"
+              data-nom="${c.nom}" data-langue="${c.langue}" data-devise="${c.devise}"
+              data-email="${c.email ?? ''}">
+            <span class="item-code">${c.code}</span>
+            <span class="item-name">${c.nom}</span>
+         </div>`
+    ).join('');
+    clientDropdown.style.display = 'block';
+    clientDropdown.querySelectorAll('.soa-dropdown-item').forEach(el =>
+        el.addEventListener('click', () => selectClient(el))
+    );
+}
+
+function selectClient(el) {
+    const code   = el.dataset.code;
+    const nom    = el.dataset.nom;
+    const langue = el.dataset.langue;
+    const devise = el.dataset.devise;
+    const email  = el.dataset.email;
+
+    clientSearch.value = `${code} — ${nom}`;
+    clientDevise = devise;
+    clientCode   = code;
+    clientDropdown.style.display = 'none';
+
+    document.getElementById('soa-client-nom').textContent    = nom;
+    document.getElementById('soa-client-langue').textContent = langue;
+    document.getElementById('soa-client-devise').textContent = devise;
+    document.getElementById('soa-titre').textContent = `${SOA_NUMERO} — ${nom}`;
+
+    renderEmailList(email ? [email] : []);
+    updateAllDevises();
+    fetchCaFacture(code);
+
+    const btnAdd = document.getElementById('btn-add-line');
+    btnAdd.disabled = false;
+    btnAdd.title = '';
+}
+
+function fetchCaFacture(code, callback) {
+    clientCaFacture = null;
+    document.querySelectorAll('[id^="ca-"]').forEach(el => { el.textContent = '…'; });
+
+    fetch(`${ROUTES.caFacture}?client=${encodeURIComponent(code)}`)
+        .then(r => r.json())
+        .then(data => {
+            clientCaFacture = data.montant;
+            const formatted = clientCaFacture !== null
+                ? new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(clientCaFacture)
+                : 'N/D';
+            document.querySelectorAll('[id^="ca-"]').forEach(el => { el.textContent = formatted; });
+            document.querySelectorAll('[id^="roi-"]').forEach(el => calcRoi(el.id.replace('roi-', '')));
+            if (callback) callback();
+        })
+        .catch(() => {
+            document.querySelectorAll('[id^="ca-"]').forEach(el => { el.textContent = 'Erreur'; });
+            if (callback) callback();
+        });
+}
+
+function renderEmailList(emails) {
+    clientEmails = emails;
+    const wrap    = document.getElementById('soa-emails-wrap');
+    const display = document.getElementById('soa-email-display');
+    display.innerHTML = emails.length
+        ? `<span class="soa-email-display"><i class="fa fa-envelope me-2" style="color:#1a3767;font-size:11px;"></i>${emails.join(', ')}</span>`
+        : '<span class="text-secondary fst-italic" style="font-size:13px;">Aucune adresse email renseignée dans X3</span>';
+    wrap.style.display = '';
+}
+
+document.getElementById('btn-add-line').addEventListener('click', addLine);
+
+function addLine() {
+    const tbody = document.getElementById('soa-lines-body');
+    const idx   = lineIndex++;
+    const row   = document.createElement('tr');
+    row.dataset.idx = idx;
+    const caFormatted = clientCaFacture !== null
+        ? new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(clientCaFacture)
+        : '—';
+    row.innerHTML = buildLineHtml(idx, '', '', '', '', '', caFormatted);
+    tbody.appendChild(row);
+    bindLineEvents(row, idx);
+    return row;
+}
+
+function addLineWithData(p) {
+    const tbody = document.getElementById('soa-lines-body');
+    const idx   = lineIndex++;
+    const row   = document.createElement('tr');
+    row.dataset.idx = idx;
+
+    const paFormatted  = p.prix_achat !== null
+        ? new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(p.prix_achat) + ' ' + p.devise
+        : 'N/D';
+    const maxFormatted = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(p.montant_max);
+    const caFormatted  = clientCaFacture !== null
+        ? new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(clientCaFacture)
+        : '—';
+
+    row.innerHTML = buildLineHtml(idx, `${p.article_code} — ${p.article_nom}`, paFormatted, p.qte_max, p.montant_soa, maxFormatted, caFormatted);
+
+    const artInput = row.querySelector('.line-article');
+    artInput.dataset.articleCode   = p.article_code;
+    artInput.dataset.articleNom    = p.article_nom;
+    artInput.dataset.articleModele = '';
+
+    const paEl = row.querySelector(`#pa-${idx}`);
+    if (p.prix_achat !== null) paEl.dataset.value = p.prix_achat;
+
+    tbody.appendChild(row);
+    bindLineEvents(row, idx);
+    calcRoi(idx);
+}
+
+function buildLineHtml(idx, artVal, paVal, qteVal, montantSoaVal, montantMaxVal, caVal) {
+    return `
+        <td>
+            <div class="soa-search-wrap">
+                <input type="text" class="soa-input line-article" data-idx="${idx}"
+                       placeholder="Rechercher un article…" autocomplete="off" value="${artVal}">
+                <i class="fa fa-search soa-search-icon"></i>
+            </div>
+        </td>
+        <td><div class="soa-calc-field" id="pa-${idx}">${paVal || '—'}</div></td>
+        <td><input type="number" class="soa-input line-qte-max" data-idx="${idx}" min="0" placeholder="0" value="${qteVal}"></td>
+        <td><input type="number" class="soa-input line-montant-soa" data-idx="${idx}" min="0" step="0.01" placeholder="0.00" value="${montantSoaVal}"></td>
+        <td><div class="soa-calc-field" id="devise-${idx}">${clientDevise}</div></td>
+        <td><div class="soa-calc-field" id="montant-max-${idx}">${montantMaxVal || '0.00'}</div></td>
+        <td><div class="soa-calc-field" id="ca-${idx}">${caVal}</div></td>
+        <td><div class="soa-calc-field" id="roi-${idx}">—</div></td>
+        <td><button class="btn-remove-line" data-idx="${idx}" title="Supprimer"><i class="fa fa-times"></i></button></td>
+    `;
+}
+
+function bindLineEvents(row, idx) {
+    const calcMax = () => {
+        const qte     = parseFloat(row.querySelector('.line-qte-max').value) || 0;
+        const montant = parseFloat(row.querySelector('.line-montant-soa').value) || 0;
+        const max     = qte * montant;
+        document.getElementById(`montant-max-${idx}`).textContent =
+            new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(max);
+        calcRoi(idx);
+    };
+    row.querySelector('.line-qte-max').addEventListener('input', calcMax);
+    row.querySelector('.line-montant-soa').addEventListener('input', calcMax);
+
+    const artInput = row.querySelector('.line-article');
+    let artTimer = null;
+    artInput.addEventListener('input', () => {
+        const q = artInput.value.trim();
+        if (q.length < 2) { hideArtDropdown(); return; }
+        clearTimeout(artTimer);
+        artTimer = setTimeout(() => {
+            fetch(`${ROUTES.articles}?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(data => renderArticleDropdown(artInput, idx, data))
+                .catch(() => {});
+        }, 300);
+    });
+    artInput.addEventListener('focus', () => {
+        if (artInput.value.trim().length >= 2) artInput.dispatchEvent(new Event('input'));
+    });
+    row.querySelector('.btn-remove-line').addEventListener('click', () => row.remove());
+}
+
+const artGlobalDrop = document.getElementById('art-global-dropdown');
+function hideArtDropdown() { artGlobalDrop.style.display = 'none'; }
+
+function renderArticleDropdown(input, idx, items) {
+    if (!items.length) { hideArtDropdown(); return; }
+
+    artGlobalDrop.innerHTML = items.map(a =>
+        `<div class="soa-dropdown-item"
+              data-code="${a.code}" data-nom="${a.nom}" data-modele="${a.modele ?? ''}">
+            <span class="item-code">${a.code}</span> — <span class="item-name">${a.nom}</span>
+         </div>`
+    ).join('');
+
+    const rect = input.getBoundingClientRect();
+    artGlobalDrop.style.top   = rect.bottom + 'px';
+    artGlobalDrop.style.left  = rect.left + 'px';
+    artGlobalDrop.style.width = Math.max(rect.width, 380) + 'px';
+    artGlobalDrop.style.display = 'block';
+
+    artGlobalDrop.querySelectorAll('.soa-dropdown-item').forEach(el => {
+        el.addEventListener('mousedown', e => {
+            e.preventDefault();
+            input.value = `${el.dataset.code} — ${el.dataset.nom}`;
+            input.dataset.articleCode   = el.dataset.code;
+            input.dataset.articleNom    = el.dataset.nom;
+            input.dataset.articleModele = el.dataset.modele;
+            hideArtDropdown();
+
+            const paEl = document.getElementById(`pa-${idx}`);
+            paEl.textContent = '…';
+            if (el.dataset.modele) {
+                fetch(`${ROUTES.articlePrix}?modele=${encodeURIComponent(el.dataset.modele)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.prix !== null) {
+                            paEl.textContent = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(data.prix) + ' ' + clientDevise;
+                            paEl.dataset.value = data.prix;
+                        } else {
+                            paEl.textContent = 'N/D';
+                            paEl.dataset.value = '';
+                        }
+                    })
+                    .catch(() => { paEl.textContent = 'Erreur'; });
+            } else {
+                paEl.textContent = 'N/D';
+            }
+        });
+    });
+}
+
+document.addEventListener('click', e => {
+    if (!artGlobalDrop.contains(e.target) && !e.target.classList.contains('line-article')) {
+        hideArtDropdown();
+    }
+});
+
+function calcRoi(idx) {
+    const roiEl = document.getElementById(`roi-${idx}`);
+    if (!roiEl) return;
+    const montantMaxEl = document.getElementById(`montant-max-${idx}`);
+    const montantMax   = montantMaxEl
+        ? parseFloat(montantMaxEl.textContent.replace(/\s/g, '').replace(',', '.')) || 0
+        : 0;
+    if (clientCaFacture === null || clientCaFacture === 0 || montantMax === 0) {
+        roiEl.textContent = '—'; roiEl.style.background = ''; roiEl.style.color = ''; roiEl.style.borderColor = '';
+        return;
+    }
+    const roi = (montantMax / clientCaFacture) * 100;
+    roiEl.textContent = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(roi) + ' %';
+    roiEl.style.background  = roi >= 5 ? '#fce8ea' : '';
+    roiEl.style.color       = roi >= 5 ? '#b02a37' : '';
+    roiEl.style.borderColor = roi >= 5 ? '#f5c2c7' : '';
+}
+
+function updateAllDevises() {
+    document.querySelectorAll('[id^="devise-"]').forEach(el => { el.textContent = clientDevise; });
+}
+
+function collectFormData(statut) {
+    const lignes = [];
+    document.querySelectorAll('#soa-lines-body tr[data-idx]').forEach(row => {
+        const idx      = row.dataset.idx;
+        const artInput = row.querySelector('.line-article');
+        const artCode  = artInput?.dataset.articleCode ?? '';
+        if (!artCode) return;
+        const paEl      = document.getElementById(`pa-${idx}`);
+        const prixAchat = paEl?.dataset.value ?? '';
+        lignes.push({
+            article_code: artCode,
+            article_nom:  artInput?.dataset.articleNom ?? '',
+            prix_achat:   prixAchat !== '' ? parseFloat(prixAchat) : null,
+            qte_max:      parseFloat(row.querySelector('.line-qte-max')?.value) || 0,
+            montant_soa:  parseFloat(row.querySelector('.line-montant-soa')?.value) || 0,
+            ca_facture:   clientCaFacture,
+        });
+    });
+
+    return {
+        numero:        SOA_NUMERO,
+        statut,
+        titre:         document.getElementById('soa-titre').textContent.trim(),
+        client_code:   clientCode,
+        client_nom:    document.getElementById('soa-client-nom').textContent.trim(),
+        client_langue: document.getElementById('soa-client-langue').textContent.trim(),
+        client_devise: clientDevise,
+        client_emails: clientEmails,
+        date_debut:    document.getElementById('soa-date-debut').value,
+        date_fin:      document.getElementById('soa-date-fin').value,
+        focus_produit: document.getElementById('soa-focus').value.trim() || null,
+        commentaire:   document.getElementById('soa-commentaire').value.trim() || null,
+        lignes,
+    };
+}
+
+function validateForm(data) {
+    if (!data.client_code)        { showWarning('Veuillez sélectionner un client.'); return false; }
+    if (!data.date_debut)         { showWarning('La date de début est obligatoire.'); return false; }
+    if (!data.date_fin)           { showWarning('La date de fin est obligatoire.'); return false; }
+    if (data.lignes.length === 0) { showWarning('Ajoutez au moins une ligne article.'); return false; }
+    return true;
+}
+
+function saveSoa(statut) {
+    const data = collectFormData(statut);
+    if (!validateForm(data)) return;
+
+    const btn = statut === 'brouillon'
+        ? document.getElementById('btn-save-draft')
+        : document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Enregistrement…';
+
+    fetch(ROUTES.save, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(data),
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.error) {
+            showAlert(res.error);
+            btn.disabled = false;
+            btn.innerHTML = statut === 'brouillon'
+                ? '<i class="fa fa-save me-1"></i>Enregistrer en brouillon'
+                : '<i class="fa fa-paper-plane me-1"></i>Valider — Envoyer à la Direction';
+            return;
+        }
+        window.location.href = ROUTES.show.replace('/0', '/' + res.id);
+    })
+    .catch(() => {
+        showAlert('Une erreur réseau est survenue.', 'Erreur réseau');
+        btn.disabled = false;
+    });
+}
+
+document.getElementById('btn-save-draft').addEventListener('click', () => saveSoa('brouillon'));
+document.getElementById('btn-submit').addEventListener('click', () => saveSoa('attente_validation'));
+
+document.addEventListener('DOMContentLoaded', () => {
+    const apiUrl = ROUTES.apiShow.replace('/0', '/' + SOA_ID);
+
+    fetch(apiUrl)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            renderStepper(data.statut);
+            prefillForm(data);
+
+            document.getElementById('edit-loading').style.display = 'none';
+            document.getElementById('edit-form').style.display = '';
+        })
+        .catch(err => {
+            document.getElementById('edit-loading').innerHTML =
+                `<div class="alert alert-danger">Impossible de charger le SOA : ${err.message}</div>`;
+        });
+});
+</script>
+
+{% else %}
+{# ─── JS Mode validation ou preuves ──────────────────────────── #}
+<script>
+const SOA_ID  = {{ soa_id }};
+
+function showAlert(msg, title) {
+    document.getElementById('modal-alert-title').textContent = title || 'Erreur';
+    document.getElementById('modal-alert-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-alert')).show();
+}
+function showConfirm(msg, onConfirm, title) {
+    document.getElementById('modal-confirm-title').textContent = title || 'Confirmation';
+    document.getElementById('modal-confirm-body').innerHTML = msg;
+    const oldBtn = document.getElementById('modal-confirm-ok');
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    newBtn.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(document.getElementById('modal-confirm')).hide();
+        onConfirm();
+    });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-confirm')).show();
+}
+const SOA_MODE = '{{ mode }}';
+const ROUTES  = {
+    apiShow:        '{{ path("api_soa_show",          {id: 0}) }}'.replace('/0', '/' + SOA_ID),
+    api_transition: '{{ path("api_soa_transition",    {id: 0}) }}'.replace('/0', '/' + SOA_ID),
+    api_upload:     '{{ path("api_soa_upload_proof",  {id: 0}) }}'.replace('/0', '/' + SOA_ID),
+    api_submit:     '{{ path("api_soa_submit_preuves",{id: 0}) }}'.replace('/0', '/' + SOA_ID),
+    show:           '{{ path("app_soa_show",          {id: 0}) }}'.replace('/0', '/' + SOA_ID),
+};
+
+const SOA_STEPS = [
+    { key: 'brouillon',          label: 'Brouillon' },
+    { key: 'attente_validation', label: 'En attente de validation' },
+    { key: 'valide_direction',   label: 'Validé par la Direction' },
+    { key: 'attente_val_finale', label: 'En attente de validation finale' },
+    { key: 'archive',            label: 'Archivé' },
+];
+
+const fmtNum  = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = v => v ? v.split('-').reverse().join('/') : '—';
+const val     = v => v || '<span class="text-secondary fst-italic">—</span>';
+function fmtSize(b) {
+    if (!b) return '';
+    if (b < 1024) return b + ' o';
+    if (b < 1048576) return (b/1024).toFixed(0) + ' Ko';
+    return (b/1048576).toFixed(1) + ' Mo';
+}
+function truncate(s, n) { return s && s.length > n ? s.substring(0, n) + '…' : s; }
+
+function renderStepper(currentStatus) {
+    const idx = SOA_STEPS.findIndex(s => s.key === currentStatus);
+    document.getElementById('soa-stepper-container').innerHTML = SOA_STEPS.map((step, i) => {
+        const cls  = i < idx ? 'done' : (i === idx ? 'active' : '');
+        const icon = i < idx ? '<i class="fa fa-check" style="font-size:12px;"></i>' : (i + 1);
+        return `<div class="soa-step ${cls}">
+            <div class="soa-step-circle">${icon}</div>
+            <div class="soa-step-label">${step.label}</div>
+        </div>`;
+    }).join('');
+}
+
+function renderReadOnly(d) {
+    const montantTotal = d.produits.reduce((s, p) => s + p.montant_max, 0);
+
+    const hasQteVendue = d.produits.some(p => p.qte_vendue !== null && p.qte_vendue !== undefined);
+    const colSpan = hasQteVendue ? 8 : 7;
+
+    const lignesHtml = d.produits.length === 0
+        ? `<tr><td colspan="${colSpan}" class="text-center text-secondary fst-italic py-3">Aucune ligne.</td></tr>`
+        : d.produits.map(p => {
+            const roiCls = p.roi !== null && p.roi >= 5 ? 'roi-alert' : '';
+            const qteVendueCell = hasQteVendue
+                ? `<td class="text-end fw-semibold" style="color:#1a3767;">${p.qte_vendue !== null ? p.qte_vendue : '<span class="text-secondary">—</span>'}</td>`
+                : '';
+            return `<tr>
+                <td><span class="fw-semibold">${p.article_code}</span><br><small class="text-secondary">${p.article_nom}</small></td>
+                <td class="text-end">${p.prix_achat !== null ? fmtNum.format(p.prix_achat) + ' ' + p.devise : '<span class="text-secondary">N/D</span>'}</td>
+                <td class="text-end">${p.qte_max}</td>
+                ${qteVendueCell}
+                <td class="text-end">${fmtNum.format(p.montant_soa)} ${p.devise}</td>
+                <td><span class="soa-calc-field">${fmtNum.format(p.montant_max)} ${p.devise}</span></td>
+                <td class="text-end">${p.ca_facture_annee !== null ? fmtNum.format(p.ca_facture_annee) + ' ' + p.devise : '—'}</td>
+                <td><span class="soa-calc-field ${roiCls}">${p.roi !== null ? fmtNum.format(p.roi) + ' %' : '—'}</span></td>
+            </tr>`;
+        }).join('');
+
+    const emailsHtml = d.client_emails.length
+        ? `<span style="font-size:13px;color:#1a3767;background:#f0f4ff;border:1px solid #cfe2ff;border-radius:6px;padding:6px 12px;display:inline-block;">
+               <i class="fa fa-envelope me-2" style="font-size:11px;"></i>${d.client_emails.join(', ')}
+           </span>`
+        : '<span class="text-secondary fst-italic" style="font-size:13px;">Aucune adresse email</span>';
+
+    document.getElementById('soa-ro-content').innerHTML = `
+        <div class="soa-card">
+            <div class="soa-card-title"><i class="fa fa-info-circle"></i> En-tête</div>
+            <div class="row g-3">
+                <div class="col-md-4"><div class="soa-label">Représentant</div><div class="soa-value">${val(d.representant)}</div></div>
+                <div class="col-md-4"><div class="soa-label">N° SOA</div><div class="soa-value fw-semibold" style="color:#1a3767;">${d.numero}</div></div>
+                <div class="col-md-4"><div class="soa-label">Titre</div><div class="soa-value">${val(d.titre)}</div></div>
+                <div class="col-md-3"><div class="soa-label">Date de début</div><div class="soa-value">${fmtDate(d.date_debut)}</div></div>
+                <div class="col-md-3"><div class="soa-label">Date de fin</div><div class="soa-value">${fmtDate(d.date_fin)}</div></div>
+                <div class="col-md-4"><div class="soa-label">Client</div><div class="soa-value"><span class="fw-semibold me-1">${d.client_code}</span>${d.client_nom}</div></div>
+                <div class="col-md-2"><div class="soa-label">Devise</div><div class="soa-value">${val(d.client_devise)}</div></div>
+                <div class="col-12"><div class="soa-label">Adresse email</div>${emailsHtml}</div>
+                ${d.focus_produit ? `<div class="col-md-6"><div class="soa-label">Focus Produit</div><div class="soa-value" style="white-space:pre-wrap;">${d.focus_produit}</div></div>` : ''}
+                ${d.commentaire ? `<div class="col-md-6"><div class="soa-label">Commentaire</div><div class="soa-value" style="white-space:pre-wrap;">${d.commentaire}</div></div>` : ''}
+            </div>
+        </div>
+        <div class="soa-card">
+            <div class="soa-card-title d-flex justify-content-between align-items-center">
+                <span><i class="fa fa-list-ul"></i> Détail SOA — Lignes articles</span>
+                <span style="font-size:12px;font-weight:400;color:#495057;">
+                    Montant total : <strong style="color:#1a3767;">${fmtNum.format(montantTotal)} ${d.client_devise}</strong>
+                </span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="soa-lines-table-ro">
+                    <thead><tr>
+                        <th style="min-width:200px;">Article</th>
+                        <th style="width:120px;text-align:right;">PA</th>
+                        <th style="width:90px;text-align:right;">Qté max</th>
+                        ${hasQteVendue ? '<th style="width:90px;text-align:right;">Qté vendue</th>' : ''}
+                        <th style="width:130px;text-align:right;">Montant SOA</th>
+                        <th style="width:160px;">Montant max</th>
+                        <th style="width:160px;text-align:right;">CA facturé</th>
+                        <th style="width:100px;">ROI</th>
+                    </tr></thead>
+                    <tbody>${lignesHtml}</tbody>
+                </table>
+            </div>
+        </div>
+        ${d.preuves && d.preuves.length > 0 ? `
+        <div class="soa-card">
+            <div class="soa-card-title"><i class="fa fa-paperclip"></i> Justificatifs déposés</div>
+            ${d.preuves.map(p => `
+                <div class="proof-file-item">
+                    <i class="fa fa-file text-secondary"></i>
+                    <a href="${p.download_url}" class="file-name text-decoration-none">${p.nom_fichier}</a>
+                    <span class="file-size">${fmtSize(p.taille)}</span>
+                    <small class="text-secondary">${p.uploaded_by} — ${p.uploaded_at}</small>
+                </div>`).join('')}
+        </div>` : ''}`;
+}
+
+// ── Mode validation ───────────────────────────────────────────
+function initValidation(d) {
+    const label = d.statut === 'attente_validation'
+        ? 'Ce SOA est en attente de votre validation.'
+        : 'Ce SOA est en attente de validation finale après soumission des preuves.';
+    document.getElementById('action-label').textContent = label;
+    document.getElementById('action-bar').style.display = '';
+}
+
+function doTransition(action) {
+    const label = action === 'valider' ? 'valider' : 'refuser';
+    showConfirm(`Confirmer l'action : <strong>${label}</strong> ce SOA ?`, () => {
+        fetch(ROUTES.api_transition, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) { showAlert(res.error); return; }
+            window.location.href = ROUTES.show;
+        })
+        .catch(() => showAlert('Erreur réseau.', 'Erreur réseau'));
+    });
+}
+
+// ── Mode preuves ─────────────────────────────────────────────
+let uploadedProofs = [];
+
+function initPreuves(d) {
+    uploadedProofs = d.preuves || [];
+
+    const lignesHtml = d.produits.map(p => `
+        <tr>
+            <td><span class="fw-semibold">${p.article_code}</span></td>
+            <td title="${p.article_nom}">${truncate(p.article_nom, 40)}</td>
+            <td class="text-end">${fmtNum.format(p.montant_soa)} ${p.devise}</td>
+            <td class="text-end" style="color:#6c757d;font-size:12px;">max ${p.qte_max}</td>
+            <td class="text-end">
+                <input type="number" class="form-control form-control-sm qte-input"
+                    id="qte_${p.id}" min="1" max="${p.qte_max}"
+                    value="${p.qte_vendue || ''}" placeholder="0"
+                    data-product-id="${p.id}" data-qte-max="${p.qte_max}"
+                    oninput="checkSubmitBtn()">
+            </td>
+        </tr>
+    `).join('');
+
+    document.getElementById('preuves-block').style.display = '';
+    document.getElementById('preuves-block').innerHTML = `
+    <div class="soa-card">
+        <div class="soa-card-title"><i class="fa fa-paperclip"></i> Soumission des preuves</div>
+        <p style="font-size:13px;color:#495057;margin-bottom:18px;">
+            Uploadez les justificatifs et renseignez les quantités vendues pour chaque article.
+            La soumission est bloquée tant qu'aucun fichier n'est uploadé ou qu'une quantité est manquante.
+        </p>
+        <div class="row g-4">
+            <div class="col-md-5">
+                <div class="soa-label mb-2">Justificatifs uploadés</div>
+                <div id="proofs-list">${renderProofsList()}</div>
+                <div class="upload-zone mt-2" id="upload-zone" onclick="document.getElementById('proof-input').click()">
+                    <i class="fa fa-cloud-upload fa-lg mb-1" style="display:block;"></i>
+                    Cliquer pour ajouter un fichier
+                </div>
+                <input type="file" id="proof-input" style="display:none;" onchange="uploadFile(this)">
+            </div>
+            <div class="col-md-7">
+                <div class="soa-label mb-2">Quantités vendues</div>
+                <div style="overflow-x:auto;">
+                    <table class="preuve-table">
+                        <thead><tr>
+                            <th>Article</th>
+                            <th>Désignation</th>
+                            <th style="text-align:right;">Montant SOA</th>
+                            <th style="text-align:right;color:#adb5bd;">Qté prévue</th>
+                            <th style="text-align:right;">Qté vendue</th>
+                        </tr></thead>
+                        <tbody>${lignesHtml}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 text-end">
+            <button class="btn btn-primary px-5" id="btn-submit-preuves" onclick="submitPreuves()" disabled>
+                <i class="fa fa-paper-plane me-2"></i>Soumettre pour validation finale
+            </button>
+        </div>
+    </div>`;
+
+    checkSubmitBtn();
+}
+
+function renderProofsList() {
+    if (uploadedProofs.length === 0) {
+        return '<p class="text-secondary fst-italic" style="font-size:12px;">Aucun fichier uploadé.</p>';
+    }
+    return uploadedProofs.map(p => `
+        <div class="proof-file-item" id="proof-item-${p.id}">
+            <i class="fa fa-file text-secondary"></i>
+            <a href="${p.download_url}" class="file-name text-decoration-none">${p.nom_fichier}</a>
+            <span class="file-size">${fmtSize(p.taille)}</span>
+            <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteProof(${p.id})" title="Supprimer">
+                <i class="fa fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+function checkSubmitBtn() {
+    const btn = document.getElementById('btn-submit-preuves');
+    if (!btn) return;
+    const hasFiles  = uploadedProofs.length > 0;
+    const allFilled = [...document.querySelectorAll('.qte-input')].every(inp => {
+        const v = parseInt(inp.value, 10);
+        return v > 0 && v <= parseInt(inp.dataset.qteMax, 10);
+    });
+    btn.disabled = !(hasFiles && allFilled);
+    btn.title = !hasFiles ? 'Uploadez au moins un justificatif'
+               : !allFilled ? 'Renseignez toutes les quantités vendues (entre 1 et qté max)' : '';
+}
+
+function uploadFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const zone = document.getElementById('upload-zone');
+    zone.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Upload en cours…';
+    zone.style.pointerEvents = 'none';
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    fetch(ROUTES.api_upload, { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(res => {
+        zone.innerHTML = '<i class="fa fa-cloud-upload fa-lg mb-1" style="display:block;"></i>Cliquer pour ajouter un fichier';
+        zone.style.pointerEvents = '';
+        input.value = '';
+        if (res.error) { showAlert(res.error); return; }
+        uploadedProofs.push(res);
+        document.getElementById('proofs-list').innerHTML = renderProofsList();
+        checkSubmitBtn();
+    })
+    .catch(() => {
+        zone.innerHTML = '<i class="fa fa-cloud-upload fa-lg mb-1" style="display:block;"></i>Cliquer pour ajouter un fichier';
+        zone.style.pointerEvents = '';
+        showAlert('Erreur réseau lors de l\'upload.', 'Erreur réseau');
+    });
+}
+
+function deleteProof(docId) {
+    showConfirm('Supprimer ce fichier ?', () => _doDeleteProof(docId), 'Supprimer le fichier');
+}
+function _doDeleteProof(docId) {
+    const url = '{{ path("api_soa_delete_proof", {id: 0, docId: 0}) }}'
+        .replace('/api/0/', '/api/' + SOA_ID + '/')
+        .replace('/proof/0/', '/proof/' + docId + '/');
+
+    fetch(url, { method: 'POST' })
+    .then(r => r.json())
+    .then(res => {
+        if (res.error) { showAlert(res.error); return; }
+        uploadedProofs = uploadedProofs.filter(p => p.id !== docId);
+        document.getElementById('proofs-list').innerHTML = renderProofsList();
+        checkSubmitBtn();
+    })
+    .catch(() => showAlert('Erreur réseau.', 'Erreur réseau'));
+}
+
+function submitPreuves() {
+    const lignes = [...document.querySelectorAll('.qte-input')].map(inp => ({
+        product_id: parseInt(inp.dataset.productId, 10),
+        qte_vendue: parseInt(inp.value, 10),
+    }));
+
+    fetch(ROUTES.api_submit, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lignes }),
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.error) { showAlert(res.error); return; }
+        window.location.href = ROUTES.show;
+    })
+    .catch(() => showAlert('Erreur réseau.', 'Erreur réseau'));
+}
+
+// ── Chargement initial ────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    fetch(ROUTES.apiShow)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            document.getElementById('bc-show').textContent = data.numero;
+            document.title = data.numero + ' — SOA';
+
+            renderStepper(data.statut);
+            renderReadOnly(data);
+
+            if (SOA_MODE === 'validation') {
+                initValidation(data);
+            } else {
+                initPreuves(data);
+            }
+
+            document.getElementById('edit-loading').style.display = 'none';
+            document.getElementById('soa-ro-content').style.display = '';
+        })
+        .catch(err => {
+            document.getElementById('edit-loading').innerHTML =
+                `<div class="alert alert-danger">Impossible de charger le SOA : ${err.message}</div>`;
+        });
+});
+</script>
+{% endif %}
+
+{% endblock %}
