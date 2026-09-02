@@ -906,6 +906,7 @@ class Sales
             'PAIEMENT'              => 'SOH.PTE_0',
             'NUM_COMMANDE'          => 'SOQ.SOHNUM_0',
             'REF_CLIENT'            => 'SOH.CUSORDREF_0',
+            'REFERENCE_INTERNE'     => 'SOH.ZNORIGIN_0',
             'CODE_MARQUE'           => 'ITM.TSICOD_0',
             'ADRESSE_LIVRAISON'     => 'SOH.BPAADD_0',
             'FAMILLE'               => 'ITM.TCLCOD_0',
