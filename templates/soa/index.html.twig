@@ -1,109 +1,140 @@
 {% extends 'base.html.twig' %}
 
 {% block stylesheets %}
-<style>
-.soa-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-.soa-header h4 {
-    margin: 0;
-    font-weight: 600;
-    color: #1a3767;
-}
-.soa-badge-status {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-.status-brouillon     { background: #e9ecef; color: #6c757d; }
-.status-attente_val   { background: #fff3cd; color: #856404; }
-.status-valide_dir    { background: #cfe2ff; color: #0a4694; }
-.status-attente_preuves { background: #e8d5f5; color: #6f42c1; }
-.status-attente_val_finale { background: #ffe5cc; color: #c45c00; }
-.status-archive       { background: #d1e7dd; color: #0a5c36; }
-#soa-grid { width: 100%; height: calc(100vh - 200px); }
-</style>
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input { color: #000000 !important; }
+        .grid-wrapper { position: relative; min-height: 600px; }
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .soa-badge-status {
+            display: inline-block; padding: 3px 10px;
+            border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap;
+        }
+        .status-brouillon           { background: #e9ecef; color: #6c757d; }
+        .status-attente_validation  { background: #fff3cd; color: #856404; }
+        .status-valide_direction    { background: #cfe2ff; color: #0a4694; }
+        .status-attente_preuves     { background: #e8d5f5; color: #6f42c1; }
+        .status-attente_val_finale  { background: #ffe5cc; color: #c45c00; }
+        .status-archive             { background: #d1e7dd; color: #0a5c36; }
+    </style>
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid pt-3">
-
-    <div class="soa-header">
-        <h4><i class="fa fa-file-contract me-2"></i>SOA — Sales Out Allowance</h4>
-        <a href="{{ path('app_soa_new') }}" class="btn btn-primary btn-sm">
-            <i class="fa fa-plus me-1"></i>Nouveau SOA
-        </a>
+<section class="content">
+    <div class="row">
+        <div class="col-12">
+            <div class="box">
+                <div class="box-header with-border d-flex justify-content-between align-items-center">
+                    <h3 class="box-title mb-0"><i class="fa fa-file-contract me-2"></i>SOA — Sales Out Allowance</h3>
+                    <div class="d-flex align-items-center gap-2">
+                        <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                        <a href="{{ path('app_soa_new') }}" class="btn btn-success btn-sm">
+                            <i class="fa fa-plus me-1"></i>Nouveau SOA
+                        </a>
+                    </div>
+                </div>
+                <div class="box-body">
+                    <div class="table-responsive-sm">
+                        <div id="myGridWrapper" class="grid-wrapper">
+                            <div id="gridCustomLoader" class="grid-custom-loader">
+                                <div class="grid-loader-spinner"></div>
+                                <div class="grid-loader-text">Chargement de la grille...</div>
+                            </div>
+                            <div id="myGrid" class="ag-theme-alpine" style="height: 700px; visibility: hidden;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div id="soa-grid" class="ag-theme-alpine"></div>
-
-</div>
+</section>
 {% endblock %}
 
 {% block javascripts %}
-<script>
-const soaStatusLabel = {
-    brouillon:           'Brouillon',
-    attente_validation:  'En attente de validation',
-    valide_direction:    'Validé par la Direction',
-    attente_preuves:     'En attente de preuves',
-    attente_val_finale:  'En attente de validation finale',
-    archive:             'Archivé',
-};
-const soaStatusClass = {
-    brouillon:           'status-brouillon',
-    attente_validation:  'status-attente_val',
-    valide_direction:    'status-valide_dir',
-    attente_preuves:     'status-attente_preuves',
-    attente_val_finale:  'status-attente_val_finale',
-    archive:             'status-archive',
-};
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
 
-function statusCellRenderer(params) {
-    const key = params.value || '';
-    const label = soaStatusLabel[key] || key;
-    const cls   = soaStatusClass[key] || '';
-    return `<span class="soa-badge-status ${cls}">${label}</span>`;
-}
+    <script>
+    const ROUTE_SOA_LIST = '{{ path("api_soa_list") }}';
+    const ROUTE_SOA_SHOW = '{{ path("app_soa_show", {id: 0}) }}';
 
-const columnDefs = [
-    { headerName: 'N° SOA',        field: 'numero',          width: 180, pinned: 'left',
-      cellRenderer: params => `<a href="/soa/${params.data.id}" class="text-primary fw-semibold">${params.value}</a>` },
-    { headerName: 'Représentant',  field: 'representant',    width: 160 },
-    { headerName: 'Client',        field: 'client_nom',      flex: 1, minWidth: 180 },
-    { headerName: 'Date début',    field: 'date_debut',      width: 120, type: 'dateColumn' },
-    { headerName: 'Date fin',      field: 'date_fin',        width: 120, type: 'dateColumn' },
-    { headerName: 'Montant total', field: 'montant_total',   width: 150,
-      valueFormatter: p => p.value != null ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(p.value) : '' },
-    { headerName: 'Statut',        field: 'statut',          width: 220, cellRenderer: statusCellRenderer },
-    { headerName: 'Créé le',       field: 'created_at',      width: 120, type: 'dateColumn' },
-];
+    const soaStatusClass = {
+        brouillon:           'status-brouillon',
+        attente_validation:  'status-attente_validation',
+        valide_direction:    'status-valide_direction',
+        attente_preuves:     'status-attente_preuves',
+        attente_val_finale:  'status-attente_val_finale',
+        archive:             'status-archive',
+    };
 
-const gridOptions = {
-    columnDefs,
-    rowData: [],
-    defaultColDef: {
-        resizable: true,
-        sortable: true,
-        filter: true,
-    },
-    columnTypes: {
-        dateColumn: { filter: 'agDateColumnFilter' },
-    },
-    pagination: true,
-    paginationPageSize: 50,
-    localeText: agGrid.AG_GRID_LOCALE_FR,
-};
+    function statusCellRenderer(params) {
+        const key   = params.value || '';
+        const label = params.data?.statut_label || key;
+        const cls   = soaStatusClass[key] || '';
+        return `<span class="soa-badge-status ${cls}">${label}</span>`;
+    }
 
-document.addEventListener('DOMContentLoaded', () => {
-    agGrid.createGrid(document.getElementById('soa-grid'), gridOptions);
-    // TODO: fetch('/soa/api/list') pour charger les données réelles
-});
-</script>
+    const fmt = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
+
+    const columnDefs = [
+        { headerName: 'N° SOA',        field: 'numero',        width: 210, pinned: 'left',
+          cellRenderer: p => `<a href="${ROUTE_SOA_SHOW.replace('/0', '/' + p.data.id)}" class="text-primary fw-semibold">${p.value}</a>` },
+        { headerName: 'Représentant',  field: 'representant',  width: 180 },
+        { headerName: 'Client',        field: 'client_nom',    flex: 1, minWidth: 180 },
+        { headerName: 'Date début',    field: 'date_debut',    width: 120 },
+        { headerName: 'Date fin',      field: 'date_fin',      width: 120 },
+        { headerName: 'Montant total', field: 'montant_total', width: 160,
+          valueFormatter: p => p.value != null ? fmt.format(p.value) : '' },
+        { headerName: 'Statut',        field: 'statut',        width: 230, cellRenderer: statusCellRenderer },
+        { headerName: 'Créé le',       field: 'created_at',    width: 120 },
+    ];
+
+    const agGridConfig = {
+        columnDefs,
+        dataUrl: ROUTE_SOA_LIST,
+        numericColumns: ['montant_total'],
+        integerColumns: [],
+        totalColumns: [],
+        headerClass: 'excelHeaderBlue',
+        stateKey: 'aggrid-state-soa-list-user-{{ app.user.id|default("local") }}-v1',
+        excelStyles: [
+            {
+                id: 'excelHeaderBlue',
+                font: { bold: true, color: '#FFFFFF' },
+                alignment: { horizontal: 'Center' },
+                interior: { color: '#024185', pattern: 'Solid' }
+            }
+        ],
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            window.gridOptions.api.exportDataAsExcel();
+        });
+    });
+    </script>
 {% endblock %}

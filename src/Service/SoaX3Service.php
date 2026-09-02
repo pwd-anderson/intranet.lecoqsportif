@@ -54,7 +54,8 @@ class SoaX3Service
                 ITM.ITMDES1_0   AS nom,
                 ITM.ZMODELCOD_0 AS modele
             FROM X3_LCS.ITMMASTER ITM
-            WHERE (ITM.ITMREF_0 LIKE '%{$like}%' OR ITM.ITMDES1_0 LIKE '%{$like}%'
+            WHERE CHARINDEX('_', ITM.ITMREF_0) = 0
+              AND (ITM.ITMREF_0 LIKE '%{$like}%' OR ITM.ITMDES1_0 LIKE '%{$like}%'
                 OR ITM.ITMDES2_0 LIKE '%{$like}%' OR ITM.ITMDES3_0 LIKE '%{$like}%')
             ORDER BY ITM.ITMREF_0
         ";
@@ -87,5 +88,26 @@ class SoaX3Service
         }
 
         return (float) $rows[0]->prix;
+    }
+
+    public function getCaFactureClient(string $clientCode): ?float
+    {
+        $clientCode = str_replace("'", "''", $clientCode);
+        $sql        = "
+            SELECT SUM(SID.AMTNOTLIN_0 * SIH.SNS_0) AS MONTANT
+            FROM X3_LCS.SINVOICE  AS SIH
+            JOIN X3_LCS.SINVOICED AS SID ON SIH.NUM_0 = SID.NUM_0
+            WHERE SIH.BPRPAY_0   = '{$clientCode}'
+              AND SIH.INVTYP_0   IN (1, 2)
+              AND SIH.STA_0      = 3
+              AND YEAR(SID.INVDAT_0) = YEAR(GETDATE())
+        ";
+        $rows = $this->mssqlLcs->executeQuery($sql);
+
+        if (empty($rows) || $rows[0]->MONTANT === null) {
+            return null;
+        }
+
+        return (float) $rows[0]->MONTANT;
     }
 }

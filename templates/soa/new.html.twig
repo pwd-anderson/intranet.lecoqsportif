@@ -158,23 +158,16 @@
 .soa-dropdown-item .item-code { color: #1a3767; font-weight: 600; margin-right: 6px; }
 .soa-dropdown-item .item-name { color: #495057; }
 
-/* ─── Email checkboxes ────────────────────────────────────────── */
-.soa-email-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.soa-email-check {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+/* ─── Email affiché ───────────────────────────────────────────── */
+.soa-email-display {
+    font-size: 13px;
+    color: #1a3767;
     background: #f0f4ff;
     border: 1px solid #cfe2ff;
     border-radius: 6px;
-    padding: 5px 10px;
-    font-size: 12px;
-    color: #1a3767;
-    cursor: pointer;
-    user-select: none;
+    padding: 6px 12px;
+    display: inline-block;
 }
-.soa-email-check input { margin: 0; cursor: pointer; }
-.soa-email-check:has(input:checked) { background: #1a3767; color: #fff; border-color: #1a3767; }
 
 /* ─── Lignes articles ─────────────────────────────────────────── */
 .soa-lines-table { width: 100%; border-collapse: collapse; }
@@ -227,7 +220,8 @@
     padding: 6px 14px;
     cursor: pointer;
 }
-.btn-add-line:hover { background: #dce8ff; }
+.btn-add-line:hover:not(:disabled) { background: #dce8ff; }
+.btn-add-line:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ─── Actions ─────────────────────────────────────────────────── */
 .soa-actions {
@@ -330,8 +324,8 @@
             </div>
 
             <div class="col-12" id="soa-emails-wrap" style="display:none;">
-                <div class="soa-label">Adresses email du client <span class="text-danger">*</span></div>
-                <div class="soa-email-list" id="soa-email-list"></div>
+                <div class="soa-label">Adresse email du client</div>
+                <div id="soa-email-display"></div>
             </div>
 
             <div class="col-md-6">
@@ -378,7 +372,8 @@
             </table>
         </div>
 
-        <button class="btn-add-line" id="btn-add-line" type="button">
+        <button class="btn-add-line" id="btn-add-line" type="button" disabled
+                title="Sélectionnez d'abord un client">
             <i class="fa fa-plus me-1"></i>Ajouter une ligne
         </button>
     </div>
@@ -402,14 +397,30 @@
 {% block javascripts %}
 <script>
 const SOA_NUMERO = '{{ numero }}';
+
+function showAlert(msg, title) {
+    document.getElementById('modal-alert-title').textContent = title || 'Erreur';
+    document.getElementById('modal-alert-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-alert')).show();
+}
+function showWarning(msg, title) {
+    document.getElementById('modal-warning-title').textContent = title || 'Attention';
+    document.getElementById('modal-warning-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-warning')).show();
+}
 const ROUTES = {
-    clients:      '{{ path("api_soa_clients") }}',
-    articles:     '{{ path("api_soa_articles") }}',
-    articlePrix:  '{{ path("api_soa_article_prix") }}',
+    clients:     '{{ path("api_soa_clients") }}',
+    articles:    '{{ path("api_soa_articles") }}',
+    articlePrix: '{{ path("api_soa_article_prix") }}',
+    caFacture:   '{{ path("api_soa_ca_facture") }}',
+    save:        '{{ path("api_soa_save") }}',
+    show:        '{{ path("app_soa_show", {id: 0}) }}',
 };
 
-// ── Devise héritée du client ──────────────────────────────────
-let clientDevise = 'EUR';
+// ── Devise et CA facturé du client ───────────────────────────
+let clientDevise    = 'EUR';
+let clientCaFacture = null;
+let clientCode      = null;
 let lineIndex = 0;
 
 // ── Recherche client (stub — à brancher sur l'API) ────────────
@@ -461,26 +472,56 @@ function selectClient(el) {
 
     clientSearch.value = `${code} — ${nom}`;
     clientDevise = devise;
+    clientCode   = code;
     clientDropdown.style.display = 'none';
 
     document.getElementById('soa-client-nom').textContent    = nom;
     document.getElementById('soa-client-langue').textContent = langue;
     document.getElementById('soa-client-devise').textContent = devise;
-    document.getElementById('soa-titre').textContent = `(N° SOA) — ${nom}`;
+    document.getElementById('soa-titre').textContent = `${SOA_NUMERO} — ${nom}`;
 
     renderEmailList(emails);
     updateAllDevises();
+    fetchCaFacture(code);
+
+    const btnAdd = document.getElementById('btn-add-line');
+    btnAdd.disabled = false;
+    btnAdd.title = '';
 }
 
+function fetchCaFacture(code) {
+    clientCaFacture = null;
+    document.querySelectorAll('[id^="ca-"]').forEach(el => { el.textContent = '…'; });
+
+    fetch(`${ROUTES.caFacture}?client=${encodeURIComponent(code)}`)
+        .then(r => r.json())
+        .then(data => {
+            clientCaFacture = data.montant;
+            const formatted = clientCaFacture !== null
+                ? new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(clientCaFacture)
+                : 'N/D';
+            document.querySelectorAll('[id^="ca-"]').forEach(el => { el.textContent = formatted; });
+            // recalcul de tous les ROI
+            document.querySelectorAll('[id^="roi-"]').forEach(el => {
+                const idx = el.id.replace('roi-', '');
+                calcRoi(idx);
+            });
+        })
+        .catch(() => {
+            document.querySelectorAll('[id^="ca-"]').forEach(el => { el.textContent = 'Erreur'; });
+        });
+}
+
+let clientEmails = [];
+
 function renderEmailList(emails) {
+    clientEmails = emails;
     const wrap = document.getElementById('soa-emails-wrap');
-    const list = document.getElementById('soa-email-list');
-    list.innerHTML = emails.map(e =>
-        `<label class="soa-email-check">
-            <input type="checkbox" value="${e}"> ${e}
-         </label>`
-    ).join('');
-    wrap.style.display = emails.length ? '' : 'none';
+    const display = document.getElementById('soa-email-display');
+    display.innerHTML = emails.length
+        ? `<span class="soa-email-display"><i class="fa fa-envelope me-2" style="color:#1a3767;font-size:11px;"></i>${emails.join(', ')}</span>`
+        : '<span class="text-secondary fst-italic" style="font-size:13px;">Aucune adresse email renseignée dans X3</span>';
+    wrap.style.display = '';
 }
 
 // ── Lignes articles ───────────────────────────────────────────
@@ -504,7 +545,7 @@ function addLine() {
         <td><input type="number" class="soa-input line-montant-soa" data-idx="${idx}" min="0" step="0.01" placeholder="0.00"></td>
         <td><div class="soa-calc-field" id="devise-${idx}">${clientDevise}</div></td>
         <td><div class="soa-calc-field" id="montant-max-${idx}">0.00</div></td>
-        <td><div class="soa-calc-field" id="ca-${idx}">—</div></td>
+        <td><div class="soa-calc-field" id="ca-${idx}">${clientCaFacture !== null ? new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 }).format(clientCaFacture) : '—'}</div></td>
         <td><div class="soa-calc-field" id="roi-${idx}">—</div></td>
         <td><button class="btn-remove-line" data-idx="${idx}" title="Supprimer"><i class="fa fa-times"></i></button></td>
     `;
@@ -609,8 +650,24 @@ function renderArticleDropdown(input, idx, items) {
 }
 
 function calcRoi(idx) {
-    // ROI = (Montant max réclamer / CA facturé) × 100 — TODO quand CA disponible
-    document.getElementById(`roi-${idx}`).textContent = '—';
+    const roiEl = document.getElementById(`roi-${idx}`);
+    if (!roiEl) return;
+
+    const montantMaxEl = document.getElementById(`montant-max-${idx}`);
+    const montantMax   = montantMaxEl
+        ? parseFloat(montantMaxEl.textContent.replace(/\s/g, '').replace(',', '.')) || 0
+        : 0;
+
+    if (clientCaFacture === null || clientCaFacture === 0 || montantMax === 0) {
+        roiEl.textContent = '—';
+        return;
+    }
+
+    const roi = (montantMax / clientCaFacture) * 100;
+    roiEl.textContent = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(roi) + ' %';
+    roiEl.style.background = roi >= 5 ? '#fce8ea' : '';
+    roiEl.style.color      = roi >= 5 ? '#b02a37' : '';
+    roiEl.style.borderColor = roi >= 5 ? '#f5c2c7' : '';
 }
 
 function updateAllDevises() {
@@ -626,17 +683,99 @@ document.addEventListener('click', e => {
     }
 });
 
-// ── Ajouter une ligne vide au chargement ─────────────────────
-document.addEventListener('DOMContentLoaded', () => addLine());
+// Pas de ligne auto au chargement — client requis d'abord
+
+// ── Collecte des données du formulaire ────────────────────────
+function collectFormData(statut) {
+    const clientEl  = document.getElementById('soa-client-search');
+    const clientNom = document.getElementById('soa-client-nom').textContent.trim();
+    const clientCode_ = clientCode;
+
+    // Lignes articles
+    const lignes = [];
+    document.querySelectorAll('#soa-lines-body tr[data-idx]').forEach(row => {
+        const idx      = row.dataset.idx;
+        const artInput = row.querySelector('.line-article');
+        const artCode  = artInput?.dataset.articleCode ?? '';
+        if (!artCode) return;
+
+        const paEl       = document.getElementById(`pa-${idx}`);
+        const prixAchat  = paEl?.dataset.value ?? '';
+        const qteMax     = parseFloat(row.querySelector('.line-qte-max')?.value) || 0;
+        const montantSoa = parseFloat(row.querySelector('.line-montant-soa')?.value) || 0;
+
+        lignes.push({
+            article_code: artCode,
+            article_nom:  artInput?.dataset.articleNom ?? '',
+            prix_achat:   prixAchat !== '' ? parseFloat(prixAchat) : null,
+            qte_max:      qteMax,
+            montant_soa:  montantSoa,
+            ca_facture:   clientCaFacture,
+        });
+    });
+
+    const emails = clientEmails;
+
+    return {
+        numero:        SOA_NUMERO,
+        statut,
+        titre:         document.getElementById('soa-titre').textContent.trim(),
+        client_code:   clientCode_,
+        client_nom:    clientNom,
+        client_langue: document.getElementById('soa-client-langue').textContent.trim(),
+        client_devise: clientDevise,
+        client_emails: emails,
+        date_debut:    document.getElementById('soa-date-debut').value,
+        date_fin:      document.getElementById('soa-date-fin').value,
+        focus_produit: document.getElementById('soa-focus').value.trim() || null,
+        commentaire:   document.getElementById('soa-commentaire').value.trim() || null,
+        lignes,
+    };
+}
+
+function validateForm(data) {
+    if (!data.client_code)        { showWarning('Veuillez sélectionner un client.'); return false; }
+    if (!data.date_debut)         { showWarning('La date de début est obligatoire.'); return false; }
+    if (!data.date_fin)           { showWarning('La date de fin est obligatoire.'); return false; }
+    if (data.lignes.length === 0) { showWarning('Ajoutez au moins une ligne article.'); return false; }
+    return true;
+}
+
+function saveSoa(statut) {
+    const data = collectFormData(statut);
+    if (!validateForm(data)) return;
+
+    const btn = statut === 'brouillon'
+        ? document.getElementById('btn-save-draft')
+        : document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Enregistrement…';
+
+    fetch(ROUTES.save, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(data),
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.error) {
+            showAlert(res.error);
+            btn.disabled = false;
+            btn.innerHTML = statut === 'brouillon'
+                ? '<i class="fa fa-save me-1"></i>Enregistrer en brouillon'
+                : '<i class="fa fa-paper-plane me-1"></i>Valider — Envoyer à la Direction';
+            return;
+        }
+        window.location.href = ROUTES.show.replace('/0', '/' + res.id);
+    })
+    .catch(() => {
+        showAlert('Une erreur réseau est survenue.', 'Erreur réseau');
+        btn.disabled = false;
+    });
+}
 
 // ── Actions boutons ───────────────────────────────────────────
-document.getElementById('btn-save-draft').addEventListener('click', () => {
-    // TODO: POST /soa/api/save {statut: 'brouillon', ...}
-    alert('Brouillon enregistré (à implémenter).');
-});
-document.getElementById('btn-submit').addEventListener('click', () => {
-    // TODO: POST /soa/api/save {statut: 'attente_validation', ...}
-    alert('SOA soumis à la Direction (à implémenter).');
-});
+document.getElementById('btn-save-draft').addEventListener('click', () => saveSoa('brouillon'));
+document.getElementById('btn-submit').addEventListener('click', () => saveSoa('attente_validation'));
 </script>
 {% endblock %}

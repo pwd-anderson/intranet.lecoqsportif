@@ -8,6 +8,7 @@ parameters:
     app.supported_locales: '%env(APP_SUPPORTED_LOCALES)%'
 
     admin.email: '%env(resolve:ADMIN_EMAIL)%'
+    mail.head_sale: '%env(resolve:MAIL_HEAD_SALE)%'
 
     mssql.connections:
         made2deseign:
@@ -72,6 +73,12 @@ services:
         arguments:
             $senderEmail: '%graph.sender_email%'
             $adminEmail: '%admin.email%'
+
+    App\Service\SoaMailer:
+        arguments:
+            $mailHeadSale: '%mail.head_sale%'
+            $adminEmail: '%admin.email%'
+            $projectDir: '%kernel.project_dir%'
 
     App\Service\Tools\UserManagerAzure:
         arguments:
