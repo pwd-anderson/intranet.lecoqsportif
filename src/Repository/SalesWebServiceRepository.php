@@ -12,4 +12,17 @@ class SalesWebServiceRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, SalesWebService::class);
     }
+
+    /** @return SalesWebService[] Flux SOA générés mais pas encore envoyés à X3 */
+    public function findPendingSoa(): array
+    {
+        return $this->createQueryBuilder('w')
+            ->where('w.name = :name')
+            ->andWhere('w.executed = false')
+            ->andWhere('w.soaRequestId IS NOT NULL')
+            ->setParameter('name', 'WSCRESIH')
+            ->orderBy('w.createdAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

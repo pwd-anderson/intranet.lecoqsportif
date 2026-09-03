@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\SalesWebService;
 use App\Entity\SoaHistory;
 use App\Entity\SoaRequest;
 use App\Entity\SoaRequestDocument;
@@ -13,6 +14,7 @@ use App\Repository\SoaStatusRepository;
 use App\Service\SoaMailer;
 use App\Service\Tools\Helpers;
 use App\Service\SoaX3Service;
+use App\Service\Webservice\XmlBuilder;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -310,6 +312,20 @@ final class SoaController extends AbstractController
         $em->persist($history);
         $em->flush();
 
+        $xmlError = null;
+        if ($newCode === 'archive') {
+            try {
+                $ws = new SalesWebService();
+                $ws->setName('WSCRESIH');
+                $ws->setParameter(XmlBuilder::buildSOA($soa));
+                $ws->setSoaRequestId($soa->getId());
+                $em->persist($ws);
+                $em->flush();
+            } catch (\Throwable $e) {
+                $xmlError = $e->getMessage();
+            }
+        }
+
         try {
             if ($newCode === 'valide_direction') {
                 $mailer->sendValidationRepresentant($soa);
@@ -321,7 +337,11 @@ final class SoaController extends AbstractController
             }
         } catch (\Throwable) {}
 
-        return $this->json(['statut' => $newCode, 'statut_label' => $newStatus->getLabel()]);
+        return $this->json([
+            'statut'       => $newCode,
+            'statut_label' => $newStatus->getLabel(),
+            'xml_error'    => $xmlError,
+        ]);
     }
 
     // ── API Upload preuve ─────────────────────────────────────────────────────

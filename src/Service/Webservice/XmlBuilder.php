@@ -55,6 +55,39 @@ final class XmlBuilder
         return self::forcePairedTags($root->asXML());
     }
 
+    public static function buildSOA(\App\Entity\SoaRequest $soa): string
+    {
+        $root = new \SimpleXMLElement("<?xml version='1.0' encoding='utf-8' standalone='no'?><PARAM></PARAM>");
+
+        $grp = $root->addChild('GRP');
+        $grp->addAttribute('ID', 'INH');
+
+        self::fld($grp, 'WSALFCY',  'SRT');
+        self::fld($grp, 'WINVREF',  $soa->getNumero());
+        self::fld($grp, 'WSIVTYP',  'AVSOA');
+        self::fld($grp, 'WINVDAT',  (new \DateTime())->format('Ymd'));
+        self::fld($grp, 'WBPCINV',  $soa->getClientCode());
+        self::fld($grp, 'WCNOREN',  '');
+
+        $produits = $soa->getProducts()->toArray();
+
+        $tab = $root->addChild('TAB');
+        $tab->addAttribute('ID', 'IND');
+
+        foreach ($produits as $i => $p) {
+            $lin = $tab->addChild('LIN');
+            $lin->addAttribute('ID', 'IND');
+            $lin->addAttribute('NUM', (string) ($i + 1));
+
+            self::fld($lin, 'WITMREF', $p->getArticleCode());
+            self::fld($lin, 'WQTY',    (string) ($p->getQteVendue() ?? 0));
+            self::fld($lin, 'WPRI',    (string) round((float) $p->getMontantSoa(), 2));
+            self::fld($lin, 'WFREFLG', '1');
+        }
+
+        return self::forcePairedTags($root->asXML());
+    }
+
     public static function buildRetourClient(array $entete, array $lignes): string
     {
         $root = new \SimpleXMLElement("<?xml version='1.0' encoding='utf-8' standalone='no'?><PARAM></PARAM>");

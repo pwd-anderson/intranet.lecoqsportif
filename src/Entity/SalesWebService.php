@@ -33,6 +33,9 @@ class SalesWebService
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $erpDocumentId = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $soaRequestId = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private \DateTimeInterface $createdAt;
 
@@ -57,6 +60,9 @@ class SalesWebService
     public function setMessage(?string $message): static { $this->message = $message; return $this; }
     public function getErpDocumentId(): ?string { return $this->erpDocumentId; }
     public function setErpDocumentId(?string $id): static { $this->erpDocumentId = $id; return $this; }
+    public function getSoaRequestId(): ?int { return $this->soaRequestId; }
+    public function setSoaRequestId(?int $id): static { $this->soaRequestId = $id; return $this; }
+
     public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeInterface $dt): static { $this->updatedAt = $dt; return $this; }
