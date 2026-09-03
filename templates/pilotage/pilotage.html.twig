@@ -355,12 +355,14 @@ document.getElementById('btnLoad').addEventListener('click', async function(){
   prog(.05,'Connexion à l\'ERP…');
   const params=selected.map(c=>'collections[]='+encodeURIComponent(c)).join('&');
   try{
+    /* Requêtes séquentielles (pas Promise.all) : évite de saturer MSSQL avec
+       3 requêtes lourdes simultanées, qui provoquait des timeouts 524 en préprod. */
     prog(.1,'Chargement du backlog client…');
-    const [clientData,fournData,stockData]=await Promise.all([
-      fetch(URL_CLIENT+'?'+params).then(r=>{if(!r.ok)throw new Error('Backlog client : HTTP '+r.status);return r.json();}),
-      fetch(URL_FOURN).then(r=>{if(!r.ok)throw new Error('Backlog fournisseur : HTTP '+r.status);return r.json();}),
-      fetch(URL_STOCK).then(r=>{if(!r.ok)throw new Error('Stock : HTTP '+r.status);return r.json();}),
-    ]);
+    const clientData=await fetch(URL_CLIENT+'?'+params).then(r=>{if(!r.ok)throw new Error('Backlog client : HTTP '+r.status);return r.json();});
+    prog(.2,'Backlog client reçu ('+fmtN(clientData.length)+' lignes) — chargement du backlog fournisseur…');
+    const fournData=await fetch(URL_FOURN).then(r=>{if(!r.ok)throw new Error('Backlog fournisseur : HTTP '+r.status);return r.json();});
+    prog(.3,'Backlog fournisseur reçu ('+fmtN(fournData.length)+' lignes) — chargement du stock…');
+    const stockData=await fetch(URL_STOCK).then(r=>{if(!r.ok)throw new Error('Stock : HTTP '+r.status);return r.json();});
     prog(.35,'Données reçues — '+fmtN(clientData.length)+' lignes client, '+fmtN(fournData.length)+' lignes fourn., '+fmtN(stockData.length)+' références stock…');
     S.clients=clientData; S.fourn=fournData; S.stock=stockData;
     setTimeout(compute,60);
@@ -787,15 +789,50 @@ function doExcel(){
   try{
     const wb=XLSX.utils.book_new(),o=S.orders;
     const nQ=o.reduce((s,x)=>s+x.qte,0),nE=o.reduce((s,x)=>s+x.eur,0),nS=o.reduce((s,x)=>s+x.qs,0),nP=o.reduce((s,x)=>s+x.qp,0),nA=o.reduce((s,x)=>s+x.qa,0);
-    const cnt=t=>o.filter(x=>x.stat.includes(t)).length;
+    const cnt=t=>o.filter(x=>x.stat.includes(t)).length,sum=t=>o.filter(x=>x.stat.includes(t)).reduce((a,x)=>a+x.eur,0);
+
+    /* ── Onglet 1 : Synthèse direction ── */
+    const syn=[['SYNTHÈSE DIRECTION — État des livraisons'],['Analyse au',fmtD(TODAY)],[],
+      ["VUE D'ENSEMBLE"],['Nombre de commandes',o.length],['Pièces commandées (total)',nQ],
+      ['Pièces disponibles en stock',nS],['Pièces à venir (production)',nP],['Pièces à annuler',nA],
+      ['Montant total commandé',nE],['Taux de couverture global',nQ?(nS+nP)/nQ:0],[],
+      ['PONCTUALITÉ DES LIVRAISONS','Commandes','% du total','Montant €'],
+      ['🟢 On time',cnt('On time'),o.length?cnt('On time')/o.length:0,sum('On time')],
+      ['🟠 Partiellement en retard',cnt('Partiellement'),o.length?cnt('Partiellement')/o.length:0,sum('Partiellement')],
+      ['⚫ À annuler (aucune source, collection lancée)',cnt('À annuler'),o.length?cnt('À annuler')/o.length:0,sum('À annuler')],
+      ['🔴 Critique +50% retard',cnt('Critique'),o.length?cnt('Critique')/o.length:0,sum('Critique')],[]];
+    for(const cat of ['WHOLESALE FRANCE','INTERNATIONAL']){
+      const m=new Map();
+      for(const x of o.filter(y=>y.cat===cat)){const e=m.get(x.cf)||{eur:0,g:0,a:0,r:0};e.eur+=x.eur;
+        if(x.stat.includes('On time'))e.g++;else if(x.stat.includes('Partiellement'))e.a++;else e.r++;m.set(x.cf,e);}
+      const tot=[...m.values()].reduce((s,x)=>s+x.eur,0);
+      syn.push(['TOP 5 CLIENTS — '+cat,'Montant €','% CA','🟢','🟠','🔴']);
+      [...m.entries()].sort((a,b)=>b[1].eur-a[1].eur).slice(0,5).forEach(([k,v])=>syn.push([k,v.eur,tot?v.eur/tot:0,v.g,v.a,v.r]));
+      syn.push([]);
+    }
+    syn.push(['RÉPARTITION FRANCE / INTERNATIONAL','Commandes','Pièces','Montant €']);
+    ['WHOLESALE FRANCE','INTERNATIONAL'].forEach(c=>{const g=o.filter(x=>x.cat===c);
+      syn.push([c,g.length,g.reduce((a,b)=>a+b.qte,0),g.reduce((a,b)=>a+b.eur,0)]);});
+    const s1=XLSX.utils.aoa_to_sheet(syn);
+    s1['!cols']=[{wch:38},{wch:16},{wch:14},{wch:16},{wch:8},{wch:8}];
+    XLSX.utils.book_append_sheet(wb,s1,'SYNTHÈSE DIRECTION');
+
+    /* ── Onglet 2 : Pilotage livraisons ── */
     const p=[PILCOLS.map(c=>c[1].toUpperCase())];
     for(const x of o)p.push(PILCOLS.map(([k])=>x[k] instanceof Date?fmtD(x[k]):(k==='retMoy'&&x[k]!=null?Math.round(x[k]):x[k])));
     const s2=XLSX.utils.aoa_to_sheet(p);
+    s2['!cols']=PILCOLS.map(c=>({wch:Math.max(11,Math.min(30,c[1].length+4))}));
+    s2['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:o.length,c:PILCOLS.length-1}})};
+    s2['!freeze']={xSplit:3,ySplit:1};
     XLSX.utils.book_append_sheet(wb,s2,'PILOTAGE LIVRAISONS');
-    const d=[['CATÉGORIE','CLIENT FACTURÉ','N° COMMANDE','SKU','DÉSIGNATION','QTÉ COMMANDÉE','DATE DEMANDÉE','ETA','RETARD (j)','STATUT','QTÉ STOCK','QTÉ PROD/TRANSIT','QTÉ À ANNULER','PO / SOURCES','COLLECTION','DROPPÉ','MONTANT EUR']];
+
+    /* ── Onglet 3 : Détail par article ── */
+    const d=[['CATÉGORIE','CLIENT FACTURÉ','N° COMMANDE','SKU','DÉSIGNATION','QTÉ COMMANDÉE','DATE DEMANDÉE','ETA','RETARD vs DATE DEMANDÉE','STATUT','QTÉ LIVRABLE (stock)','QTÉ PROD / TRANSIT','QTÉ À ANNULER','PO / SOURCES','COLLECTION','DROPPÉ','MONTANT EUR']];
     for(const r of S.detail)d.push([r.cat,r.cf,r.ord,r.sku,r.des,r.qte,fmtD(r.dliv),fmtD(r.eta),r.ret,r.st,r.qs,r.qp,r.qa,r.srcTxt,r.coll,r.drop,r.eur]);
     const s3=XLSX.utils.aoa_to_sheet(d);
+    s3['!cols']=[{wch:17},{wch:24},{wch:15},{wch:12},{wch:28},{wch:10},{wch:12},{wch:12},{wch:10},{wch:14},{wch:11},{wch:11},{wch:11},{wch:70},{wch:11},{wch:8},{wch:11}];
     XLSX.utils.book_append_sheet(wb,s3,'DETAIL PAR ARTICLE');
+
     XLSX.writeFile(wb,'Pilotage_livraisons_'+fmtD(TODAY).replace(/\//g,'-')+'.xlsx');
   }catch(e){alert('Export impossible : '+e.message);}
 }
