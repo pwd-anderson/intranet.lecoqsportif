@@ -186,12 +186,16 @@ details.rules b{color:var(--ink)}
         <details class="rules">
           <summary>Règles de calcul appliquées</summary>
           <ul>
-            <li><b>Périmètre</b> — réseaux Wholesale France et International uniquement ; samples (SMS / SPL) exclus.</li>
+            <li><b>Périmètre</b> — collections sélectionnées ci-dessus ; samples (SMS / SPL) exclus ; réseaux Wholesale France et International uniquement.</li>
             <li><b>Sources fournisseur retenues</b> — lignes « BL Fournisseur » (en production) et transferts partis de WSFCN / WDTTH (hubs Asie).</li>
             <li><b>ETA</b> = date IC + <b>80 jours</b> de transit (fournisseur I.K.S. : 30 jours). Si la date de départ est absente : date IC estimée = date de la PO + 3 mois.</li>
-            <li><b>Couverture d'une ligne</b>, dans l'ordre : 1) stock du site du client (statut A1) ; 2) stock des hubs Asie (ETA = aujourd'hui + 80 j) ; 3) PO fournisseur par ETA croissante ; 4) le reste est <b>à annuler</b>.</li>
-            <li><b>FFOB</b> — commandes dont le site est WSFCN, WDTTH ou WFIFR : date XF fait foi, stock hub disponible immédiatement.</li>
-            <li><b>Statut commande</b> — % en retard = qté retard ÷ (à temps + retard) : 🟢 On time si 0 %, 🔴 Critique si ≥ 50 %, 🟠 Partiellement en retard entre les deux. Si aucune source et collection FW26 lancée : ⚫ À annuler.</li>
+            <li><b>Couverture d'une ligne</b>, dans l'ordre : 1) stock du site du client (statut A1) → <i>livrable immédiatement</i> ; 2) stock des hubs Asie (ETA = aujourd'hui + 80 j) ; 3) PO fournisseur par ETA croissante ; 4) le reste est <b>à annuler</b>.</li>
+            <li><b>FFOB (enlèvement par le client)</b> — commandes dont le site de livraison est <b>WSFCN, WDTTH ou WFIFR</b> : le client récupère à l'usine ou à SF / DT, aucun transit à notre charge, la <b>date XF (mise à disposition)</b> fait foi, et le stock présent en hub est disponible immédiatement. Pièces déjà sorties = considérées enlevées.</li>
+            <li><b>Livraison par nos soins</b> — toutes les autres commandes, y compris l'export depuis Moussey (WLOGM) : ETA = date IC + 80 jours.</li>
+            <li><b>Ponctualité</b> — le stock disponible est compté <b>à temps</b> (livrable tout de suite) ; les pièces en production / transit sont à temps si leur date d'arrivée (ETA France, XF en FFOB) ≤ date demandée de la ligne, en retard sinon.</li>
+            <li><b>Statut commande</b> — % en retard = qté en retard ÷ (à temps + en retard) : 🟢 On time si 0 %, 🔴 Critique si ≥ 50 %, 🟠 Partiellement en retard entre les deux. Si <b>aucune source n'est trouvée</b> (ni stock, ni production) <b>et que la production de la collection est lancée (FW26)</b>, la commande est <b>⚫ À annuler</b>, cohérent avec le statut ANNULER de ses lignes dans le détail. En SS27 la production n'étant pas encore lancée, l'absence de PO est normale : la commande n'est pas annulée.</li>
+            <li><b>Arbitrage entre clients</b> sur une même référence — les plus gros comptes facturés d'abord, puis la date de livraison demandée la plus proche.</li>
+            <li><b>Site WFIFR</b> = livraison directe (pas de prélèvement sur stock). <b>Retard moyen</b> = moyenne des retards pondérée par les quantités.</li>
           </ul>
         </details>
       </div>
