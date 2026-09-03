@@ -1,0 +1,2179 @@
+<!--
+  ============================================================================
+  COPIE COMMENTÉE DE zebra_web_app.html — À LIRE, PAS À UTILISER
+  ============================================================================
+  Ce fichier est une copie EXACTE de zebra_web_app.html (celui qui fonctionne
+  réellement), avec des explications ajoutées en commentaire à chaque section
+  pour comprendre ce que fait le code, ligne par ligne / bloc par bloc.
+
+  Dans la partie HTML/CSS ci-dessous, les explications sont entourées de
+  chevrons et de tirets (invisibles à l'affichage). Dans la partie JavaScript
+  (tout en bas, après la balise script), elles commencent par deux barres
+  obliques, ou sont entourées d'une étoile.
+
+  Ouvre ce fichier dans un éditeur de texte (Bloc-notes, VS Code...) à côté de
+  zebra_web_app.html pour suivre les explications en parallèle du vrai code.
+  Ne modifie jamais CE fichier pour changer l'application : modifie toujours
+  zebra_web_app.html (l'original), sinon tes changements n'auront aucun effet.
+  ============================================================================
+-->
+<!DOCTYPE html>
+<!-- Déclare qu'on écrit du HTML moderne (HTML5). Obligatoire en première ligne. -->
+<html lang="fr">
+<!-- <html> = la page entière. lang="fr" dit au navigateur que le contenu est en français
+     (utile pour la vérification orthographique, les lecteurs d'écran, etc.) -->
+<head>
+<!-- <head> = les informations "techniques" de la page, invisibles à l'écran :
+     titre de l'onglet, jeu de caractères, scripts externes à charger, styles. -->
+<meta charset="UTF-8">
+<!-- Dit au navigateur d'interpréter le texte en UTF-8, l'encodage qui gère
+     correctement les accents français (é, è, ç...) -->
+<title>Zebra Label Printer — Web</title>
+<!-- Texte affiché dans l'onglet du navigateur -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Charge la bibliothèque "SheetJS" (nom de code XLSX) depuis Internet.
+     Elle permet de LIRE des fichiers Excel (.xlsx/.xlsm) directement dans le
+     navigateur, sans avoir besoin d'Excel installé. Si Internet est coupé,
+     cette ligne échoue silencieusement et le chargement de fichiers Excel
+     ne fonctionnera plus (le CSV, lui, ne dépend pas de cette bibliothèque). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<!-- Charge "PapaParse", une bibliothèque qui sait lire des fichiers CSV
+     (texte séparé par des points-virgules) de façon fiable, même avec des
+     accents, des guillemets, des lignes mal formées, etc. -->
+
+<style>
+/* Tout le contenu de cette balise "style" (jusqu'à sa balise de fermeture,
+   plus bas dans le fichier) est du CSS : ça décrit l'APPARENCE (couleurs,
+   tailles, espacements) mais jamais le comportement. */
+
+  :root {
+    /* :root définit des "variables CSS" réutilisables partout dans la feuille
+       de style, avec la syntaxe var(--nom). Change une couleur ici et elle
+       change PARTOUT où elle est utilisée — pas besoin de la remplacer à la main
+       50 fois dans le fichier. */
+    --bg: #F5F5F5;        /* couleur de fond générale (gris très clair) */
+    --white: #FFFFFF;     /* blanc, pour les cartes/tableaux */
+    --primary: #1A1A2E;   /* bleu-nuit foncé : en-tête, barre d'onglets */
+    --accent: #0066CC;    /* bleu vif : boutons principaux, liens actifs */
+    --accent2: #004999;   /* bleu plus foncé : boutons au survol de la souris */
+    --success: #2E7D32;   /* vert : messages "tout va bien", bouton Imprimer */
+    --warning: #E65100;   /* orange : avertissements, cadenas verrouillé */
+    --border: #DDDDDD;    /* gris clair : bordures de tableaux/cartes */
+    --text: #1A1A1A;      /* couleur du texte normal (presque noir) */
+    --muted: #666666;     /* gris moyen : texte secondaire/moins important */
+    --row-odd: #FAFAFA;   /* fond des lignes impaires du tableau (zébrage) */
+    --row-sel: #E3F0FF;   /* fond bleu très clair d'une ligne sélectionnée */
+  }
+
+  * { box-sizing: border-box; }
+  /* Règle appliquée à TOUS les éléments (le symbole * = "tout"). Elle change
+     la façon dont la largeur/hauteur est calculée : les bordures et le
+     padding sont inclus DANS la largeur indiquée, au lieu de s'ajouter par-
+     dessus. C'est la convention quasi universelle en développement web
+     moderne, ça évite des surprises de mise en page. */
+
+  body {
+    margin: 0;                       /* supprime la marge blanche par défaut du navigateur */
+    font-family: "Segoe UI", Arial, sans-serif;  /* police de caractères */
+    background: var(--bg);           /* utilise la couleur de fond définie plus haut */
+    color: var(--text);
+    height: 100vh;                   /* la page prend toute la hauteur de l'écran (100% de la fenêtre) */
+    display: flex;                   /* "flexbox" : range ses enfants en ligne ou colonne, avec un contrôle facile de l'espace */
+    flex-direction: column;          /* empile ses enfants (header, tabs, body-wrap, footer) verticalement */
+  }
+  header {
+    /* La bande bleu-nuit tout en haut avec le titre "Zebra Label Printer" */
+    background: var(--primary);
+    color: var(--white);
+    padding: 14px 24px;               /* espace intérieur : 14px haut/bas, 24px gauche/droite */
+    display: flex;
+    align-items: baseline;            /* aligne le titre et le sous-titre sur la même ligne de base de texte */
+    gap: 16px;                        /* espace entre le titre et le sous-titre */
+    flex-shrink: 0;                   /* empêche cette barre de rétrécir si la fenêtre est petite */
+  }
+  header h1 { font-size: 20px; margin: 0; font-weight: 700; }
+  header .sub { color: #8899BB; font-size: 13px; }
+  /* .sub cible l'élément avec class="sub" (le texte "Web · ZD421 · ZPL...") */
+
+  .tabs { display: flex; gap: 4px; background: var(--primary); padding: 0 20px; flex-shrink: 0; }
+  /* La barre des 3 onglets (Vue d'ensemble / Gestion du colisage / Liste de colisage) */
+  .tab-btn {
+    /* Style de CHAQUE bouton d'onglet */
+    background: transparent;
+    color: #8899BB;                  /* gris-bleu quand l'onglet n'est PAS actif */
+    border: none;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;                 /* la souris devient une "main" au survol, signal visuel "cliquable" */
+    border-bottom: 3px solid transparent; /* réserve la place d'une barre de soulignement, invisible par défaut */
+  }
+  .tab-btn:hover { background: transparent; color: var(--white); }
+  /* :hover = règle appliquée uniquement quand la souris survole l'élément */
+  .tab-btn.active { color: var(--white); border-bottom-color: var(--accent); }
+  /* .tab-btn.active = un bouton qui a À LA FOIS les classes "tab-btn" ET "active".
+     C'est le JavaScript (fonction switchTab) qui ajoute/enlève la classe
+     "active" selon l'onglet actuellement affiché, ce qui fait apparaître le
+     soulignement bleu et le texte blanc automatiquement via cette règle. */
+
+  .body-wrap {
+    /* La grande zone sous les onglets, qui contient la colonne de gauche
+       (fichier/imprimante/résumé), le contenu central (les 3 panneaux
+       d'onglets), et la colonne de droite (aperçu étiquette). */
+    flex: 1;                          /* prend tout l'espace vertical restant entre header/tabs et footer */
+    display: flex;                    /* range ses 3 colonnes horizontalement */
+    gap: 16px;
+    padding: 16px 20px;
+    min-height: 0;                    /* astuce technique flexbox : permet aux enfants de scroller correctement */
+  }
+  .col-left { width: 280px; flex-shrink: 0; overflow-y: auto; }
+  /* Colonne de gauche : largeur fixe 280px, ne rétrécit jamais, scroll vertical si le contenu dépasse */
+  .col-center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  /* Colonne centrale : prend tout l'espace restant (flex:1), contient les onglets empilés */
+  .col-right { width: 340px; flex-shrink: 0; display: none; flex-direction: column; }
+  /* Colonne de droite (aperçu) : display:none par défaut = invisible.
+     Le JavaScript la rend visible (display:flex) uniquement quand on est
+     sur l'onglet "Gestion du colisage" — voir la fonction switchTab. */
+
+  .tab-panel { display: none; flex: 1; flex-direction: column; min-height: 0; }
+  .tab-panel.active { display: flex; }
+  /* Chacun des 3 gros blocs de contenu (Vue d'ensemble / Gestion du colisage /
+     Liste de colisage) a la classe "tab-panel". Par défaut ils sont TOUS
+     cachés (display:none). Le JavaScript ajoute la classe "active" à UN SEUL
+     des trois à la fois, ce qui l'affiche (display:flex) — exactement le même
+     principe que .tab-btn.active juste au-dessus, mais pour le contenu au
+     lieu des boutons. */
+
+  #mainTableWrap { flex: 1; min-height: 100px; }
+  /* Le # cible un ID (identifiant unique) au lieu d'une classe (réutilisable).
+     Ici, la zone qui contient le grand tableau de l'onglet "Vue d'ensemble". */
+  #colisageEmpty { color: var(--muted); font-size: 13px; text-align: center; padding: 60px 20px; background: var(--white); border: 1px solid var(--border); }
+  /* Le message "Sélectionnez une ligne..." affiché tant qu'aucune ligne n'est choisie */
+  #colisageContent { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  /* Le contenu réel de l'onglet colisage (sélecteur SKU + tableau des cartons),
+     caché par défaut via style="display:none" dans le HTML, affiché par le JS */
+  #cartonDetailWrap { flex: 1; min-height: 180px; display: flex; flex-direction: column; }
+  #cartonLineInfo { padding: 8px 10px; font-size: 12.5px; border-bottom: 1px solid var(--border); background: #FAFAFA; flex-shrink: 0; }
+  /* La ligne de texte "SKU1 — TU — Sac à dos... · OTB : ... · Qté livrée : ... · Cartons n° X à Y" */
+  #cartonLineInfo .muted { color: var(--muted); }
+  .carton-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-bottom: 1px solid var(--border); background: #F7F9FC; font-size: 12px; flex-shrink: 0; }
+  /* La barre d'outils "Cartons n° [de] à [n°] → qté [qté] [Appliquer à la plage]" */
+  .carton-toolbar input[type=number] { margin-bottom: 0; width: 90px; }
+  .carton-toolbar .spacer { flex: 1 1 auto; min-width: 8px; }
+  /* Un espace élastique qui pousse le bouton "Réinitialiser" tout à droite */
+  .carton-toolbar .hint { color: var(--muted); font-size: 11px; }
+  /* Style du petit texte d'aide "(cette ligne : X à Y)" à côté du bouton Appliquer */
+  #cartonTableScroll { flex: 1; overflow-y: auto; }
+  /* La zone scrollable qui contient le tableau détaillé des cartons */
+  .sum-indicator { font-size: 12px; padding: 8px 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .sum-indicator.ok { color: var(--success); }     /* vert quand le total correspond à la qté livrée */
+  .sum-indicator.warn { color: var(--warning); font-weight: 700; }  /* orange gras sinon */
+  #previewInfo { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; min-height: 32px; }
+
+  .card {
+    /* Les blocs blancs encadrés de la colonne de gauche : "Fichier",
+       "Paramètres", "Résumé" */
+    background: var(--white);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .card .card-title {
+    /* Le petit titre gris en majuscules en haut de chaque carte (ex: "FICHIER") */
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;        /* force l'affichage en majuscules, même si écrit en minuscules dans le HTML */
+    padding: 10px 14px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card .card-body { padding: 10px 14px 12px; }
+
+  label.field-label {
+    /* Les petites étiquettes de champ, ex: "Imprimante", "Onglet Excel" */
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+  input[type=text], select {
+    /* Style commun aux champs texte et aux listes déroulantes */
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    background: #F0F4FA;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .row-inline { display: flex; gap: 6px; align-items: stretch; }
+  .row-inline > *:first-child { flex: 1; }
+  /* Dans un .row-inline, le PREMIER enfant (ex: la liste des imprimantes)
+     prend toute la place disponible, les suivants (ex: le bouton ↺) gardent
+     leur taille naturelle. Utilisé pour la ligne "imprimante + bouton actualiser". */
+
+  button {
+    /* Style de base de TOUS les boutons de l'application */
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 13px;
+    border: none;
+    color: var(--white);
+    background: var(--accent);        /* bleu par défaut */
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent2); }
+  button.btn-sm { padding: 6px 10px; font-size: 12px; }   /* variante "petit bouton" */
+  button.btn-success { background: var(--success); }       /* variante verte (ex: bouton Imprimer) */
+  button.btn-success:hover { background: #245e26; }
+  button.btn-danger { background: #CC0000; }                /* variante rouge (non utilisée actuellement mais prête si besoin) */
+  button.btn-danger:hover { background: #990000; }
+  button:disabled { background: #AAB4C0 !important; cursor: not-allowed; }
+  /* Un bouton désactivé (ex: "Imprimer" tant qu'aucun fichier n'est chargé)
+     devient gris et le curseur montre un symbole "interdit". !important force
+     cette règle à gagner sur les autres couleurs (accent/success/danger). */
+
+  .summary-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
+  .summary-row .label { color: var(--muted); }
+  .summary-row .value { font-weight: 700; }
+  /* Les lignes du bloc "Résumé" : libellé à gauche, valeur en gras à droite */
+
+  h2.section-title { font-size: 14px; font-weight: 700; margin: 0 0 6px; }
+  /* Titre de section, ex: "Détail des étiquettes", "Cartons de la ligne sélectionnée" */
+
+  table.data-table {
+    /* Style commun à TOUS les tableaux de données de l'appli (les 3 onglets) */
+    width: 100%;
+    border-collapse: collapse;        /* fusionne les bordures des cellules (évite les doubles traits) */
+    background: var(--white);
+    font-size: 12.5px;
+  }
+  table.data-table thead th {
+    /* L'en-tête (première ligne, les titres de colonnes) */
+    background: var(--primary);       /* bandeau bleu-nuit */
+    color: var(--white);
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 11px;
+    position: sticky;                 /* "collé" en haut : reste visible même en scrollant le tableau */
+    top: 0;
+  }
+  table.data-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.data-table tbody tr:nth-child(odd) { background: var(--row-odd); }
+  /* :nth-child(odd) = une ligne sur deux (1ère, 3ème, 5ème...) reçoit un fond
+     légèrement grisé — c'est le "zébrage" qui aide à suivre une ligne des yeux */
+  table.data-table tbody tr.selected { background: var(--row-sel); }
+  /* Fond bleu clair pour la ligne actuellement sélectionnée (classe ajoutée par le JS) */
+  table.data-table tbody tr { cursor: pointer; }
+  .table-scroll { flex: 1; overflow-y: auto; border: 1px solid var(--border); background: var(--white); }
+
+  .preview-box {
+    /* Le cadre blanc qui affiche l'image de l'étiquette générée */
+    flex: 1;
+    background: var(--white);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;          /* centre l'image horizontalement ET verticalement */
+    overflow: hidden;
+  }
+  .preview-box img { max-width: 100%; max-height: 100%; }
+  .preview-box .placeholder { color: var(--muted); font-size: 12px; text-align: center; }
+  /* Texte affiché tant qu'aucune image d'étiquette n'a encore été chargée */
+
+  footer {
+    /* La barre du bas avec le statut, le bouton "Nouvelle expédition", la
+       barre de progression et le bouton Imprimer */
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    position: relative;
+    /* "position: relative" sur le conteneur permet au bouton "Nouvelle
+       expédition" (voir plus bas) d'utiliser position:absolute pour se
+       centrer EXACTEMENT au milieu du footer, peu importe la largeur du
+       texte de statut à gauche ou des boutons à droite. */
+  }
+  #status { flex: 1; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* overflow:hidden + text-overflow:ellipsis + white-space:nowrap = le trio
+     classique pour "couper un texte trop long sur une seule ligne avec des
+     points de suspension" plutôt que de le laisser déborder sous les
+     boutons voisins (notamment "Nouvelle expédition" et "Imprimer"). */
+  #status.ok { color: var(--success); }     /* le JS ajoute cette classe pour les messages de succès (vert) */
+  #status.warn { color: var(--warning); }   /* et celle-ci pour les avertissements/erreurs (orange) */
+  progress { width: 160px; }
+  /* La barre de progression pendant l'impression des étiquettes */
+
+  /* --- Ajouté pour l'onglet "Liste de colisage" --- */
+  #listeColisageContent h3 { font-size: 13px; margin: 16px 0 6px; }
+  #listeColisageContent h3:first-child { margin-top: 0; }
+  /* Le tout premier sous-titre du rapport n'a pas besoin de marge en haut */
+  #listeColisageContent table.data-table { margin-bottom: 4px; }
+
+  @media print {
+    /* Un bloc @media print ne s'applique QUE quand la page est en cours
+       d'IMPRESSION (ou d'export PDF, qui utilise le même mécanisme dans les
+       navigateurs). À l'écran normal, ces règles sont ignorées. */
+    header, .tabs, .col-left, #colRight, footer, .no-print { display: none !important; }
+    /* On cache tout ce qui n'est pas utile sur le papier : bandeau bleu,
+       onglets, colonne de gauche (fichier/imprimante), colonne de droite
+       (aperçu étiquette), pied de page, et tout élément marqué "no-print"
+       (le bouton "Imprimer / Export PDF" lui-même, pour ne pas l'imprimer). */
+    body { height: auto; display: block; background: var(--white); }
+    .body-wrap { display: block; padding: 0; }
+    .col-center { width: 100%; }
+    .tab-panel { display: none !important; }
+    .tab-panel.active { display: block !important; }
+    /* Seul l'onglet actuellement actif (donc "Liste de colisage", puisque
+       c'est là qu'on clique sur Imprimer) reste visible et s'affiche en bloc
+       simple au lieu du mode flex habituel — plus adapté au rendu papier. */
+    #listeColisageContent { border: none; padding: 0; overflow: visible; }
+    /* On enlève le cadre et le padding décoratifs, inutiles sur le papier */
+    table.data-table thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* Par défaut, beaucoup de navigateurs suppriment les couleurs de fond à
+       l'impression pour économiser l'encre. Cette ligne force la conservation
+       du bandeau bleu-nuit des en-têtes de tableau même sur le papier/PDF. */
+    table.data-table tr { page-break-inside: avoid; }
+    /* Évite qu'une ligne de tableau soit coupée en deux entre deux pages */
+  }
+</style>
+</head>
+<body>
+<!-- Tout ce qui est entre <body> et </body> est VISIBLE à l'écran. -->
+
+<header>
+  <h1>Zebra Label Printer</h1>
+  <span class="sub">Web · ZD421 · ZPL · 102x102mm</span>
+</header>
+<!-- Le bandeau du haut, purement décoratif/informatif -->
+
+<div class="tabs">
+  <!-- <div> = une simple "boîte" invisible qui sert à regrouper des éléments -->
+  <button class="tab-btn active" data-tab="overview">Vue d'ensemble</button>
+  <button class="tab-btn" data-tab="colisage">Gestion du colisage</button>
+  <button class="tab-btn" data-tab="liste">Liste de colisage</button>
+  <!-- data-tab="..." est un attribut personnalisé (n'importe quel nom
+       commençant par "data-" est autorisé). Le JavaScript lit cette valeur
+       (via btn.dataset.tab) pour savoir SUR QUEL onglet basculer quand on
+       clique sur ce bouton précis. Le premier bouton a déjà la classe
+       "active" écrite en dur dans le HTML : c'est l'onglet affiché par défaut
+       à l'ouverture de la page. -->
+</div>
+
+<div class="body-wrap">
+  <div class="col-left">
+    <!-- ===== Colonne de gauche : toujours visible, quel que soit l'onglet ===== -->
+    <div class="card">
+      <div class="card-title">Fichier</div>
+      <div class="card-body">
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xlsm,.xls" style="font-size:12px; width:100%;">
+        <!-- Le bouton natif du navigateur "Choisir un fichier". accept="..."
+             filtre les types de fichiers proposés dans la fenêtre de sélection
+             (CSV et différents formats Excel). C'est ICI que tout commence :
+             dès qu'un fichier est choisi, le JavaScript (plus bas, l'écouteur
+             "change" sur fileInput) déclenche automatiquement sa lecture. -->
+        <div id="lastFileHint" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+        <!-- Zone vide au départ, remplie par le JS avec "Dernier fichier
+             utilisé : ..." (mémorisé d'une session à l'autre via localStorage) -->
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Paramètres</div>
+      <div class="card-body">
+        <label class="field-label">Imprimante</label>
+        <div class="row-inline">
+          <select id="printerSelect"></select>
+          <!-- Liste déroulante vide au départ : le JS la remplit au chargement
+               de la page avec les imprimantes détectées par Zebra Browser Print -->
+          <button class="btn-sm" id="refreshPrinters" title="Rafraîchir">↺</button>
+          <!-- title="..." = infobulle affichée au survol de la souris -->
+        </div>
+        <div class="row-inline" style="margin-top:-4px;margin-bottom:10px">
+          <button class="btn-sm" id="btnTestPrint" style="width:100%;background:#5b6b82">🖨 Imprimer une étiquette test</button>
+        </div>
+        <label class="field-label">Onglet Excel</label>
+        <input type="text" id="sheetName" value="Etiquettes">
+        <!-- Nom de l'onglet à lire dans le fichier Excel. "Etiquettes" est la
+             valeur pré-remplie par défaut, mais l'utilisateur peut la changer
+             (et elle est ensuite mémorisée). -->
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Résumé</div>
+      <div class="card-body">
+        <div class="summary-row"><span class="label">Étiquettes à imprimer</span><span class="value" id="sumRefs">0</span></div>
+        <div class="summary-row"><span class="label">Pièces totales</span><span class="value" id="sumTotal" style="color:var(--accent)">0</span></div>
+        <!-- Ces deux "0" sont remplacés par le JS (fonction drawSummary) dès
+             qu'un fichier est chargé ou qu'un nombre de cartons change. -->
+      </div>
+    </div>
+  </div>
+
+  <div class="col-center">
+    <!-- ===== Colonne centrale : contient les 3 "panneaux" d'onglets.
+         Un seul est visible à la fois (celui qui a la classe "active"). ===== -->
+
+    <div class="tab-panel active" id="tabOverview">
+      <!-- ---------- ONGLET 1 : Vue d'ensemble ---------- -->
+
+      <details id="helpBox" style="background:var(--white);border:1px solid var(--border);margin-bottom:10px;flex-shrink:0;font-size:12.5px">
+        <!-- <details>/<summary> est une paire de balises NATIVES du navigateur
+             pour un bloc repliable, sans avoir besoin d'écrire de JavaScript :
+             fermé par défaut, cliquer sur <summary> l'ouvre/le ferme tout
+             seul. Utilisé ici pour l'aide intégrée, afin qu'elle ne prenne de
+             place à l'écran que si l'utilisateur la consulte. -->
+        <summary style="cursor:pointer;padding:8px 12px;font-weight:700;color:var(--accent);list-style:none">❓ Aide — comment utiliser cette application</summary>
+        <div style="padding:0 14px 14px;line-height:1.6">
+          <p><strong>1. Charger un fichier</strong> — Cliquez sur « Choisir un fichier » (colonne de gauche) et sélectionnez un CSV ou un Excel. Le chargement se fait automatiquement, aucun bouton à cliquer. Le tableau ci-dessous se remplit avec une ligne par article.</p>
+          <p><strong>2. Régler les cartons</strong> — Cliquez sur une ligne du tableau (ou tapez directement un nombre dans la colonne « Cartons ») pour ouvrir l'onglet « Gestion du colisage ». Là, fixez le « Nombre de cartons » (obligatoire), puis répartissez les quantités par plage (ex : cartons 1 à 5 → 20 pièces chacun). La numérotation des cartons est continue sur tout le fichier : le 2ᵉ article reprend au numéro suivant le dernier carton du 1ᵉʳ article.</p>
+          <p><strong>3. Vérifier / imprimer la liste de colisage</strong> — L'onglet « Liste de colisage » affiche un récapitulatif par article et le détail carton par carton. Le bouton « Imprimer / Export PDF » ouvre la boîte d'impression du navigateur : choisissez une imprimante papier, ou « Microsoft Print to PDF » pour enregistrer un PDF.</p>
+          <p><strong>4. Imprimer les étiquettes</strong> — Sur l'onglet « Vue d'ensemble », choisissez l'imprimante Zebra dans la colonne de gauche (utilisez « Imprimer une étiquette test » en cas de doute sur laquelle est laquelle), puis cliquez sur « Imprimer » en bas à droite : une étiquette est envoyée par carton.</p>
+          <p><strong>5. Nouvelle expédition</strong> — Le bouton rouge « Nouvelle expédition » efface le travail en cours (après confirmation) pour repartir sur un nouveau fichier, sans rien mélanger avec l'expédition précédente.</p>
+          <p style="margin-bottom:0;color:var(--muted)">Zebra Browser Print doit être installé et lancé sur cet ordinateur pour que l'impression physique et la détection des imprimantes fonctionnent (voir la documentation d'installation fournie).</p>
+        </div>
+      </details>
+
+      <h2 class="section-title">Détail des étiquettes</h2>
+      <div class="table-scroll" id="mainTableWrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>SKU</th><th>Taille</th><th>Désignation</th><th>OTB</th><th>Qté livrée</th><th>Cartons</th></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+          <!-- <tbody> vide dans le HTML : le JavaScript (fonction refreshTable)
+               le remplit dynamiquement avec une ligne par article du fichier
+               chargé. C'est le principe central de toute l'application : le
+               HTML pose juste le "squelette" (le tableau vide), et le
+               JavaScript injecte le contenu réel au fur et à mesure. -->
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tabColisage">
+      <!-- ---------- ONGLET 2 : Gestion du colisage ---------- -->
+      <div id="colisageEmpty">Sélectionnez une ligne dans l'onglet « Vue d'ensemble » pour gérer son colisage.</div>
+      <!-- Visible par défaut (pas de style caché). Le JS le cache dès qu'une
+           ligne est sélectionnée, et le réaffiche si on revient sans rien
+           avoir choisi. -->
+      <div id="colisageContent" style="display:none">
+        <!-- style="display:none" écrit directement dans le HTML = cette zone
+             est cachée dès le départ. Le JS (fonction openColisageForRow) la
+             rend visible via colisageContent.style.display = "flex". -->
+        <h2 class="section-title">Cartons de la ligne sélectionnée</h2>
+        <div class="table-scroll" id="cartonDetailWrap">
+
+          <div style="padding:8px 10px;border-bottom:1px solid var(--border);background:#EFF3F8;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
+            <label style="font-size:12px;color:var(--muted);white-space:nowrap">Ligne SKU :</label>
+            <select id="colisageSkuSelect" style="margin-bottom:0;flex:1;min-width:180px"></select>
+            <!-- Liste déroulante de TOUS les articles du fichier, pour changer
+                 d'article sans avoir à retourner sur l'onglet "Vue d'ensemble" -->
+            <label style="font-size:12px;color:var(--muted);white-space:nowrap">Nombre de cartons <span style="color:#CC0000">*</span> :</label>
+            <input type="number" min="1" step="1" required id="colisageCartonsCount" style="margin-bottom:0;width:70px">
+            <!-- Champ obligatoire (attribut "required" + astérisque rouge
+                 dans le libellé). C'est CE champ qui définit combien de
+                 cartons compte la ligne actuellement affichée. Le JS y place
+                 automatiquement le curseur (avec le texte sélectionné) à
+                 chaque arrivée sur cet onglet ou changement d'article, pour
+                 que l'utilisateur le vérifie/le modifie en premier. -->
+          </div>
+
+          <div id="cartonLineInfo"></div>
+          <!-- Rempli par le JS avec le résumé texte de la ligne : SKU, taille,
+               désignation, OTB, qté livrée, et la plage de numéros de cartons. -->
+
+          <div class="carton-toolbar">
+            <span>Cartons n°</span>
+            <input type="number" min="1" id="rangeFrom" placeholder="de">
+            <span>à</span>
+            <input type="number" min="1" id="rangeTo" placeholder="n°" style="width:60px">
+            <span>→ qté</span>
+            <input type="number" min="0" step="1" id="applyQty" placeholder="qté" style="width:90px">
+            <button class="btn-sm" id="btnApplyRange" style="background:var(--success)">✓ Appliquer à la plage</button>
+            <span class="hint" id="cartonRangeHint"></span>
+            <!-- Rempli par le JS avec "(cette ligne : X à Y)", pour rappeler
+                 quels numéros de carton sont valides pour l'article affiché -->
+            <span class="spacer"></span>
+            <!-- Boîte vide qui s'étire pour pousser le bouton suivant à droite -->
+            <button class="btn-sm" id="btnResetSplit" style="background:#5b6b82">↺ Réinitialiser</button>
+          </div>
+
+          <div id="cartonTableScroll">
+            <table class="data-table">
+              <thead><tr><th>Carton</th><th>Quantité</th><th style="width:56px"></th></tr></thead>
+              <tbody id="cartonTableBody"></tbody>
+              <!-- Rempli par le JS (renderCartonDetail) : une ligne par
+                   carton, avec son numéro (continu sur tout le fichier), sa
+                   quantité modifiable, et un cadenas verrouillé/déverrouillé. -->
+            </table>
+          </div>
+          <div class="sum-indicator" id="sumIndicator"></div>
+          <!-- Affiche "Total cartons : X / Y ✓" (vert) ou "...— ne correspond
+               pas..." (orange) selon que la somme des cartons égale ou non la
+               quantité livrée de l'article. -->
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tabListe">
+      <!-- ---------- ONGLET 3 : Liste de colisage (rapport imprimable) ---------- -->
+      <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;margin-bottom:10px">
+        <!-- class="no-print" : cette barre de titre + bouton est cachée à
+             l'impression (voir la règle @media print plus haut dans le CSS) -->
+        <h2 class="section-title" style="margin:0">Liste de colisage</h2>
+        <button class="btn-success" id="btnPrintListe">🖨 Imprimer / Export PDF</button>
+        <!-- Un clic déclenche window.print() en JS, qui ouvre la boîte de
+             dialogue d'impression du navigateur. Sur cette boîte de dialogue,
+             choisir l'imprimante "Microsoft Print to PDF" (ou équivalent)
+             permet d'enregistrer le rapport en PDF au lieu de l'imprimer sur
+             papier — aucune bibliothèque PDF n'est nécessaire, c'est une
+             fonctionnalité native du navigateur. -->
+      </div>
+      <div id="listeColisageContent" style="flex:1;overflow-y:auto;background:var(--white);border:1px solid var(--border);padding:16px"></div>
+      <!-- Rempli entièrement par le JS (fonction renderListeColisage), à
+           chaque fois qu'on arrive sur cet onglet ou qu'on charge un fichier
+           en étant déjà dessus, pour toujours refléter les derniers réglages
+           de cartons/quantités. -->
+    </div>
+  </div>
+
+  <div class="col-right" id="colRight">
+    <!-- ===== Colonne de droite : aperçu visuel de l'étiquette =====
+         Cachée par défaut (display:none dans le CSS), affichée par le JS
+         uniquement quand l'onglet "Gestion du colisage" est actif. -->
+    <h2 class="section-title">Aperçu étiquette</h2>
+    <div id="previewInfo">Sélectionnez une ligne, puis cliquez sur un carton dans le tableau.</div>
+    <button class="btn-success" id="btnShowPreview" disabled style="margin-bottom:10px">🔄 Rafraîchir l'aperçu</button>
+    <!-- disabled = grisé et non cliquable au départ ; le JS l'active dès
+         qu'un carton précis est sélectionné -->
+    <div class="preview-box" id="previewBox"><span class="placeholder">Aucun aperçu chargé</span></div>
+    <!-- Le JS y insère une balise <img> pointant vers l'image générée par le
+         service en ligne Labelary, qui transforme le code ZPL en image PNG -->
+  </div>
+</div>
+
+<footer>
+  <span id="status">Prêt — sélectionnez un fichier CSV ou Excel.</span>
+  <!-- Zone de message d'état, mise à jour en permanence par le JS
+       (fonction setStatus) pour informer l'utilisateur de ce qui se passe -->
+  <button class="btn-danger" id="btnResetShipment" style="position:absolute;right:190px">🗑 Nouvelle expédition</button>
+  <!-- position:absolute + right:190px = positionne le bouton à 190px du bord
+       DROIT du footer (grâce à position:relative posé sur <footer> juste
+       au-dessus), donc juste avant le groupe barre de progression + bouton
+       Imprimer, sans jamais chevaucher le texte de statut à gauche (qui,
+       lui, est maintenant tronqué avec "..." s'il devient trop long — voir
+       la règle CSS #status). Un centrage parfait (essayé au départ) posait
+       problème avec les messages de statut longs : le bouton, toujours
+       exactement au milieu, finissait par recouvrir la fin du texte. Ancrer
+       depuis la droite règle ça une fois pour toutes, indépendamment de la
+       longueur du message. Comme il est en position:absolute, il "sort" du
+       flux normal des éléments (il ne pousse pas les autres boutons) tout en
+       restant visuellement sur la même ligne que le reste du footer. Visible
+       uniquement sur l'onglet "Vue d'ensemble" (voir switchTab). -->
+  <progress id="progressBar" max="100" value="0" style="display:none;"></progress>
+  <!-- Barre de progression, cachée au repos, affichée pendant l'impression -->
+  <button class="btn-success" id="btnPrint" disabled>⎙ Imprimer</button>
+  <!-- Le bouton d'impression des ÉTIQUETTES (à ne pas confondre avec
+       "Imprimer / Export PDF" de l'onglet 3, qui imprime le RAPPORT texte).
+       Ce bouton n'est visible que sur l'onglet "Vue d'ensemble" (le JS
+       change son style.display selon l'onglet actif). -->
+</footer>
+
+<script>
+/* ============================================================================
+   TOUT CE QUI SUIT EST DU JAVASCRIPT : le "comportement" de l'application.
+   C'est ce qui réagit aux clics, lit les fichiers, calcule les répartitions
+   de cartons, génère les étiquettes, etc. Le HTML/CSS ci-dessus ne fait que
+   poser le décor ; c'est ici que "ça vit".
+   ============================================================================ */
+"use strict";
+/* Active un mode strict de JavaScript qui repère plus d'erreurs (variables
+   non déclarées, etc.) — bonne pratique systématique, ne change rien pour
+   l'utilisateur final. */
+
+// =============================================================================
+// CONFIG — constantes utilisées partout dans le fichier
+// =============================================================================
+
+const SHEET_NAME_DEFAULT = "Etiquettes";
+/* "const" = une valeur qui ne changera jamais après sa création (contrairement
+   à "let", utilisé plus bas pour des valeurs amenées à évoluer). */
+const COL_OTB = 1, COL_TAILLE = 3, COL_SKU = 4, COL_ITEM_NAME = 5, COL_QTY = 6; // 1-indexed, comme zebra_app.py
+/* Numéros de colonnes (1 = première colonne) utilisés pour lire un fichier
+   EXCEL à l'ancien format. "1-indexed" veut dire qu'on compte à partir de 1
+   (comme dans Excel), pas à partir de 0 (comme le fait JavaScript en interne
+   — d'où les "-1" qu'on verra plus loin dans loadExcel). */
+
+const LABELARY_URL = "https://api.labelary.com/v1/printers/8dpmm/labels/4x4/0/";
+/* Adresse du service en ligne gratuit "Labelary" qui transforme un code ZPL
+   (le langage des imprimantes Zebra) en image PNG, pour l'aperçu à l'écran. */
+const BROWSER_PRINT_URL = "http://localhost:9100/";
+/* Adresse LOCALE (sur cet ordinateur uniquement) du logiciel "Zebra Browser
+   Print", qui doit être installé et lancé pour que l'impression physique
+   fonctionne. "localhost" = "cet ordinateur", 9100 = le port sur lequel ce
+   logiciel écoute les demandes d'impression envoyées par la page web. */
+
+const ADDR_LINE1 = "LOGTEX p/c LCS International SAS";
+const ADDR_LINE2 = "Parc Logistique de L'Aube";
+const ADDR_LINE3 = "3 Rue des Lacs";
+const ADDR_LINE4 = "10800 MOUSSEY - France";
+/* Adresse fixe imprimée sur chaque étiquette (voir buildZpl plus bas) */
+
+let rows = [];
+/* LA variable la plus importante du fichier : le tableau de toutes les
+   lignes SKU actuellement chargées depuis le fichier CSV/Excel. Chaque ligne
+   ("row") est un objet avec les infos de l'article ET la répartition en
+   cartons — voir loadCsv/loadExcel pour sa structure exacte. "let" (et non
+   "const") car ce tableau est entièrement remplacé à chaque chargement de
+   fichier. */
+let selectedIndex = null;
+/* La position (dans "rows") de l'article actuellement affiché dans l'onglet
+   "Gestion du colisage". "null" = aucun article sélectionné. */
+let activeCartonIdx = null; // carton actuellement choisi pour l'aperçu (déclenché par bouton)
+let printers = [];
+/* La liste des imprimantes Zebra détectées par Browser Print */
+
+// =============================================================================
+// UTILITAIRES TEXTE (port de zpl_safe / ascii_fr)
+// =============================================================================
+/* "port de" = ces deux fonctions reproduisent en JavaScript des fonctions qui
+   existaient déjà dans le programme Python zebra_app.py, pour garder un
+   comportement identique entre les deux outils. */
+
+function zplSafe(s) {
+  /* Nettoie un texte pour qu'il ne casse pas le code ZPL de l'étiquette
+     (certains caractères ont un sens spécial dans ce langage). */
+  s = String(s ?? "");
+  /* Convertit "s" en texte, et si "s" est null/undefined (absent), le
+     remplace par une chaîne vide "" grâce à l'opérateur "??" (= "si la valeur
+     de gauche est absente, prends celle de droite"). */
+  s = s.replace(/N°/g, "No").replace(/\^/g, " ").replace(/~/g, " ");
+  /* .replace(motif, remplacement) : remplace toutes les occurrences (le "g"
+     dans /.../g = "global", sinon seule la première serait remplacée).
+     - "N°" devient "No" (le symbole ° peut mal s'afficher sur l'imprimante)
+     - "^" et "~" sont des caractères de contrôle en ZPL, remplacés par un
+       espace pour ne pas perturber la mise en page de l'étiquette */
+  s = s.replace(/\r/g, " ").replace(/\n/g, " ");
+  /* \r et \n = retour chariot et saut de ligne (invisibles), remplacés par un
+     espace pour que le texte reste sur une seule ligne sur l'étiquette */
+  return s.trim();
+  /* .trim() enlève les espaces inutiles au tout début et à la toute fin */
+}
+
+const ACCENT_MAP = [
+  ["é","e"],["è","e"],["ê","e"],["ë","e"],
+  ["à","a"],["â","a"],["ä","a"],
+  ["ç","c"],["ù","u"],["û","u"],["ü","u"],
+  ["î","i"],["ï","i"],["ô","o"],["œ","oe"],
+  ["É","E"],["È","E"],["Ê","E"],
+  ["À","A"],["Â","A"],["Ç","C"],
+];
+/* Table de correspondance "lettre accentuée" → "lettre simple", car
+   l'imprimante Zebra (avec la police utilisée ici) n'affiche pas correctement
+   les accents français. Chaque ligne est une petite liste de 2 éléments
+   [depuis, vers]. */
+
+function asciiFr(s) {
+  /* Convertit un texte français avec accents en version "sans accents",
+     utilisable sur l'étiquette. */
+  s = zplSafe(s);
+  /* On applique d'abord le nettoyage de base vu plus haut */
+  for (const [src, dst] of ACCENT_MAP) {
+    /* Boucle sur chaque paire [lettre accentuée, lettre simple] de la table.
+       "for...of" parcourt un tableau élément par élément ; la syntaxe
+       [src, dst] "déballe" directement chaque paire en 2 variables. */
+    s = s.split(src).join(dst);
+    /* .split(src) découpe le texte à chaque occurrence de "src", puis
+       .join(dst) recolle les morceaux avec "dst" à la place — un moyen
+       classique de faire un "remplacer tout" simple et fiable en JS. */
+  }
+  return s;
+}
+
+// =============================================================================
+// GENERATION ZPL — port fidèle de build_zpl() (zebra_app.py, layout 102x102mm)
+// =============================================================================
+
+function buildZpl(otb, sku, taille, qty, itemName) {
+  /* Construit le code ZPL complet d'UNE étiquette (une chaîne de texte très
+     longue, faite de commandes comme ^FO (position), ^A0N (police), ^FD
+     (texte à afficher), ^BC (code-barres)...). C'est ce texte, envoyé tel
+     quel à l'imprimante ou au service Labelary, qui décrit exactement où
+     dessiner chaque élément sur l'étiquette de 102x102mm. */
+  otb = zplSafe(otb);
+  sku = asciiFr(sku);
+  taille = zplSafe(taille);
+  qty = zplSafe(String(qty));
+  itemName = asciiFr(itemName);
+  /* Chaque information est nettoyée avant d'être insérée dans le ZPL, pour
+     éviter qu'un caractère spécial ne casse la mise en page de l'étiquette */
+
+  const z = [];
+  /* Un tableau qui va accumuler chaque "morceau" de commande ZPL, un par un,
+     avant d'être assemblé en une seule chaîne à la fin (z.join("")) — plus
+     lisible et plus rapide que d'additionner des textes un par un avec "+". */
+
+  z.push("^XA");     // "^XA" = début d'étiquette (obligatoire en premier)
+  z.push("^PW816");  // largeur de l'étiquette en points (816 points ≈ 102mm à 203dpi)
+  z.push("^LL816");  // longueur de l'étiquette, même valeur = étiquette carrée
+  z.push("^LH0,0");  // point d'origine (0,0) = coin en haut à gauche
+
+  // EN-TETE
+  z.push("^FO69,74^GB678,80,2^FS");
+  /* ^FO69,74 = position (x=69, y=74) ; ^GB678,80,2 = dessine un rectangle
+     (Graphic Box) de 678 x 80 points avec un trait de 2 points d'épaisseur ;
+     ^FS = fin de ce champ. C'est le grand cadre du bloc d'en-tête. */
+  z.push("^FO330,74^GB1,80,2^FS");
+  z.push("^FO569,74^GB1,80,2^FS");
+  /* Deux traits verticaux fins (largeur 1 point) qui séparent l'en-tête en
+     3 colonnes : Transfer Order / Origine / Qty Total */
+  z.push("^FO140,89^A0N,20,20^FDTransfer Order^FS");
+  /* ^A0N,20,20 = police "0" normale, taille 20x20 points ; ^FD...^FS = le
+     texte à afficher entre ces deux commandes (ici "Transfer Order", un
+     libellé fixe, pas une donnée variable). */
+  z.push("^FO425,89^A0N,20,20^FDOrigine^FS");
+  /* Décalé de 415 à 425 dots (+10 dots ≈ +1.25mm vers la droite) — ajustement
+     manuel de position fait directement par l'utilisateur. */
+  z.push("^FO620,89^A0N,20,20^FDQty Total^FS");
+  /* Position finale ajustée à 620 dots (après un premier réglage à 645, puis
+     retouche manuelle par l'utilisateur pour l'alignement définitif avec la
+     valeur juste en dessous). */
+  z.push(`^FO90,114^A0N,26,26^FD${otb}^FS`);
+  /* Ici on utilise des guillemets inversés (backticks `...`) au lieu de
+     guillemets normaux, ce qui permet d'insérer une variable directement
+     dans le texte avec ${...} — appelé "template literal" en JavaScript.
+     ${otb} est remplacé par la vraie valeur de la variable "otb" (le numéro
+     de transfert). C'est la valeur RÉELLE (variable), contrairement aux
+     lignes juste au-dessus qui affichent un texte FIXE ("Transfer Order"). */
+  z.push("^FO415,114^A0N,28,28^FDFrance^FS");
+  /* Décalé de 405 à 415 dots (+10 dots), pour rester aligné avec le libellé
+     "Origine" juste au-dessus (également décalé de +10 dots). */
+  z.push(`^FO640,114^A0N,32,32^FD${qty}^FS`);
+  /* Décalé de 650 à 640 dots (-10 dots), pour rester centré sous le libellé
+     "Qty Total" juste au-dessus (décalé à 620). */
+
+  // PRODUIT
+  z.push("^FO69,159^GB678,180,2^FS");
+  z.push("^FO569,159^GB1,180,2^FS");
+  z.push("^FO89,174^A0N,20,20^FDItem No^FS");
+  z.push(`^FO89,199^A0N,34,34^FD${sku}^FS`);
+  /* Le SKU (référence article), affiché en gros (taille 34) */
+  z.push("^FO89,259^A0N,20,20^FDItem Name^FS");
+  z.push(`^FO89,284^FB460,2,0,L,0^A0N,26,26^FD${itemName}^FS`);
+  /* ^FB460,2,0,L,0 = "Field Block" : force le texte à tenir sur un bloc de
+     460 points de large, sur 2 lignes maximum, aligné à gauche (L). Utile car
+     la désignation de l'article peut être longue. */
+  z.push("^FO569,174^FB178,1,0,C,0^A0N,20,20^FDSize^FS");
+  z.push(`^FO580,214^FB178,1,0,C,0^A0N,90,90^FD${taille}^FS`);
+  /* La taille de l'article (ex: "M", "42") est affichée très gros (90 points)
+     et centrée (C) dans un bloc de 178 points de large — bien visible d'un
+     coup d'œil pour trier les cartons par taille. */
+
+  // ADRESSE
+  z.push("^FO69,344^GB678,120,2^FS");
+  z.push(`^FO89,359^A0N,24,24^FD${ADDR_LINE1}^FS`);
+  z.push(`^FO89,384^A0N,24,24^FD${ADDR_LINE2}^FS`);
+  z.push(`^FO89,409^A0N,24,24^FD${ADDR_LINE3}^FS`);
+  z.push(`^FO89,434^A0N,24,24^FD${ADDR_LINE4}^FS`);
+  /* Les 4 lignes d'adresse fixes (constantes définies tout en haut du fichier) */
+
+  // CODE-BARRES OTB
+  z.push("^FO99,484^A0N,22,22^FDTransfer Order No^FS");
+  z.push(`^FO99,508^BY2,2,70^BCN,70,N,N^FD${otb}^FS`);
+  /* ^BY2,2,70 = réglages du code-barres (largeur des barres, ratio, hauteur) ;
+     ^BCN,70,N,N = dessine un code-barres de type "Code 128" (BC), orienté
+     normalement (N), hauteur 70, sans afficher le texte au-dessus/en dessous
+     automatiquement (N,N) — on l'affiche nous-mêmes juste après :
+     Position Y décalée de 504 à 508 dots (+4 dots), réglage manuel. */
+  z.push(`^FO99,588^A0N,20,20^FD${otb}^FS`);
+  /* Le numéro en texte lisible SOUS le code-barres, pour le lire à l'œil nu.
+     Position Y décalée de 584 à 588 dots (+4 dots), pour suivre le code-barres
+     juste au-dessus (également décalé de +4). */
+
+  // CODE-BARRES SKU
+  z.push("^FO99,629^A0N,20,20^FDItem No^FS");
+  z.push(`^FO99,654^BY2,2,60^BCN,60,N,N^FD${sku}^FS`);
+  z.push(`^FO99,724^A0N,20,20^FD${sku}^FS`);
+
+  // CODE-BARRES QTY
+  z.push("^FO600,629^A0N,20,20^FDQty Total^FS");
+  /* Décalé de 580 à 600 dots (+20 dots), réglage manuel pour repositionner ce
+     libellé au-dessus du 3ème code-barres. */
+  z.push(`^FO580,654^BY2,2,60^BCN,60,N,N^FD${qty}^FS`);
+  z.push(`^FO620,724^A0N,20,20^FD${qty}^FS`);
+  /* Même principe pour le troisième code-barres : la quantité de CE carton
+     précis (pas la quantité totale de l'article !) */
+
+  z.push("^XZ");
+  /* "^XZ" = fin d'étiquette (obligatoire en dernier, fait pendant à ^XA) */
+
+  return z.join("");
+  /* Assemble tous les morceaux du tableau "z" en une seule grande chaîne de
+     texte, sans rien entre eux (le "" = séparateur vide) — c'est CE texte qui
+     est envoyé à l'imprimante ou à Labelary. */
+}
+
+// =============================================================================
+// LECTURE CSV / EXCEL
+// =============================================================================
+
+async function loadFile(file) {
+  /* Le mot "async" indique une fonction qui contient des opérations qui
+     prennent du temps (lire un fichier, attendre une réponse réseau...).
+     À l'intérieur, on utilise "await" pour "attendre" ces opérations sans
+     bloquer le reste de la page (voir plus loin l'écouteur sur fileInput). */
+  const name = file.name.toLowerCase();
+  /* .toLowerCase() met le nom de fichier en minuscules, pour que la
+     comparaison ".csv" fonctionne même si le fichier s'appelle "DONNEES.CSV" */
+  if (name.endsWith(".csv")) {
+    return await loadCsv(file);
+  }
+  return await loadExcel(file, document.getElementById("sheetName").value.trim() || SHEET_NAME_DEFAULT);
+  /* document.getElementById("sheetName") récupère l'élément HTML avec
+     id="sheetName" (le champ "Onglet Excel" de la colonne de gauche) ;
+     .value lit ce qui y est écrit ; .trim() enlève les espaces autour.
+     Le "||" veut dire : si le résultat est vide (chaîne ""), utilise
+     SHEET_NAME_DEFAULT ("Etiquettes") à la place. */
+}
+
+async function loadCsv(file) {
+  /* Lit et interprète un fichier .csv (texte simple, valeurs séparées par
+     des points-virgules) */
+  const buf = await file.arrayBuffer();
+  /* Lit le CONTENU BRUT (en octets) du fichier choisi par l'utilisateur.
+     "await" met la fonction en pause ici jusqu'à ce que la lecture soit finie
+     (lire un fichier prend un peu de temps, même si c'est presque instantané
+     sur un petit fichier). */
+  const bytes = new Uint8Array(buf);
+  /* Transforme ces octets bruts en un tableau qu'on peut inspecter valeur par
+     valeur (un Uint8Array = une liste de nombres entre 0 et 255) */
+  // BOM UTF-8 -> utf-8, sinon cp1252 (comportement équivalent au fallback Python)
+  const hasBom = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+  /* Un fichier CSV encodé en UTF-8 "avec BOM" commence toujours par ces 3
+     octets précis (EF BB BF) — une sorte de signature invisible. On vérifie
+     ici si le fichier a cette signature, pour savoir dans quel encodage il a
+     été enregistré (Excel exporte parfois en UTF-8, parfois en Windows-1252 /
+     "ANSI", selon les réglages du poste). */
+  const encoding = hasBom ? "utf-8" : "windows-1252";
+  /* Opérateur ternaire : "condition ? valeurSiVrai : valeurSiFaux" — un
+     if/else condensé sur une seule ligne. */
+  const text = new TextDecoder(encoding).decode(buf);
+  /* Convertit les octets bruts en texte lisible, en utilisant l'encodage
+     détecté juste au-dessus. Se tromper d'encodage ici afficherait des
+     caractères bizarres à la place des accents. */
+
+  const parsed = Papa.parse(text, { header: true, delimiter: ";", skipEmptyLines: true });
+  /* Utilise la bibliothèque PapaParse (chargée tout en haut du fichier) pour
+     transformer le texte CSV en données structurées.
+     - header: true → la première ligne du fichier contient les NOMS de
+       colonnes (ex: "SKU", "QTY"...), utilisés comme clés
+     - delimiter: ";" → les valeurs sont séparées par des points-virgules
+       (habituel pour les fichiers Excel français, contrairement à la virgule
+       utilisée dans les pays anglo-saxons)
+     - skipEmptyLines: true → ignore les lignes complètement vides */
+  const fields = parsed.meta.fields || [];
+  /* parsed.meta.fields = la liste des noms de colonnes détectés. Le "|| []"
+     protège contre le cas où cette info serait absente (fichier vide). */
+  // Détection auto du format : export "bon de livraison" (ex: ZETIQLIV) vs export historique macro VBA
+  const isLivraisonFormat = fields.includes("Article") && fields.includes("Quantité livrée");
+  /* .includes(...) vérifie si "fields" contient cette valeur exacte. Deux
+     formats de fichiers CSV existent selon leur origine ; on détecte
+     automatiquement lequel on a reçu en regardant les noms de colonnes. */
+
+  const out = [];
+  /* Le tableau de résultat qu'on va construire, ligne par ligne, puis renvoyer */
+  for (const row of parsed.data) {
+    /* parsed.data = toutes les lignes du fichier (sauf l'en-tête), chacune
+       sous forme d'objet { "NomColonne": "valeur", ... } */
+    const val = (k) => String(row[k] ?? "").trim();
+    /* Définit une PETITE FONCTION LOCALE "val", réutilisée juste en dessous,
+       qui : récupère la valeur de la colonne "k" dans la ligne actuelle,
+       la convertit en texte, remplace une valeur absente par "" (via ??),
+       puis enlève les espaces inutiles. Évite de répéter cette logique
+       5 fois de suite pour chaque colonne. */
+    let otb, sku, taille, itemName, qtyRaw;
+    /* Déclare 5 variables vides, qui seront remplies différemment selon le
+       format détecté juste en dessous (avec "let" car leur valeur est fixée
+       ensuite, pas au moment de la déclaration). */
+    if (isLivraisonFormat) {
+      // Format bon de livraison : "No livraison";"Article";"Désignation";"Quantité livrée"
+      // Pas de colonne Taille séparée dans ce format : le SKU reste l'Article
+      // complet (rien n'est retiré), mais si l'Article se termine par un
+      // suffixe "_XXX" (ex: "2621113_TU"), ce suffixe est EN PLUS extrait
+      // comme taille, pour qu'elle s'affiche dans le champ "Size" de
+      // l'étiquette (voir buildZpl plus bas) — sans le tiret bas "_".
+      otb = val("No livraison");
+      sku = val("Article");
+      const sizeSepIdx = sku.lastIndexOf("_");
+      taille = sizeSepIdx >= 0 ? sku.slice(sizeSepIdx + 1) : "";
+      /* lastIndexOf("_") cherche le DERNIER "_" dans la chaîne (utile si le
+         SKU en contient plusieurs) ; sku.slice(sizeSepIdx + 1) récupère tout
+         ce qui suit ce "_", donc "TU" pour "2621113_TU". Si aucun "_" n'est
+         trouvé, lastIndexOf renvoie -1 et taille reste une chaîne vide. */
+      itemName = val("Désignation");
+      qtyRaw = val("Quantité livrée");
+    } else {
+      // Format historique (export macro VBA) : OTB;SKU;SIZE;ITEM_NAME;QTY
+      otb = val("OTB");
+      sku = val("SKU");
+      taille = val("SIZE");
+      itemName = val("ITEM_NAME");
+      qtyRaw = val("QTY");
+    }
+    let qty = 0;
+    if (qtyRaw) qty = parseInt(parseFloat(qtyRaw)) || 0;
+    /* parseFloat convertit le texte en nombre décimal (gère "12.5" ou "12,0"
+       mal formés), parseInt tronque ensuite à un nombre entier (pas de demi-
+       cartons). Le "|| 0" à la fin protège contre un texte qui ne serait pas
+       du tout un nombre (le résultat serait NaN = "Not a Number", remplacé
+       ici par 0). */
+    if (!sku || qty <= 0) continue;
+    /* "continue" = passe directement à la ligne suivante du fichier sans
+       l'ajouter au résultat, si l'article n'a pas de référence ou une
+       quantité nulle/négative — on ignore les lignes invalides plutôt que de
+       planter. */
+    // Par défaut : 1 carton = la qté livrée totale. L'opérateur ajuste ensuite le
+    // nombre de cartons et la répartition des quantités par carton dans le tableau.
+    out.push({ otb, sku, taille, itemName, qty, cartons: 1, cartonQtys: [qty], cartonLocked: [false] });
+    /* Ajoute un nouvel objet "ligne" au résultat. C'est LA structure de
+       données centrale de toute l'application, présente pour chaque article :
+       - otb, sku, taille, itemName, qty : les infos lues du fichier
+       - cartons : le NOMBRE de cartons pour cet article (1 par défaut)
+       - cartonQtys : un tableau avec la quantité de CHAQUE carton
+         (au départ, un seul carton contenant tout : [qty])
+       - cartonLocked : un tableau parallèle qui dit, pour chaque carton, si
+         sa quantité a été fixée manuellement ("verrouillée") ou si elle est
+         encore recalculée automatiquement */
+  }
+  return out;
+}
+
+async function loadExcel(file, sheetName) {
+  /* Même principe que loadCsv, mais pour un fichier Excel (.xlsx/.xlsm),
+     grâce à la bibliothèque XLSX (SheetJS) chargée en haut du fichier. */
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  /* Ouvre le classeur Excel entier ("wb" = "workbook") à partir des octets bruts */
+  if (!wb.SheetNames.includes(sheetName)) {
+    throw new Error(`Onglet "${sheetName}" introuvable.\nOnglets : ${wb.SheetNames.join(", ")}`);
+    /* "throw new Error(...)" déclenche une erreur volontairement, avec un
+       message clair, si l'onglet demandé (ex: "Etiquettes") n'existe pas
+       dans le classeur. Cette erreur remonte jusqu'à l'endroit qui a appelé
+       loadFile/loadExcel, où elle est attrapée par un bloc try/catch (voir
+       plus bas, l'écouteur sur fileInput) et affichée à l'utilisateur au lieu
+       de faire planter silencieusement la page. \n = saut de ligne dans le
+       message d'erreur. */
+  }
+  const ws = wb.Sheets[sheetName];
+  /* Récupère UNIQUEMENT la feuille demandée dans le classeur ("ws" = worksheet) */
+  const grid = XLSX.utils.sheet_to_json(ws, { header: 1, range: 1, defval: "" }); // range:1 => saute la ligne d'en-tête
+  /* Transforme la feuille en un simple tableau de tableaux (une "grille") :
+     header: 1 → chaque ligne devient un tableau de valeurs (pas un objet
+       nommé, contrairement au CSV plus haut, car ici on connaît déjà les
+       colonnes par leur NUMÉRO, pas par leur nom — voir COL_OTB etc. en haut)
+     range: 1 → commence la lecture à la ligne 2 (on saute la ligne d'en-tête)
+     defval: "" → une cellule vide devient une chaîne vide plutôt que "undefined" */
+  const out = [];
+  for (const r of grid) {
+    /* "r" = une ligne de la grille, donc un tableau de valeurs, ex:
+       ["OTB123", "", "M", "SKU456", "Sac à dos", 25] */
+    const cell = (col) => (r[col - 1] !== undefined && r[col - 1] !== null) ? String(r[col - 1]).trim() : "";
+    /* Petite fonction locale : récupère la cellule à la position "col"
+       (1-indexé comme dans Excel, d'où le "col - 1" pour revenir à l'index
+       JavaScript qui commence à 0), la convertit en texte nettoyé, ou renvoie
+       une chaîne vide si la cellule n'existe pas. */
+    const otb = cell(COL_OTB), taille = cell(COL_TAILLE), sku = cell(COL_SKU), itemName = cell(COL_ITEM_NAME);
+    const qtyRaw = r[COL_QTY - 1];
+    let qty = 0;
+    if (qtyRaw !== undefined && qtyRaw !== null && qtyRaw !== "") {
+      qty = parseInt(parseFloat(String(qtyRaw))) || 0;
+    }
+    if (!sku || qty <= 0) continue;
+    out.push({ otb, sku, taille, itemName, qty, cartons: 1, cartonQtys: [qty], cartonLocked: [false] });
+    /* Exactement la même structure de "ligne" que dans loadCsv, pour que le
+       reste de l'application (tableaux, calculs...) fonctionne à l'identique
+       quelle que soit la source du fichier (CSV ou Excel). */
+  }
+  return out;
+}
+
+// =============================================================================
+// REPARTITION PAR CARTON
+// =============================================================================
+
+function computeEvenSplit(total, n) {
+  /* Répartit un nombre "total" de pièces en "n" cartons LE PLUS ÉGALEMENT
+     POSSIBLE. Ex: computeEvenSplit(100, 3) → [34, 33, 33] (100 ne se divise
+     pas exactement par 3, donc les premiers cartons reçoivent 1 pièce de
+     plus que les derniers, pour que la somme totale reste exacte). */
+  n = Math.max(1, Math.trunc(n) || 1);
+  /* Math.trunc coupe la partie décimale (ex: 3.7 → 3). Le "|| 1" protège
+     contre un "n" invalide (0, NaN...). Math.max(1, ...) garantit qu'on a
+     au moins 1 carton, jamais 0 ou un nombre négatif. */
+  const base = Math.floor(total / n);
+  /* La quantité "de base" que chaque carton reçoit au minimum (division
+     entière, arrondie vers le bas) */
+  let remainder = total - base * n;
+  /* Ce qu'il reste à distribuer après avoir donné "base" à chaque carton
+     (ce reste est toujours strictement inférieur à "n") */
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    /* Boucle "for" classique : k commence à 0, continue tant que k < n,
+       augmente de 1 à chaque tour (k++) — répète donc "n" fois. */
+    out.push(base + (remainder > 0 ? 1 : 0));
+    /* Chaque carton reçoit "base", PLUS 1 pièce supplémentaire tant qu'il
+       reste du "remainder" à distribuer */
+    if (remainder > 0) remainder--;
+    /* On décrémente le reste à chaque pièce supplémentaire distribuée, pour
+       ne pas en donner plus que ce qui reste réellement */
+  }
+  return out;
+  /* Résultat : un tableau de "n" nombres dont la somme vaut exactement "total" */
+}
+
+function rowCartonSum(r) {
+  /* Additionne les quantités de tous les cartons d'une ligne "r" (utilisé
+     partout pour vérifier si le total correspond bien à la quantité livrée) */
+  return r.cartonQtys.reduce((a, b) => a + b, 0);
+  /* .reduce(...) parcourt le tableau et accumule un résultat. Ici : part de 0
+     (le dernier argument), et à chaque élément "b" du tableau, ajoute sa
+     valeur à l'accumulateur "a". Équivalent à faire une boucle qui fait
+     total += b à chaque tour, mais en une seule ligne. */
+}
+
+// Numérotation continue des cartons sur l'ensemble du fichier : la ligne SKU i
+// commence au carton (somme des cartons des lignes précédentes) + 1, au lieu de
+// repartir à 1 pour chaque ligne — correspond à la numérotation physique réelle
+// des cartons sur la palette/le camion.
+function rowCartonOffset(i) {
+  /* Calcule combien de cartons ont déjà été "utilisés" par TOUTES les lignes
+     AVANT la ligne numéro "i". Ex : si la ligne 0 (le tout premier article) a
+     20 cartons, alors rowCartonOffset(1) renverra 20 : la ligne 1 (le
+     deuxième article) commence donc au carton n°21 (20 + 1). */
+  let offset = 0;
+  for (let k = 0; k < i; k++) offset += rows[k].cartons;
+  /* Boucle sur toutes les lignes AVANT la ligne "i" (k va de 0 à i-1), et
+     additionne leur nombre de cartons. Écriture "compacte" sans accolades
+     {} car il n'y a qu'une seule instruction à répéter. */
+  return offset;
+}
+
+// Répartit automatiquement le reliquat (qté livrée - somme des cartons "validés")
+// sur les cartons non validés, à parts égales. Un carton devient "validé" dès que
+// l'opérateur modifie sa valeur à la main, ou l'inclut dans une application groupée.
+function redistributeUnlocked(r) {
+  /* Fonction appelée à chaque fois qu'une quantité de carton est modifiée à
+     la main, pour réajuster automatiquement tous les AUTRES cartons non
+     encore "verrouillés" (cadenas fermé), afin que le total corresponde
+     toujours à la quantité livrée de l'article. */
+  const unlockedIdxs = [];
+  /* La liste des POSITIONS (index) des cartons pas encore verrouillés */
+  let lockedSum = 0;
+  /* Le total déjà "figé" par les cartons verrouillés */
+  r.cartonQtys.forEach((q, idx) => {
+    /* .forEach(...) exécute le code fourni pour chaque élément du tableau,
+       avec sa valeur (q) et sa position (idx). Contrairement à .map(), il ne
+       renvoie rien : on l'utilise juste pour "faire quelque chose" à chaque
+       tour, pas pour construire un nouveau tableau. */
+    if (r.cartonLocked[idx]) lockedSum += q;
+    else unlockedIdxs.push(idx);
+  });
+  if (unlockedIdxs.length === 0) return;
+  /* Si TOUS les cartons sont verrouillés, il n'y a plus rien à répartir
+     automatiquement : on arrête la fonction ici avec "return" sans valeur */
+  const remaining = r.qty - lockedSum;
+  /* Ce qu'il reste à répartir = quantité totale livrée MOINS ce qui est déjà
+     figé sur les cartons verrouillés (peut être négatif si l'utilisateur a
+     verrouillé plus que la quantité livrée — géré juste en dessous) */
+  const split = remaining > 0 ? computeEvenSplit(remaining, unlockedIdxs.length) : new Array(unlockedIdxs.length).fill(0);
+  /* Si "remaining" est positif, on répartit équitablement (fonction vue plus
+     haut). Sinon (déjà tout distribué, ou même dépassé), on met 0 partout sur
+     les cartons non verrouillés plutôt que des valeurs négatives absurdes.
+     new Array(n).fill(0) crée un tableau de "n" zéros. */
+  unlockedIdxs.forEach((idx, k) => { r.cartonQtys[idx] = split[k]; });
+  /* Applique chaque valeur calculée par "split" au bon carton (celui à la
+     position "idx" dans le tableau complet des cartons — pas "k", qui n'est
+     que la position DANS la liste réduite des cartons non verrouillés). */
+}
+
+function updateRowWarnDot(i) {
+  /* Affiche ou cache le petit triangle d'avertissement ⚠ à côté du champ
+     "Cartons" d'une ligne, dans le tableau de l'onglet "Vue d'ensemble". */
+  const r = rows[i];
+  const dot = document.getElementById(`warnDot_${i}`);
+  /* Le `${i}` dans l'ID cible précisément le triangle DE CETTE ligne (chaque
+     ligne du tableau a son propre élément warnDot_0, warnDot_1, etc. — voir
+     refreshTable un peu plus bas) */
+  if (dot) dot.style.display = (rowCartonSum(r) !== r.qty) ? "inline" : "none";
+  /* "if (dot)" vérifie que l'élément existe bien avant d'agir dessus (par
+     précaution). On l'affiche ("inline") uniquement si la somme des cartons
+     est DIFFÉRENTE de la quantité livrée — sinon on le cache ("none"). */
+}
+
+// =============================================================================
+// APERCU LABELARY
+// =============================================================================
+
+async function fetchPreview(zpl) {
+  /* Envoie le code ZPL d'une étiquette au service en ligne Labelary, qui
+     renvoie une image PNG de ce à quoi ressemblera l'étiquette imprimée. */
+  const resp = await fetch(LABELARY_URL, {
+    method: "POST",
+    /* POST = on envoie des données (le code ZPL) au serveur, contrairement à
+       GET qui ne fait que demander une information */
+    headers: { "Accept": "image/png", "Content-Type": "application/x-www-form-urlencoded" },
+    /* "headers" = informations techniques envoyées avec la requête :
+       Accept: on veut recevoir une image PNG en retour
+       Content-Type: le format dans lequel on envoie nos données (texte brut) */
+    body: zpl,
+    /* Le contenu envoyé au serveur : le code ZPL généré par buildZpl() */
+  });
+  if (!resp.ok) throw new Error(`Labelary a répondu ${resp.status}`);
+  /* resp.ok = vrai si le serveur a répondu correctement (code 200-299).
+     Sinon on déclenche une erreur avec le code reçu (ex: 400, 500...) */
+  const blob = await resp.blob();
+  /* Récupère la réponse sous forme de "blob" (données binaires brutes,
+     ici l'image PNG) */
+  return URL.createObjectURL(blob);
+  /* Crée une URL temporaire, valable uniquement dans cette page, qui pointe
+     vers cette image en mémoire — c'est cette URL qui est mise dans l'attribut
+     src="..." d'une balise <img> pour afficher l'aperçu (voir previewCarton). */
+}
+
+// =============================================================================
+// IMPRESSION — Zebra Browser Print (API locale http://localhost:9100/)
+// =============================================================================
+
+async function getAvailablePrinters() {
+  /* Demande au logiciel Zebra Browser Print (installé sur cet ordinateur)
+     quelles imprimantes il détecte. */
+  const resp = await fetch(BROWSER_PRINT_URL + "available");
+  /* Construit l'adresse complète : "http://localhost:9100/available" */
+  if (!resp.ok) throw new Error("Browser Print ne répond pas.");
+  const data = await resp.json();
+  /* .json() interprète la réponse comme du texte JSON structuré et le
+     transforme en objet JavaScript utilisable directement */
+  return (data && data.printer) ? data.printer : [];
+  /* Si "data" existe ET contient une propriété "printer", on la renvoie ;
+     sinon on renvoie un tableau vide plutôt que de planter (par exemple si
+     le logiciel répond mais dans un format inattendu) */
+}
+
+async function sendZpl(device, zpl) {
+  /* Envoie un code ZPL à une imprimante précise ("device"), via Browser Print */
+  const resp = await fetch(BROWSER_PRINT_URL + "write", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=UTF-8" },
+    body: JSON.stringify({ device, data: zpl }),
+    /* JSON.stringify(...) transforme un objet JavaScript en texte JSON.
+       { device, data: zpl } est une écriture raccourcie de
+       { device: device, data: zpl } — quand le nom de la clé et le nom de la
+       variable sont identiques, JavaScript permet de ne l'écrire qu'une fois. */
+  });
+  if (!resp.ok) throw new Error(`Échec d'envoi à l'imprimante (HTTP ${resp.status})`);
+}
+
+// =============================================================================
+// INTERFACE — tout ce qui manipule directement les éléments visibles à l'écran
+// =============================================================================
+
+const statusEl = document.getElementById("status");
+/* Récupère UNE FOIS l'élément de message d'état (footer), et le garde en
+   mémoire dans une constante — plus efficace que de le rechercher à chaque
+   fois qu'on veut changer le message. */
+function setStatus(msg, kind) {
+  /* Fonction utilisée PARTOUT dans le fichier pour afficher un message en bas
+     de page. "kind" est optionnel : "ok" (vert), "warn" (orange), ou rien
+     (gris neutre). */
+  statusEl.textContent = msg;
+  /* .textContent remplace le texte affiché à l'intérieur de l'élément */
+  statusEl.className = kind || "";
+  /* Change la classe CSS de l'élément (voir les règles #status.ok/.warn plus
+     haut dans le CSS), ou l'enlève ("") si "kind" n'est pas fourni */
+}
+
+function drawSummary() {
+  /* Recalcule et affiche les 2 totaux du bloc "Résumé" de la colonne de gauche */
+  const totalCartons = rows.reduce((a, r) => a + r.cartons, 0);
+  const totalPieces = rows.reduce((a, r) => a + rowCartonSum(r), 0);
+  document.getElementById("sumRefs").textContent = totalCartons;
+  document.getElementById("sumTotal").textContent = totalPieces;
+}
+
+function refreshTable() {
+  /* Reconstruit ENTIÈREMENT le grand tableau de l'onglet "Vue d'ensemble", à
+     partir du contenu actuel de "rows". Appelée après chaque chargement de
+     fichier ou changement affectant l'affichage global. */
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
+  /* Vide complètement le tableau avant de le reconstruire, pour ne pas
+     s'retrouver avec d'anciennes lignes en double */
+  rows.forEach((r, i) => {
+    /* Pour chaque article ("r") et sa position ("i") dans le tableau "rows" */
+    const tr = document.createElement("tr");
+    /* Crée une nouvelle ligne de tableau <tr>, encore vide et invisible tant
+       qu'elle n'est pas ajoutée à la page (voir tbody.appendChild plus bas) */
+    tr.dataset.idx = i;
+    /* Stocke la position "i" directement sur l'élément HTML, dans un attribut
+       data-idx="...", pour pouvoir la retrouver facilement plus tard (par
+       exemple au moment du clic, voir juste en dessous) */
+    const disp = r.itemName.length > 46 ? r.itemName.slice(0, 46) + "…" : r.itemName;
+    /* Si la désignation dépasse 46 caractères, on la coupe et on ajoute "…"
+       à la fin, pour ne pas casser la mise en page du tableau avec un texte
+       trop long. .slice(0, 46) = les 46 premiers caractères. */
+    const mismatch = rowCartonSum(r) !== r.qty;
+    /* "true" si le total des cartons ne correspond PAS à la quantité livrée */
+    tr.innerHTML = `<td>${escapeHtml(r.sku)}</td><td style="text-align:center">${escapeHtml(r.taille)}</td>` +
+                   `<td>${escapeHtml(disp)}</td><td>${escapeHtml(r.otb)}</td><td style="text-align:center">${r.qty}</td>` +
+                   `<td style="text-align:center;white-space:nowrap">` +
+                     `<input type="number" min="1" step="1" style="width:50px;margin-bottom:0;padding:3px 4px" id="cartonsInput_${i}" value="${r.cartons}">` +
+                     `<span id="warnDot_${i}" title="Le total des cartons ne correspond pas à la qté livrée" style="display:${mismatch ? "inline" : "none"};color:var(--warning);margin-left:4px">⚠</span>` +
+                   `</td>`;
+    /* .innerHTML construit directement le contenu HTML de la ligne, en texte,
+       avec les valeurs de l'article insérées via ${...}. C'est ici qu'est
+       créé le petit champ "Cartons" modifiable directement dans le tableau,
+       ainsi que le triangle d'avertissement caché/affiché selon "mismatch". */
+    tr.addEventListener("click", (e) => {
+      /* .addEventListener("click", fonction) déclenche la fonction fournie
+         CHAQUE FOIS que l'utilisateur clique sur cette ligne. "(e) => {...}"
+         est une fonction "fléchée" (écriture raccourcie), "e" contient les
+         détails du clic (notamment e.target = l'élément exact cliqué). */
+      if (e.target.tagName === "INPUT") return;
+      /* Si on a cliqué PRÉCISÉMENT sur le champ "Cartons" (une balise
+         <input>), on ne fait rien ici : on laisse l'utilisateur taper son
+         nombre tranquillement, sans déclencher l'ouverture de l'onglet
+         colisage à chaque frappe. */
+      selectRow(i);
+      /* Sinon (clic n'importe où ailleurs sur la ligne), on ouvre le
+         colisage de cet article et on bascule sur l'onglet 2 */
+    });
+    tbody.appendChild(tr);
+    /* Ajoute VRAIMENT la ligne construite au tableau visible à l'écran */
+    const cartonsInput = tr.querySelector(`#cartonsInput_${i}`);
+    /* .querySelector cherche, DANS la ligne "tr", l'élément avec cet ID
+       précis (qu'on vient de créer juste au-dessus dans le innerHTML) */
+    cartonsInput.addEventListener("click", (e) => e.stopPropagation());
+    /* e.stopPropagation() empêche le clic sur le champ de "remonter" jusqu'au
+       clic sur la ligne entière — une sécurité supplémentaire en plus du
+       "if (e.target.tagName === 'INPUT') return" vu plus haut. */
+    cartonsInput.addEventListener("change", (e) => onCartonsInputChange(i, e.target.value));
+    /* L'événement "change" se déclenche quand l'utilisateur MODIFIE la
+       valeur ET quitte le champ (contrairement à "input", qui se déclenche à
+       chaque frappe) — évite de recalculer à chaque caractère tapé. */
+  });
+}
+
+function escapeHtml(s) {
+  /* Sécurise un texte avant de l'insérer dans du HTML via innerHTML, en
+     remplaçant les caractères qui ont un sens spécial en HTML (<, >, ", etc.)
+     par leur équivalent inoffensif. Indispensable ici car les désignations
+     d'articles viennent d'un fichier externe (CSV/Excel) et pourraient, par
+     accident, contenir des caractères qui perturberaient l'affichage si on
+     les insérait tels quels (ex: un SKU contenant "<" casserait la mise en
+     page du tableau sans cette protection). */
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  /* Le motif [&<>"'] repère n'importe LEQUEL de ces 5 caractères. Pour chaque
+     caractère trouvé ("c"), on cherche sa version "échappée" dans le petit
+     objet de correspondance {...}, et on la met à la place. */
+}
+
+function onCartonsInputChange(i, value) {
+  /* Appelée quand l'utilisateur change le nombre de cartons d'une ligne,
+     que ce soit depuis le tableau "Vue d'ensemble" OU depuis le champ
+     dupliqué de l'onglet "Gestion du colisage" (voir plus bas). */
+  let n = parseInt(value, 10);
+  /* parseInt(texte, 10) convertit le texte en nombre entier en base 10
+     (décimale). Le "10" est optionnel mais recommandé, pour éviter toute
+     ambiguïté avec d'autres bases numériques. */
+  if (!Number.isFinite(n) || n < 1) n = 1;
+  /* Number.isFinite(n) vérifie que "n" est un vrai nombre utilisable (pas
+     NaN, pas l'infini). Si la saisie est invalide ou inférieure à 1, on
+     force la valeur à 1 carton minimum — impossible d'avoir 0 ou -3 cartons. */
+  const r = rows[i];
+  r.cartons = n;
+  r.cartonQtys = computeEvenSplit(r.qty, n);
+  /* Recalcule une répartition égale entre les "n" nouveaux cartons — on
+     repart de zéro à chaque changement du NOMBRE de cartons (contrairement à
+     une modification de quantité sur un carton précis, qui ne touche que ce
+     carton, voir onCartonQtyChange plus bas). */
+  r.cartonLocked = new Array(n).fill(false);
+  /* Aucun carton n'est verrouillé après ce recalcul complet */
+  const input = document.getElementById(`cartonsInput_${i}`);
+  if (input) input.value = n;
+  /* Met à jour le champ affiché avec la valeur finale retenue (utile si "n"
+     a été corrigé juste au-dessus, ex: l'utilisateur avait tapé "0") */
+  updateRowWarnDot(i);
+  if (selectedIndex === i) {
+    /* Si la ligne qu'on vient de modifier est JUSTEMENT celle actuellement
+       affichée dans l'onglet colisage, on rafraîchit aussi cet affichage */
+    activeCartonIdx = null;
+    /* On désélectionne le carton actif, puisque la liste des cartons vient
+       de changer entièrement (l'ancien "carton n°3" n'a peut-être plus le
+       même sens après le recalcul) */
+    const countInput = document.getElementById("colisageCartonsCount");
+    if (countInput) countInput.value = n;
+    /* Synchronise le champ dupliqué de l'onglet colisage avec cette nouvelle valeur */
+    renderCartonDetail();
+    updatePreviewButtonState();
+  }
+  drawSummary();
+  /* Le nombre total de cartons/pièces a pu changer : on met à jour le résumé */
+}
+
+// Construit le tableau de détail des cartons pour la ligne actuellement
+// sélectionnée (selectedIndex). Un seul panneau, jamais dupliqué par ligne :
+// plus lisible et plus simple que l'ancienne version compressée dans la colonne
+// de droite (plus de place, colonnes alignées comme le tableau principal).
+function renderCartonDetail() {
+  /* LA fonction qui (re)dessine tout le contenu de l'onglet "Gestion du
+     colisage" pour l'article actuellement sélectionné. Appelée à chaque
+     changement : nombre de cartons, quantité d'un carton, verrouillage... */
+  const i = selectedIndex;
+  if (i === null) return;
+  /* Si aucun article n'est sélectionné, il n'y a rien à afficher : on arrête */
+  const r = rows[i];
+  if (!r.cartonLocked) r.cartonLocked = new Array(r.cartons).fill(false);
+  /* Sécurité : si jamais "cartonLocked" n'existait pas encore sur cet objet
+     (ne devrait normalement jamais arriver vu loadCsv/loadExcel), on le crée
+     plutôt que de planter. */
+  const offset = rowCartonOffset(i);
+  /* Le numéro de départ des cartons de CET article (voir plus haut) */
+
+  document.getElementById("cartonLineInfo").innerHTML =
+    `<strong>${escapeHtml(r.sku)}</strong>${r.taille ? " — " + escapeHtml(r.taille) : ""} — ${escapeHtml(r.itemName)}` +
+    `<span class="muted"> · OTB : ${escapeHtml(r.otb) || "—"} · Qté livrée : ${r.qty} · Cartons n° ${offset + 1} à ${offset + r.cartons}</span>`;
+  /* Construit la ligne de résumé texte. `r.taille ? " — " + ... : ""` = si la
+     taille existe, on l'affiche précédée d'un tiret ; sinon on n'affiche
+     rien du tout (utile pour le format "bon de livraison" qui n'a pas de
+     taille séparée, voir loadCsv). `escapeHtml(r.otb) || "—"` = si l'OTB est
+     vide, on affiche un tiret cadratin à la place, plus lisible qu'un blanc. */
+
+  const rangeHint = document.getElementById("cartonRangeHint");
+  if (rangeHint) rangeHint.textContent = `(cette ligne : ${offset + 1} à ${offset + r.cartons})`;
+  /* Le petit rappel affiché à côté du bouton "Appliquer à la plage" */
+
+  const tbody = document.getElementById("cartonTableBody");
+  tbody.innerHTML = "";
+  r.cartonQtys.forEach((q, idx) => {
+    /* Pour chaque carton de cet article (q = sa quantité, idx = sa position
+       LOCALE dans cet article, en commençant à 0) */
+    const locked = r.cartonLocked[idx];
+    const tr = document.createElement("tr");
+    tr.dataset.cartonIdx = idx;
+    if (idx === activeCartonIdx) tr.classList.add("selected");
+    /* Si ce carton est celui actuellement mis en avant pour l'aperçu, on lui
+       ajoute la classe "selected" qui lui donne un fond bleu clair (CSS) */
+    tr.innerHTML =
+      `<td>Carton ${offset + idx + 1}</td>` +
+      /* offset + idx + 1 = le numéro GLOBAL du carton (continu sur tout le
+         fichier), pas juste sa position locale dans cet article */
+      `<td><input type="number" min="0" step="1" class="carton-qty-input" data-qty-idx="${idx}" value="${q}" style="width:90px;margin-bottom:0"></td>` +
+      `<td><button class="btn-sm" data-lock-idx="${idx}" style="background:${locked ? "var(--warning)" : "#AAB4C0"}" title="${locked ? "Déverrouiller (réinclure dans la répartition auto)" : "Verrouillé automatiquement dès que vous modifiez la valeur"}">${locked ? "🔒" : "🔓"}</button></td>`;
+    /* Le bouton cadenas change de couleur/icône/infobulle selon "locked" :
+       orange + 🔒 (fermé) si verrouillé, gris + 🔓 (ouvert) sinon. */
+    tr.addEventListener("click", (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+      /* Un clic sur le champ de quantité ou le bouton cadenas ne doit PAS
+         déclencher la sélection de ce carton pour l'aperçu — seul un clic
+         "ailleurs" sur la ligne le fait */
+      setActiveCarton(idx);
+    });
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".carton-qty-input").forEach(input => {
+    /* .querySelectorAll trouve TOUS les éléments correspondants (ici, tous
+       les champs de quantité qu'on vient de créer) et .forEach répète le
+       code fourni pour chacun d'eux */
+    input.addEventListener("change", (e) => onCartonQtyChange(Number(input.dataset.qtyIdx), e.target.value));
+    /* Number(...) reconvertit l'attribut data-qty-idx (toujours du texte en
+       HTML) en véritable nombre JavaScript */
+  });
+  tbody.querySelectorAll("button[data-lock-idx]").forEach(btn => {
+    /* "button[data-lock-idx]" = tous les <button> qui ont un attribut
+       data-lock-idx (peu importe sa valeur) — une autre façon d'écrire un
+       sélecteur CSS, ici utilisée avec querySelectorAll */
+    btn.addEventListener("click", () => toggleCartonLock(Number(btn.dataset.lockIdx)));
+  });
+
+  const sum = rowCartonSum(r);
+  const ok = sum === r.qty;
+  const indicator = document.getElementById("sumIndicator");
+  indicator.className = "sum-indicator " + (ok ? "ok" : "warn");
+  indicator.textContent = ok
+    ? `Total cartons : ${sum} / ${r.qty} ✓`
+    : `Total cartons : ${sum} / ${r.qty} — ne correspond pas à la qté livrée`;
+
+  updateRowWarnDot(i);
+  /* Met aussi à jour le triangle d'avertissement dans le tableau "Vue
+     d'ensemble", pour rester cohérent même si on ne le voit pas actuellement
+     à l'écran (on est sur l'onglet colisage) */
+}
+
+// Choisit le carton "actif" (mis en surbrillance) et charge immédiatement son
+// aperçu à droite. Le bouton "Rafraîchir l'aperçu" reste disponible pour
+// recharger la même image après une modification de quantité, sans recliquer.
+function setActiveCarton(idx) {
+  activeCartonIdx = idx;
+  document.querySelectorAll("#cartonTableBody tr").forEach(tr => tr.classList.toggle("selected", Number(tr.dataset.cartonIdx) === idx));
+  /* .toggle(classe, condition) ajoute la classe si "condition" est vraie,
+     l'enlève sinon. Ici : SEULE la ligne du carton "idx" reçoit la classe
+     "selected" (fond bleu), toutes les autres la perdent — même effet que de
+     tout enlever puis rajouter juste sur la bonne, mais en une seule ligne. */
+  updatePreviewButtonState();
+  previewCarton(selectedIndex, idx);
+  /* Charge immédiatement l'aperçu visuel de ce carton précis (voir plus bas) */
+}
+
+function updatePreviewButtonState() {
+  /* Active/désactive le bouton "Rafraîchir l'aperçu" et met à jour le texte
+     d'information juste au-dessus, selon ce qui est actuellement sélectionné. */
+  const btn = document.getElementById("btnShowPreview");
+  const info = document.getElementById("previewInfo");
+  if (selectedIndex === null || activeCartonIdx === null) {
+    /* Si aucun article OU aucun carton n'est sélectionné */
+    btn.disabled = true;
+    info.textContent = selectedIndex === null
+      ? "Sélectionnez une ligne, puis cliquez sur un carton dans le tableau."
+      : "Cliquez sur un carton dans le tableau ci-dessus.";
+  } else {
+    btn.disabled = false;
+    const r = rows[selectedIndex];
+    const offset = rowCartonOffset(selectedIndex);
+    info.textContent = `Carton ${offset + activeCartonIdx + 1} (${activeCartonIdx + 1}/${r.cartons} de cette ligne) — Qté : ${r.cartonQtys[activeCartonIdx]}`;
+    /* Affiche à la fois le numéro GLOBAL du carton, et sa position LOCALE
+       dans l'article ("2/5 de cette ligne" par exemple), pour ne perdre
+       aucune des deux informations utiles. */
+  }
+}
+
+// Édition d'une seule case : la valeur saisie devient "validée" (verrouillée), le
+// reste des cartons non verrouillés se répartit automatiquement le reliquat.
+function onCartonQtyChange(idx, value) {
+  /* Appelée quand l'utilisateur tape une quantité directement dans un carton
+     précis du tableau de détail. */
+  const i = selectedIndex;
+  const v = Math.max(0, parseInt(value, 10) || 0);
+  /* Math.max(0, ...) empêche une quantité négative (une saisie invalide ou
+     "-5" devient 0) */
+  const r = rows[i];
+  r.cartonQtys[idx] = v;
+  r.cartonLocked[idx] = true;
+  /* Dès qu'on modifie une quantité à la main, ce carton devient "verrouillé" :
+     il ne sera plus recalculé automatiquement par redistributeUnlocked */
+  redistributeUnlocked(r);
+  /* Réajuste tous les AUTRES cartons (non verrouillés) pour que le total
+     reste juste */
+  renderCartonDetail();
+  updatePreviewButtonState();
+  updateRowWarnDot(i);
+  drawSummary();
+}
+
+function toggleCartonLock(idx) {
+  /* Bascule manuellement l'état verrouillé/déverrouillé d'un carton, sans
+     changer sa quantité, via un clic sur le bouton cadenas */
+  const r = rows[selectedIndex];
+  r.cartonLocked[idx] = !r.cartonLocked[idx];
+  /* Le "!" inverse une valeur vraie/fausse : true devient false et vice-versa */
+  redistributeUnlocked(r);
+  renderCartonDetail();
+  updatePreviewButtonState();
+  updateRowWarnDot(selectedIndex);
+  drawSummary();
+}
+
+// Applique directement une quantité à une plage de cartons (1-indexé côté
+// interface) en un seul clic — pas besoin de cocher les cases une par une.
+// Les cartons de la plage sont verrouillés à cette valeur ; le reliquat se
+// répartit automatiquement sur les cartons restants (hors plage, non verrouillés).
+function applyQtyToRange() {
+  /* Le cœur de la barre d'outils "Cartons n° [de] à [n°] → qté [qté]
+     [Appliquer à la plage]". C'est la fonction la plus délicate du fichier
+     car elle jongle avec la numérotation GLOBALE (continue sur tout le
+     fichier, celle que voit l'utilisateur) et la numérotation LOCALE (la
+     position réelle dans le tableau "cartonQtys" de CET article, qui elle
+     recommence toujours à 0). */
+  if (selectedIndex === null) return;
+  const r = rows[selectedIndex];
+  const offset = rowCartonOffset(selectedIndex);
+  const fromEl = document.getElementById("rangeFrom");
+  const toEl = document.getElementById("rangeTo");
+  const qtyInput = document.getElementById("applyQty");
+  let from = parseInt(fromEl.value, 10);
+  let to = parseInt(toEl.value, 10);
+  const v = Math.max(0, parseInt(qtyInput.value, 10) || 0);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+    setStatus("Indiquez les numéros de carton de début et de fin de la plage.", "warn");
+    return;
+  }
+  if (from > to) { const tmp = from; from = to; to = tmp; }
+  /* Si l'utilisateur a tapé les 2 numéros dans le "mauvais" ordre (ex: 10 à
+     5), on les échange automatiquement plutôt que d'afficher une erreur.
+     "tmp" est une variable temporaire classique pour échanger 2 valeurs. */
+  // Les numéros saisis sont les numéros de carton globaux (numérotation continue
+  // sur tout le fichier, cartons ${offset+1}..${offset+r.cartons} pour cette
+  // ligne) — on les convertit en position locale au sein de la ligne.
+  let localFrom = from - offset;
+  let localTo = to - offset;
+  /* Exemple concret : si "offset" vaut 20 (les 20 premiers cartons
+     appartiennent à l'article précédent) et que l'utilisateur tape "de 21 à
+     25", alors localFrom = 21 - 20 = 1 et localTo = 25 - 20 = 5 : les cartons
+     n°1 à 5 DE CET ARTICLE, ce qui correspond bien aux cases 0 à 4 du tableau
+     cartonQtys une fois qu'on aura encore soustrait 1 (voir la boucle plus
+     bas, "k - 1"). */
+  if (localTo < 1) {
+    setStatus(`Les cartons ${from} à ${to} appartiennent à une ligne précédente (celle-ci commence au carton ${offset + 1}).`, "warn");
+    return;
+    /* Si même le numéro de FIN de la plage tombe avant le début de cet
+       article, la plage entière appartient à un article précédent : on
+       refuse et on explique pourquoi, plutôt que de modifier le mauvais
+       article silencieusement. */
+  }
+  localFrom = Math.max(1, localFrom);
+  /* Si le numéro de DÉBUT, lui, tombait avant cet article (mais pas la fin),
+     on le ramène simplement à 1 (le premier carton de cet article) plutôt que
+     de refuser toute la plage. */
+  // Si la plage dépasse le nombre de cartons actuel, on l'étend automatiquement
+  // au lieu de tronquer silencieusement — évite d'avoir à régler "Nombre de
+  // cartons" séparément avant de saisir une plage.
+  if (localTo > r.cartons) {
+    /* Si la plage demandée va plus loin que le nombre de cartons actuellement
+       défini pour cet article (ex: on demande "jusqu'au carton 25" alors que
+       l'article n'a que 20 cartons pour l'instant), on AGRANDIT
+       automatiquement l'article au lieu de refuser ou de tronquer. */
+    const extra = localTo - r.cartons;
+    /* Le nombre de cartons supplémentaires à créer */
+    r.cartonQtys = r.cartonQtys.concat(new Array(extra).fill(0));
+    /* .concat(...) ajoute les nouveaux cartons (initialement à 0 pièce) à la
+       SUITE du tableau existant, sans toucher aux cartons déjà là */
+    r.cartonLocked = r.cartonLocked.concat(new Array(extra).fill(false));
+    r.cartons = localTo;
+    /* Met à jour le compteur officiel de cartons de cet article */
+    const countInput = document.getElementById("colisageCartonsCount");
+    if (countInput) countInput.value = r.cartons;
+    const mainCartonsInput = document.getElementById(`cartonsInput_${selectedIndex}`);
+    if (mainCartonsInput) mainCartonsInput.value = r.cartons;
+    /* Synchronise les DEUX champs "Nombre de cartons" affichés à l'écran
+       (celui de l'onglet colisage et celui du tableau "Vue d'ensemble") avec
+       cette nouvelle valeur, pour ne jamais les laisser désynchronisés */
+  }
+  for (let k = localFrom; k <= localTo; k++) {
+    r.cartonQtys[k - 1] = v;
+    r.cartonLocked[k - 1] = true;
+    /* "k - 1" : les numéros de carton affichés à l'utilisateur commencent à
+       1, mais les tableaux JavaScript commencent toujours à l'index 0 — d'où
+       ce décalage systématique d'une unité entre "ce que voit l'utilisateur"
+       et "où c'est stocké en mémoire". */
+  }
+  redistributeUnlocked(r);
+  /* Les cartons HORS de la plage (et non verrouillés par ailleurs) se
+     partagent automatiquement ce qu'il reste de la quantité livrée */
+  renderCartonDetail();
+  updatePreviewButtonState();
+  updateRowWarnDot(selectedIndex);
+  drawSummary();
+  setStatus(`Qté ${v} appliquée aux cartons ${offset + localFrom} à ${offset + localTo} — le reste a été réparti automatiquement.`, "ok");
+  /* On réaffiche les numéros GLOBAUX dans le message de confirmation (et non
+     les numéros locaux), pour rester cohérent avec ce que l'utilisateur a
+     lui-même saisi */
+  /* Enchaînement sur la plage suivante : une fois la plage validée, "de"
+     reprend automatiquement au numéro global juste après celui qu'on vient
+     de traiter (offset + localTo + 1), "à" est vidé, et le focus clavier est
+     remis dans "à" — l'utilisateur peut taper la borne de la plage suivante
+     tout de suite, sans re-cliquer dans les champs ni retaper le début. */
+  fromEl.value = offset + localTo + 1;
+  toEl.value = "";
+  toEl.focus();
+}
+
+// Repart de zéro : déverrouille tous les cartons de la ligne et refait une
+// répartition égale de la qté livrée.
+function resetRowSplit() {
+  /* Le bouton "↺ Réinitialiser" : annule tous les réglages manuels de
+     l'article actuellement affiché, et revient à une répartition égale
+     automatique entre tous ses cartons. */
+  if (selectedIndex === null) return;
+  const r = rows[selectedIndex];
+  r.cartonLocked = new Array(r.cartons).fill(false);
+  r.cartonQtys = computeEvenSplit(r.qty, r.cartons);
+  renderCartonDetail();
+  updateRowWarnDot(selectedIndex);
+  drawSummary();
+}
+
+// Génère le rapport imprimable de l'onglet "Liste de colisage" : un récap par
+// article (plage de cartons n° X à Y, désignation, totaux) puis le détail
+// carton par carton (numérotation continue sur tout le fichier).
+function renderListeColisage() {
+  /* Construit tout le contenu HTML du 3ème onglet, à partir de "rows".
+     Rappel : contrairement aux autres tableaux (mis à jour au fur et à
+     mesure), celui-ci est entièrement RECONSTRUIT à chaque fois qu'on arrive
+     sur l'onglet, pour être toujours sûr d'afficher les derniers réglages. */
+  const container = document.getElementById("listeColisageContent");
+  if (!rows.length) {
+    container.innerHTML = `<p class="muted" style="padding:20px;text-align:center">Aucune donnée chargée — sélectionnez d'abord un fichier CSV ou Excel.</p>`;
+    return;
+    /* .length sur un tableau = son nombre d'éléments. "!rows.length" = vrai
+       si le tableau est vide (0 est "faux" en JavaScript). Message d'aide
+       affiché si on va sur cet onglet avant même d'avoir chargé un fichier. */
+  }
+  const totalCartons = rows.reduce((a, r) => a + r.cartons, 0);
+  const totalPieces = rows.reduce((a, r) => a + rowCartonSum(r), 0);
+  const now = new Date();
+  /* Récupère la date et l'heure ACTUELLES de l'ordinateur */
+  const dateStr = now.toLocaleDateString("fr-FR") + " " + now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  /* .toLocaleDateString("fr-FR") formate la date à la française (ex:
+     06/07/2026) plutôt qu'au format américain par défaut. .toLocaleTimeString
+     avec { hour: "2-digit", minute: "2-digit" } donne une heure du style
+     "14:35" sans les secondes. */
+
+  let html = `<div style="margin-bottom:6px">
+      <h2 class="section-title" style="margin-bottom:2px">Liste de colisage</h2>
+      <div class="muted" style="font-size:12px">Édité le ${dateStr} — ${rows.length} ligne(s) SKU · ${totalCartons} carton(s) · ${totalPieces} pièce(s) au total</div>
+    </div>`;
+  /* "let" (et non "const") car cette variable va être COMPLÉTÉE petit à petit
+     avec "+=" tout au long de la fonction, contrairement aux autres chaînes
+     de texte du fichier qui sont créées une seule fois. */
+
+  html += `<h3>Récapitulatif par article</h3>`;
+  /* "+=" ajoute du texte À LA SUITE du contenu déjà accumulé dans "html" */
+  html += `<table class="data-table"><thead><tr>` +
+    `<th style="width:110px">Cartons n°</th><th>SKU</th><th>Désignation</th>` +
+    `<th style="text-align:center;width:90px">Nb cartons</th><th style="text-align:center;width:100px">Total pièces</th>` +
+    `</tr></thead><tbody>`;
+  rows.forEach((r, i) => {
+    const offset = rowCartonOffset(i);
+    const rangeLabel = r.cartons > 1 ? `${offset + 1} à ${offset + r.cartons}` : `${offset + 1}`;
+    /* Si l'article n'a qu'1 seul carton, on affiche juste son numéro (ex:
+       "21") plutôt que "21 à 21", qui serait redondant */
+    html += `<tr>` +
+      `<td>${rangeLabel}</td>` +
+      `<td>${escapeHtml(r.sku)}${r.taille ? " (" + escapeHtml(r.taille) + ")" : ""}</td>` +
+      `<td>${escapeHtml(r.itemName)}</td>` +
+      `<td style="text-align:center">${r.cartons}</td>` +
+      `<td style="text-align:center">${rowCartonSum(r)}</td>` +
+      `</tr>`;
+  });
+  html += `</tbody></table>`;
+
+  html += `<h3>Détail par carton</h3>`;
+  html += `<table class="data-table"><thead><tr>` +
+    `<th style="width:90px">Carton n°</th><th>SKU</th><th>Désignation</th><th style="text-align:center;width:100px">Quantité</th>` +
+    `</tr></thead><tbody>`;
+  rows.forEach((r, i) => {
+    const offset = rowCartonOffset(i);
+    r.cartonQtys.forEach((q, idx) => {
+      /* Boucle IMBRIQUÉE : pour chaque article, on reboucle sur chacun de
+         SES cartons, pour produire une ligne de tableau PAR CARTON (et non
+         par article, contrairement au tableau de récapitulatif juste
+         au-dessus) */
+      html += `<tr>` +
+        `<td>${offset + idx + 1}</td>` +
+        `<td>${escapeHtml(r.sku)}${r.taille ? " (" + escapeHtml(r.taille) + ")" : ""}</td>` +
+        `<td>${escapeHtml(r.itemName)}</td>` +
+        `<td style="text-align:center">${q}</td>` +
+        `</tr>`;
+    });
+  });
+  html += `</tbody></table>`;
+
+  container.innerHTML = html;
+  /* Une seule affectation finale à innerHTML (plutôt que de modifier le DOM
+     à chaque ligne dans la boucle) : bien plus rapide, car le navigateur ne
+     recalcule l'affichage qu'une seule fois à la fin. */
+}
+
+document.getElementById("btnPrintListe").addEventListener("click", () => {
+  renderListeColisage();
+  /* On régénère le rapport juste avant d'imprimer, pour être certain qu'il
+     est bien à jour même si l'utilisateur a modifié quelque chose entre le
+     moment où il est arrivé sur l'onglet et le moment où il clique sur
+     Imprimer */
+  window.print();
+  /* Fonction NATIVE du navigateur qui ouvre la fenêtre d'impression système.
+     Grâce aux règles @media print du CSS (vues plus haut), seul le rapport
+     s'imprime, sans le reste de l'interface (onglets, colonnes, boutons). */
+});
+
+// Bascule entre l'onglet "Vue d'ensemble" (liste complète) et "Gestion du
+// colisage" (détail des cartons + aperçu, en plein écran) — demandé par
+// Jean-Michel pour ne pas tout entasser sur un seul écran.
+function switchTab(tab) {
+  /* La fonction centrale qui gère le changement d'onglet, quel qu'il soit.
+     "tab" vaut "overview", "colisage" ou "liste" (les valeurs des attributs
+     data-tab="..." des boutons d'onglet, voir le HTML). */
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  /* Pour CHAQUE bouton d'onglet : lui donne la classe "active" SEULEMENT s'il
+     correspond à l'onglet demandé (b.dataset.tab === tab), l'enlève sinon.
+     Résultat : un seul bouton est actif à la fois, quel que soit l'onglet
+     précédemment actif. */
+  document.getElementById("tabOverview").classList.toggle("active", tab === "overview");
+  document.getElementById("tabColisage").classList.toggle("active", tab === "colisage");
+  document.getElementById("tabListe").classList.toggle("active", tab === "liste");
+  /* Même principe, mais sur les 3 PANNEAUX de contenu (voir la règle CSS
+     .tab-panel.active) — un seul est visible à la fois. */
+  document.getElementById("colRight").style.display = (tab === "colisage") ? "flex" : "none";
+  /* La colonne d'aperçu à droite n'a de sens QUE sur l'onglet colisage */
+  document.getElementById("btnPrint").style.display = (tab === "overview") ? "" : "none";
+  /* Le bouton "Imprimer" (les étiquettes) du footer n'a de sens QUE sur
+     l'onglet "Vue d'ensemble" (style.display = "" remet la valeur par défaut
+     du CSS, qui affiche normalement le bouton) */
+  document.getElementById("btnResetShipment").style.display = (tab === "overview") ? "" : "none";
+  /* Même principe pour le bouton rouge "Nouvelle expédition" */
+  // En arrivant sur l'onglet colisage sans ligne déjà sélectionnée, on propose
+  // directement la première ligne (le sélecteur SKU permet ensuite de changer
+  // d'article sans repasser par "Vue d'ensemble").
+  if (tab === "colisage" && selectedIndex === null && rows.length > 0) {
+    openColisageForRow(0);
+    /* Si on clique directement sur "Gestion du colisage" sans être passé par
+       une ligne du tableau, on ouvre automatiquement le PREMIER article
+       plutôt que de laisser l'écran vide */
+  }
+  // La liste de colisage est régénérée à chaque arrivée sur l'onglet, pour
+  // refléter les derniers ajustements de cartons/quantités.
+  if (tab === "liste") renderListeColisage();
+}
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+/* Branche l'écouteur de clic sur les 3 boutons d'onglet EN UNE SEULE FOIS
+   (plutôt que 3 lignes répétées), grâce à querySelectorAll + forEach */
+
+// Remplit le sélecteur de SKU de l'onglet "Gestion du colisage" — permet
+// d'enchaîner les lignes sans revenir sur "Vue d'ensemble".
+function populateColisageSkuSelect() {
+  const sel = document.getElementById("colisageSkuSelect");
+  sel.innerHTML = "";
+  rows.forEach((r, i) => {
+    const opt = document.createElement("option");
+    /* Crée une nouvelle <option> pour la liste déroulante */
+    opt.value = i;
+    /* La VALEUR technique de cette option = la position dans "rows" (utilisée
+       par le JS pour retrouver le bon article) */
+    const disp = r.itemName.length > 40 ? r.itemName.slice(0, 40) + "…" : r.itemName;
+    opt.textContent = `${r.sku}${r.taille ? " (" + r.taille + ")" : ""} — ${disp}`;
+    /* Le TEXTE visible dans la liste déroulante, ex: "SKU123 (M) — Sac à dos" */
+    sel.appendChild(opt);
+  });
+  if (selectedIndex !== null) sel.value = selectedIndex;
+  /* Si un article était déjà sélectionné, on remet la liste déroulante sur
+     ce même article après l'avoir reconstruite (sinon elle reviendrait
+     visuellement au premier article par défaut) */
+}
+
+// Ouvre le colisage d'une ligne donnée (utilisé par le clic sur le tableau
+// principal ET par le sélecteur de SKU de l'onglet colisage lui-même).
+function openColisageForRow(i) {
+  /* Affiche, dans l'onglet "Gestion du colisage", les détails de l'article
+     numéro "i". Fonction PARTAGÉE par plusieurs déclencheurs différents
+     (clic sur une ligne du tableau, changement dans le sélecteur SKU,
+     arrivée sur l'onglet sans sélection, chargement d'un fichier en étant
+     déjà sur cet onglet) — évite de dupliquer cette logique 4 fois. */
+  selectedIndex = i;
+  activeCartonIdx = null;
+  document.querySelectorAll("#tableBody tr").forEach(tr => tr.classList.toggle("selected", Number(tr.dataset.idx) === i));
+  /* Met en surbrillance bleue la bonne ligne dans le tableau "Vue
+     d'ensemble" (même si on ne le voit pas actuellement à l'écran) */
+  document.getElementById("colisageEmpty").style.display = "none";
+  document.getElementById("colisageContent").style.display = "flex";
+  /* Cache le message "Sélectionnez une ligne..." et affiche le vrai contenu */
+  const sel = document.getElementById("colisageSkuSelect");
+  if (sel) sel.value = i;
+  const countInput = document.getElementById("colisageCartonsCount");
+  if (countInput) countInput.value = rows[i].cartons;
+  // Pré-remplit la plage avec le premier carton de cette ligne dans "de", et
+  // vide "à" : au changement de SKU, on repart toujours du carton suivant
+  // plutôt que de garder les numéros de la ligne précédente affichés à l'écran.
+  const offset = rowCartonOffset(i);
+  const fromEl = document.getElementById("rangeFrom");
+  const toEl = document.getElementById("rangeTo");
+  if (fromEl) fromEl.value = offset + 1;
+  if (toEl) toEl.value = "";
+  renderCartonDetail();
+  updatePreviewButtonState();
+  // Champ obligatoire : on met le curseur dedans (texte sélectionné) à chaque
+  // arrivée sur l'onglet colisage ou changement de SKU, pour forcer sa vérification.
+  if (countInput) {
+    setTimeout(() => { countInput.focus(); countInput.select(); }, 0);
+    /* setTimeout(fonction, 0) = exécute la fonction "juste après" que le
+       navigateur ait fini de traiter tout ce qui est en cours (notamment
+       l'affichage qui vient de changer juste au-dessus). Sans ce petit délai,
+       le focus pourrait échouer silencieusement sur certains navigateurs si
+       l'élément vient tout juste de devenir visible (passage de display:none
+       à display:flex). .focus() place le curseur dans le champ, .select()
+       sélectionne tout son texte (pratique pour le remplacer directement en
+       tapant, sans avoir à l'effacer à la main). */
+  }
+}
+
+document.getElementById("colisageSkuSelect").addEventListener("change", (e) => {
+  const i = Number(e.target.value);
+  if (Number.isFinite(i) && rows[i]) openColisageForRow(i);
+  /* Vérifie que "i" est un nombre valide ET que cet article existe bien dans
+     "rows" avant d'essayer de l'ouvrir (double sécurité) */
+});
+
+// Champ "Nombre de cartons" dupliqué dans l'onglet colisage (en plus de celui
+// du tableau principal) — pour ne plus avoir à changer d'onglet pour fixer le
+// nombre de cartons avant de répartir les quantités par plage.
+document.getElementById("colisageCartonsCount").addEventListener("change", (e) => {
+  if (selectedIndex === null) return;
+  onCartonsInputChange(selectedIndex, e.target.value);
+  /* Réutilise EXACTEMENT la même fonction que le champ du tableau principal
+     (onCartonsInputChange), pour garantir un comportement identique quel que
+     soit l'endroit où on modifie le nombre de cartons */
+});
+
+function selectRow(i) {
+  /* Utilisée uniquement au clic sur une ligne du tableau "Vue d'ensemble" :
+     ouvre l'article ET bascule automatiquement vers l'onglet colisage */
+  openColisageForRow(i);
+  switchTab("colisage");
+}
+
+async function previewCarton(i, idx) {
+  /* Charge et affiche l'aperçu visuel d'un carton précis (article "i",
+     carton local "idx") dans la colonne de droite */
+  const r = rows[i];
+  const qty = r.cartonQtys[idx];
+  const zpl = buildZpl(r.otb, r.sku, r.taille, qty, r.itemName);
+  /* Génère le code ZPL de CE carton précis, avec SA quantité propre (pas la
+     quantité totale de l'article) */
+  const box = document.getElementById("previewBox");
+  box.innerHTML = `<span class="placeholder">Chargement aperçu…</span>`;
+  setStatus("Chargement aperçu…");
+  try {
+    /* Un bloc try/catch : on "essaie" le code sensible (qui dépend d'Internet
+       et d'un service externe), et si une erreur survient, on l'attrape dans
+       le "catch" au lieu de faire planter toute la page. */
+    const url = await fetchPreview(zpl);
+    box.innerHTML = `<img src="${url}" alt="Aperçu étiquette">`;
+    /* alt="..." = texte alternatif affiché si l'image ne charge pas (et lu
+       par les lecteurs d'écran pour l'accessibilité) */
+    const offset = rowCartonOffset(i);
+    setStatus(`Aperçu chargé (carton ${offset + idx + 1}).`, "ok");
+  } catch (e) {
+    /* "e" contient les détails de l'erreur survenue dans le bloc try */
+    box.innerHTML = `<span class="placeholder">Erreur aperçu</span>`;
+    setStatus("Erreur aperçu : " + e.message, "warn");
+    /* e.message = le texte descriptif de l'erreur (ex: "Labelary a répondu 500") */
+  }
+}
+
+async function refreshPrinters() {
+  /* Interroge Zebra Browser Print pour lister les imprimantes disponibles,
+     et remplit la liste déroulante correspondante. Appelée au chargement de
+     la page, et à chaque clic sur le bouton ↺. */
+  const select = document.getElementById("printerSelect");
+  const previous = select.value;
+  /* Se souvient de la sélection AVANT le rafraîchissement, pour essayer de
+     la conserver après (voir plus bas) */
+  try {
+    printers = await getAvailablePrinters();
+    select.innerHTML = "";
+    printers.forEach((p, i) => {
+      const opt = document.createElement("option");
+      opt.value = i;
+      const label = p.name || p.uid || `Imprimante ${i + 1}`;
+      /* Utilise le nom de l'imprimante si disponible, sinon son identifiant
+         technique, sinon un nom générique "Imprimante N" en dernier recours */
+      const conn = p.connection ? ` — ${String(p.connection).toUpperCase()}` : "";
+      /* Affiche le type de connexion (USB, réseau...) en majuscules s'il est connu */
+      opt.textContent = label + conn;
+      select.appendChild(opt);
+    });
+    const saved = localStorage.getItem("zebra_printer_name");
+    /* localStorage = une mémoire qui survit à la fermeture du navigateur (et
+       même de l'ordinateur) — utilisée ici pour retenir l'imprimante choisie
+       d'une session à l'autre. .getItem(clé) lit une valeur précédemment
+       enregistrée avec .setItem(clé, valeur) (voir plus bas). */
+    if (saved) {
+      const idx = printers.findIndex(p => p.name === saved);
+      /* .findIndex(...) cherche la POSITION du premier élément qui vérifie
+         la condition fournie (ici : le nom correspond à celui sauvegardé),
+         ou renvoie -1 si aucun ne correspond */
+      if (idx >= 0) select.value = idx;
+    } else if (previous) {
+      select.value = previous;
+      /* Si rien n'était sauvegardé mais qu'une imprimante était déjà
+         sélectionnée avant ce rafraîchissement, on essaie de la reprendre */
+    }
+    if (printers.length === 0) {
+      setStatus("Aucune imprimante détectée par Browser Print.", "warn");
+    } else if (printers.length > 1) {
+      setStatus(printers.length + " imprimantes détectées — utilisez \"Imprimer une étiquette test\" si vous ne savez pas laquelle choisir.", "warn");
+      /* Le \" à l'intérieur d'un texte entre guillemets normaux permet
+         d'inclure un vrai caractère guillemet sans que cela ne termine le
+         texte prématurément (on dit qu'on "échappe" le guillemet) */
+    }
+  } catch (e) {
+    select.innerHTML = `<option value="">— Browser Print introuvable —</option>`;
+    setStatus("Zebra Browser Print n'est pas accessible (localhost:9100). Vérifiez qu'il est installé et lancé.", "warn");
+  }
+}
+
+document.getElementById("btnApplyRange").addEventListener("click", applyQtyToRange);
+document.getElementById("btnResetSplit").addEventListener("click", resetRowSplit);
+document.getElementById("btnShowPreview").addEventListener("click", () => {
+  if (selectedIndex === null || activeCartonIdx === null) return;
+  previewCarton(selectedIndex, activeCartonIdx);
+  /* Recharge simplement l'aperçu du carton déjà actif — utile après avoir
+     modifié sa quantité, pour voir le résultat sans recliquer dessus */
+});
+
+document.getElementById("refreshPrinters").addEventListener("click", refreshPrinters);
+
+document.getElementById("printerSelect").addEventListener("change", (e) => {
+  const p = printers[Number(e.target.value)];
+  if (p) localStorage.setItem("zebra_printer_name", p.name);
+  /* Sauvegarde le CHOIX de l'imprimante dès qu'il change, pour le retrouver
+     à la prochaine ouverture de la page (voir refreshPrinters ci-dessus) */
+});
+
+document.getElementById("btnTestPrint").addEventListener("click", async () => {
+  /* Le bouton "Imprimer une étiquette test", pour vérifier facilement
+     laquelle des imprimantes détectées correspond à laquelle physiquement */
+  const idx = Number(document.getElementById("printerSelect").value);
+  const device = printers[idx];
+  if (!device) {
+    setStatus("Sélectionnez d'abord une imprimante dans la liste.", "warn");
+    return;
+  }
+  const idLabel = zplSafe(device.name || device.uid || "?");
+  const zpl = "^XA^CF0,45^FO40,40^FDETIQUETTE TEST^FS" +
+              "^CF0,30^FO40,110^FD" + idLabel + "^FS" +
+              "^FO40,160^A0N,24,24^FDSi cette etiquette sort ici,^FS" +
+              "^FO40,195^A0N,24,24^FDc'est bien cette imprimante.^FS^XZ";
+  /* Un mini-code ZPL de test, écrit à la main (pas via buildZpl, car il n'a
+     rien à voir avec les vraies étiquettes d'articles), qui affiche juste le
+     nom de l'imprimante choisie en gros, pour la reconnaître facilement à la
+     sortie du bac papier */
+  const btn = document.getElementById("btnTestPrint");
+  btn.disabled = true;
+  /* Désactive le bouton pendant l'envoi, pour éviter un double-clic accidentel */
+  setStatus("Envoi de l'étiquette test à " + (device.name || device.uid) + "…");
+  try {
+    await sendZpl(device, zpl);
+    setStatus("✓ Étiquette test envoyée — regardez quelle imprimante sort la feuille.", "ok");
+  } catch (e) {
+    setStatus("Erreur test : " + e.message, "warn");
+  } finally {
+    /* Le bloc "finally" s'exécute TOUJOURS, que le try ait réussi ou que le
+       catch ait été déclenché — utilisé ici pour être sûr de toujours
+       réactiver le bouton, quoi qu'il arrive */
+    btn.disabled = false;
+  }
+});
+
+// Efface toutes les données de l'expédition en cours pour repartir de zéro
+// sur un nouveau fichier. Demande confirmation avant d'agir (via la fonction
+// native confirm(), la même que celle utilisée pour l'impression) : cette
+// action n'est pas récupérable, les réglages de cartons non imprimés sont perdus.
+function resetShipment() {
+  if (!rows.length) {
+    // Rien n'est chargé : pas la peine de demander confirmation pour "réinitialiser du vide"
+    setStatus("Rien à réinitialiser — aucune expédition en cours.", "warn");
+    return;
+  }
+  if (!confirm("Réinitialiser le travail en cours et passer à une nouvelle expédition ?\nLes réglages de cartons non imprimés de l'expédition actuelle seront perdus.")) return;
+  // L'utilisateur a cliqué "Annuler" dans la boîte de dialogue : confirm()
+  // renvoie false, et le "return" ci-dessus arrête la fonction sans rien changer.
+  rows = [];
+  selectedIndex = null;
+  activeCartonIdx = null;
+  document.getElementById("colisageEmpty").style.display = "";
+  document.getElementById("colisageContent").style.display = "none";
+  refreshTable();
+  populateColisageSkuSelect();
+  updatePreviewButtonState();
+  drawSummary();
+  document.getElementById("btnPrint").disabled = true;
+  const fileInput = document.getElementById("fileInput");
+  fileInput.value = "";
+  // fileInput.value = "" permet de recharger le même fichier ensuite : sans
+  // cette ligne, le navigateur ignore une seconde sélection identique (il ne
+  // déclenche pas l'événement "change" si le fichier choisi est le même).
+  setStatus("Prêt pour une nouvelle expédition — sélectionnez un fichier CSV ou Excel.", "ok");
+}
+document.getElementById("btnResetShipment").addEventListener("click", resetShipment);
+
+document.getElementById("fileInput").addEventListener("change", async () => {
+  /* LE point de départ de toute l'application : dès qu'un fichier est
+     choisi dans le champ "Fichier" de la colonne de gauche, cette fonction
+     se déclenche automatiquement (chargement automatique, sans bouton
+     "Charger" à cliquer séparément). */
+  const fileInput = document.getElementById("fileInput");
+  if (!fileInput.files.length) return;
+  /* fileInput.files = la liste des fichiers choisis (généralement 1 seul
+     ici). Si elle est vide (l'utilisateur a annulé la sélection), on
+     n'entreprend rien. */
+  setStatus("Chargement…");
+  try {
+    const file = fileInput.files[0];
+    /* On ne traite QUE le premier fichier choisi, même si la sélection
+       multiple était techniquement possible */
+    rows = await loadFile(file);
+    /* REMPLACE ENTIÈREMENT le contenu précédent de "rows" par les données du
+       nouveau fichier lu */
+    selectedIndex = null;
+    activeCartonIdx = null;
+    document.getElementById("colisageEmpty").style.display = "";
+    document.getElementById("colisageContent").style.display = "none";
+    /* Réinitialise l'onglet colisage à son état "vide", puisque l'ancienne
+       sélection n'a probablement plus de sens avec un nouveau fichier */
+    refreshTable();
+    populateColisageSkuSelect();
+    updatePreviewButtonState();
+    drawSummary();
+    // Si on est déjà sur l'onglet colisage au moment du chargement, on propose
+    // tout de suite la première ligne (voir switchTab).
+    if (document.getElementById("tabColisage").classList.contains("active") && rows.length > 0) {
+      openColisageForRow(0);
+    }
+    if (document.getElementById("tabListe").classList.contains("active")) {
+      renderListeColisage();
+    }
+    /* Ces deux "if" gèrent le cas où l'utilisateur charge un NOUVEAU fichier
+       alors qu'il est déjà sur l'onglet 2 ou 3 : on rafraîchit immédiatement
+       ce qu'il voit, sans qu'il ait besoin de changer d'onglet et d'y
+       revenir pour que ça se mette à jour. */
+    const totalCartons = rows.reduce((a, r) => a + r.cartons, 0);
+    const totalPieces = rows.reduce((a, r) => a + rowCartonSum(r), 0);
+    setStatus(`${rows.length} ligne(s) chargée(s) — ${totalCartons} étiquette(s) (1 carton/ligne par défaut) — ${totalPieces} pièce(s) au total. Ajustez le nombre de cartons si besoin.`, "ok");
+    document.getElementById("btnPrint").disabled = rows.length === 0;
+    /* Le bouton "Imprimer" (étiquettes) ne devient cliquable QUE si au moins
+       une ligne a été chargée avec succès */
+    try { localStorage.setItem("zebra_last_filename", file.name); } catch (e) {}
+    /* Sauvegarde le NOM du fichier (pas son contenu, pour des raisons de
+       taille et de sécurité) pour le rappeler à l'utilisateur au prochain
+       lancement. Le petit try/catch ici protège contre le cas rare où
+       localStorage serait désactivé/plein/inaccessible — dans ce cas on
+       ignore juste l'erreur silencieusement plutôt que de bloquer tout le
+       chargement du fichier pour ça. */
+    updateLastFileHint();
+  } catch (e) {
+    setStatus("Erreur de lecture : " + e.message, "warn");
+    /* Si loadFile/loadCsv/loadExcel a levé une erreur (fichier corrompu,
+       onglet Excel introuvable...), elle est attrapée ICI et affichée
+       proprement à l'utilisateur, au lieu de faire planter la page */
+  }
+});
+
+document.getElementById("btnPrint").addEventListener("click", async () => {
+  /* Le bouton "⎙ Imprimer" du footer : imprime UNE VRAIE étiquette physique
+     par carton, pour tous les articles chargés. */
+  if (!rows.length) {
+    setStatus("Chargez d'abord un fichier.", "warn");
+    return;
+  }
+  const idx = Number(document.getElementById("printerSelect").value);
+  const device = printers[idx];
+  if (!device) {
+    setStatus("Aucune imprimante valide sélectionnée.", "warn");
+    return;
+  }
+  const total = rows.reduce((a, r) => a + r.cartons, 0); // 1 carton = 1 étiquette
+  if (total === 0) {
+    setStatus("Aucun carton à imprimer.", "warn");
+    return;
+  }
+  if (!confirm(`Imprimer ${total} étiquette(s) (1 par carton) sur :\n${device.name} ?`)) return;
+  /* confirm(...) affiche une boîte de dialogue native du navigateur avec
+     "OK" / "Annuler". Elle renvoie "true" si l'utilisateur clique OK, "false"
+     sinon — une sécurité indispensable avant de lancer une impression
+     potentiellement longue (et coûteuse en étiquettes si erreur). */
+
+  const btnPrint = document.getElementById("btnPrint");
+  const fileInputEl = document.getElementById("fileInput");
+  const progress = document.getElementById("progressBar");
+  btnPrint.disabled = true;
+  fileInputEl.disabled = true;
+  /* On bloque aussi le champ de sélection de fichier pendant l'impression,
+     pour éviter de charger un nouveau fichier (et donc changer "rows") en
+     pleine impression, ce qui créerait une incohérence entre ce qui
+     s'imprime et ce qui est affiché à l'écran */
+  progress.style.display = "inline-block";
+  progress.max = total;
+  progress.value = 0;
+
+  let done = 0;
+  try {
+    for (const r of rows) {
+      /* Boucle sur chaque ARTICLE... */
+      for (const cartonQty of r.cartonQtys) {
+        /* ...puis, à l'intérieur, sur chaque CARTON de cet article (double
+           boucle imbriquée, comme dans renderListeColisage) */
+        const zpl = buildZpl(r.otb, r.sku, r.taille, cartonQty, r.itemName);
+        // Une étiquette par carton — la qté imprimée est celle saisie pour ce carton.
+        await sendZpl(device, zpl);
+        /* "await" ICI est important : on attend que CHAQUE étiquette soit
+           bien envoyée avant de passer à la suivante, plutôt que de toutes
+           les envoyer d'un coup (ce qui risquerait de saturer l'imprimante
+           ou de les mélanger) */
+        done += 1;
+        progress.value = done;
+        setStatus(`Impression… ${done}/${total}`);
+      }
+    }
+    setStatus(`✓ ${total} étiquette(s) envoyée(s) à l'imprimante.`, "ok");
+  } catch (e) {
+    setStatus("Erreur d'impression : " + e.message, "warn");
+    /* Si une étiquette échoue en cours de route, on s'arrête et on informe
+       — les étiquettes déjà envoyées AVANT l'erreur ont, elles, bien été imprimées */
+  } finally {
+    btnPrint.disabled = false;
+    fileInputEl.disabled = false;
+    progress.style.display = "none";
+    /* Quoi qu'il arrive (succès ou erreur), on redonne la main à
+       l'utilisateur : boutons réactivés, barre de progression cachée */
+  }
+});
+
+// ═══ Mémorisation nom de fichier + onglet Excel ═══
+function updateLastFileHint() {
+  /* Affiche, sous le champ de sélection de fichier, le nom du dernier
+     fichier chargé (mémorisé via localStorage, voir plus haut) */
+  const hint = document.getElementById("lastFileHint");
+  let last = "";
+  try { last = localStorage.getItem("zebra_last_filename") || ""; } catch (e) {}
+  hint.textContent = last ? "Dernier fichier utilisé : " + last : "";
+  /* Si "last" est une chaîne vide (rien de sauvegardé), on n'affiche rien du
+     tout plutôt que "Dernier fichier utilisé : " suivi de vide */
+}
+
+const sheetNameInput = document.getElementById("sheetName");
+sheetNameInput.addEventListener("change", () => {
+  try { localStorage.setItem("zebra_sheet_name", sheetNameInput.value.trim()); } catch (e) {}
+  /* Sauvegarde le nom d'onglet Excel dès qu'il est modifié, pour le
+     retrouver la prochaine fois (voir restorePrefs juste en dessous) */
+});
+
+function restorePrefs() {
+  /* Appelée une seule fois, au tout premier chargement de la page, pour
+     réappliquer les préférences mémorisées d'une session à l'autre */
+  try {
+    const savedSheet = localStorage.getItem("zebra_sheet_name");
+    if (savedSheet) sheetNameInput.value = savedSheet;
+  } catch (e) {}
+  updateLastFileHint();
+}
+
+// Init
+restorePrefs();
+refreshPrinters();
+/* Les 2 seules lignes qui s'exécutent IMMÉDIATEMENT au chargement de la
+   page (tout le reste du script ne fait QUE définir des fonctions et des
+   écouteurs, qui attendent une action de l'utilisateur pour s'activer). */
+</script>
+</body>
+</html>

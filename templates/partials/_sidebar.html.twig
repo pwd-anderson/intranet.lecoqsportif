@@ -156,6 +156,16 @@
                     </li>
                     {% endif %}
 
+                    {# Pilotage Livraisons : ADV, LOGISTIC, SALES, PURCHASING + superusers #}
+                    {% if (isSuperUser or is_granted('ROLE_ADV') or is_granted('ROLE_LOGISTIC') or is_granted('ROLE_SALES') or is_granted('ROLE_PURCHASING')) and not is_stat_excluded('app_pilotage_livraisons') %}
+                    <li class="{% if currentRoute == 'app_pilotage_livraisons' %}active{% endif %}">
+                        <a href="{{ path('app_pilotage_livraisons') }}">
+                            <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.stat.pilotage.livraisons'|trans }}</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
                     {# Import OD : ACCOUNTING, CONTROLLING, MANAGEMENT, ADMIN #}
                     {% if (isSuperUser or is_granted('ROLE_ACCOUNTING')) and not is_stat_excluded('module_import_od') %}
                     <li class="{% if currentRoute == 'app_module_import_od' %}active{% endif %}">
