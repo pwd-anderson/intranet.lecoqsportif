@@ -936,6 +936,7 @@ class Sales
             'PRICE_HT'              => 'SOP.NETPRINOT_0',
             'CLIENT_LIVRE'          => 'SOH.BPDNAM_0',
             'INDEPENDANT_GROUPMENT' => 'ATX4.TEXTE_0',
+            'CODE_POSTAL'           => 'BPA.POSCOD_0',
             'VILLE'                 => 'BPA.CTY_0',
             'ZCLASSE_0'             => 'SOH.ZCLASSE_0',
         ];
