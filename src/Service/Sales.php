@@ -17,8 +17,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class Sales
 {
-    private MssqlManager $mssqlLcs;
-    private MssqlManager $mssqlSei;
+    private ?MssqlManager $mssqlLcsInstance = null;
+    private ?MssqlManager $mssqlSeiInstance = null;
     private bool $isDev;
 
     public function __construct(
@@ -30,16 +30,30 @@ class Sales
         private RequestStack $requestStack,
         private Divers $divers,
         #[Autowire('%db.lcs%')]
-        string $dbLcs,
+        private string $dbLcs,
         #[Autowire('%db.lcs_sei%')]
-        string $dbLcsSei,
+        private string $dbLcsSei,
         #[Autowire('%kernel.environment%')]
         string $environment,
     )
     {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
-        $this->mssqlSei = $this->mssqlManagerFactory->create($dbLcsSei);
-        $this->isDev    = ($environment === 'dev');
+        $this->isDev = ($environment === 'dev');
+    }
+
+    /**
+     * Connexions MSSQL établies à la demande seulement (pas dans le constructeur) :
+     * ouvrir une connexion PDO vers un serveur distant est coûteux (mssqlLcs peut
+     * prendre ~15s), donc on évite de payer ce coût pour les actions qui n'ont besoin
+     * que de mssqlSei (ex: Backlog Client X3, État des commandes clients).
+     */
+    private function mssqlLcs(): MssqlManager
+    {
+        return $this->mssqlLcsInstance ??= $this->mssqlManagerFactory->create($this->dbLcs);
+    }
+
+    private function mssqlSei(): MssqlManager
+    {
+        return $this->mssqlSeiInstance ??= $this->mssqlManagerFactory->create($this->dbLcsSei);
     }
 
     private function table(string $name): string
@@ -66,7 +80,7 @@ class Sales
                         and year(s.[Created Date Time]) > 2016
                         GROUP BY s.No_, s.[Variant Code],s.[Document No_],s.CompanyCode,c.No_,c.Name,s.[Shipment Date]";
 
-            $data = $this->mssqlLcs->executeQuery($query);
+            $data = $this->mssqlLcs()->executeQuery($query);
             return $data;
 
         } catch (\Exception $e) {
@@ -103,7 +117,7 @@ class Sales
                         and s.LocationCode in ('DIRECT', 'DT-WHS-TH', 'LOGTXM-1', 'SF-WHS-CN1')
                         and s.SalesOrderType in ('CO', 'OP', 'PS', 'RE')";
 
-            $backlog = $this->mssqlLcs->executeQuery($query);
+            $backlog = $this->mssqlLcs()->executeQuery($query);
 
             /* ======================
                Récupération stock réel
@@ -160,7 +174,7 @@ class Sales
     {
         try {
             $query = $this->sqlFileLoader->load('Navision/commandes_a_facturer_tmp.sql');
-            $data = $this->mssqlLcs->executeQuery($query);
+            $data = $this->mssqlLcs()->executeQuery($query);
             return $data;
 
         } catch (\Exception $e) {
@@ -173,7 +187,7 @@ class Sales
     {
         try {
             $query = $this->sqlFileLoader->load('Navision/stock_reel_tmp.sql');
-            $data = $this->mssqlLcs->executeQuery($query);
+            $data = $this->mssqlLcs()->executeQuery($query);
             return $data;
         }catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Stock : Récupération de données Stock Reel LCS', $e);
@@ -185,7 +199,7 @@ class Sales
     {
         try {
             $query = $this->sqlFileLoader->load('Navision/reassort_tmp.sql');
-            $data = $this->mssqlLcs->executeQuery($query);
+            $data = $this->mssqlLcs()->executeQuery($query);
 
             return $data;
 
@@ -208,7 +222,7 @@ class Sales
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/commandes_a_facturer_x3.sql');
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
             return $data;
 
         } catch (\Exception $e) {
@@ -256,7 +270,7 @@ class Sales
 
             $query = str_replace('{{WHERE_CLAUSE}}', implode(' ', $conditions), $query);
 
-            $rows = $this->mssqlSei->executeQuery($query);
+            $rows = $this->mssqlSei()->executeQuery($query);
 
             $locale = $this->requestStack->getCurrentRequest()?->getLocale() ?? 'fr';
 
@@ -360,7 +374,7 @@ class Sales
             $query = "
             select distinct SPL.PLICRI1_0 as GROUPE_TARIF from X3_LCS.SPRICLIST AS SPL
             where SPL.PLI_0 = 'T10'";
-            return $this->mssqlSei->executeQuery($query);
+            return $this->mssqlSei()->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError(
@@ -459,7 +473,7 @@ class Sales
 
             GROUP BY ARTICLE;
             ";
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
             return $data;
 
         } catch (\Exception $e) {
@@ -503,7 +517,7 @@ class Sales
             $sql = str_replace('{{FAMILY_WHERE}}', $familyWhere, $sql);
             $sql = str_replace('{{TYPE_WHERE}}', $typeWhere, $sql);
 
-            return $this->mssqlSei->executeQuery($sql);
+            return $this->mssqlSei()->executeQuery($sql);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Poid Famille/Variant : Récupération de données sales', $e);
@@ -531,7 +545,7 @@ class Sales
             $sql = str_replace('{{COLLECTION_WHERE}}', $collection ? " AND C.SERIESCODE = '{$collection}'" : '', $sql);
             $sql = str_replace('{{FAMILY_WHERE}}',     $family     ? " AND C.ITEMFAMILYCODE = '{$family}'" : '', $sql);
 
-            $rows = $this->mssqlSei->executeQuery($sql);
+            $rows = $this->mssqlSei()->executeQuery($sql);
 
             // Agrège en PHP : totaux par groupe + top 20 articles par groupe
             $groups  = [];
@@ -590,7 +604,7 @@ class Sales
             $sql = str_replace('{{COLLECTION_WHERE}}', $collection ? " AND C.SERIESCODE = '{$collection}'" : '', $sql);
             $sql = str_replace('{{FAMILY_WHERE}}',     $family     ? " AND C.ITEMFAMILYCODE = '{$family}'" : '', $sql);
 
-            return $this->mssqlSei->executeQuery($sql);
+            return $this->mssqlSei()->executeQuery($sql);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Best Demand per Style Detail All', $e);
@@ -620,7 +634,7 @@ class Sales
             $sql = str_replace('{{COLLECTION_WHERE}}', $collection ? " AND C.SERIESCODE = '{$collection}'" : '', $sql);
             $sql = str_replace('{{FAMILY_WHERE}}', $family ? " AND C.ITEMFAMILYCODE = '{$family}'" : '', $sql);
 
-            return $this->mssqlSei->executeQuery($sql);
+            return $this->mssqlSei()->executeQuery($sql);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Best Demand per Style Detail', $e);
@@ -635,7 +649,7 @@ class Sales
         try {
             $query = $this->sqlFileLoader->load('Sei/ventes_qte_ca_client.sql');
             $query = str_replace('{{YEAR}}', (string) $year, $query);
-            $rows  = $this->mssqlSei->executeQuery($query);
+            $rows  = $this->mssqlSei()->executeQuery($query);
 
             $pivoted = [];
 
@@ -693,7 +707,7 @@ class Sales
             $query = $this->sqlFileLoader->load('Sei/ventes_qte_ca_article.sql');
             $query = str_replace('{{YEAR}}',   (string) $year, $query);
             $query = str_replace('{{CLIENT}}', str_replace("'", "''", $client), $query);
-            $rows  = $this->mssqlSei->executeQuery($query);
+            $rows  = $this->mssqlSei()->executeQuery($query);
 
             $pivoted = [];
 
@@ -754,7 +768,7 @@ class Sales
         try {
             $query = $this->sqlFileLoader->load('Sei/sell_in_suivi_ps.sql');
             $query = str_replace('{{TABLE_SELL_IN_SUIVI_PS}}', $this->table('SELL_IN_SUIVI_PS'), $query);
-            return $this->mssqlSei->executeQuery($query);
+            return $this->mssqlSei()->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Sales : Récupération de données Sell In Suivi PS', $e);
@@ -844,7 +858,7 @@ class Sales
         SQL;
 
         try {
-            $affectedRows = $this->mssqlSei->insertData($sql);
+            $affectedRows = $this->mssqlSei()->insertData($sql);
 
             if ($affectedRows < 1) {
                 $this->logger->warning('Sell In Suivi PS : MERGE exécuté mais 0 ligne affectée', [
@@ -879,7 +893,7 @@ class Sales
         SQL;
 
         try {
-            $count = $this->mssqlSei->insertData($sql);
+            $count = $this->mssqlSei()->insertData($sql);
             $this->logger->info("Backup SELL_IN_SUIVI_PS : $count ligne(s) insérée(s) dans HISTORY");
             return $count;
         } catch (\Throwable $e) {
@@ -967,7 +981,7 @@ class Sales
             $fromClause  = str_replace('{{WHERE_CLAUSE}}', $whereClause, $fromClause);
 
             $sql  = "SELECT DISTINCT {$expr} AS val\n{$fromClause}\nORDER BY val";
-            $rows = $this->mssqlSei->executeQuery($sql);
+            $rows = $this->mssqlSei()->executeQuery($sql);
 
             return array_values(array_filter(
                 array_map(fn($r) => $r->val ?? null, $rows),
@@ -1004,7 +1018,7 @@ class Sales
             // 🆕 Agrégats UNIQUEMENT pour la grille (pas pour l'export)
             if ($request->getOffset() === 0 && !$isExport) {
                 $aggregateSql = $this->buildBacklogClientsX3AggregateSql($whereClause);
-                $aggregateResult = $this->mssqlSei->executeQuery($aggregateSql);
+                $aggregateResult = $this->mssqlSei()->executeQuery($aggregateSql);
 
                 if (!empty($aggregateResult)) {
                     $totalRows = 0;
@@ -1043,7 +1057,7 @@ class Sales
             $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
             $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
 
-            $rows = $this->mssqlSei->executeQuery($sql);
+            $rows = $this->mssqlSei()->executeQuery($sql);
             $this->enrichBacklogClientsX3Rows($rows, $includeStock);
 
             return new SsrmResponse(
@@ -1266,7 +1280,7 @@ class Sales
             $fromClause  = str_replace('{{WHERE_CLAUSE}}', $whereClause, $fromClause);
 
             $sql  = "SELECT DISTINCT {$expr} AS val\n{$fromClause}\nORDER BY val";
-            $rows = $this->mssqlSei->executeQuery($sql);
+            $rows = $this->mssqlSei()->executeQuery($sql);
 
             return array_values(array_filter(
                 array_map(fn($r) => $r->val ?? null, $rows),
@@ -1305,7 +1319,7 @@ class Sales
 
             if ($request->getOffset() === 0 && !$isExport) {
                 $aggregateSql = $this->buildEtatCommandesClientsX3AggregateSql($whereClause);
-                $aggregateResult = $this->mssqlSei->executeQuery($aggregateSql);
+                $aggregateResult = $this->mssqlSei()->executeQuery($aggregateSql);
 
                 if (!empty($aggregateResult)) {
                     $totalRows = 0;
@@ -1353,7 +1367,7 @@ class Sales
             $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
             $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
 
-            $rows = $this->mssqlSei->executeQuery($sql);
+            $rows = $this->mssqlSei()->executeQuery($sql);
             $this->enrichEtatCommandesClientsX3Rows($rows);
 
             return new SsrmResponse(
@@ -1469,7 +1483,7 @@ class Sales
     {
         try {
             $sql  = $this->sqlFileLoader->load('Sei/suivi_perf_wholesale_fr.sql');
-            $rows = $this->mssqlSei->executeQuery($sql);
+            $rows = $this->mssqlSei()->executeQuery($sql);
 
             $brachetName   = 'BRACHET Sylvain';
             $groups        = [];
