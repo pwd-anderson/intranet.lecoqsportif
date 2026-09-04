@@ -11,8 +11,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class Divers
 {
-    private MssqlManager $mssqlLcs;
-    private MssqlManager $mssqlSei;
+    private ?MssqlManager $mssqlLcsInstance = null;
+    private ?MssqlManager $mssqlSeiInstance = null;
 
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
@@ -21,13 +21,27 @@ class Divers
         private SqlFileLoader $sqlFileLoader,
         private \App\Repository\X3CollectionRepository $x3CollectionRepository,
         #[Autowire('%db.lcs%')]
-        string $dbLcs,
+        private string $dbLcs,
         #[Autowire('%db.lcs_sei%')]
-        string $dbLcsSei,
+        private string $dbLcsSei,
     )
     {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
-        $this->mssqlSei = $this->mssqlManagerFactory->create($dbLcsSei);
+    }
+
+    /**
+     * Connexion MSSQL établie à la demande seulement (pas dans le constructeur) :
+     * ouvrir une connexion PDO vers un serveur distant est coûteux (plusieurs
+     * secondes), donc on évite de payer ce coût pour les méthodes qui n'ont pas
+     * besoin de MSSQL (ex: getCollections() qui lit désormais le cache MySQL local).
+     */
+    private function mssqlLcs(): MssqlManager
+    {
+        return $this->mssqlLcsInstance ??= $this->mssqlManagerFactory->create($this->dbLcs);
+    }
+
+    private function mssqlSei(): MssqlManager
+    {
+        return $this->mssqlSeiInstance ??= $this->mssqlManagerFactory->create($this->dbLcsSei);
     }
 
     public function getFamilles(): array
@@ -39,7 +53,7 @@ class Divers
             ORDER BY ITM.TCLCOD_0
         ";
 
-        $result = $this->mssqlSei->executeQueryWithParams($sql);
+        $result = $this->mssqlSei()->executeQueryWithParams($sql);
 
         // On transforme en tableau simple
         return array_map(
@@ -83,7 +97,7 @@ class Divers
         ORDER BY CHANGE.CHGSTRDAT_0 DESC
     ";
 
-        $exchangeRates = $this->mssqlSei->executeQuery($query);
+        $exchangeRates = $this->mssqlSei()->executeQuery($query);
 
         if (empty($exchangeRates)) {
             return [];
@@ -137,7 +151,7 @@ class Divers
         WHERE ITM.ITMSTA_0 IN (1, 3, 4)
     ";
 
-        $results = $this->mssqlSei->executeQuery($query);
+        $results = $this->mssqlSei()->executeQuery($query);
 
         if (empty($results)) {
             return [];
@@ -176,7 +190,7 @@ class Divers
             ORDER BY C.SERIESCODE DESC
         ";
 
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
 
             return array_map(static function ($row) {
                 return $row->COLLECTION;
@@ -203,7 +217,7 @@ class Divers
             ORDER BY TYPE ASC
         ";
 
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
 
             return array_map(static function ($row) {
                 return $row->TYPE;
@@ -228,7 +242,7 @@ class Divers
             ORDER BY ITM.TSICOD_0
         ";
 
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
 
             return array_map(static function ($row) {
                 return $row->GENRE;
@@ -254,7 +268,7 @@ class Divers
             ORDER BY C.ITEMGROUPCODE ASC
         ";
 
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
 
             return array_map(static function ($row) {
                 return $row->ITEMGROUPCODE;
@@ -271,7 +285,7 @@ class Divers
     public function getSites(): array
     {
         try {
-            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT FCY.FCY_0 FROM X3_LCS.FACILITY FCY ORDER BY FCY.FCY_0");
+            $data = $this->mssqlSei()->executeQuery("SELECT DISTINCT FCY.FCY_0 FROM X3_LCS.FACILITY FCY ORDER BY FCY.FCY_0");
             return array_map(fn($row) => $row->FCY_0, $data);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste sites', $e);
@@ -283,7 +297,7 @@ class Divers
     public function getSocietes(): array
     {
         try {
-            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT CPY_0 FROM X3_LCS.COMPANY ORDER BY CPY_0");
+            $data = $this->mssqlSei()->executeQuery("SELECT DISTINCT CPY_0 FROM X3_LCS.COMPANY ORDER BY CPY_0");
             return array_map(fn($row) => $row->CPY_0, $data);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste sociétés', $e);
@@ -295,7 +309,7 @@ class Divers
     public function getTypesAccent(): array
     {
         try {
-            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT TYP_0 FROM X3_LCS.GTYPACCENT ORDER BY TYP_0");
+            $data = $this->mssqlSei()->executeQuery("SELECT DISTINCT TYP_0 FROM X3_LCS.GTYPACCENT ORDER BY TYP_0");
             return array_map(fn($row) => $row->TYP_0, $data);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste types accent', $e);
@@ -307,7 +321,7 @@ class Divers
     public function getJournaux(): array
     {
         try {
-            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT JOU_0 FROM X3_LCS.GJOURNAL ORDER BY JOU_0");
+            $data = $this->mssqlSei()->executeQuery("SELECT DISTINCT JOU_0 FROM X3_LCS.GJOURNAL ORDER BY JOU_0");
             return array_map(fn($row) => $row->JOU_0, $data);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste journaux', $e);
@@ -319,7 +333,7 @@ class Divers
     public function getDevises(): array
     {
         try {
-            $data = $this->mssqlSei->executeQuery("SELECT DISTINCT CUR_0 FROM X3_LCS.TABCUR ORDER BY CUR_0");
+            $data = $this->mssqlSei()->executeQuery("SELECT DISTINCT CUR_0 FROM X3_LCS.TABCUR ORDER BY CUR_0");
             return array_map(fn($row) => $row->CUR_0, $data);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Divers : Liste devises', $e);
