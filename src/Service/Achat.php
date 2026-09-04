@@ -45,17 +45,15 @@ class Achat
         return $this->mssqlSeiInstance ??= $this->mssqlManagerFactory->create($this->dbLcsSei);
     }
 
+    /**
+     * Route Navision obsolète — orpheline (aucun lien sidebar/StatRegistry, seule la
+     * version X3 est utilisée). Données Navision migrées vers SEICube : connexion
+     * mssqlLcs désactivée ici volontairement, ne plus la réactiver sur cette méthode.
+     */
     public function getBAcklogFournisseurNavision(): array
     {
-        try {
-            $query = $this->sqlFileLoader->load('Navision/backlog_fournisseur_tmp.sql');
-            $data = $this->mssqlLcs()->executeMultiStatement($query);
-            return $data;
-
-        } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Backlog fournisseur : Récupération de données achat', $e);
-            $this->logger->error('LCS Erreur Backlog fournisseur : Récupération de données achat', ['exception' => $e]);
-        }
+        $this->logger->warning('Achat::getBAcklogFournisseurNavision — route Navision obsolète appelée (données migrées vers SEICube).');
+        return [];
     }
 
     /**

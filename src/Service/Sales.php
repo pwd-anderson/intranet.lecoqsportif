@@ -89,110 +89,36 @@ class Sales
         }
     }
 
+    /**
+     * Route Navision obsolète — orpheline (aucun lien sidebar/StatRegistry, seule la
+     * version X3 backlog_clients_x3 est utilisée). Données Navision migrées vers SEICube :
+     * connexion mssqlLcs désactivée ici volontairement, ne plus la réactiver sur cette méthode.
+     */
     public function getBacklogClients(): array
     {
-        try {
-
-            $query = "select s.CompanyCode AS CODE_COMPANY,
-                        s.OrderSeriesNo as COLLECTION,
-                        i.ItemFamilyCode as FAMILLE,
-                        s.ItemNo as ARTICLE,
-                        s.VariantCode AS CODE_VARIANT,
-                        c.BillToNo AS CODE_CLIENT,
-                        c.BillToName AS NOM_CLIENT,
-                        s.OrderDocumentNo AS NO_COMMANDE,
-                        s.OrderCreationDate AS DATE_COMMANDE,
-                        o.RequestedDeliveryDate_L AS DATE_LIVRAISON_DEMANDEE,
-                        s.OUT_Quantity AS QUANTITE,
-                        s.OUT_AmountEur AS MONTANT_HT_EUR,
-                        0 as STOCK_REEL
-                        from BI.DWH.F_Sales s
-                        left join BI.DWH.F_Sales_Orders o on s.OrderDocumentNo = o.OrderDocumentNo and s.CompanyCode = o.CompanyCode and s.OrderDocumentLineNo = o.OrderDocumentLineNo and s.VariantCode = o.VariantCode
-                        left join BI.DWH.D_Item i on s.ItemNo = i.ItemNo
-                        left join BI.DWH.D_Customer c on s.CustomerNo = c.Code and s.CompanyCode = c.CompanyCode
-                        where 1=1
-                        and s.CompanyCode = 'LCSI BV'
-                        and s.OUT_Quantity <> 0
-                        and s.IsBohPerimeter = 1
-                        and s.LocationCode in ('DIRECT', 'DT-WHS-TH', 'LOGTXM-1', 'SF-WHS-CN1')
-                        and s.SalesOrderType in ('CO', 'OP', 'PS', 'RE')";
-
-            $backlog = $this->mssqlLcs()->executeQuery($query);
-
-            /* ======================
-               Récupération stock réel
-               ====================== */
-
-            $stocks = $this->getStockReel();
-
-            /* ======================
-               Indexation du stock
-               ====================== */
-
-            $stockIndex = [];
-
-            foreach ($stocks as $stock) {
-
-                $key = $stock->LastSeriesNo . '|' .
-                    $stock->ItemFamilyCode . '|' .
-                    $stock->ItemNo . '|' .
-                    $stock->VariantCode;
-
-                $stockIndex[$key] = $stock->AvailableInventory_Deducted_NA_Quantity ?? 0;
-            }
-
-            /* ======================
-               Injection stock backlog
-               ====================== */
-
-            foreach ($backlog as $row) {
-
-                $key = $row->COLLECTION . '|' .
-                    $row->FAMILLE . '|' .
-                    $row->ARTICLE . '|' .
-                    $row->CODE_VARIANT;
-
-                $row->STOCK_REEL = $stockIndex[$key] ?? 0;
-            }
-            return $backlog;
-
-        } catch (\Exception $e) {
-
-            $this->graphMailer->notifyError(
-                '❌ LCS Erreur Sales : Récupération de données Backlog clients',
-                $e
-            );
-
-            $this->logger->error(
-                'LCS Erreur Sales : Récupération de données Backlog clients',
-                ['exception' => $e]
-            );
-        }
+        $this->logger->warning('Sales::getBacklogClients — route Navision obsolète appelée (données migrées vers SEICube).');
+        return [];
     }
 
+    /**
+     * Route Navision obsolète — orpheline (aucun lien sidebar/StatRegistry, seule la
+     * version X3 commandes_a_facturer_x3 est utilisée). Données Navision migrées vers
+     * SEICube : connexion mssqlLcs désactivée ici volontairement, ne plus la réactiver.
+     */
     public function getCommandesAFacturer(): array
     {
-        try {
-            $query = $this->sqlFileLoader->load('Navision/commandes_a_facturer_tmp.sql');
-            $data = $this->mssqlLcs()->executeQuery($query);
-            return $data;
-
-        } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Commandes à Facturer : Récupération de données Ventes LCS', $e);
-            $this->logger->error('LCS Erreur Commandes à Facturer : Récupération de données Ventes LCS', ['exception' => $e]);
-        }
+        $this->logger->warning('Sales::getCommandesAFacturer — route Navision obsolète appelée (données migrées vers SEICube).');
+        return [];
     }
 
+    /**
+     * Route Navision obsolète — orpheline, uniquement utilisée par l'ex-getBacklogClients()
+     * (désactivée ci-dessus). Connexion mssqlLcs désactivée ici volontairement.
+     */
     public function getStockReel(): array
     {
-        try {
-            $query = $this->sqlFileLoader->load('Navision/stock_reel_tmp.sql');
-            $data = $this->mssqlLcs()->executeQuery($query);
-            return $data;
-        }catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Stock : Récupération de données Stock Reel LCS', $e);
-            $this->logger->error('LCS Erreur Stock : Récupération de données Stock Reel LCS', ['exception' => $e]);
-        }
+        $this->logger->warning('Sales::getStockReel — route Navision obsolète appelée (données migrées vers SEICube).');
+        return [];
     }
 
     public function getReassort(): array

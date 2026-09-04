@@ -12,8 +12,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class Stock
 {
-    private MssqlManager $mssqlLcs;
-    private MssqlManager $mssqlSei;
+    private ?MssqlManager $mssqlLcsInstance = null;
+    private ?MssqlManager $mssqlSeiInstance = null;
 
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
@@ -21,39 +21,49 @@ class Stock
         private GraphMailer $graphMailer,
         private SqlFileLoader $sqlFileLoader,
         #[Autowire('%db.lcs%')]
-        string $dbLcs,
+        private string $dbLcs,
         #[Autowire('%db.lcs_sei%')]
-        string $dbLcsSei,
+        private string $dbLcsSei,
     )
     {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
-        $this->mssqlSei = $this->mssqlManagerFactory->create($dbLcsSei);
     }
 
+    /**
+     * Connexions MSSQL établies à la demande seulement (pas dans le constructeur) :
+     * ouvrir une connexion PDO vers un serveur distant est coûteux (mssqlLcs peut
+     * prendre ~15s), donc on évite de payer ce coût pour les actions qui n'ont besoin
+     * que d'une seule des deux connexions.
+     */
+    private function mssqlLcs(): MssqlManager
+    {
+        return $this->mssqlLcsInstance ??= $this->mssqlManagerFactory->create($this->dbLcs);
+    }
+
+    private function mssqlSei(): MssqlManager
+    {
+        return $this->mssqlSeiInstance ??= $this->mssqlManagerFactory->create($this->dbLcsSei);
+    }
+
+    /**
+     * Route Navision obsolète — orpheline (aucun lien sidebar/StatRegistry, seule la
+     * version X3 est utilisée). Données Navision migrées vers SEICube : connexion
+     * mssqlLcs désactivée ici volontairement, ne plus la réactiver sur cette méthode.
+     */
     public function getStockATerme(): array
     {
-        try {
-            $query = $this->sqlFileLoader->load('Navision/stock_a_terme_tmp.sql');
-            $data = $this->mssqlLcs->executeMultiStatement($query);
-            return $data;
-
-        } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme : Récupération de données stock', $e);
-            $this->logger->error('LCS Erreur Stock à Terme : Récupération de données stock', ['exception' => $e]);
-        }
+        $this->logger->warning('Stock::getStockATerme — route Navision obsolète appelée (données migrées vers SEICube).');
+        return [];
     }
 
+    /**
+     * Route Navision obsolète — orpheline (aucun lien sidebar/StatRegistry, seule la
+     * version X3 est utilisée). Données Navision migrées vers SEICube : connexion
+     * mssqlLcs désactivée ici volontairement, ne plus la réactiver sur cette méthode.
+     */
     public function getStockATermeAvecSegmentationProduit(): array
     {
-        try {
-            $query = $this->sqlFileLoader->load('Navision/stock_a_terme_segmentation_produit_tmp.sql');
-            $data = $this->mssqlLcs->executeMultiStatement($query);
-            return $data;
-
-        } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme : Récupération de données stock', $e);
-            $this->logger->error('LCS Erreur Stock à Terme : Récupération de données stock', ['exception' => $e]);
-        }
+        $this->logger->warning('Stock::getStockATermeAvecSegmentationProduit — route Navision obsolète appelée (données migrées vers SEICube).');
+        return [];
     }
 
     public function getStockAllocation(?string $siteGroup = null): array
@@ -117,7 +127,7 @@ class Stock
                 $query = str_replace('/*SITE_FILTER*/', '', $query);
             }
 
-            return $this->mssqlSei->executeQuery($query);
+            return $this->mssqlSei()->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Stock Allocation : Récupération de données stock', $e);
@@ -139,7 +149,7 @@ class Stock
             $query = str_replace('{{LOCATION}}', $location, $query);
             $query = str_replace('{{STATUS}}', $status, $query);
 
-            return $this->mssqlSei->executeMultiStatement($query);
+            return $this->mssqlSei()->executeMultiStatement($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Stock Collection : Récupération de données stock', $e);
@@ -166,7 +176,7 @@ class Stock
             $sql = str_replace('{{FAMILLE_WHERE}}', $familleWhere, $sql);
 
             // Ici tu utilises ta méthode "simple"
-            return $this->mssqlSei->executeQuery($sql);
+            return $this->mssqlSei()->executeQuery($sql);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Stock Composant : Récupération de données stock', $e);
@@ -179,7 +189,7 @@ class Stock
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/stock_a_terme.sql');
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
             return $data;
 
         } catch (\Exception $e) {
@@ -206,7 +216,7 @@ class Stock
                        [ACHAT_M6], [VENTE_M6], [RESA_ETAIL_M6], [RESA_RETAIL_M6], [STOCK_TERME_M6]
                 FROM MASTER_TABLES.AMAZON_SEG_STOCK_A_TERME
             ";
-            return $this->mssqlSei->executeQuery($query);
+            return $this->mssqlSei()->executeQuery($query);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme Segmentation X3', $e);
@@ -250,7 +260,7 @@ class Stock
             $sql = str_replace('{{FAMILLE_WHERE}}', $familleWhere, $sql);
             $sql = str_replace('{{GENRE_WHERE}}', $genreWhere, $sql);
 
-            return $this->mssqlSei->executeQuery($sql);
+            return $this->mssqlSei()->executeQuery($sql);
 
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Stock Produits : Récupération de données', $e);
@@ -264,7 +274,7 @@ class Stock
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/produits_shopify_non_coches.sql');
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
 
             if (empty($data)) {
                 return [];
@@ -319,7 +329,7 @@ class Stock
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/stock_logtex.sql');
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
             return empty($data) ? [] : $data;
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Stock LogTex : Récupération de données', $e);
@@ -332,7 +342,7 @@ class Stock
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/stock_interne_mag_et_logtex.sql');
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
 
             if (empty($data)) {
                 return [];
