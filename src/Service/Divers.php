@@ -19,6 +19,7 @@ class Divers
         private LoggerInterface $logger,
         private GraphMailer $graphMailer,
         private SqlFileLoader $sqlFileLoader,
+        private \App\Repository\X3CollectionRepository $x3CollectionRepository,
         #[Autowire('%db.lcs%')]
         string $dbLcs,
         #[Autowire('%db.lcs_sei%')]
@@ -151,9 +152,22 @@ class Divers
         return $processedResults;
     }
 
+    /**
+     * Liste des collections X3 — lue depuis le cache local MySQL (table x3_collection,
+     * alimentée par la commande `app:x3-collection:refresh`) pour éviter une requête
+     * lente sur le SEI Cube à chaque chargement de page.
+     * Fallback direct sur le SEI Cube si le cache local est vide (première utilisation
+     * avant tout refresh, ou table pas encore synchronisée).
+     */
     public function getCollections(): array
     {
         try {
+            $cached = $this->x3CollectionRepository->findAllCodesDesc();
+
+            if ($cached !== []) {
+                return $cached;
+            }
+
             $query = "
             SELECT DISTINCT
                 C.SERIESCODE AS COLLECTION
