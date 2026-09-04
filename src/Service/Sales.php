@@ -1255,16 +1255,28 @@ class Sales
                     $totalQteCommande = 0.0;
                     $totalQteLivree = 0.0;
                     $totalQteALivrer = 0.0;
+                    $totalQteAllouee = 0.0;
+                    $totalQteEnRupture = 0.0;
+                    $totalResteAAllouer = 0.0;
+                    $totalMontantCommandeDevise = 0.0;
+                    $totalMontantLivreeDevise = 0.0;
+                    $totalMontantALivrerDevise = 0.0;
                     $totalMontantCommandeEur = 0.0;
                     $totalMontantLivreeEur = 0.0;
                     $totalMontantALivrerEur = 0.0;
                     $taux = $this->divers->getExchangeRatesValues();
 
                     foreach ($aggregateResult as $row) {
-                        $totalRows        += (int)   ($row->NB_ROWS           ?? 0);
-                        $totalQteCommande += (float) ($row->QUANTITE_COMMANDE ?? 0);
-                        $totalQteLivree   += (float) ($row->QUANTITE_LIVREE   ?? 0);
-                        $totalQteALivrer  += (float) ($row->QUANTITE_A_LIVRER ?? 0);
+                        $totalRows          += (int)   ($row->NB_ROWS           ?? 0);
+                        $totalQteCommande   += (float) ($row->QUANTITE_COMMANDE ?? 0);
+                        $totalQteLivree     += (float) ($row->QUANTITE_LIVREE   ?? 0);
+                        $totalQteALivrer    += (float) ($row->QUANTITE_A_LIVRER ?? 0);
+                        $totalQteAllouee    += (float) ($row->QUANTITE_ALLOUEE   ?? 0);
+                        $totalQteEnRupture  += (float) ($row->QUANTITE_EN_RUPTURE ?? 0);
+                        $totalResteAAllouer += (float) ($row->RESTE_A_ALLOUER    ?? 0);
+                        $totalMontantCommandeDevise += (float) ($row->MONTANT_COMMANDE_DEVISE ?? 0);
+                        $totalMontantLivreeDevise   += (float) ($row->MONTANT_LIVREE_DEVISE    ?? 0);
+                        $totalMontantALivrerDevise  += (float) ($row->MONTANT_A_LIVRER_DEVISE  ?? 0);
 
                         $devise = $row->DEVISE ?? null;
                         $rate   = ($devise !== null) ? ($taux[$devise] ?? null) : null;
@@ -1280,6 +1292,12 @@ class Sales
                         'QUANTITE_COMMANDE'        => (int) round($totalQteCommande),
                         'QUANTITE_LIVREE'          => (int) round($totalQteLivree),
                         'QUANTITE_A_LIVRER'        => (int) round($totalQteALivrer),
+                        'QUANTITE_ALLOUEE'         => (int) round($totalQteAllouee),
+                        'QUANTITE_EN_RUPTURE'      => (int) round($totalQteEnRupture),
+                        'RESTE_A_ALLOUER'          => (int) round($totalResteAAllouer),
+                        'MONTANT_COMMANDE_DEVISE'  => round($totalMontantCommandeDevise, 2),
+                        'MONTANT_LIVREE_DEVISE'    => round($totalMontantLivreeDevise, 2),
+                        'MONTANT_A_LIVRER_DEVISE'  => round($totalMontantALivrerDevise, 2),
                         'MONTANT_COMMANDE_EUR'     => round($totalMontantCommandeEur, 2),
                         'MONTANT_LIVREE_EUR'       => round($totalMontantLivreeEur, 2),
                         'MONTANT_A_LIVRER_EUR'     => round($totalMontantALivrerEur, 2),
@@ -1324,6 +1342,9 @@ class Sales
             SUM(SOQ.QTY_0) AS QUANTITE_COMMANDE,
             SUM(SOQ.DLVQTY_0 + SOQ.ODLQTY_0) AS QUANTITE_LIVREE,
             SUM(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) AS QUANTITE_A_LIVRER,
+            SUM(SOQ.ALLQTY_0) AS QUANTITE_ALLOUEE,
+            SUM(SOQ.SHTQTY_0) AS QUANTITE_EN_RUPTURE,
+            SUM(SOQ.QTY_0 - SOQ.ALLQTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) AS RESTE_A_ALLOUER,
             SUM(SOP.NETPRINOT_0 * SOQ.QTY_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_COMMANDE_DEVISE,
             SUM(SOP.NETPRINOT_0 * (SOQ.DLVQTY_0 + SOQ.ODLQTY_0) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_LIVREE_DEVISE,
             SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_A_LIVRER_DEVISE
