@@ -1087,7 +1087,7 @@ class Sales
             SOH.CUR_0 AS DEVISE,
             COUNT(*) AS NB_ROWS,
             SUM(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) AS QUANTITE,
-            SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0))) AS TOTAL_PRIX
+            SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS TOTAL_PRIX
         FROM X3_LCS.SORDERQ SOQ
         INNER JOIN X3_LCS.SORDER SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
         INNER JOIN X3_LCS.SORDERP SOP ON SOQ.SOHNUM_0 = SOP.SOHNUM_0 AND SOQ.ITMREF_0 = SOP.ITMREF_0 AND SOQ.SOPLIN_0 = SOP.SOPLIN_0
@@ -1122,6 +1122,7 @@ class Sales
             GROUP BY POQ.ITMREF_0, POQ.PRHFCY_0
         ) PO ON PO.ITMREF_0 = SOQ.ITMREF_0 AND PO.PRHFCY_0 = SOH.STOFCY_0
         " : "") . "
+        LEFT  JOIN X3_LCS.SVCRFOOT SVT ON SOH.SOHNUM_0 = SVT.VCRNUM_0 AND SVT.DTA_0 = 1
         WHERE
             SOQ.SOQSTA_0 <> 3
             AND SOH.ZSOHVALSTA_0 <> 3
@@ -1152,11 +1153,13 @@ class Sales
         foreach ($rows as $row) {
             $quantity = (int) $row->QUANTITE;
             $priceHt = (float) $row->PRICE_HT;
+            $remiseGlobal = (float) ($row->REMISE_GLOBAL ?? 0);
+            $priceHtNet = $priceHt * (1 - ($remiseGlobal / 100));
             $currencyRate = $taux[$row->CUR_0] ?? null;
 
-            $row->PRIX = round($priceHt * $quantity, 2);
+            $row->PRIX = round($priceHtNet * $quantity, 2);
             $row->PRIX_EUR = ($currencyRate !== null && (float) $currencyRate > 0)
-                ? round(($priceHt / (float) $currencyRate) * $quantity, 2)
+                ? round(($priceHtNet / (float) $currencyRate) * $quantity, 2)
                 : 0.0;
 
             if ($includeStock) {
