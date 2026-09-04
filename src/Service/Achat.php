@@ -13,8 +13,8 @@ use Psr\Log\LoggerInterface;
 class Achat
 {
 
-    private MssqlManager $mssqlLcs;
-    private MssqlManager $mssqlSei;
+    private ?MssqlManager $mssqlLcsInstance = null;
+    private ?MssqlManager $mssqlSeiInstance = null;
     public function __construct(
         private MssqlManagerFactory $mssqlManagerFactory,
         private LoggerInterface $logger,
@@ -22,20 +22,34 @@ class Achat
         private SqlFileLoader $sqlFileLoader,
         private Divers $divers,
         #[Autowire('%db.lcs%')]
-        string $dbLcs,
+        private string $dbLcs,
         #[Autowire('%db.lcs_sei%')]
-        string $dbLcsSei,
+        private string $dbLcsSei,
     )
     {
-        $this->mssqlLcs = $this->mssqlManagerFactory->create($dbLcs);
-        $this->mssqlSei = $this->mssqlManagerFactory->create($dbLcsSei);
+    }
+
+    /**
+     * Connexions MSSQL établies à la demande seulement (pas dans le constructeur) :
+     * ouvrir une connexion PDO vers un serveur distant est coûteux (mssqlLcs peut
+     * prendre ~15s), donc on évite de payer ce coût pour les actions qui n'ont besoin
+     * que d'une seule des deux connexions.
+     */
+    private function mssqlLcs(): MssqlManager
+    {
+        return $this->mssqlLcsInstance ??= $this->mssqlManagerFactory->create($this->dbLcs);
+    }
+
+    private function mssqlSei(): MssqlManager
+    {
+        return $this->mssqlSeiInstance ??= $this->mssqlManagerFactory->create($this->dbLcsSei);
     }
 
     public function getBAcklogFournisseurNavision(): array
     {
         try {
             $query = $this->sqlFileLoader->load('Navision/backlog_fournisseur_tmp.sql');
-            $data = $this->mssqlLcs->executeMultiStatement($query);
+            $data = $this->mssqlLcs()->executeMultiStatement($query);
             return $data;
 
         } catch (\Exception $e) {
@@ -51,7 +65,7 @@ class Achat
     {
         try {
             $queryBacklog = $this->sqlFileLoader->load('Sei/backlog_fournisseur.sql');
-            $backlogRows  = $this->mssqlSei->executeQuery($queryBacklog);
+            $backlogRows  = $this->mssqlSei()->executeQuery($queryBacklog);
 
             $taux               = $this->divers->getExchangeRatesValues();
             $supplierReferences = $this->divers->getSupplierReferences();
@@ -120,7 +134,7 @@ class Achat
     {
         try {
             $queryIntersites = $this->sqlFileLoader->load('Sei/backlog_fournisseur_intersites.sql');
-            $intersitesRows  = $this->mssqlSei->executeQuery($queryIntersites);
+            $intersitesRows  = $this->mssqlSei()->executeQuery($queryIntersites);
 
             $taux = $this->divers->getExchangeRatesValues();
 
@@ -216,7 +230,7 @@ class Achat
         try {
             // 1. Requête principale : réceptions
             $query = $this->sqlFileLoader->load('Sei/reception_fournisseur.sql');
-            $data = $this->mssqlSei->executeQuery($query);
+            $data = $this->mssqlSei()->executeQuery($query);
 
             if (empty($data)) {
                 return [];
@@ -230,7 +244,7 @@ class Achat
 
             // 3. Prix unitaires depuis la réception
             $queryPrixReception = $this->sqlFileLoader->load('Sei/reception_fournisseur_prix_reception.sql');
-            $resultsPrixReception = $this->mssqlSei->executeQuery($queryPrixReception);
+            $resultsPrixReception = $this->mssqlSei()->executeQuery($queryPrixReception);
 
             $prixDataReception = [];
             foreach ($resultsPrixReception as $prixReception) {
@@ -242,7 +256,7 @@ class Achat
 
             // 4. Prix unitaires depuis la facture (prioritaires)
             $queryPrixFacture = $this->sqlFileLoader->load('Sei/reception_fournisseur_prix_facture.sql');
-            $resultsPrixFacture = $this->mssqlSei->executeQuery($queryPrixFacture);
+            $resultsPrixFacture = $this->mssqlSei()->executeQuery($queryPrixFacture);
 
             $prixDataFacture = [];
             foreach ($resultsPrixFacture as $prixFacture) {
