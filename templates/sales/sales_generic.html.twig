@@ -5,6 +5,9 @@
     <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+    {% if type == 'etat_commandes_clients_x3' %}
+        <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    {% endif %}
 
     <style>
         .ag-theme-alpine {
@@ -14,6 +17,10 @@
 
         .ag-text-field-input {
             color: #000000 !important;
+        }
+
+        #etatCommandesPicker .ts-wrapper {
+            min-width: 460px;
         }
 
         .grid-outer-container {
@@ -143,6 +150,14 @@
                             <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
                                 <h3 class="box-title mb-2">{{ title }}</h3>
 
+                                {% if type == 'etat_commandes_clients_x3' %}
+                                    <div id="etatCommandesPicker" class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                                        <select id="etatCommandesCollectionSelect" class="form-select form-select-sm" multiple style="min-width: 260px;">
+                                        </select>
+                                        <button id="etatCommandesLoadBtn" class="btn btn-primary btn-sm" type="button">Charger</button>
+                                    </div>
+                                {% endif %}
+
                                 <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
                                     {% if type in ['poid_famille_par_variant', 'best_demand_per_style'] %}
                                         <select id="collectionSelect" class="form-select form-select-sm" style="width: 180px;">
@@ -173,7 +188,7 @@
                                 </div>
                             </div>
 
-                            <div class="box-body">
+                            <div class="box-body" id="mainBoxBody" {% if type == 'etat_commandes_clients_x3' %}style="display: none;"{% endif %}>
                                 <div class="table-responsive-sm">
                                     <div id="myGridWrapper" class="grid-wrapper">
                                         <div id="gridCustomLoader" class="grid-custom-loader">
@@ -235,6 +250,9 @@
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-with-photo.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
+    {% if type == 'etat_commandes_clients_x3' %}
+        <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
+    {% endif %}
 
     <script>
         const salesType = '{{ type }}';
@@ -264,7 +282,11 @@
             'GENRE', 'AGE', 'DROPPE', 'GROUP_CODE', 'CUR_0', 'REP1', 'REP2',
             'CLIENT_COMMANDE', 'NOM_CLIENT_COMMANDE'
         ];
-        if (salesType === 'backlog_clients_x3') {
+        const ssrmFilterValuesUrl = {
+            'backlog_clients_x3': '{{ path('backlog_clients_x3_filter_values') }}',
+            'etat_commandes_clients_x3': '{{ path('etat_commandes_clients_x3_filter_values') }}',
+        };
+        if (salesType === 'backlog_clients_x3' || salesType === 'etat_commandes_clients_x3') {
             columnDefs.forEach(col => {
                 if (ssrmSetFilterFields.includes(col.field)) {
                     const field = col.field;
@@ -282,10 +304,14 @@
                                         const otherFilters = Object.fromEntries(
                                             Object.entries(filterModel).filter(([k]) => k !== field)
                                         );
-                                        fetch('{{ path('backlog_clients_x3_filter_values') }}', {
+                                        const body = { field: field, filterModel: otherFilters };
+                                        if (salesType === 'etat_commandes_clients_x3') {
+                                            body.collections = (window.etatCommandesSelectedCollections || []);
+                                        }
+                                        fetch(ssrmFilterValuesUrl[salesType], {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ field: field, filterModel: otherFilters }),
+                                            body: JSON.stringify(body),
                                         })
                                             .then(r => r.json())
                                             .then(values => params.success(values))
@@ -399,7 +425,9 @@
             ]
         };
 
-        document.addEventListener('DOMContentLoaded', async () => {
+        // 🆕 Initialisation de la grille (extraite pour pouvoir être déclenchée plus tard
+        // à la demande, ex: bouton "Charger" pour État des commandes clients)
+        async function initializeGridAndUi() {
             // 🆕 Branchement SSRM ou classique
             window.gridOptions = isServerSide
                 ? window.AgGridSsrm.initGrid('#myGrid', agGridConfig)
@@ -616,6 +644,55 @@
                     gridSelector: '#myGrid', maxHeight: 1000,
                 });
             }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (salesType === 'etat_commandes_clients_x3') {
+                // 🆕 Pas de chargement auto : on attend la sélection de collections + clic "Charger"
+                let etatCommandesCollectionTomSelect = null;
+
+                fetch('{{ path("poid_famille_par_variant_collections_json") }}')
+                    .then(res => res.json())
+                    .then(data => {
+                        const select = document.getElementById('etatCommandesCollectionSelect');
+                        if (!select) return;
+                        data.forEach(collection => {
+                            const option = document.createElement('option');
+                            option.value = collection;
+                            option.textContent = collection;
+                            select.appendChild(option);
+                        });
+
+                        etatCommandesCollectionTomSelect = window.AgGridCommon.setupMultiSelect('#etatCommandesCollectionSelect', {
+                            placeholder: 'Sélectionner une ou plusieurs collections...',
+                        });
+                    });
+
+                document.getElementById('etatCommandesLoadBtn')?.addEventListener('click', async () => {
+                    const collections = etatCommandesCollectionTomSelect ? etatCommandesCollectionTomSelect.getValue() : [];
+
+                    if (!collections.length) {
+                        alert('Veuillez sélectionner au moins une collection avant de charger la grille.');
+                        return;
+                    }
+
+                    window.etatCommandesSelectedCollections = collections;
+                    agGridConfig.getStaticOptions = () => ({ collections: window.etatCommandesSelectedCollections });
+
+                    // Masque le sélecteur, affiche la grille, puis initialise la grille SSRM
+                    const picker = document.getElementById('etatCommandesPicker');
+                    if (picker) picker.style.display = 'none';
+
+                    const mainBoxBody = document.getElementById('mainBoxBody');
+                    if (mainBoxBody) mainBoxBody.style.display = '';
+
+                    await initializeGridAndUi();
+                });
+
+                return;
+            }
+
+            initializeGridAndUi();
         });
 
         function reloadGridWithFilters() {

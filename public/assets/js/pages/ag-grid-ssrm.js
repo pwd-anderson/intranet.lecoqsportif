@@ -62,6 +62,11 @@ window.AgGridSsrm = (function () {
                     sortModel:   params.request.sortModel   || [],
                 };
 
+                // 🆕 Options statiques additionnelles (ex: collections sélectionnées en amont)
+                if (typeof config.getStaticOptions === 'function') {
+                    body.options = Object.assign({}, body.options || {}, config.getStaticOptions());
+                }
+
                 // 🆕 Loader popup au premier chargement uniquement
                 if (isFirstLoad) {
                     _showInitialLoader('Chargement des données...');
@@ -312,6 +317,8 @@ window.AgGridSsrm = (function () {
             while (true) {
                 const t0 = performance.now();
 
+                const staticOptions = typeof config.getStaticOptions === 'function' ? config.getStaticOptions() : {};
+
                 const response = await fetch(config.dataUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -320,10 +327,10 @@ window.AgGridSsrm = (function () {
                         endRow: startRow + CHUNK_SIZE,
                         filterModel,
                         sortModel,
-                        options: {
+                        options: Object.assign({}, staticOptions, {
                             includeStock,
                             isExport: true,   // skip COUNT + totaux
-                        },
+                        }),
                     }),
                 });
 

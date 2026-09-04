@@ -59,6 +59,12 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('backlog_clients_x3');
     }
 
+    #[Route('/sales/etat_commandes_clients_x3', name: 'app_sales_etat_commandes_clients_x3')]
+    public function etatCommandesClientsX3Alias(): Response
+    {
+        return $this->salesGeneric('etat_commandes_clients_x3');
+    }
+
     #[Route('/sales/sales_best_demand_per_style', name: 'app_sales_best_demand_per_style')]
     public function bestDemandPerStyleAlias(): Response
     {
@@ -247,6 +253,32 @@ final class SalesController extends AbstractController
             'rows'    => $helpers->convertArrayToUtf8($response->rows),
             'lastRow' => $response->lastRow,
             'totals'  => $response->totals,   // 🆕
+        ]);
+    }
+
+    #[Route('/sales/etat_commandes_clients_x3_filter_values', name: 'etat_commandes_clients_x3_filter_values', methods: ['POST'])]
+    public function etatCommandesClientsX3FilterValues(Request $request, Sales $sales): JsonResponse
+    {
+        $payload     = json_decode($request->getContent(), true) ?? [];
+        $field       = (string) ($payload['field'] ?? '');
+        $filterModel = $payload['filterModel'] ?? [];
+        $collections = $payload['collections'] ?? [];
+        $collections = is_array($collections) ? array_values(array_filter($collections, 'is_string')) : [];
+        return new JsonResponse($sales->getEtatCommandesClientsX3DistinctValues($field, $filterModel, $collections));
+    }
+
+    #[Route('/sales/etat_commandes_clients_x3_ssrm_json', name: 'etat_commandes_clients_x3_ssrm_json', methods: ['POST'])]
+    public function etatCommandesClientsX3SsrmJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $payload = json_decode($request->getContent(), true) ?? [];
+        $ssrmRequest = SsrmRequest::fromArray($payload);
+
+        $response = $sales->getEtatCommandesClientsX3Paginated($ssrmRequest);
+
+        return new JsonResponse([
+            'rows'    => $helpers->convertArrayToUtf8($response->rows),
+            'lastRow' => $response->lastRow,
+            'totals'  => $response->totals,
         ]);
     }
 
@@ -491,7 +523,7 @@ final class SalesController extends AbstractController
     #[Route(
         '/sales/{type}',
         name: 'app_sales_generic',
-        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|poid_famille_par_variant|best_demand_per_style']
+        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|etat_commandes_clients_x3|poid_famille_par_variant|best_demand_per_style']
     )]
     public function salesGeneric(string $type): Response
     {
@@ -532,6 +564,15 @@ final class SalesController extends AbstractController
                 'gridWidthMode' => 'full',
                 'serverSide'    => true,                                     // 🆕 flag SSRM
                 'blockSize'     => 200,                                      // 🆕 taille bloc
+            ],
+            'etat_commandes_clients_x3' => [
+                'gridName'      => 'etat_commandes_clients_x3_grid',
+                'title'         => 'État des commandes clients',
+                'jsonRoute'     => 'etat_commandes_clients_x3_ssrm_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
+                'serverSide'    => true,
+                'blockSize'     => 200,
             ],
             'poid_famille_par_variant' => [
                 'gridName'      => 'poid_famille_par_variant_grid',

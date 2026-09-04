@@ -110,7 +110,8 @@ Si un JOIN est manquant dans l'une des trois, le filtre ou les totaux échouent 
 - `ATX4` = INDEPENDANT_GROUPMENT (ZGROUPIND_0, IDENT1=6021)
 - `ATX5` = AGE (TABLINCFG / CFGLIN_0)
 - `ATX6` = GROUP_CODE (ZGRPCOD_0, IDENT1=6028)
-- Ne jamais réutiliser un alias existant — toujours incrémenter (ATX7, ATX8…).
+- `ATX7` = DISTRIBUTION_CHANNEL (TSCCOD_4, IDENT1=34) — utilisé dans `etat_commandes_clients.sql` / `etat_commandes_clients_count.sql` (stat "État des commandes clients")
+- Ne jamais réutiliser un alias existant — toujours incrémenter (ATX8, ATX9…).
 
 ### AG Grid column configuration
 

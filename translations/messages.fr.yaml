@@ -54,6 +54,8 @@ sidebar:
           sell_in_suivi_ps: "Sell-In : Suivi PS"
           suivi_perf_wholesale_fr: "Suivi Perf SS27\nWholesale France"
           ventes_qte_ca_client: "Ventes par Client"
+      adv:
+          etat_commandes_clients: "État des commandes clients"
       management:
           ca_marges: "CA Marges"
       stock:

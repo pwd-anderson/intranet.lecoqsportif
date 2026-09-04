@@ -1161,6 +1161,310 @@ class Sales
         }
     }
 
+    /**
+     * Mapping centralisé : field Ag-Grid → colonne SQL pour État des commandes clients.
+     * Alias ATEXTRA :
+     * ATX  = MAINNETWORK (TSCCOD_2, IDENT1=32)
+     * ATX4 = INDEPENDANT_GROUPMENT (ZGROUPIND_0, IDENT1=6021)
+     * ATX5 = AGE (TABLINCFG / CFGLIN_0)
+     * ATX7 = DISTRIBUTION_CHANNEL (TSCCOD_4, IDENT1=34) — nouvel alias, ne pas confondre avec
+     *        ATX6 (GROUP_CODE, ZGRPCOD_0, IDENT1=6028) utilisé sur Backlog Client X3.
+     */
+    private function getEtatCommandesClientsX3FieldMap(): array
+    {
+        return [
+            'PAYS'                     => 'SOH.BPCCRYNAM_0',
+            'LIGNE'                    => 'SOQ.SOPLIN_0',
+            'SITE'                     => 'SOH.STOFCY_0',
+            'MAINNETWORK'              => 'ATX.TEXTE_0',
+            'DISTRIBUTION_CHANNEL'     => 'ATX7.TEXTE_0',
+            'CLIENT'                   => 'SOH.BPCINV_0',
+            'NOM_CLIENT'               => 'BPC_INV.BPCNAM_0',
+            'CLIENT_COMMANDE'          => 'SOH.BPCORD_0',
+            'NOM_CLIENT_COMMANDE'      => 'SOH.BPCNAM_0',
+            'PAIEMENT'                 => 'SOH.PTE_0',
+            'NUM_COMMANDE'             => 'SOQ.SOHNUM_0',
+            'REF_CLIENT'               => "CASE WHEN SOH.CUSORDREF_0 <> '' THEN SOH.CUSORDREF_0 ELSE SOH.ZNORIGIN_0 END",
+            'REFERENCE_INTERNE'        => 'SOH.ZNORIGIN_0',
+            'GENRE'                    => 'ITM.TSICOD_0',
+            'AGE'                      => 'ATX5.TEXTE_0',
+            'ADRESSE_LIVRAISON'        => 'SOH.BPAADD_0',
+            'FAMILLE'                  => 'ITM.TCLCOD_0',
+            'COLLECTION'               => 'SOQ.YCOLLECT_0',
+            'SKU'                      => 'ITM.ITMREF_0',
+            'ARTICLE'                  => 'SPLIT.ARTICLE_BASE',
+            'VARIANT'                  => 'SPLIT.VARIANT_VAL',
+            'ITMDES1_0'                => 'ITM.ITMDES1_0',
+            'EAN'                      => 'ITM.EANCOD_0',
+            'DROPPE'                   => "CASE WHEN ITC.ZDROPPED_0 = 2 THEN 'OUI' ELSE 'NON' END",
+            'DATE_COMMANDE'            => 'CONVERT(varchar(10), SOH.ORDDAT_0, 23)',
+            'DATE_LIVRAISON_DEMANDEE'  => 'CONVERT(varchar(10), SOQ.DEMDLVDAT_0, 23)',
+            'REP1'                     => 'REP2.REPNAM_0',
+            'REP2'                     => 'REP1.REPNAM_0',
+            'STATUT_ARTICLE'           => 'ITM.ITMSTA_0',
+            'QUANTITE_COMMANDE'        => 'SOQ.QTY_0',
+            'QUANTITE_LIVREE'          => '(SOQ.DLVQTY_0 + SOQ.ODLQTY_0)',
+            'QUANTITE_A_LIVRER'        => '(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0))',
+            'QUANTITE_ALLOUEE'         => 'SOQ.ALLQTY_0',
+            'QUANTITE_EN_RUPTURE'      => 'SOQ.SHTQTY_0',
+            'RESTE_A_ALLOUER'          => '(SOQ.QTY_0 - SOQ.ALLQTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)',
+            'CUR_0'                    => 'SOH.CUR_0',
+            'PRICE_HT'                 => 'SOP.NETPRINOT_0',
+            'GROSS_PRICE_HT'           => 'SOP.GROPRI_0',
+            'REMISE_AUTO'              => 'SOP.DISCRGVAL1_0',
+            'REMISE_MANU'              => 'SOP.DISCRGVAL2_0',
+            'REMISE_GLOBAL'            => 'ISNULL(SVT.DTAAMT_0, 0)',
+            'CLIENT_LIVRE'             => 'SOH.BPDNAM_0',
+            'INDEPENDANT_GROUPMENT'    => 'ATX4.TEXTE_0',
+            'VILLE'                    => 'BPA.CTY_0',
+            'ZCLASSE_0'                => 'SOH.ZCLASSE_0',
+            'PRIX_NET_UNITAIRE_HT'     => 'SOP.NETPRINOT_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))',
+        ];
+    }
+
+    /**
+     * Clause SQL "AND SOQ.YCOLLECT_0 IN (...)" échappée manuellement (compatible dblib/FreeTDS).
+     */
+    private function buildEtatCommandesClientsX3CollectionsClause(array $collections): string
+    {
+        $collections = array_values(array_filter(array_map('strval', $collections), fn(string $c) => $c !== ''));
+
+        if (empty($collections)) {
+            return '';
+        }
+
+        $escaped = implode(',', array_map(
+            fn(string $c) => "'" . str_replace("'", "''", $c) . "'",
+            $collections
+        ));
+
+        return " AND SOQ.YCOLLECT_0 IN ($escaped)";
+    }
+
+    public function getEtatCommandesClientsX3DistinctValues(string $field, array $filterModel = [], array $collections = []): array
+    {
+        $fieldMap = $this->getEtatCommandesClientsX3FieldMap();
+
+        if (!isset($fieldMap[$field])) {
+            return [];
+        }
+
+        try {
+            $expr    = $fieldMap[$field];
+            $baseSql = $this->sqlFileLoader->load('Sei/etat_commandes_clients.sql');
+
+            $fromPos = stripos($baseSql, 'FROM X3_LCS');
+            if ($fromPos === false) return [];
+
+            $fromClause = substr($baseSql, $fromPos);
+            $fromClause = str_replace(['{{ORDER_BY}}', '{{PAGINATION}}'], '', $fromClause);
+
+            $ssrmRequest = SsrmRequest::fromArray(['filterModel' => $filterModel]);
+            $builder     = new AgGridSqlBuilder($ssrmRequest, $fieldMap);
+            $whereClause = $builder->buildWhereClause();
+            $whereClause .= $this->buildEtatCommandesClientsX3CollectionsClause($collections);
+            $fromClause  = str_replace('{{WHERE_CLAUSE}}', $whereClause, $fromClause);
+
+            $sql  = "SELECT DISTINCT {$expr} AS val\n{$fromClause}\nORDER BY val";
+            $rows = $this->mssqlSei->executeQuery($sql);
+
+            return array_values(array_filter(
+                array_map(fn($r) => $r->val ?? null, $rows),
+                fn($v) => $v !== null && $v !== ''
+            ));
+        } catch (\Throwable $e) {
+            $this->logger->error('getEtatCommandesClientsX3DistinctValues error', ['field' => $field, 'error' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    /**
+     * Version paginée (SSRM) : 1 bloc de lignes + total pour la scrollbar.
+     * Nécessite au moins une collection sélectionnée (option 'collections'), sinon retourne vide.
+     */
+    public function getEtatCommandesClientsX3Paginated(SsrmRequest $request): SsrmResponse
+    {
+        try {
+            $isExport    = (bool) $request->getOption('isExport', false);
+            $collections = (array) $request->getOption('collections', []);
+
+            if (empty($collections)) {
+                return new SsrmResponse(rows: [], lastRow: 0, totals: []);
+            }
+
+            $fieldMap = $this->getEtatCommandesClientsX3FieldMap();
+            $builder  = new AgGridSqlBuilder($request, $fieldMap);
+
+            $whereClause = $builder->buildWhereClause();
+            $whereClause .= $this->buildEtatCommandesClientsX3CollectionsClause($collections);
+            $orderBy     = $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC');
+            $pagination  = $builder->buildPaginationClause();
+
+            $totalRows = 0;
+            $totals = [];
+
+            if ($request->getOffset() === 0 && !$isExport) {
+                $aggregateSql = $this->buildEtatCommandesClientsX3AggregateSql($whereClause);
+                $aggregateResult = $this->mssqlSei->executeQuery($aggregateSql);
+
+                if (!empty($aggregateResult)) {
+                    $totalRows = 0;
+                    $totalQteCommande = 0.0;
+                    $totalQteLivree = 0.0;
+                    $totalQteALivrer = 0.0;
+                    $totalMontantCommandeEur = 0.0;
+                    $totalMontantLivreeEur = 0.0;
+                    $totalMontantALivrerEur = 0.0;
+                    $taux = $this->divers->getExchangeRatesValues();
+
+                    foreach ($aggregateResult as $row) {
+                        $totalRows        += (int)   ($row->NB_ROWS           ?? 0);
+                        $totalQteCommande += (float) ($row->QUANTITE_COMMANDE ?? 0);
+                        $totalQteLivree   += (float) ($row->QUANTITE_LIVREE   ?? 0);
+                        $totalQteALivrer  += (float) ($row->QUANTITE_A_LIVRER ?? 0);
+
+                        $devise = $row->DEVISE ?? null;
+                        $rate   = ($devise !== null) ? ($taux[$devise] ?? null) : null;
+
+                        if ($rate !== null && (float) $rate > 0) {
+                            $totalMontantCommandeEur += (float) ($row->MONTANT_COMMANDE_DEVISE ?? 0) / (float) $rate;
+                            $totalMontantLivreeEur   += (float) ($row->MONTANT_LIVREE_DEVISE    ?? 0) / (float) $rate;
+                            $totalMontantALivrerEur  += (float) ($row->MONTANT_A_LIVRER_DEVISE  ?? 0) / (float) $rate;
+                        }
+                    }
+
+                    $totals = [
+                        'QUANTITE_COMMANDE'        => (int) round($totalQteCommande),
+                        'QUANTITE_LIVREE'          => (int) round($totalQteLivree),
+                        'QUANTITE_A_LIVRER'        => (int) round($totalQteALivrer),
+                        'MONTANT_COMMANDE_EUR'     => round($totalMontantCommandeEur, 2),
+                        'MONTANT_LIVREE_EUR'       => round($totalMontantLivreeEur, 2),
+                        'MONTANT_A_LIVRER_EUR'     => round($totalMontantALivrerEur, 2),
+                    ];
+                }
+            }
+
+            if (!$isExport && $request->getOffset() === 0 && $totalRows === 0) {
+                return new SsrmResponse(rows: [], lastRow: 0, totals: []);
+            }
+
+            $sql = $this->sqlFileLoader->load('Sei/etat_commandes_clients.sql');
+            $sql = str_replace('{{WHERE_CLAUSE}}', $whereClause, $sql);
+            $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
+            $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
+
+            $rows = $this->mssqlSei->executeQuery($sql);
+            $this->enrichEtatCommandesClientsX3Rows($rows);
+
+            return new SsrmResponse(
+                rows: $rows,
+                lastRow: $request->getOffset() === 0 ? $totalRows : null,
+                totals: $totals,
+            );
+
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur État des commandes clients SSRM', $e);
+            $this->logger->error('LCS Erreur État des commandes clients SSRM', ['exception' => $e]);
+            return new SsrmResponse(rows: [], lastRow: 0, totals: []);
+        }
+    }
+
+    /**
+     * Requête agrégée groupée par devise pour État des commandes clients.
+     */
+    private function buildEtatCommandesClientsX3AggregateSql(string $whereClause): string
+    {
+        return "
+        SELECT
+            SOH.CUR_0 AS DEVISE,
+            COUNT(*) AS NB_ROWS,
+            SUM(SOQ.QTY_0) AS QUANTITE_COMMANDE,
+            SUM(SOQ.DLVQTY_0 + SOQ.ODLQTY_0) AS QUANTITE_LIVREE,
+            SUM(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) AS QUANTITE_A_LIVRER,
+            SUM(SOP.NETPRINOT_0 * SOQ.QTY_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_COMMANDE_DEVISE,
+            SUM(SOP.NETPRINOT_0 * (SOQ.DLVQTY_0 + SOQ.ODLQTY_0) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_LIVREE_DEVISE,
+            SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_A_LIVRER_DEVISE
+        FROM X3_LCS.SORDERQ SOQ
+        INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
+        INNER JOIN X3_LCS.SORDERP SOP
+                ON SOQ.SOHNUM_0 = SOP.SOHNUM_0
+               AND SOQ.ITMREF_0 = SOP.ITMREF_0
+               AND SOQ.SOPLIN_0 = SOP.SOPLIN_0
+        INNER JOIN X3_LCS.ITMMASTER ITM ON SOQ.ITMREF_0 = ITM.ITMREF_0
+        CROSS APPLY (
+            SELECT
+                CASE WHEN CHARINDEX('_', ITM.ITMREF_0) > 0
+                     THEN LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0) - 1)
+                     ELSE ITM.ITMREF_0
+                END AS ARTICLE_BASE,
+                CASE WHEN CHARINDEX('_', ITM.ITMREF_0) > 0
+                     THEN SUBSTRING(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0) + 1, 50)
+                     ELSE NULL
+                END AS VARIANT_VAL
+        ) AS SPLIT
+        INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
+        LEFT  JOIN X3_LCS.BPCUSTOMER BPC_INV ON SOH.BPCINV_0 = BPC_INV.BPCNUM_0
+        INNER JOIN X3_LCS.BPADDRESS BPA
+                ON BPC.BPCNUM_0 = BPA.BPANUM_0
+               AND BPA.BPAADD_0 = SOH.BPAADD_0
+        LEFT  JOIN X3_LCS.SALESREP REP1 ON BPC.REP_0 = REP1.REPNUM_0
+        LEFT  JOIN X3_LCS.SALESREP REP2 ON BPC.REP_1 = REP2.REPNUM_0
+        LEFT  JOIN X3_LCS.ATEXTRA ATX
+                ON ATX.IDENT2_0  = BPC.TSCCOD_2
+               AND ATX.CODFIC_0  = 'ATABDIV' AND ATX.LANGUE_0  = 'FRA'
+               AND ATX.ZONE_0    = 'LNGDES'  AND ATX.IDENT1_0  = '32'
+        LEFT  JOIN X3_LCS.ATEXTRA ATX4
+                ON ATX4.IDENT2_0 = BPC.ZGROUPIND_0
+               AND ATX4.CODFIC_0 = 'ATABDIV' AND ATX4.LANGUE_0 = 'FRA'
+               AND ATX4.ZONE_0   = 'LNGDES'  AND ATX4.IDENT1_0 = '6021'
+        LEFT  JOIN X3_LCS.ATEXTRA ATX5
+                ON ATX5.CODFIC_0 = 'TABLINCFG'
+               AND ATX5.LANGUE_0 = 'FRA'
+               AND ATX5.IDENT1_0 = ITM.CFGLIN_0
+        LEFT  JOIN X3_LCS.ATEXTRA ATX7
+                ON ATX7.IDENT2_0  = BPC.TSCCOD_4
+               AND ATX7.CODFIC_0  = 'ATABDIV' AND ATX7.LANGUE_0  = 'FRA'
+               AND ATX7.ZONE_0    = 'LNGDES'  AND ATX7.IDENT1_0  = '34'
+        LEFT  JOIN X3_LCS.ZITMCOL ITC
+                ON ITC.ITMREF_0  = SPLIT.ARTICLE_BASE
+               AND ITC.YCOLLECT_0 = SOQ.YCOLLECT_0
+        LEFT  JOIN X3_LCS.SVCRFOOT SVT ON SOH.SOHNUM_0 = SVT.VCRNUM_0 AND SVT.DTA_0 = 1
+        WHERE
+            SOH.ZSOHVALSTA_0 <> 3
+            AND BPC.BCGCOD_0 <> 'INTER'
+            AND ATX.TEXTE_0 NOT IN ('E-COMMERCE', 'RETAIL')
+            $whereClause
+        GROUP BY SOH.CUR_0
+    ";
+    }
+
+    /**
+     * Enrichissement : conversion EUR des 3 montants pré-calculés en devise d'origine
+     * (remise globale déjà appliquée côté SQL). Même règle que Sales::enrichBacklogClientsX3Rows()
+     * / Pilotage::applyEurConversion() : montant EUR = montant devise / taux de la devise.
+     */
+    private function enrichEtatCommandesClientsX3Rows(array &$rows): void
+    {
+        if ($rows === []) return;
+
+        $taux = $this->divers->getExchangeRatesValues();
+
+        foreach ($rows as $row) {
+            $rate = $taux[$row->CUR_0] ?? null;
+            $rateOk = $rate !== null && (float) $rate > 0;
+
+            $row->MONTANT_COMMANDE_EUR = $rateOk
+                ? round((float) $row->MONTANT_COMMANDE_DEVISE / (float) $rate, 2)
+                : 0.0;
+            $row->MONTANT_LIVREE_EUR = $rateOk
+                ? round((float) $row->MONTANT_LIVREE_DEVISE / (float) $rate, 2)
+                : 0.0;
+            $row->MONTANT_A_LIVRER_EUR = $rateOk
+                ? round((float) $row->MONTANT_A_LIVRER_DEVISE / (float) $rate, 2)
+                : 0.0;
+        }
+    }
+
     public function getSuiviPerfWholesaleFr(): array
     {
         try {
