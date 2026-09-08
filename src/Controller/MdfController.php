@@ -371,6 +371,7 @@ final class MdfController extends AbstractController
         try {
             if ($newCode === 'valide_direction') {
                 $mailer->sendValidationRepresentant($mdf);
+                $mailer->sendContratClient($mdf);
             } elseif ($newCode === 'refuse') {
                 $mailer->sendRefus($mdf);
             } elseif ($newCode === 'archive') {

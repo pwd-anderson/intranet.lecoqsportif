@@ -471,17 +471,28 @@ const ROUTES = {
 {% endif %}
 };
 
+// 6 étapes visuelles, comme SOA — "En attente de preuves" n'est pas un statut
+// réel en base (le statut backend reste `valide_direction` pendant cette
+// phase), c'est un repère visuel pour le représentant.
 const MDF_STEPS = [
-    { key: 'brouillon',          label: 'Brouillon' },
-    { key: 'attente_validation', label: 'En attente de validation' },
-    { key: 'valide_direction',   label: 'Validé par la Direction' },
-    { key: 'attente_val_finale', label: 'En attente de validation finale' },
-    { key: 'archive',            label: 'Archivé' },
+    { label: 'Brouillon' },
+    { label: 'En attente de validation' },
+    { label: 'Validé par la Direction' },
+    { label: 'En attente de preuves' },
+    { label: 'En attente de validation finale' },
+    { label: 'Archivé' },
 ];
 
+const MDF_STATUS_STEP_INDEX = {
+    brouillon: 0,
+    attente_validation: 1,
+    valide_direction: 3,
+    attente_val_finale: 4,
+    archive: 5,
+};
+
 function renderStepper(currentStatus) {
-    const stepKey = currentStatus === 'refuse' ? 'brouillon' : currentStatus;
-    const idx = MDF_STEPS.findIndex(s => s.key === stepKey);
+    const idx = MDF_STATUS_STEP_INDEX[currentStatus === 'refuse' ? 'brouillon' : currentStatus] ?? 0;
     document.getElementById('mdf-stepper').innerHTML = MDF_STEPS.map((step, i) => {
         const cls  = i < idx ? 'done' : (i === idx ? 'active' : '');
         const icon = i < idx ? '<i class="fa fa-check" style="font-size:12px;"></i>' : (i + 1);
