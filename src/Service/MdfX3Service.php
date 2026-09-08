@@ -1,0 +1,92 @@
+<?php
+
+namespace App\Service;
+
+use App\Factory\MssqlManagerFactory;
+use App\Infrastructure\Sql\SqlFileLoader;
+use App\Service\Tools\MssqlManager;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+
+class MdfX3Service
+{
+    private MssqlManager $mssqlLcs;
+    private MssqlManager $mssqlSei;
+
+    public function __construct(
+        MssqlManagerFactory $mssqlManagerFactory,
+        private SqlFileLoader $sqlFileLoader,
+        #[Autowire('%db.lcs%')]
+        string $dbLcs,
+        #[Autowire('%db.lcs_sei%')]
+        string $dbLcsSei,
+    ) {
+        $this->mssqlLcs = $mssqlManagerFactory->create($dbLcs);
+        $this->mssqlSei = $mssqlManagerFactory->create($dbLcsSei);
+    }
+
+    public function searchClients(string $q): array
+    {
+        $like = str_replace("'", "''", $q);
+        $sql  = "
+            SELECT TOP 30
+                BPC.BPCNUM_0  AS code,
+                BPC.BPCNAM_0  AS nom,
+                BPC.CUR_0     AS devise,
+                BPR.LAN_0     AS langue,
+                BPA.WEB_0     AS email
+            FROM X3_LCS.BPCUSTOMER BPC
+            INNER JOIN X3_LCS.BPADDRESS BPA ON BPC.BPCNUM_0 = BPA.BPANUM_0 AND BPA.BPAADD_0 = '001'
+            INNER JOIN X3_LCS.BPARTNER  BPR ON BPC.BPCNUM_0 = BPR.BPRNUM_0
+            WHERE (BPC.BPCNUM_0 LIKE '%{$like}%' OR BPC.BPCNAM_0 LIKE '%{$like}%')
+            ORDER BY BPC.BPCNUM_0
+        ";
+        $rows = $this->mssqlLcs->executeQuery($sql);
+
+        return array_map(fn($r) => [
+            'code'   => trim($r->code   ?? ''),
+            'nom'    => trim($r->nom    ?? ''),
+            'devise' => trim($r->devise ?? 'EUR'),
+            'langue' => trim($r->langue ?? ''),
+            'email'  => trim($r->email  ?? ''),
+        ], $rows);
+    }
+
+    public function getMontantFacture(string $clientCode): ?float
+    {
+        $clientCode = str_replace("'", "''", $clientCode);
+        $sql        = "
+            SELECT SUM(SID.AMTNOTLIN_0 * SIH.SNS_0) AS MONTANT
+            FROM X3_LCS.SINVOICE  AS SIH
+            JOIN X3_LCS.SINVOICED AS SID ON SIH.NUM_0 = SID.NUM_0
+            WHERE SIH.BPRPAY_0   = '{$clientCode}'
+              AND SIH.INVTYP_0   IN (1, 2)
+              AND SIH.STA_0      = 3
+              AND YEAR(SID.INVDAT_0) = YEAR(GETDATE())
+        ";
+        $rows = $this->mssqlLcs->executeQuery($sql);
+
+        if (empty($rows) || $rows[0]->MONTANT === null) {
+            return null;
+        }
+
+        return (float) $rows[0]->MONTANT;
+    }
+
+    public function getMontantBacklogClient(string $clientCode): ?float
+    {
+        $clientCode = str_replace("'", "''", $clientCode);
+        $sql        = str_replace(
+            '{{CLIENT_CODE}}',
+            $clientCode,
+            $this->sqlFileLoader->load('Sei/mdf_backlog_client_montant.sql')
+        );
+
+        $rows = $this->mssqlSei->executeQuery($sql);
+
+        if (empty($rows) || $rows[0]->MONTANT === null) {
+            return null;
+        }
+
+        return (float) $rows[0]->MONTANT;
+    }
+}

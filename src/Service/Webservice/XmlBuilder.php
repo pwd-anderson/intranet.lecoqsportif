@@ -106,6 +106,35 @@ final class XmlBuilder
         return $root->asXML();
     }
 
+    public static function buildMDF(\App\Entity\MdfRequest $mdf): string
+    {
+        $root = new \SimpleXMLElement("<?xml version='1.0' encoding='utf-8' standalone='no'?><PARAM></PARAM>");
+
+        $grp = $root->addChild('GRP');
+        $grp->addAttribute('ID', 'INH');
+
+        self::fld($grp, 'WSALFCY',  'SRT');
+        self::fld($grp, 'WINVREF',  $mdf->getNumero());
+        self::fld($grp, 'WSIVTYP',  'AVSOA');
+        self::fld($grp, 'WINVDAT',  (new \DateTime())->format('Ymd'));
+        self::fld($grp, 'WBPCINV',  $mdf->getClientCode());
+        self::fld($grp, 'WCNOREN',  '');
+
+        $tab = $root->addChild('TAB');
+        $tab->addAttribute('ID', 'IND');
+
+        $lin = $tab->addChild('LIN');
+        $lin->addAttribute('ID', 'IND');
+        $lin->addAttribute('NUM', '1');
+
+        self::fld($lin, 'WITMREF', 'MDF');
+        self::fld($lin, 'WQTY',    '1');
+        self::fld($lin, 'WPRI',    (string) round((float) $mdf->getMontantMdf(), 2));
+        self::fld($lin, 'WFREFLG', '1');
+
+        return self::forcePairedTags($root->asXML());
+    }
+
     private static function forcePairedTags(string $xml): string
     {
         return preg_replace('/<FLD([^>]*)\/>/', '<FLD$1></FLD>', $xml);

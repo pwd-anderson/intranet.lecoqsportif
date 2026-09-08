@@ -1,0 +1,1125 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+/* ─── Stepper ────────────────────────────────────────────────── */
+.mdf-stepper {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 28px;
+    background: #fff;
+    border: 1px solid #e3e6ef;
+    border-radius: 10px;
+    padding: 20px 24px;
+    overflow-x: auto;
+}
+.mdf-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 110px;
+    position: relative;
+}
+.mdf-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: calc(50% + 18px);
+    right: calc(-50% + 18px);
+    height: 2px;
+    background: #dee2e6;
+    z-index: 0;
+}
+.mdf-step.done:not(:last-child)::after  { background: #198754; }
+.mdf-step.active:not(:last-child)::after { background: #dee2e6; }
+
+.mdf-step-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    border: 2px solid #dee2e6;
+    background: #f8f9fa;
+    color: #adb5bd;
+    z-index: 1;
+    position: relative;
+}
+.mdf-step.done .mdf-step-circle {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+.mdf-step.active .mdf-step-circle {
+    background: #1a3767;
+    border-color: #1a3767;
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(26,55,103,.15);
+}
+.mdf-step-label {
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    color: #adb5bd;
+    line-height: 1.3;
+    max-width: 100px;
+}
+.mdf-step.done .mdf-step-label   { color: #198754; }
+.mdf-step.active .mdf-step-label { color: #1a3767; }
+
+/* ─── Layout ─────────────────────────────────────────────────── */
+.mdf-card {
+    background: #fff;
+    border: 1px solid #e3e6ef;
+    border-radius: 10px;
+    padding: 22px 24px;
+    margin-bottom: 20px;
+}
+.mdf-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #1a3767;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.mdf-card-title i { font-size: 14px; }
+
+/* ─── Form fields ────────────────────────────────────────────── */
+.mdf-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 4px;
+}
+.mdf-readonly {
+    background: #f8f9fa;
+    border: 1px solid #e3e6ef;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #6c757d;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+}
+.mdf-value {
+    background: #f8f9fa;
+    border: 1px solid #e3e6ef;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #212529;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+}
+.mdf-input {
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 13px;
+    width: 100%;
+    outline: none;
+    transition: border-color .15s;
+}
+.mdf-input:focus { border-color: #1a3767; box-shadow: 0 0 0 3px rgba(26,55,103,.1); }
+.mdf-input::placeholder { color: #adb5bd; }
+
+.mdf-search-wrap { position: relative; }
+.mdf-search-wrap .mdf-input { padding-right: 32px; }
+.mdf-search-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #adb5bd;
+    font-size: 12px;
+    pointer-events: none;
+}
+.mdf-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0; right: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.1);
+    z-index: 100;
+    max-height: 220px;
+    overflow-y: auto;
+    display: none;
+}
+.mdf-dropdown-item {
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f3f5;
+}
+.mdf-dropdown-item:hover { background: #f0f4ff; }
+.mdf-dropdown-item .item-code { color: #1a3767; font-weight: 600; margin-right: 6px; }
+.mdf-dropdown-item .item-name { color: #495057; }
+
+/* ─── Email affiché ───────────────────────────────────────────── */
+.mdf-email-display {
+    font-size: 13px;
+    color: #1a3767;
+    background: #f0f4ff;
+    border: 1px solid #cfe2ff;
+    border-radius: 6px;
+    padding: 6px 12px;
+    display: inline-block;
+}
+
+/* ─── Champs calculés ────────────────────────────────────────── */
+.mdf-calc-field {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1a3767;
+    background: #f0f4ff;
+    border: 1px solid #cfe2ff;
+    border-radius: 4px;
+    padding: 5px 8px;
+    text-align: right;
+    white-space: nowrap;
+    display: inline-block;
+}
+.mdf-calc-field.roi-alert {
+    background: #fce8ea;
+    color: #b02a37;
+    border-color: #f5c2c7;
+}
+
+/* ─── Actions ─────────────────────────────────────────────────── */
+.mdf-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 8px;
+}
+
+/* ─── Historique ─────────────────────────────────────────────── */
+.mdf-history-table { width: 100%; border-collapse: collapse; }
+.mdf-history-table th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6c757d; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #e3e6ef; }
+.mdf-history-table td { padding: 8px 10px; border-bottom: 1px solid #f1f3f5; font-size: 12px; vertical-align: middle; }
+.mdf-history-table tr:last-child td { border-bottom: none; }
+
+/* ─── Badges statut ──────────────────────────────────────────── */
+.mdf-badge-status { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.status-brouillon           { background: #e9ecef; color: #6c757d; }
+.status-attente_validation  { background: #fff3cd; color: #856404; }
+.status-valide_direction    { background: #cfe2ff; color: #0a4694; }
+.status-attente_val_finale  { background: #ffe5cc; color: #c45c00; }
+.status-archive             { background: #d1e7dd; color: #0a5c36; }
+.status-refuse              { background: #f8d7da; color: #842029; }
+
+/* ─── Action bar (validation) ─────────────────────────────────── */
+.btn-mdf-valider { background: #198754; border-color: #198754; color: #fff; }
+.btn-mdf-valider:hover { background: #157347; border-color: #146c43; color: #fff; }
+.btn-mdf-refuser { background: #dc3545; border-color: #dc3545; color: #fff; }
+.btn-mdf-refuser:hover { background: #bb2d3b; border-color: #b02a37; color: #fff; }
+
+/* ─── Preuves ─────────────────────────────────────────────────── */
+.proof-file-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #e3e6ef; border-radius: 6px; margin-bottom: 8px; font-size: 13px; }
+.proof-file-item .file-name { flex: 1; }
+.proof-file-item .file-size { color: #6c757d; font-size: 11px; }
+.btn-remove-line { border: none; background: transparent; color: #dc3545; font-size: 13px; padding: 2px 6px; }
+.btn-remove-line:hover { color: #b02a37; }
+
+.upload-zone {
+    border: 2px dashed #ced4da;
+    border-radius: 8px;
+    padding: 18px;
+    text-align: center;
+    font-size: 13px;
+    color: #6c757d;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.upload-zone:hover { border-color: #1a3767; background: #f8f9fb; color: #1a3767; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid pt-3" style="max-width: 1200px;">
+
+    {# ── Breadcrumb ── #}
+    <nav class="mb-3" style="font-size:12px; color:#6c757d;">
+        <a href="{{ path('app_mdf_index') }}" class="text-decoration-none text-secondary">MDF</a>
+        <span class="mx-1">/</span>
+        <span class="text-dark fw-semibold">Modifier le MDF</span>
+    </nav>
+
+    {# ── Stepper ── #}
+    <div class="mdf-stepper" id="mdf-stepper"></div>
+
+    <div id="edit-loading" class="text-center text-secondary py-5">
+        <i class="fa fa-spinner fa-spin fa-2x"></i>
+        <div class="mt-2">Chargement…</div>
+    </div>
+
+    {% if mode == 'form' %}
+    {# ═══════════════════════════════════════════════════════════ #}
+    {# MODE FORM (brouillon)                                       #}
+    {# ═══════════════════════════════════════════════════════════ #}
+
+    {# ── Bloc 1 : En-tête + Client ── #}
+    <div class="mdf-card" style="display:none;" id="mdf-form-content">
+        <div class="mdf-card-title">
+            <i class="fa fa-info-circle"></i> En-tête
+        </div>
+        <div class="row g-3">
+
+            <div class="col-md-4">
+                <div class="mdf-label">Représentant</div>
+                <div class="mdf-readonly" id="mdf-representant">—</div>
+            </div>
+            <div class="col-md-4">
+                <div class="mdf-label">N° MDF</div>
+                <div class="mdf-readonly fw-semibold" id="mdf-numero" style="color:#1a3767;">—</div>
+            </div>
+            <div class="col-md-4">
+                <div class="mdf-label">Titre</div>
+                <div class="mdf-readonly text-secondary fst-italic" id="mdf-titre">—</div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="mdf-label">Date de début <span class="text-danger">*</span></div>
+                <input type="date" class="mdf-input" id="mdf-date-debut">
+            </div>
+            <div class="col-md-3">
+                <div class="mdf-label">Date de fin <span class="text-danger">*</span></div>
+                <input type="date" class="mdf-input" id="mdf-date-fin">
+            </div>
+
+            <div class="col-md-6">
+                <div class="mdf-label">Code Client <span class="text-danger">*</span></div>
+                <div class="mdf-search-wrap">
+                    <input type="text" class="mdf-input" id="mdf-client-search"
+                           placeholder="Rechercher un client (code ou nom)…" autocomplete="off">
+                    <i class="fa fa-search mdf-search-icon"></i>
+                    <div class="mdf-dropdown" id="mdf-client-dropdown"></div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="mdf-label">Nom Client</div>
+                <div class="mdf-readonly" id="mdf-client-nom">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="mdf-label">Langue</div>
+                <div class="mdf-readonly" id="mdf-client-langue">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="mdf-label">Devise</div>
+                <div class="mdf-readonly" id="mdf-client-devise">—</div>
+            </div>
+
+            <div class="col-12" id="mdf-emails-wrap" style="display:none;">
+                <div class="mdf-label">Adresse email du client</div>
+                <div id="mdf-email-display"></div>
+            </div>
+
+        </div>
+    </div>
+
+    {# ── Bloc 2 : Activité ── #}
+    <div class="mdf-card" id="mdf-form-block-2" style="display:none;">
+        <div class="mdf-card-title">
+            <i class="fa fa-bullhorn"></i> Activité
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="mdf-label">Type d'activité <span class="text-danger">*</span></div>
+                <select class="mdf-input" id="mdf-type-activite" disabled>
+                    <option value="">Sélectionnez d'abord un client…</option>
+                    <option value="Event - Retailer specific">Event - Retailer specific</option>
+                    <option value="Print - Retailer catalog">Print - Retailer catalog</option>
+                    <option value="Print - Cobranded advertising">Print - Cobranded advertising</option>
+                    <option value="Print - Outdoor">Print - Outdoor</option>
+                    <option value="Instore - POP">Instore - POP</option>
+                    <option value="Instore - Space">Instore - Space</option>
+                    <option value="Digital - Retailer specific">Digital - Retailer specific</option>
+                    <option value="Digital - Cobranded">Digital - Cobranded</option>
+                    <option value="S.O.A">S.O.A</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div class="mdf-label">Montant MDF <span class="text-danger">*</span></div>
+                <input type="number" class="mdf-input" id="mdf-montant-mdf" min="0" step="0.01" placeholder="0.00" disabled>
+            </div>
+            <div class="col-md-2">
+                <div class="mdf-label">Montant facturé</div>
+                <div class="mdf-calc-field" id="mdf-montant-facture">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="mdf-label">Montant backlog client</div>
+                <div class="mdf-calc-field" id="mdf-montant-backlog">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="mdf-label">Montant MDF total client (année)</div>
+                <div class="mdf-calc-field" id="mdf-montant-total-client">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="mdf-label">ROI</div>
+                <div class="mdf-calc-field" id="mdf-roi">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="mdf-label">ROI Total</div>
+                <div class="mdf-calc-field" id="mdf-roi-total">—</div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Bloc 3 : Focus produit / Audience / Commentaire ── #}
+    <div class="mdf-card" id="mdf-form-block-3" style="display:none;">
+        <div class="mdf-card-title">
+            <i class="fa fa-align-left"></i> Description
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="mdf-label">Focus Produit</div>
+                <textarea class="mdf-input" id="mdf-focus" rows="2"
+                          placeholder="Décrire le focus produit…" style="resize:vertical;"></textarea>
+            </div>
+            <div class="col-md-4">
+                <div class="mdf-label">Audience</div>
+                <textarea class="mdf-input" id="mdf-audience" rows="2"
+                          placeholder="Décrire l'audience visée…" style="resize:vertical;"></textarea>
+            </div>
+            <div class="col-md-4">
+                <div class="mdf-label">Commentaire</div>
+                <textarea class="mdf-input" id="mdf-commentaire" rows="2"
+                          placeholder="Commentaire libre (optionnel)…" style="resize:vertical;"></textarea>
+            </div>
+        </div>
+    </div>
+
+    {# ── Actions ── #}
+    <div class="mdf-actions" id="mdf-form-actions" style="display:none;">
+        <a href="{{ path('app_mdf_index') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fa fa-arrow-left me-1"></i>Annuler
+        </a>
+        <button class="btn btn-sm btn-outline-primary" id="btn-save-draft" type="button">
+            <i class="fa fa-save me-1"></i>Enregistrer en brouillon
+        </button>
+        <button class="btn btn-sm btn-primary" id="btn-submit" type="button">
+            <i class="fa fa-paper-plane me-1"></i>Valider — Envoyer à la Direction
+        </button>
+    </div>
+
+    {% elseif mode == 'validation' %}
+    {# ═══════════════════════════════════════════════════════════ #}
+    {# MODE VALIDATION (management)                                #}
+    {# ═══════════════════════════════════════════════════════════ #}
+    <div id="mdf-ro-content" style="display:none;"></div>
+
+    <div id="action-bar" style="display:none;" class="mdf-card d-flex align-items-center gap-3 py-3">
+        <i class="fa fa-gavel text-secondary fa-lg"></i>
+        <span id="action-label" style="flex:1; font-size:13px; font-weight:600; color:#495057;"></span>
+        <button class="btn btn-sm btn-mdf-valider" onclick="doTransition('valider')">
+            <i class="fa fa-check me-1"></i>Valider
+        </button>
+        <button class="btn btn-sm btn-mdf-refuser" onclick="doTransition('refuser')">
+            <i class="fa fa-times me-1"></i>Refuser
+        </button>
+    </div>
+
+    {% elseif mode == 'preuves' %}
+    {# ═══════════════════════════════════════════════════════════ #}
+    {# MODE PREUVES (représentant)                                 #}
+    {# ═══════════════════════════════════════════════════════════ #}
+    <div id="mdf-ro-content" style="display:none;"></div>
+    <div id="preuves-block" style="display:none;"></div>
+
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+const MDF_ID   = {{ mdf_id }};
+const MODE     = '{{ mode }}';
+const ROUTES = {
+    apiShow:  '{{ path("api_mdf_show", {id: 0}) }}'.replace('/0', '/' + MDF_ID),
+    show:     '{{ path("app_mdf_show", {id: 0}) }}'.replace('/0', '/' + MDF_ID),
+{% if mode == 'form' %}
+    clients:      '{{ path("api_mdf_clients") }}',
+    caFacture:    '{{ path("api_mdf_ca_facture") }}',
+    backlog:      '{{ path("api_mdf_backlog") }}',
+    mdfTotal:     '{{ path("api_mdf_mdf_total") }}',
+    save:         '{{ path("api_mdf_save") }}',
+{% elseif mode == 'validation' %}
+    transition:   '{{ path("api_mdf_transition", {id: 0}) }}'.replace('/0', '/' + MDF_ID),
+{% elseif mode == 'preuves' %}
+    uploadProof:  '{{ path("api_mdf_upload_proof", {id: 0}) }}'.replace('/0', '/' + MDF_ID),
+    deleteProof:  '{{ path("api_mdf_delete_proof", {id: 0, docId: 0}) }}'.replace('/0/proof/0', '/' + MDF_ID + '/proof/0'),
+    submitPreuves:'{{ path("api_mdf_submit_preuves", {id: 0}) }}'.replace('/0', '/' + MDF_ID),
+{% endif %}
+};
+
+const MDF_STEPS = [
+    { key: 'brouillon',          label: 'Brouillon' },
+    { key: 'attente_validation', label: 'En attente de validation' },
+    { key: 'valide_direction',   label: 'Validé par la Direction' },
+    { key: 'attente_val_finale', label: 'En attente de validation finale' },
+    { key: 'archive',            label: 'Archivé' },
+];
+
+function renderStepper(currentStatus) {
+    const stepKey = currentStatus === 'refuse' ? 'brouillon' : currentStatus;
+    const idx = MDF_STEPS.findIndex(s => s.key === stepKey);
+    document.getElementById('mdf-stepper').innerHTML = MDF_STEPS.map((step, i) => {
+        const cls  = i < idx ? 'done' : (i === idx ? 'active' : '');
+        const icon = i < idx ? '<i class="fa fa-check" style="font-size:12px;"></i>' : (i + 1);
+        return `<div class="mdf-step ${cls}">
+            <div class="mdf-step-circle">${icon}</div>
+            <div class="mdf-step-label">${step.label}</div>
+        </div>`;
+    }).join('');
+}
+
+const fmtNum  = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = v => v ? v.split('-').reverse().join('/') : '—';
+const val     = v => v || '<span class="text-secondary fst-italic">—</span>';
+
+function fmtSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' o';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' Ko';
+    return (bytes / 1024 / 1024).toFixed(1) + ' Mo';
+}
+
+const mdfStatusClass = {
+    brouillon:           'status-brouillon',
+    attente_validation:  'status-attente_validation',
+    valide_direction:    'status-valide_direction',
+    attente_val_finale:  'status-attente_val_finale',
+    archive:             'status-archive',
+    refuse:              'status-refuse',
+};
+
+{% if mode != 'form' %}
+{# ── Rendu lecture seule (identique à show.html.twig::renderContent, adapté ici en renderReadOnly) ── #}
+function renderReadOnly(d) {
+    const emailsHtml = d.client_emails.length
+        ? `<span class="mdf-email-display"><i class="fa fa-envelope me-2" style="font-size:11px;"></i>${d.client_emails.join(', ')}</span>`
+        : '<span class="text-secondary fst-italic" style="font-size:13px;">Aucune adresse email renseignée</span>';
+
+    const historiqueHtml = d.historique && d.historique.length > 0
+        ? d.historique.map(h => {
+            const cls = mdfStatusClass[h.statut] || '';
+            return `<tr>
+                <td>${h.user}</td>
+                <td><span class="mdf-badge-status ${cls}">${h.statut_label}</span></td>
+                <td>${h.date}</td>
+            </tr>`;
+        }).join('')
+        : '<tr><td colspan="3" class="text-center text-secondary fst-italic py-2">Aucun historique.</td></tr>';
+
+    const preuvesHtml = (d.preuves && d.preuves.length > 0)
+        ? d.preuves.map(p => `
+            <div class="proof-file-item">
+                <i class="fa fa-file text-secondary"></i>
+                <a href="${p.download_url}" class="file-name text-decoration-none">${p.nom_fichier}</a>
+                <span class="file-size">${fmtSize(p.taille)}</span>
+                <small class="text-secondary">${p.uploaded_by} — ${p.uploaded_at}</small>
+            </div>`).join('')
+        : '<p class="text-secondary fst-italic mb-0" style="font-size:13px;">Aucun justificatif déposé.</p>';
+
+    const roiCls      = d.roi !== null && d.roi >= 5 ? 'roi-alert' : '';
+    const roiTotalCls = d.roi_total !== null && d.roi_total >= 5 ? 'roi-alert' : '';
+
+    document.getElementById('mdf-ro-content').innerHTML = `
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-info-circle"></i> En-tête</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="mdf-label">Représentant</div>
+                    <div class="mdf-value">${val(d.representant)}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mdf-label">N° MDF</div>
+                    <div class="mdf-value fw-semibold" style="color:#1a3767;">${d.numero}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mdf-label">Titre</div>
+                    <div class="mdf-value">${val(d.titre)}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mdf-label">Date de début</div>
+                    <div class="mdf-value">${fmtDate(d.date_debut)}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mdf-label">Date de fin</div>
+                    <div class="mdf-value">${fmtDate(d.date_fin)}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mdf-label">Client</div>
+                    <div class="mdf-value"><span class="fw-semibold me-1">${d.client_code}</span> ${d.client_nom}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">Devise</div>
+                    <div class="mdf-value">${val(d.client_devise)}</div>
+                </div>
+                <div class="col-12">
+                    <div class="mdf-label">Adresse email</div>
+                    ${emailsHtml}
+                </div>
+                <div class="col-12 text-end" style="font-size:11px; color:#adb5bd;">
+                    Créé le ${d.created_at} — Mis à jour le ${d.updated_at}
+                </div>
+            </div>
+        </div>
+
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-bullhorn"></i> Activité</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="mdf-label">Type d'activité</div>
+                    <div class="mdf-value">${val(d.type_activite)}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">Montant MDF</div>
+                    <div class="mdf-value fw-semibold" style="color:#1a3767;">${fmtNum.format(d.montant_mdf)} ${d.client_devise}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">Montant facturé</div>
+                    <div class="mdf-value">${d.montant_facture !== null ? fmtNum.format(d.montant_facture) + ' ' + d.client_devise : '—'}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">Montant backlog client</div>
+                    <div class="mdf-value">${d.montant_backlog_client !== null ? fmtNum.format(d.montant_backlog_client) + ' ' + d.client_devise : '—'}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">MDF total client (année)</div>
+                    <div class="mdf-value">${d.montant_mdf_total_client !== null ? fmtNum.format(d.montant_mdf_total_client) + ' ' + d.client_devise : '—'}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">ROI</div>
+                    <span class="mdf-calc-field ${roiCls}">${d.roi !== null ? fmtNum.format(d.roi) + ' %' : '—'}</span>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">ROI Total</div>
+                    <span class="mdf-calc-field ${roiTotalCls}">${d.roi_total !== null ? fmtNum.format(d.roi_total) + ' %' : '—'}</span>
+                </div>
+                ${d.focus_produit ? `
+                <div class="col-md-4">
+                    <div class="mdf-label">Focus Produit</div>
+                    <div class="mdf-value" style="white-space:pre-wrap;">${d.focus_produit}</div>
+                </div>` : ''}
+                ${d.audience ? `
+                <div class="col-md-4">
+                    <div class="mdf-label">Audience</div>
+                    <div class="mdf-value" style="white-space:pre-wrap;">${d.audience}</div>
+                </div>` : ''}
+                ${d.commentaire ? `
+                <div class="col-md-4">
+                    <div class="mdf-label">Commentaire</div>
+                    <div class="mdf-value" style="white-space:pre-wrap;">${d.commentaire}</div>
+                </div>` : ''}
+            </div>
+        </div>
+
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-paperclip"></i> Justificatifs</div>
+            ${preuvesHtml}
+        </div>
+
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-history"></i> Historique</div>
+            <table class="mdf-history-table">
+                <thead>
+                    <tr>
+                        <th style="width:220px;">Utilisateur</th>
+                        <th style="width:230px;">Statut</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${historiqueHtml}</tbody>
+            </table>
+        </div>
+    `;
+}
+{% endif %}
+
+{% if mode == 'form' %}
+{# ═══════════════════════════════════════════════════════════════ #}
+{# MODE FORM — JS                                                  #}
+{# ═══════════════════════════════════════════════════════════════ #}
+function showAlert(msg, title) {
+    document.getElementById('modal-alert-title').textContent = title || 'Erreur';
+    document.getElementById('modal-alert-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-alert')).show();
+}
+function showWarning(msg, title) {
+    document.getElementById('modal-warning-title').textContent = title || 'Attention';
+    document.getElementById('modal-warning-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-warning')).show();
+}
+function showConfirm(msg, onConfirm, title) {
+    document.getElementById('modal-confirm-title').textContent = title || 'Confirmation';
+    document.getElementById('modal-confirm-body').innerHTML = msg;
+    const oldBtn = document.getElementById('modal-confirm-ok');
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    newBtn.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(document.getElementById('modal-confirm')).hide();
+        onConfirm();
+    });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-confirm')).show();
+}
+
+let clientDevise = 'EUR';
+let clientCode   = null;
+let montantFacture = null;
+let montantBacklog = null;
+let montantMdfTotalClient = null;
+let clientEmails = [];
+
+const clientSearch   = document.getElementById('mdf-client-search');
+const clientDropdown = document.getElementById('mdf-client-dropdown');
+
+let clientSearchTimer = null;
+clientSearch.addEventListener('input', () => {
+    const q = clientSearch.value.trim();
+    if (q.length < 2) { clientDropdown.style.display = 'none'; return; }
+    clearTimeout(clientSearchTimer);
+    clientSearchTimer = setTimeout(() => {
+        fetch(`${ROUTES.clients}?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => renderClientDropdown(data))
+            .catch(() => {});
+    }, 300);
+});
+
+document.addEventListener('click', e => {
+    if (!clientDropdown.contains(e.target) && e.target !== clientSearch) {
+        clientDropdown.style.display = 'none';
+    }
+});
+
+function renderClientDropdown(items) {
+    if (!items.length) { clientDropdown.style.display = 'none'; return; }
+    clientDropdown.innerHTML = items.map(c =>
+        `<div class="mdf-dropdown-item" data-code="${c.code}"
+              data-nom="${c.nom}" data-langue="${c.langue}" data-devise="${c.devise}"
+              data-email="${c.email ?? ''}">
+            <span class="item-code">${c.code}</span>
+            <span class="item-name">${c.nom}</span>
+         </div>`
+    ).join('');
+    clientDropdown.style.display = 'block';
+    clientDropdown.querySelectorAll('.mdf-dropdown-item').forEach(el => {
+        el.addEventListener('click', () => selectClient(el));
+    });
+}
+
+function selectClient(el) {
+    const code   = el.dataset.code;
+    const nom    = el.dataset.nom;
+    const langue = el.dataset.langue;
+    const devise = el.dataset.devise;
+    const email  = el.dataset.email;
+    const emails = email ? [email] : [];
+
+    clientSearch.value = `${code} — ${nom}`;
+    clientDevise = devise;
+    clientCode   = code;
+    clientDropdown.style.display = 'none';
+
+    document.getElementById('mdf-client-nom').textContent    = nom;
+    document.getElementById('mdf-client-langue').textContent = langue;
+    document.getElementById('mdf-client-devise').textContent = devise;
+    document.getElementById('mdf-titre').textContent = `${document.getElementById('mdf-numero').textContent} — ${nom}`;
+
+    renderEmailList(emails);
+
+    document.getElementById('mdf-type-activite').disabled = false;
+    document.getElementById('mdf-montant-mdf').disabled   = false;
+
+    fetchMontants(code);
+}
+
+function renderEmailList(emails) {
+    clientEmails = emails;
+    const wrap    = document.getElementById('mdf-emails-wrap');
+    const display = document.getElementById('mdf-email-display');
+    display.innerHTML = emails.length
+        ? `<span class="mdf-email-display"><i class="fa fa-envelope me-2" style="color:#1a3767;font-size:11px;"></i>${emails.join(', ')}</span>`
+        : '<span class="text-secondary fst-italic" style="font-size:13px;">Aucune adresse email renseignée dans X3</span>';
+    wrap.style.display = '';
+}
+
+function fetchMontants(code) {
+    ['mdf-montant-facture', 'mdf-montant-backlog', 'mdf-montant-total-client'].forEach(id => {
+        document.getElementById(id).textContent = '…';
+    });
+
+    Promise.all([
+        fetch(`${ROUTES.caFacture}?client=${encodeURIComponent(code)}`).then(r => r.json()),
+        fetch(`${ROUTES.backlog}?client=${encodeURIComponent(code)}`).then(r => r.json()),
+        fetch(`${ROUTES.mdfTotal}?client=${encodeURIComponent(code)}&exclude_id=${MDF_ID}`).then(r => r.json()),
+    ]).then(([ca, backlog, mdfTotal]) => {
+        montantFacture         = ca.montant;
+        montantBacklog         = backlog.montant;
+        montantMdfTotalClient  = mdfTotal.montant ?? 0;
+
+        document.getElementById('mdf-montant-facture').textContent =
+            montantFacture !== null ? fmtNum.format(montantFacture) + ' ' + clientDevise : 'N/D';
+        document.getElementById('mdf-montant-backlog').textContent =
+            montantBacklog !== null ? fmtNum.format(montantBacklog) + ' ' + clientDevise : 'N/D';
+        document.getElementById('mdf-montant-total-client').textContent =
+            fmtNum.format(montantMdfTotalClient) + ' ' + clientDevise;
+
+        calcRoi();
+    }).catch(() => {
+        montantFacture        = null;
+        montantBacklog        = null;
+        montantMdfTotalClient = null;
+
+        ['mdf-montant-facture', 'mdf-montant-backlog', 'mdf-montant-total-client'].forEach(id => {
+            document.getElementById(id).textContent = 'Erreur';
+        });
+
+        calcRoi();
+    });
+}
+
+function calcRoi() {
+    const montantMdf = parseFloat(document.getElementById('mdf-montant-mdf').value) || 0;
+    const facture     = montantFacture || 0;
+    const backlog     = montantBacklog || 0;
+    const mdfTotal    = montantMdfTotalClient || 0;
+
+    const roiEl      = document.getElementById('mdf-roi');
+    const roiTotalEl = document.getElementById('mdf-roi-total');
+
+    const denomRoi = facture + backlog;
+    if (denomRoi > 0 && montantMdf > 0) {
+        const roi = (montantMdf / denomRoi) * 100;
+        roiEl.textContent = fmtNum.format(roi) + ' %';
+        roiEl.classList.toggle('roi-alert', roi >= 5);
+    } else {
+        roiEl.textContent = '—';
+        roiEl.classList.remove('roi-alert');
+    }
+
+    const denomRoiTotal = facture + backlog + mdfTotal;
+    if (denomRoiTotal > 0 && montantMdf > 0) {
+        const roiTotal = (montantMdf / denomRoiTotal) * 100;
+        roiTotalEl.textContent = fmtNum.format(roiTotal) + ' %';
+        roiTotalEl.classList.toggle('roi-alert', roiTotal >= 5);
+    } else {
+        roiTotalEl.textContent = '—';
+        roiTotalEl.classList.remove('roi-alert');
+    }
+}
+
+document.getElementById('mdf-montant-mdf').addEventListener('input', calcRoi);
+
+function prefillForm(data) {
+    document.getElementById('mdf-representant').textContent = data.representant;
+    document.getElementById('mdf-numero').textContent = data.numero;
+    document.getElementById('mdf-titre').textContent = data.titre;
+    document.getElementById('mdf-date-debut').value = data.date_debut;
+    document.getElementById('mdf-date-fin').value = data.date_fin;
+
+    clientCode   = data.client_code;
+    clientDevise = data.client_devise;
+    document.getElementById('mdf-client-search').value = `${data.client_code} — ${data.client_nom}`;
+    document.getElementById('mdf-client-nom').textContent = data.client_nom;
+    document.getElementById('mdf-client-langue').textContent = data.client_langue;
+    document.getElementById('mdf-client-devise').textContent = data.client_devise;
+    renderEmailList(data.client_emails || []);
+
+    document.getElementById('mdf-type-activite').disabled = false;
+    document.getElementById('mdf-type-activite').value = data.type_activite;
+    document.getElementById('mdf-montant-mdf').disabled = false;
+    document.getElementById('mdf-montant-mdf').value = data.montant_mdf;
+
+    montantFacture        = data.montant_facture;
+    montantBacklog        = data.montant_backlog_client;
+    montantMdfTotalClient = data.montant_mdf_total_client ?? 0;
+    document.getElementById('mdf-montant-facture').textContent =
+        montantFacture !== null ? fmtNum.format(montantFacture) + ' ' + clientDevise : 'N/D';
+    document.getElementById('mdf-montant-backlog').textContent =
+        montantBacklog !== null ? fmtNum.format(montantBacklog) + ' ' + clientDevise : 'N/D';
+    document.getElementById('mdf-montant-total-client').textContent =
+        fmtNum.format(montantMdfTotalClient) + ' ' + clientDevise;
+    calcRoi();
+
+    document.getElementById('mdf-focus').value = data.focus_produit || '';
+    document.getElementById('mdf-audience').value = data.audience || '';
+    document.getElementById('mdf-commentaire').value = data.commentaire || '';
+}
+
+function collectFormData(statut) {
+    return {
+        numero:                   document.getElementById('mdf-numero').textContent.trim(),
+        statut,
+        titre:                    document.getElementById('mdf-titre').textContent.trim(),
+        client_code:              clientCode,
+        client_nom:               document.getElementById('mdf-client-nom').textContent.trim(),
+        client_langue:            document.getElementById('mdf-client-langue').textContent.trim(),
+        client_devise:            clientDevise,
+        client_emails:            clientEmails,
+        date_debut:               document.getElementById('mdf-date-debut').value,
+        date_fin:                 document.getElementById('mdf-date-fin').value,
+        type_activite:            document.getElementById('mdf-type-activite').value,
+        montant_mdf:              parseFloat(document.getElementById('mdf-montant-mdf').value) || 0,
+        focus_produit:            document.getElementById('mdf-focus').value.trim() || null,
+        audience:                 document.getElementById('mdf-audience').value.trim() || null,
+        commentaire:              document.getElementById('mdf-commentaire').value.trim() || null,
+    };
+}
+
+function validateForm(data) {
+    if (!data.client_code)   { showWarning('Veuillez sélectionner un client.'); return false; }
+    if (!data.date_debut)    { showWarning('La date de début est obligatoire.'); return false; }
+    if (!data.date_fin)      { showWarning('La date de fin est obligatoire.'); return false; }
+    if (!data.type_activite) { showWarning("Le type d'activité est obligatoire."); return false; }
+    if (!data.montant_mdf || data.montant_mdf <= 0) { showWarning('Le montant MDF doit être supérieur à 0.'); return false; }
+    return true;
+}
+
+function saveMdf(statut) {
+    const data = collectFormData(statut);
+    if (!validateForm(data)) return;
+
+    const btn = statut === 'brouillon'
+        ? document.getElementById('btn-save-draft')
+        : document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Enregistrement…';
+
+    fetch(ROUTES.save, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(data),
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.error) {
+            showAlert(res.error);
+            btn.disabled = false;
+            btn.innerHTML = statut === 'brouillon'
+                ? '<i class="fa fa-save me-1"></i>Enregistrer en brouillon'
+                : '<i class="fa fa-paper-plane me-1"></i>Valider — Envoyer à la Direction';
+            return;
+        }
+        window.location.href = ROUTES.show;
+    })
+    .catch(() => {
+        showAlert('Une erreur réseau est survenue.', 'Erreur réseau');
+        btn.disabled = false;
+    });
+}
+
+document.getElementById('btn-save-draft').addEventListener('click', () => saveMdf('brouillon'));
+document.getElementById('btn-submit').addEventListener('click', () => saveMdf('attente_validation'));
+
+{% elseif mode == 'validation' %}
+{# ═══════════════════════════════════════════════════════════════ #}
+{# MODE VALIDATION — JS                                            #}
+{# ═══════════════════════════════════════════════════════════════ #}
+function showAlert(msg, title) {
+    document.getElementById('modal-alert-title').textContent = title || 'Erreur';
+    document.getElementById('modal-alert-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-alert')).show();
+}
+function showConfirm(msg, onConfirm, title) {
+    document.getElementById('modal-confirm-title').textContent = title || 'Confirmation';
+    document.getElementById('modal-confirm-body').innerHTML = msg;
+    const oldBtn = document.getElementById('modal-confirm-ok');
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    newBtn.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(document.getElementById('modal-confirm')).hide();
+        onConfirm();
+    });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-confirm')).show();
+}
+
+function initValidation(d) {
+    const label = d.statut === 'attente_validation'
+        ? 'Ce MDF est en attente de votre validation.'
+        : 'Ce MDF est en attente de validation finale après soumission des preuves.';
+    document.getElementById('action-label').textContent = label;
+    document.getElementById('action-bar').style.display = 'flex';
+}
+
+function doTransition(action) {
+    const label = action === 'valider' ? 'valider' : 'refuser';
+    showConfirm(`Confirmez-vous vouloir ${label} ce MDF ?`, () => {
+        fetch(ROUTES.transition, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) { showAlert(res.error); return; }
+            window.location.href = ROUTES.show;
+        })
+        .catch(() => showAlert('Une erreur réseau est survenue.', 'Erreur réseau'));
+    });
+}
+
+{% elseif mode == 'preuves' %}
+{# ═══════════════════════════════════════════════════════════════ #}
+{# MODE PREUVES — JS                                               #}
+{# ═══════════════════════════════════════════════════════════════ #}
+function showAlert(msg, title) {
+    document.getElementById('modal-alert-title').textContent = title || 'Erreur';
+    document.getElementById('modal-alert-body').innerHTML = msg;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-alert')).show();
+}
+function showConfirm(msg, onConfirm, title) {
+    document.getElementById('modal-confirm-title').textContent = title || 'Confirmation';
+    document.getElementById('modal-confirm-body').innerHTML = msg;
+    const oldBtn = document.getElementById('modal-confirm-ok');
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    newBtn.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(document.getElementById('modal-confirm')).hide();
+        onConfirm();
+    });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-confirm')).show();
+}
+
+let currentMdfData = null;
+
+function initPreuves(d) {
+    currentMdfData = d;
+    document.getElementById('preuves-block').innerHTML = `
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-paperclip"></i> Justificatifs</div>
+            <div id="proofs-list">${renderProofsList()}</div>
+            <div class="upload-zone mt-2" id="upload-zone" onclick="document.getElementById('proof-input').click()">
+                <i class="fa fa-cloud-upload-alt me-1"></i> Cliquez pour ajouter un justificatif
+            </div>
+            <input type="file" id="proof-input" style="display:none;" onchange="uploadFile(this)">
+        </div>
+        <div class="mdf-actions">
+            <button class="btn btn-primary px-5" id="btn-submit-preuves" onclick="submitPreuves()" ${d.preuves.length === 0 ? 'disabled' : ''}>
+                <i class="fa fa-paper-plane me-1"></i>Soumettre pour validation finale
+            </button>
+        </div>
+    `;
+    document.getElementById('preuves-block').style.display = '';
+}
+
+function renderProofsList() {
+    if (!currentMdfData.preuves.length) {
+        return '<p class="text-secondary fst-italic mb-0" style="font-size:13px;">Aucun justificatif déposé.</p>';
+    }
+    return currentMdfData.preuves.map(p => `
+        <div class="proof-file-item" id="proof-item-${p.id}">
+            <i class="fa fa-file text-secondary"></i>
+            <a href="${p.download_url}" class="file-name text-decoration-none">${p.nom_fichier}</a>
+            <span class="file-size">${fmtSize(p.taille)}</span>
+            <button class="btn-remove-line" onclick="deleteProof(${p.id})" title="Supprimer"><i class="fa fa-times"></i></button>
+        </div>`).join('');
+}
+
+function checkSubmitBtn() {
+    const btn = document.getElementById('btn-submit-preuves');
+    if (btn) btn.disabled = currentMdfData.preuves.length === 0;
+}
+
+function uploadFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch(ROUTES.uploadProof, { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) { showAlert(res.error); return; }
+            currentMdfData.preuves.push(res);
+            document.getElementById('proofs-list').innerHTML = renderProofsList();
+            checkSubmitBtn();
+            input.value = '';
+        })
+        .catch(() => showAlert('Une erreur réseau est survenue.', 'Erreur réseau'));
+}
+
+function deleteProof(docId) {
+    showConfirm('Supprimer ce justificatif ?', () => _doDeleteProof(docId));
+}
+
+function _doDeleteProof(docId) {
+    fetch(ROUTES.deleteProof.replace('/proof/0', '/proof/' + docId), { method: 'POST' })
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) { showAlert(res.error); return; }
+            currentMdfData.preuves = currentMdfData.preuves.filter(p => p.id !== docId);
+            document.getElementById('proofs-list').innerHTML = renderProofsList();
+            checkSubmitBtn();
+        })
+        .catch(() => showAlert('Une erreur réseau est survenue.', 'Erreur réseau'));
+}
+
+function submitPreuves() {
+    fetch(ROUTES.submitPreuves, { method: 'POST' })
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) { showAlert(res.error); return; }
+            window.location.href = ROUTES.show;
+        })
+        .catch(() => showAlert('Une erreur réseau est survenue.', 'Erreur réseau'));
+}
+{% endif %}
+
+// ── Chargement initial ────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    fetch(ROUTES.apiShow)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            document.title = data.numero + ' — MDF';
+
+            renderStepper(data.statut);
+
+            if (MODE === 'form') {
+                prefillForm(data);
+                document.getElementById('mdf-form-content').style.display = '';
+                document.getElementById('mdf-form-block-2').style.display = '';
+                document.getElementById('mdf-form-block-3').style.display = '';
+                document.getElementById('mdf-form-actions').style.display = '';
+            } else if (MODE === 'validation') {
+                renderReadOnly(data);
+                initValidation(data);
+                document.getElementById('mdf-ro-content').style.display = '';
+            } else if (MODE === 'preuves') {
+                renderReadOnly(data);
+                initPreuves(data);
+                document.getElementById('mdf-ro-content').style.display = '';
+            }
+
+            document.getElementById('edit-loading').style.display = 'none';
+        })
+        .catch(err => {
+            document.getElementById('edit-loading').innerHTML =
+                `<div class="alert alert-danger">Impossible de charger le MDF : ${err.message}</div>`;
+        });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,341 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+/* ─── Stepper ─────────────────────────────────────────────── */
+.mdf-stepper {
+    display: flex; align-items: flex-start; gap: 0;
+    margin-bottom: 28px;
+    background: #fff; border: 1px solid #e3e6ef;
+    border-radius: 10px; padding: 20px 24px; overflow-x: auto;
+}
+.mdf-step { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 110px; position: relative; }
+.mdf-step:not(:last-child)::after {
+    content: ''; position: absolute; top: 16px;
+    left: calc(50% + 18px); right: calc(-50% + 18px);
+    height: 2px; background: #dee2e6; z-index: 0;
+}
+.mdf-step.done:not(:last-child)::after   { background: #198754; }
+.mdf-step.active:not(:last-child)::after { background: #dee2e6; }
+.mdf-step-circle {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    border: 2px solid #dee2e6; background: #f8f9fa; color: #adb5bd;
+    z-index: 1; position: relative;
+}
+.mdf-step.done .mdf-step-circle   { background: #198754; border-color: #198754; color: #fff; }
+.mdf-step.active .mdf-step-circle { background: #1a3767; border-color: #1a3767; color: #fff; box-shadow: 0 0 0 4px rgba(26,55,103,.15); }
+.mdf-step-label { margin-top: 8px; font-size: 11px; font-weight: 600; text-align: center; color: #adb5bd; line-height: 1.3; max-width: 100px; }
+.mdf-step.done .mdf-step-label   { color: #198754; }
+.mdf-step.active .mdf-step-label { color: #1a3767; }
+
+/* ─── Layout ─────────────────────────────────────────────────── */
+.mdf-card { background: #fff; border: 1px solid #e3e6ef; border-radius: 10px; padding: 22px 24px; margin-bottom: 20px; }
+.mdf-card-title {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: #1a3767; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 8px;
+}
+.mdf-label { font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 4px; }
+.mdf-value {
+    background: #f8f9fa; border: 1px solid #e3e6ef; border-radius: 5px;
+    padding: 6px 10px; font-size: 13px; color: #212529;
+    min-height: 34px; display: flex; align-items: center;
+}
+
+/* ─── Champs calculés ────────────────────────────────────────── */
+.mdf-calc-field {
+    font-size: 12px; font-weight: 600; color: #1a3767;
+    background: #f0f4ff; border: 1px solid #cfe2ff;
+    border-radius: 4px; padding: 4px 8px; text-align: right; white-space: nowrap; display: inline-block;
+}
+.roi-alert { background: #fce8ea !important; color: #b02a37 !important; border-color: #f5c2c7 !important; }
+
+/* ─── Badges statut ──────────────────────────────────────────── */
+.mdf-badge-status { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.status-brouillon           { background: #e9ecef; color: #6c757d; }
+.status-attente_validation  { background: #fff3cd; color: #856404; }
+.status-valide_direction    { background: #cfe2ff; color: #0a4694; }
+.status-attente_val_finale  { background: #ffe5cc; color: #c45c00; }
+.status-archive             { background: #d1e7dd; color: #0a5c36; }
+.status-refuse              { background: #f8d7da; color: #842029; }
+
+/* ─── Historique ─────────────────────────────────────────────── */
+.mdf-history-table { width: 100%; border-collapse: collapse; }
+.mdf-history-table th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6c757d; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #e3e6ef; }
+.mdf-history-table td { padding: 8px 10px; border-bottom: 1px solid #f1f3f5; font-size: 12px; vertical-align: middle; }
+.mdf-history-table tr:last-child td { border-bottom: none; }
+
+/* ─── Email ──────────────────────────────────────────────────── */
+.mdf-email-display {
+    font-size: 13px; color: #1a3767;
+    background: #f0f4ff; border: 1px solid #cfe2ff;
+    border-radius: 6px; padding: 6px 12px; display: inline-block;
+}
+
+/* ─── Preuves (lecture seule) ────────────────────────────────── */
+.proof-file-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #e3e6ef; border-radius: 6px; margin-bottom: 8px; font-size: 13px; }
+.proof-file-item .file-name { flex: 1; }
+.proof-file-item .file-size { color: #6c757d; font-size: 11px; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid pt-3" style="max-width:1200px;">
+
+    <nav class="mb-3 d-flex align-items-center justify-content-between" style="font-size:12px; color:#6c757d;">
+        <div>
+            <a href="{{ path('app_mdf_index') }}" class="text-decoration-none text-secondary">MDF</a>
+            <span class="mx-1">/</span>
+            <span class="text-dark fw-semibold" id="mdf-numero-bc">Chargement…</span>
+        </div>
+        <div class="d-flex gap-2">
+            {% if mdf.status.code == 'brouillon' and is_representant %}
+                <a href="{{ path('app_mdf_edit', {id: mdf.id}) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fa fa-edit me-1"></i>Modifier
+                </a>
+            {% endif %}
+            {% if is_management and mdf.status.code in ['attente_validation', 'attente_val_finale'] %}
+                <a href="{{ path('app_mdf_edit', {id: mdf.id}) }}" class="btn btn-sm btn-warning">
+                    <i class="fa fa-gavel me-1"></i>Valider / Refuser
+                </a>
+            {% endif %}
+            {% if is_representant and mdf.status.code == 'valide_direction' %}
+                <a href="{{ path('app_mdf_edit', {id: mdf.id}) }}" class="btn btn-sm btn-info text-white">
+                    <i class="fa fa-paperclip me-1"></i>Soumettre les preuves
+                </a>
+            {% endif %}
+        </div>
+    </nav>
+
+    {% if mdf.status.code == 'refuse' %}
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+        <i class="fa fa-times-circle fa-lg me-1"></i>
+        <strong>Ce MDF a été refusé.</strong> Aucune action n'est possible.
+    </div>
+    {% endif %}
+
+    <div class="mdf-stepper" id="mdf-stepper"></div>
+
+    <div id="mdf-loading" class="text-center text-secondary py-5">
+        <i class="fa fa-spinner fa-spin fa-2x"></i>
+        <div class="mt-2">Chargement…</div>
+    </div>
+
+    <div id="mdf-content" style="display:none;"></div>
+
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+const MDF_ID    = {{ mdf.id }};
+const ROUTE_API = '{{ path("api_mdf_show", {id: 0}) }}'.replace('/0', '/' + MDF_ID);
+
+const MDF_STEPS = [
+    { key: 'brouillon',          label: 'Brouillon' },
+    { key: 'attente_validation', label: 'En attente de validation' },
+    { key: 'valide_direction',   label: 'Validé par la Direction' },
+    { key: 'attente_val_finale', label: 'En attente de validation finale' },
+    { key: 'archive',            label: 'Archivé' },
+];
+
+function renderStepper(currentStatus) {
+    const stepKey = currentStatus === 'refuse' ? 'brouillon' : currentStatus;
+    const idx = MDF_STEPS.findIndex(s => s.key === stepKey);
+    document.getElementById('mdf-stepper').innerHTML = MDF_STEPS.map((step, i) => {
+        const cls  = i < idx ? 'done' : (i === idx ? 'active' : '');
+        const icon = i < idx ? '<i class="fa fa-check" style="font-size:12px;"></i>' : (i + 1);
+        return `<div class="mdf-step ${cls}">
+            <div class="mdf-step-circle">${icon}</div>
+            <div class="mdf-step-label">${step.label}</div>
+        </div>`;
+    }).join('');
+}
+
+const fmtNum  = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = v => v ? v.split('-').reverse().join('/') : '—';
+const val     = v => v || '<span class="text-secondary fst-italic">—</span>';
+
+function fmtSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' o';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' Ko';
+    return (bytes / 1024 / 1024).toFixed(1) + ' Mo';
+}
+
+const mdfStatusClass = {
+    brouillon:           'status-brouillon',
+    attente_validation:  'status-attente_validation',
+    valide_direction:    'status-valide_direction',
+    attente_val_finale:  'status-attente_val_finale',
+    archive:             'status-archive',
+    refuse:              'status-refuse',
+};
+
+function renderContent(d) {
+    const emailsHtml = d.client_emails.length
+        ? `<span class="mdf-email-display"><i class="fa fa-envelope me-2" style="font-size:11px;"></i>${d.client_emails.join(', ')}</span>`
+        : '<span class="text-secondary fst-italic" style="font-size:13px;">Aucune adresse email renseignée</span>';
+
+    const historiqueHtml = d.historique && d.historique.length > 0
+        ? d.historique.map(h => {
+            const cls = mdfStatusClass[h.statut] || '';
+            return `<tr>
+                <td>${h.user}</td>
+                <td><span class="mdf-badge-status ${cls}">${h.statut_label}</span></td>
+                <td>${h.date}</td>
+            </tr>`;
+        }).join('')
+        : '<tr><td colspan="3" class="text-center text-secondary fst-italic py-2">Aucun historique.</td></tr>';
+
+    const preuvesHtml = (d.preuves && d.preuves.length > 0)
+        ? d.preuves.map(p => `
+            <div class="proof-file-item">
+                <i class="fa fa-file text-secondary"></i>
+                <a href="${p.download_url}" class="file-name text-decoration-none">${p.nom_fichier}</a>
+                <span class="file-size">${fmtSize(p.taille)}</span>
+                <small class="text-secondary">${p.uploaded_by} — ${p.uploaded_at}</small>
+            </div>`).join('')
+        : '<p class="text-secondary fst-italic mb-0" style="font-size:13px;">Aucun justificatif déposé.</p>';
+
+    const roiCls      = d.roi !== null && d.roi >= 5 ? 'roi-alert' : '';
+    const roiTotalCls = d.roi_total !== null && d.roi_total >= 5 ? 'roi-alert' : '';
+
+    document.getElementById('mdf-content').innerHTML = `
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-info-circle"></i> En-tête</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="mdf-label">Représentant</div>
+                    <div class="mdf-value">${val(d.representant)}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mdf-label">N° MDF</div>
+                    <div class="mdf-value fw-semibold" style="color:#1a3767;">${d.numero}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mdf-label">Titre</div>
+                    <div class="mdf-value">${val(d.titre)}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mdf-label">Date de début</div>
+                    <div class="mdf-value">${fmtDate(d.date_debut)}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mdf-label">Date de fin</div>
+                    <div class="mdf-value">${fmtDate(d.date_fin)}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mdf-label">Client</div>
+                    <div class="mdf-value"><span class="fw-semibold me-1">${d.client_code}</span> ${d.client_nom}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">Devise</div>
+                    <div class="mdf-value">${val(d.client_devise)}</div>
+                </div>
+                <div class="col-12">
+                    <div class="mdf-label">Adresse email</div>
+                    ${emailsHtml}
+                </div>
+                <div class="col-12 text-end" style="font-size:11px; color:#adb5bd;">
+                    Créé le ${d.created_at} — Mis à jour le ${d.updated_at}
+                </div>
+            </div>
+        </div>
+
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-bullhorn"></i> Activité</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="mdf-label">Type d'activité</div>
+                    <div class="mdf-value">${val(d.type_activite)}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">Montant MDF</div>
+                    <div class="mdf-value fw-semibold" style="color:#1a3767;">${fmtNum.format(d.montant_mdf)} ${d.client_devise}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">Montant facturé</div>
+                    <div class="mdf-value">${d.montant_facture !== null ? fmtNum.format(d.montant_facture) + ' ' + d.client_devise : '—'}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">Montant backlog client</div>
+                    <div class="mdf-value">${d.montant_backlog_client !== null ? fmtNum.format(d.montant_backlog_client) + ' ' + d.client_devise : '—'}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">MDF total client (année)</div>
+                    <div class="mdf-value">${d.montant_mdf_total_client !== null ? fmtNum.format(d.montant_mdf_total_client) + ' ' + d.client_devise : '—'}</div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">ROI</div>
+                    <span class="mdf-calc-field ${roiCls}">${d.roi !== null ? fmtNum.format(d.roi) + ' %' : '—'}</span>
+                </div>
+                <div class="col-md-2">
+                    <div class="mdf-label">ROI Total</div>
+                    <span class="mdf-calc-field ${roiTotalCls}">${d.roi_total !== null ? fmtNum.format(d.roi_total) + ' %' : '—'}</span>
+                </div>
+                ${d.focus_produit ? `
+                <div class="col-md-4">
+                    <div class="mdf-label">Focus Produit</div>
+                    <div class="mdf-value" style="white-space:pre-wrap;">${d.focus_produit}</div>
+                </div>` : ''}
+                ${d.audience ? `
+                <div class="col-md-4">
+                    <div class="mdf-label">Audience</div>
+                    <div class="mdf-value" style="white-space:pre-wrap;">${d.audience}</div>
+                </div>` : ''}
+                ${d.commentaire ? `
+                <div class="col-md-4">
+                    <div class="mdf-label">Commentaire</div>
+                    <div class="mdf-value" style="white-space:pre-wrap;">${d.commentaire}</div>
+                </div>` : ''}
+            </div>
+        </div>
+
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-paperclip"></i> Justificatifs</div>
+            ${preuvesHtml}
+        </div>
+
+        <div class="mdf-card">
+            <div class="mdf-card-title"><i class="fa fa-history"></i> Historique</div>
+            <table class="mdf-history-table">
+                <thead>
+                    <tr>
+                        <th style="width:220px;">Utilisateur</th>
+                        <th style="width:230px;">Statut</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>${historiqueHtml}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    fetch(ROUTE_API)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+
+            document.getElementById('mdf-numero-bc').textContent = data.numero;
+            document.title = data.numero + ' — MDF';
+
+            renderStepper(data.statut);
+            renderContent(data);
+
+            document.getElementById('mdf-loading').style.display = 'none';
+            document.getElementById('mdf-content').style.display = '';
+        })
+        .catch(err => {
+            document.getElementById('mdf-loading').innerHTML =
+                `<div class="alert alert-danger d-inline-block">Erreur : ${err.message}</div>`;
+        });
+});
+</script>
+{% endblock %}

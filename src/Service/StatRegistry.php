@@ -23,6 +23,7 @@ final class StatRegistry
             'app_sales_sell_in_suivi_ps'                  => ['section' => 'Ventes',  'label' => 'Sell in suivi PS',                  'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
             'app_sales_suivi_perf_wholesale_fr'           => ['section' => 'Ventes',  'label' => 'Suivi perf wholesale FR',           'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
             'app_sales_ventes_qte_ca_client'              => ['section' => 'Ventes',  'label' => 'Ventes qté CA client',              'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
+            'app_mdf_index'                               => ['section' => 'Ventes',  'label' => 'MDF (Market Development Funds)',    'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
 
             // ── ADV ───────────────────────────────────────────────────────
             'app_sales_livraison_non_facturees'           => ['section' => 'ADV',     'label' => 'Livraisons non facturées',          'roles' => ['ROLE_ADV']],

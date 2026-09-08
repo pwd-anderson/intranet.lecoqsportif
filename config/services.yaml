@@ -9,6 +9,8 @@ parameters:
 
     admin.email: '%env(resolve:ADMIN_EMAIL)%'
 
+    mail.head_sale: '%env(resolve:MAIL_HEAD_SALE)%'
+
     mssql.connections:
         made2deseign:
             dsn: '%env(resolve:MSSQL_URL)%'
@@ -71,6 +73,11 @@ services:
     App\Service\Tools\GraphMailer:
         arguments:
             $senderEmail: '%graph.sender_email%'
+            $adminEmail: '%admin.email%'
+
+    App\Service\MdfMailer:
+        arguments:
+            $mailHeadSale: '%mail.head_sale%'
             $adminEmail: '%admin.email%'
 
     App\Service\Tools\UserManagerAzure:

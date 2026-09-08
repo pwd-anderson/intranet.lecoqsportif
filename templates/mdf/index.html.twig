@@ -1,0 +1,141 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input { color: #000000 !important; }
+        .grid-wrapper { position: relative; min-height: 600px; }
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .mdf-badge-status {
+            display: inline-block; padding: 3px 10px;
+            border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap;
+        }
+        .status-brouillon           { background: #e9ecef; color: #6c757d; }
+        .status-attente_validation  { background: #fff3cd; color: #856404; }
+        .status-valide_direction    { background: #cfe2ff; color: #0a4694; }
+        .status-attente_val_finale  { background: #ffe5cc; color: #c45c00; }
+        .status-archive             { background: #d1e7dd; color: #0a5c36; }
+        .status-refuse              { background: #f8d7da; color: #842029; }
+    </style>
+{% endblock %}
+
+{% block body %}
+<section class="content">
+    <div class="row">
+        <div class="col-12">
+            <div class="box">
+                <div class="box-header with-border d-flex justify-content-between align-items-center">
+                    <h3 class="box-title mb-0"><i class="fa fa-file-contract me-2"></i>MDF — Market Development Funds</h3>
+                    <div class="d-flex align-items-center gap-2">
+                        <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                        <a href="{{ path('app_mdf_new') }}" class="btn btn-success btn-sm">
+                            <i class="fa fa-plus me-1"></i>Nouveau MDF
+                        </a>
+                    </div>
+                </div>
+                <div class="box-body">
+                    <div class="table-responsive-sm">
+                        <div id="myGridWrapper" class="grid-wrapper">
+                            <div id="gridCustomLoader" class="grid-custom-loader">
+                                <div class="grid-loader-spinner"></div>
+                                <div class="grid-loader-text">Chargement de la grille...</div>
+                            </div>
+                            <div id="myGrid" class="ag-theme-alpine" style="height: 700px; visibility: hidden;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
+
+    <script>
+    const ROUTE_MDF_LIST = '{{ path("api_mdf_list") }}';
+    const ROUTE_MDF_SHOW = '{{ path("app_mdf_show", {id: 0}) }}';
+
+    const mdfStatusClass = {
+        brouillon:           'status-brouillon',
+        attente_validation:  'status-attente_validation',
+        valide_direction:    'status-valide_direction',
+        attente_val_finale:  'status-attente_val_finale',
+        archive:             'status-archive',
+        refuse:              'status-refuse',
+    };
+
+    function statusCellRenderer(params) {
+        const key   = params.value || '';
+        const label = params.data?.statut_label || key;
+        const cls   = mdfStatusClass[key] || '';
+        return `<span class="mdf-badge-status ${cls}">${label}</span>`;
+    }
+
+    const fmt = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2 });
+
+    const columnDefs = [
+        { headerName: 'N° MDF',        field: 'numero',        width: 210, pinned: 'left',
+          cellRenderer: p => `<a href="${ROUTE_MDF_SHOW.replace('/0', '/' + p.data.id)}" class="text-primary fw-semibold">${p.value}</a>` },
+        { headerName: 'Représentant',  field: 'representant',  width: 180 },
+        { headerName: 'Client',        field: 'client_nom',    flex: 1, minWidth: 180 },
+        { headerName: 'Type activité', field: 'type_activite', width: 200 },
+        { headerName: 'Date début',    field: 'date_debut',    width: 120 },
+        { headerName: 'Date fin',      field: 'date_fin',      width: 120 },
+        { headerName: 'Montant MDF',   field: 'montant_mdf',   width: 150,
+          valueFormatter: p => p.value != null ? fmt.format(p.value) : '' },
+        { headerName: 'Statut',        field: 'statut',        width: 230, cellRenderer: statusCellRenderer },
+        { headerName: 'Créé le',       field: 'created_at',    width: 120 },
+    ];
+
+    const agGridConfig = {
+        columnDefs,
+        dataUrl: ROUTE_MDF_LIST,
+        numericColumns: ['montant_mdf'],
+        integerColumns: [],
+        totalColumns: [],
+        headerClass: 'excelHeaderBlue',
+        stateKey: 'aggrid-state-mdf-list-user-{{ app.user.id|default("local") }}-v1',
+        excelStyles: [
+            {
+                id: 'excelHeaderBlue',
+                font: { bold: true, color: '#FFFFFF' },
+                alignment: { horizontal: 'Center' },
+                interior: { color: '#024185', pattern: 'Solid' }
+            }
+        ],
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            window.gridOptions.api.exportDataAsExcel();
+        });
+    });
+    </script>
+{% endblock %}
