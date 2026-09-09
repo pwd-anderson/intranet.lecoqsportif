@@ -17,7 +17,7 @@ WHERE ISNULL(ITC.ZDROPPED_0, 0) <> 2
     )
 
 SELECT
-    'https://www.lecoqsportif.com/cdn/shop/files/' + LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0 + '_') - 1) + '_2.jpg' AS PHOTO,
+    'https://www.lecoqsportif.com/cdn/shop/files/' + LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0 + '_') - 1) + '_2.webp' AS PHOTO,
     ITM.ITMREF_0 AS CODE_ARTICLE,
     CR.YCOLLECT_0 AS COLLECTION,
     ITM.TCLCOD_0 AS FAMILLE,

@@ -29,7 +29,7 @@ CollectionRecente AS (
 )
 
 SELECT
-    'https://www.lecoqsportif.com/cdn/shop/files/' + LEFT(i.ITMREF_0, CHARINDEX('_', i.ITMREF_0 + '_') - 1) + '_2.jpg' AS PHOTO,
+    'https://www.lecoqsportif.com/cdn/shop/files/' + LEFT(i.ITMREF_0, CHARINDEX('_', i.ITMREF_0 + '_') - 1) + '_2.webp' AS PHOTO,
     CR.YCOLLECT_0                                                                   AS DERNIERE_COLLECTION,
     i.TCLCOD_0                                                                      AS FAMILLE,
     LEFT(i.ITMREF_0, CHARINDEX('_', i.ITMREF_0 + '_') - 1)                         AS ARTICLE_BASE,
