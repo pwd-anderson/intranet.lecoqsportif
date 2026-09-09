@@ -217,8 +217,8 @@ class Sales
                 ]);
 
                 if (!isset($grouped[$key])) {
-                    // URL directe vers lecoqsportif.com (cascade _2 → _new_1 → _1 gérée côté front via <img onerror>)
-                    $photoUrl = 'https://www.lecoqsportif.com/cdn/shop/files/' . $articleBase . '_2.jpg';
+                    // URL directe vers lecoqsportif.com (cascade _2.webp → _new_1.webp → _1.webp → _2.jpg → _new_1.jpg → _1.jpg, gérée côté front via <img onerror>)
+                    $photoUrl = 'https://www.lecoqsportif.com/cdn/shop/files/' . $articleBase . '_2.webp';
 
                     // URL base64 pour l'export Excel (cascade gérée côté backend)
                     $photoBase64Url = $this->urlGenerator->generate('lecoqsportif_image_base64', [

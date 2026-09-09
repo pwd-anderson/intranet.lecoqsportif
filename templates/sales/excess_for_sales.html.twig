@@ -266,6 +266,30 @@
     <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
 
     <script>
+        const PIL_IMAGE_LOOKUP_URL = '{{ path('lecoqsportif_image_lookup', {article: 'ARTICLE_PLACEHOLDER'}) }}';
+
+        /**
+         * Dernier recours quand toute la cascade de noms de fichiers devinés a
+         * échoué : demande au backend la vraie URL via la recherche Shopify
+         * (gère les fichiers uploadés avec un suffixe UUID imprévisible).
+         */
+        window.pilLookupPhotoFallback = function (img) {
+            const article = img.dataset.article;
+            if (!article) { img.style.display = 'none'; return; }
+
+            const url = PIL_IMAGE_LOOKUP_URL.replace('ARTICLE_PLACEHOLDER', encodeURIComponent(article));
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.url) {
+                        img.src = data.url;
+                    } else {
+                        img.style.display = 'none';
+                    }
+                })
+                .catch(() => { img.style.display = 'none'; });
+        };
+
         document.addEventListener('DOMContentLoaded', function () {
 
             const gridSelector = '#excessForSalesGrid';
@@ -393,6 +417,8 @@
 
                             const imageUrl = params.value ? params.value : '';
                             const escapedUrl = String(imageUrl).replace(/"/g, '&quot;');
+                            const fullArticle = (params.data && params.data.ARTICLE) ? params.data.ARTICLE : '';
+                            const articleBase = String(fullArticle).split('_')[0].replace(/"/g, '&quot;');
 
                             return `
             <div class="product-photo-cell">
@@ -401,14 +427,27 @@
                     alt="photo article"
                     class="top-product-img"
                     data-fallback-step="0"
+                    data-article="${articleBase}"
                     onerror="
                         const step = parseInt(this.dataset.fallbackStep, 10);
                         if (step === 0) {
                             this.dataset.fallbackStep = '1';
-                            this.src = this.src.replace('_2.jpg', '_new_1.jpg');
+                            this.src = this.src.replace('_2.webp', '_new_1.webp');
                         } else if (step === 1) {
                             this.dataset.fallbackStep = '2';
+                            this.src = this.src.replace('_new_1.webp', '_1.webp');
+                        } else if (step === 2) {
+                            this.dataset.fallbackStep = '3';
+                            this.src = this.src.replace('_1.webp', '_2.jpg');
+                        } else if (step === 3) {
+                            this.dataset.fallbackStep = '4';
+                            this.src = this.src.replace('_2.jpg', '_new_1.jpg');
+                        } else if (step === 4) {
+                            this.dataset.fallbackStep = '5';
                             this.src = this.src.replace('_new_1.jpg', '_1.jpg');
+                        } else if (step === 5) {
+                            this.dataset.fallbackStep = '6';
+                            window.pilLookupPhotoFallback(this);
                         } else {
                             this.style.display = 'none';
                         }

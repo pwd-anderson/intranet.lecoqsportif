@@ -34,4 +34,28 @@ final class ImagesController extends AbstractController
             'extension' => $result['imageType'],   // pour best_demand_per_style + stock_produits
         ]);
     }
+
+    /**
+     * Dernier recours pour l'affichage à l'écran, utilisé uniquement quand la
+     * cascade de noms de fichiers devinés (_2.webp, _1.jpg, etc.) a échoué côté
+     * front. Interroge la recherche Shopify pour retrouver la vraie URL de
+     * l'image (gère notamment les fichiers uploadés avec un suffixe UUID).
+     */
+    #[Route(
+        '/images/lecoqsportif_lookup/{article}',
+        name: 'lecoqsportif_image_lookup',
+        methods: ['GET']
+    )]
+    public function lecoqsportifLookup(
+        string $article,
+        LecoqsportifImageFetcher $fetcher
+    ): JsonResponse {
+        $url = $fetcher->lookupImageUrl($article);
+
+        if ($url === null) {
+            return new JsonResponse(['success' => false]);
+        }
+
+        return new JsonResponse(['success' => true, 'url' => $url]);
+    }
 }
