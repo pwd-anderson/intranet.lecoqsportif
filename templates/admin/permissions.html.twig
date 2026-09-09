@@ -89,6 +89,12 @@
                                     </button>
                                     <span id="saveStatus" class="text-muted"></span>
                                 </div>
+                                <button class="btn btn-warning btn-sm w-100 mt-2" id="resetRolesBtn"
+                                        style="display:none;font-size:12px;line-height:1.3;white-space:normal"
+                                        onclick="resetRoles()"
+                                        title="À utiliser après l'ajout d'un nouveau rôle Azure pour cet utilisateur">
+                                    <i class="fa fa-refresh"></i> Réinitialiser les rôles
+                                </button>
                             </div>
                         </div>
 
@@ -147,6 +153,7 @@
     <script>
     const USER_URL    = '{{ path('admin_permissions_user', {id: 0})|replace({'/0': '/'}) }}';
     const SAVE_URL    = '{{ path('admin_permissions_save', {id: 0})|replace({'/0': '/'}) }}';
+    const RESET_ROLES_URL = '{{ path('admin_permissions_reset_roles', {id: 0})|replace({'/0': '/'}) }}';
 
     let currentUserId   = null;
     let currentUserRoles = [];
@@ -173,6 +180,7 @@
             .filter(r => r !== 'ROLE_USER')
             .map(r => `<span class="badge-user-role">${r.replace('ROLE_', '')}</span>`)
             .join('');
+        document.getElementById('resetRolesBtn').style.display = 'block';
 
         // Afficher la matrix
         document.getElementById('noUser').style.display = 'none';
@@ -244,6 +252,33 @@
         } finally {
             btn.disabled = false;
         }
+    }
+
+    function resetRoles() {
+        if (!currentUserId) return;
+        const userName = document.querySelector('#userSelect option:checked')?.dataset.name || 'cet utilisateur';
+
+        confirmModal(
+            `Réinitialiser les rôles de <b>${userName}</b> ?<br>` +
+            `Ses rôles seront remis à zéro (accès basique uniquement) jusqu'à sa prochaine connexion — ` +
+            `demande-lui de cliquer sur « Se reconnecter » en bas de son menu pour retrouver ses rôles Azure à jour.<br>` +
+            `Ses exclusions de stats personnalisées ne sont pas affectées.`,
+            async () => {
+                try {
+                    const resp = await fetch(RESET_ROLES_URL + currentUserId, { method: 'POST' });
+                    const data = await resp.json();
+                    if (data.success) {
+                        showModal('info', `Rôles réinitialisés pour <b>${userName}</b>. Demande-lui de cliquer sur « Se reconnecter » en bas de son menu.`, 'Rôles réinitialisés');
+                        loadUser(currentUserId);
+                    } else {
+                        showModal('alert', 'Échec de la réinitialisation des rôles.');
+                    }
+                } catch (e) {
+                    showModal('alert', 'Erreur : ' + e.message);
+                }
+            },
+            'Réinitialiser les rôles'
+        );
     }
 
     // Avertir si on quitte sans sauvegarder

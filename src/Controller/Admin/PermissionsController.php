@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Repository\UserRepository;
 use App\Repository\UserStatExclusionRepository;
 use App\Service\StatRegistry;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -61,5 +62,22 @@ final class PermissionsController extends AbstractController
         $repo->setExclusions($user, $exclusions);
 
         return new JsonResponse(['success' => true, 'count' => count($exclusions)]);
+    }
+
+    /**
+     * Réinitialise les rôles de l'utilisateur à ROLE_USER, sans supprimer sa ligne
+     * (préserve ses exclusions de stats et toute autre donnée liée à son id).
+     * Les rôles réels ne seront de nouveau à jour qu'à sa prochaine connexion via
+     * Azure AD (déconnexion + reconnexion), qui les récupère fraîchement.
+     */
+    #[Route('/admin/permissions/reset-roles/{id}', name: 'admin_permissions_reset_roles', methods: ['POST'])]
+    public function resetRoles(User $user, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $this->checkAccess();
+
+        $user->setRoles(['ROLE_USER']);
+        $entityManager->flush();
+
+        return new JsonResponse(['success' => true, 'roles' => $user->getRoles()]);
     }
 }

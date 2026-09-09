@@ -180,6 +180,15 @@
                 </ul>
                 {% endif %}
 
+                <ul class="sidebar-menu" data-widget="tree">
+                    <li>
+                        <a href="{{ path('login') }}" title="À utiliser si un nouveau rôle vient d'être ajouté pour vous dans Azure AD">
+                            <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
+                            <span style="white-space:nowrap">Se reconnecter</span>
+                        </a>
+                    </li>
+                </ul>
+
                 <div class="sidebar-widgets">
                     <div class="copyright text-start m-25">
                         <p><strong class="d-block">Lecoqsportif</strong> © {{ "now"|date("Y") }} All Rights Reserved</p>

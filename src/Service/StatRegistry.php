@@ -65,6 +65,7 @@ final class StatRegistry
             'module_etiquettes'                           => ['section' => 'Modules', 'label' => 'Étiquettes expédition',             'roles' => []],
             'module_backlog_commandes'                    => ['section' => 'Modules', 'label' => 'Backlog commandes',                 'roles' => []],
             'module_import_od'                            => ['section' => 'Modules', 'label' => 'Import OD',                        'roles' => []],
+            'app_pilotage_livraisons'                     => ['section' => 'Modules', 'label' => 'Pilotage Livraisons',               'roles' => ['ROLE_ADV', 'ROLE_LOGISTIC', 'ROLE_SALES', 'ROLE_PURCHASING']],
         ];
     }
 
