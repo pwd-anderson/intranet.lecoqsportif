@@ -4,843 +4,1889 @@
 {{ parent() }}
 <style>
 :root{
-  --gold:#40A2ED;--gold-d:#2B84D4;--gold-dd:#172B4C;
-  --gold-l1:#EEF6FD;--gold-l2:#DCEDFB;--gold-l3:#B8DBF6;
-  --ink:#172B4C;--soft:#4C5C7A;--faint:#8B98B3;
-  --paper:#F5F7FA;--card:#FFFFFF;--line:#E4E9F1;--line2:#CBD5E3;
-  --green:#2E7D32;--green-bg:#E6F2E7;
-  --amber:#B26A00;--amber-bg:#FBF0DD;
-  --red:#B3261E;--red-bg:#FBE6E4;
-  --sh:0 1px 2px rgba(23,43,76,.06),0 4px 14px rgba(23,43,76,.07);
-  --sh2:0 10px 36px rgba(23,43,76,.18);
+  --paper:#fff; --field:#eceef1; --line:#d8dce2; --line2:#e8ebef;
+  --ink:#172b4c; --ink2:#3d4753; --mut:#6b7683;
+  /* Couleurs intranet (identiques au thème du site, cf. public/assets/css/color_theme.css) */
+  --gold:#40a2ed; --goldD:#2b84d4; --bleu:#2b84d4; --bleuF:#eef6fd;
+  --vert:#0f7b3d; --vertF:#e7f4ec;
+  --ambre:#a86a00; --ambreF:#fdf2dc;
+  --rouge:#c8102e; --rougeF:#fceaec;
+  --gris:#5b6572; --grisF:#eef0f3;
+  --r:6px;
 }
 .pilotage-wrap *{box-sizing:border-box}
-.pilotage-wrap{font-family:system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--paper);color:var(--ink);font-size:13.5px;-webkit-font-smoothing:antialiased;min-height:calc(100vh - 60px);padding-bottom:60px}
-.pilotage-wrap .num{font-variant-numeric:tabular-nums}
-.pil-header{background:#fff;border-bottom:3px solid var(--gold);padding:0 26px;display:flex;align-items:center;gap:16px;height:66px;box-shadow:0 1px 4px rgba(31,27,16,.06);flex-wrap:wrap}
-.pil-brand h2{font-size:18px;font-weight:800;letter-spacing:-.01em;line-height:1.05;margin:0}
-.pil-brand .sub{font-size:10px;color:var(--faint);letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
-.hspacer{flex:1}
-.hmeta{text-align:right;font-size:11.5px;color:var(--soft);line-height:1.5}
-.hmeta strong{color:var(--ink)}
-.pil-btn{border:1px solid var(--line2);background:#fff;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--ink);transition:.15s;display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-family:inherit}
-.pil-btn:hover:not(:disabled){border-color:var(--gold-d);color:var(--gold-dd);background:var(--gold-l1)}
-.pil-btn.primary{background:var(--gold);border-color:var(--gold);color:#FFFFFF}
-.pil-btn.primary:hover:not(:disabled){background:var(--gold-d);border-color:var(--gold-d);color:#fff}
-.pil-btn.ghost{border-color:transparent;background:transparent}
-.pil-btn:disabled{opacity:.45;cursor:not-allowed}
-.pil-main{max-width:1620px;margin:0 auto;padding:20px 26px 40px}
-.pil-section{margin-bottom:20px}
-.ey{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
-.pil-card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh)}
+/* Neutralise le style checkbox custom du thème global du site (qui masque
+   les inputs natifs hors du markup [type=checkbox]+label attendu) */
+.pilotage-wrap input[type="checkbox"]{position:static!important;left:auto!important;
+  opacity:1!important;appearance:auto;-webkit-appearance:auto;width:15px;height:15px;
+  margin:0;cursor:pointer;vertical-align:middle}
+.pilotage-wrap{background:var(--field);color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;min-height:calc(100vh - 60px)}
+.pilotage-wrap h1,.pilotage-wrap h2,.pilotage-wrap h3{margin:0}
 
-/* ── Zone de chargement ── */
-#pil-load-zone{border:2px dashed var(--line2);border-radius:12px;background:var(--card);padding:32px 24px;text-align:center}
-#pil-load-zone h3{font-size:15px;font-weight:700;margin-bottom:6px}
-#pil-load-zone p{color:var(--soft);font-size:12.5px;margin-bottom:18px}
-#dropzone{border:2px dashed var(--line2);border-radius:12px;background:var(--card);padding:32px 24px;text-align:center;transition:.18s}
-#dropzone.over{border-color:var(--gold);background:var(--gold-l1)}
-#dropzone h2{font-size:15px;font-weight:700;margin-bottom:6px}
-#dropzone p{color:var(--soft);font-size:12.5px;margin-bottom:18px}
-.pil-section .tabs{border-bottom:none;padding:0 12px}
-#chip-clients.ok,#chip-fourn.ok,#chip-stock.ok{background:var(--green-bg);color:var(--green)}
-.pil-coll-wrap{display:flex;align-items:flex-start;justify-content:center;gap:18px;flex-wrap:wrap;margin-bottom:18px}
-.pil-coll-label{font-size:12px;font-weight:700;color:var(--soft);text-align:left;margin-bottom:6px}
-#pil-collections{border:1px solid var(--line2);border-radius:8px;padding:4px;font-size:12.5px;min-width:200px;background:#fff}
-#pil-collections option{padding:5px 10px;border-radius:5px;cursor:pointer}
-#pil-collections option:checked{background:var(--gold-l2);color:var(--ink)}
-.pil-bar{height:6px;background:var(--gold-l2);border-radius:99px;overflow:hidden;margin-top:18px;display:none}
-.pil-bar.on{display:block}
-.pil-bar i{display:block;height:100%;background:var(--gold);width:0;transition:width .3s}
-.pil-status{margin-top:10px;font-size:12px;color:var(--soft);min-height:16px}
+/* ---------- en-tête : fond clair ---------- */
+.pilotage-wrap header{background:var(--paper);border-bottom:1px solid var(--line);
+  padding:12px 24px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:50}
+.htitle{flex:1;min-width:0}
+.htitle h1{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--ink);
+  display:flex;align-items:baseline;gap:9px}
+.htitle h1 em{font-style:normal;font-size:12px;font-weight:700;letter-spacing:.04em;
+  color:var(--ink);background:var(--gold);border-radius:4px;padding:2px 7px;position:relative;top:-2px}
+.htitle .sub{font-size:12px;color:var(--mut);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbtn{background:var(--ink);color:#fff;border:none;border-radius:var(--r);padding:9px 15px;
+  font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit}
+.hbtn.sec{background:var(--paper);color:var(--ink);border:1px solid var(--line)}
+.hbtn:hover{background:var(--gold);color:var(--ink);border-color:var(--gold)}
 
-/* ── KPI ── */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
-.kpi{padding:15px 17px}
-.kpi .lab{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
-.kpi .val{font-size:25px;font-weight:800;margin-top:7px;letter-spacing:-.02em}
-.kpi .sub{font-size:11.5px;color:var(--soft);margin-top:3px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:1080px){.grid2{grid-template-columns:1fr}}
+/* ---------- onglets : le triangle du coq marque l'actif ---------- */
+.pilotage-wrap nav{background:var(--paper);display:flex;gap:4px;padding:0 24px;
+  position:sticky;top:72px;z-index:49;overflow-x:auto;border-bottom:1px solid var(--line)}
+.pilotage-wrap nav button{background:none;border:none;color:var(--ink2);padding:13px 15px 12px;font-size:13.5px;
+  font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;
+  font-family:inherit;position:relative}
+.pilotage-wrap nav button.on{color:var(--goldD);border-bottom-color:var(--gold)}
+.pilotage-wrap nav button.on:after{content:"";position:absolute;left:50%;bottom:-3px;translate:-50% 0;
+  border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:5px solid var(--gold)}
+.pilotage-wrap nav button:hover{color:var(--ink)}
+.pilotage-wrap main{padding:20px 24px 64px;max-width:1900px;margin:0 auto}
+.panel{display:none}.panel.on{display:block}
 
-/* ── Tables ── */
-table{border-collapse:collapse;width:100%;font-size:12.5px}
-th{background:var(--gold-l1);color:var(--gold-dd);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2;white-space:nowrap}
-th.s{cursor:pointer;user-select:none}
-th.s:hover{background:var(--gold-l2)}
-td{padding:7px 10px;border-bottom:1px solid var(--line)}
-tbody tr:hover{background:var(--gold-l1)}
-tbody tr.clickable{cursor:pointer}
-.r{text-align:right}.c{text-align:center}
-.tw{overflow:auto;max-height:600px;border-radius:12px}
-.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
-.p-g{background:var(--green-bg);color:var(--green)}
-.p-a{background:var(--amber-bg);color:var(--amber)}
-.p-r{background:var(--red-bg);color:var(--red)}
-.p-n{background:#3D3A32;color:#fff}
-tbody tr.cancel{background:#FFF3C4}
-tbody tr.cancel:hover{background:#FFE699}
-.cov{display:flex;align-items:center;gap:7px;min-width:110px}
-.cov .track{flex:1;height:7px;background:#EFEADC;border-radius:99px;overflow:hidden}
-.cov .fill{height:100%;border-radius:99px;background:var(--gold)}
-.cov .fill.hi{background:var(--green)}
-.cov .fill.lo{background:var(--red)}
-.cov span{font-size:11.5px;font-weight:700;width:36px;text-align:right}
-.late{color:var(--red);font-weight:700}
-.ontime{color:var(--green);font-weight:700}
-.toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
-.toolbar input[type=search],.toolbar input[type=date],.toolbar select{border:1px solid var(--line2);border-radius:8px;padding:7px 11px;font-size:12.5px;background:#fff;color:var(--ink);font-family:inherit}
-.toolbar input[type=search]{min-width:230px}
-.toolbar .sp{flex:1}
-.count{font-size:11.5px;color:var(--faint);font-weight:600}
-.pager{display:flex;gap:7px;align-items:center;justify-content:flex-end;padding:10px 14px;font-size:12px;color:var(--soft)}
-.pager button{border:1px solid var(--line2);background:#fff;border-radius:7px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit}
-.pager button:disabled{opacity:.4}
+/* ---------- écran d'accueil : rien tant qu'aucune donnée ---------- */
+.pilotage-wrap:not(.has-data) nav,.pilotage-wrap:not(.has-data) #btnFull,.pilotage-wrap:not(.has-data) #btnLoad,.pilotage-wrap:not(.has-data) #btnReset,
+.pilotage-wrap:not(.has-data) .panel,.pilotage-wrap:not(.has-data) .htitle .sub{display:none!important}
+.pilotage-wrap:not(.has-data) main{padding-top:0}
+.pilotage-wrap:not(.has-data) #btnCloseLoad{display:none}
+.pilotage-wrap:not(.has-data) #loadZone{display:block;max-width:760px;margin:8vh auto 0;
+  border-style:dashed;border-width:2px;padding:34px 34px 30px}
+.pilotage-wrap.has-data #loadZone{display:none;margin:0 0 18px}
+.pilotage-wrap.has-data #loadZone.on{display:block}
+#loadZone{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+#loadZone.drag{border-color:var(--gold);background:var(--bleuF)}
+#loadZone h3{font-size:18px;letter-spacing:-.01em;margin-bottom:6px}
+#loadZone .lead{font-size:13.5px;color:var(--ink2);line-height:1.6;margin-bottom:18px}
+#loadZone .lead b{color:var(--ink)}
+.dates-det{margin:12px 0 4px}
+.dates-det summary{cursor:pointer;font-size:12.5px;color:var(--mut);font-weight:600}
+.dates{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;
+  background:var(--grisF);border-radius:8px;padding:12px 14px;margin-bottom:16px}
+.dates label{display:block;font-size:11.5px;font-weight:700;color:var(--ink2);margin-bottom:4px}
+.dates input{border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;
+  font-size:13px;font-family:inherit;background:var(--paper)}
+.dates .hint{font-size:12px;color:var(--mut);flex:1;min-width:200px}
+.srcline{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--line2);
+  border-radius:var(--r);margin-bottom:7px;font-size:13.5px;font-weight:600;background:var(--paper)}
+.srcline.ok{border-color:var(--vert);background:var(--vertF)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--line);flex:0 0 auto}
+.dot.ok{background:var(--vert)}
+.srcline .mut{font-weight:400}
+#prog{display:none;margin-top:14px}
+#progBar{height:6px;background:var(--line2);border-radius:3px;overflow:hidden}
+#progFill{height:100%;width:0;background:var(--gold);transition:width .25s}
+#progTxt{font-size:12.5px;color:var(--ink2);margin-top:6px}
 
-/* ── Drawer ── */
-#pil-drawer{position:fixed;top:0;right:0;height:100%;width:min(1080px,94vw);background:var(--card);box-shadow:var(--sh2);transform:translateX(101%);transition:transform .22s ease;z-index:1000;display:flex;flex-direction:column}
-#pil-drawer.open{transform:none}
-.dhead{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:14px}
-.dhead h3{font-size:16px;font-weight:800}
-.dhead .m{font-size:12px;color:var(--soft);margin-top:4px}
-.dbody{overflow:auto;padding:16px 20px 40px;flex:1}
-.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
-.dbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--gold-l1)}
-.dbox .l{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
-.dbox .v{font-size:17px;font-weight:800;margin-top:4px}
-.ov{position:fixed;inset:0;background:rgba(31,27,16,.34);opacity:0;pointer-events:none;transition:.2s;z-index:999}
-.ov.on{opacity:1;pointer-events:auto}
-details.rules{padding:14px 18px}
-details.rules summary{cursor:pointer;font-weight:700;color:var(--gold-dd);font-size:13px}
-details.rules ul{margin:12px 0 0 18px;color:var(--soft);line-height:1.75;font-size:12.5px}
-details.rules b{color:var(--ink)}
-.hide{display:none!important}
-.tabs{display:flex;gap:5px;border-bottom:1px solid var(--line);padding:0 14px}
-.tab{padding:11px 15px;font-size:12.5px;font-weight:700;color:var(--faint);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer;font-family:inherit}
-.tab.on{color:var(--gold-dd);border-bottom-color:var(--gold)}
-.pil-foot{text-align:center;color:var(--faint);font-size:11.5px;padding:22px}
+/* ---------- cartes ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--gold);
+  border-radius:8px;padding:13px 15px;cursor:pointer;transition:border-color .15s,background .15s;overflow:hidden}
+.card:hover{border-color:var(--gold);background:#f5faff}
+.card .lab{font-size:11.5px;color:var(--mut);font-weight:600}
+.card .val{font-size:22px;white-space:normal;overflow-wrap:break-word;font-weight:700;letter-spacing:-.02em;margin-top:2px;line-height:1.2}
+.card .det{font-size:12px;color:var(--mut);margin-top:2px}
+.card.v{border-left-color:var(--vert)}.card.j{border-left-color:var(--ambre)}
+.card.r{border-left-color:var(--rouge)}.card.n{border-left-color:var(--gris)}
+
+/* ---------- filtres ---------- */
+.fbar{display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;background:var(--paper);
+  border:1px solid var(--line);border-radius:8px;padding:11px 13px;margin-bottom:12px}
+.fbar label{font-size:11.5px;font-weight:600;color:var(--mut);display:block;margin-bottom:3px}
+.fbar .fg{display:flex;flex-direction:column}
+.fbar select,.fbar input[type=text]{border:1px solid var(--line);border-radius:var(--r);
+  padding:7px 9px;font-size:13px;background:var(--paper);min-width:125px;font-family:inherit;color:var(--ink)}
+.fbar input[type=text]{min-width:220px}
+.fbar select:focus,.fbar input:focus{outline:2px solid var(--gold);outline-offset:-1px}
+.fbar .sp{flex:1}
+.chip{background:var(--bleuF);color:var(--goldD);border:1px solid #b8dbf6;border-radius:13px;
+  padding:4px 11px;font-size:12px;font-weight:600;cursor:pointer;display:inline-block}
+.chip:after{content:" ✕";opacity:.6}
+.btn{background:var(--ink);color:#fff;border:none;border-radius:var(--r);padding:8px 14px;
+  font-weight:600;font-size:12.5px;cursor:pointer;font-family:inherit}
+.btn.gold{background:var(--gold);color:var(--ink)}
+.btn.ghost{background:var(--paper);border:1px solid var(--line);color:var(--ink)}
+.btn:hover{filter:brightness(1.15)}
+.btn.ghost:hover{border-color:var(--gold);color:var(--goldD);filter:none}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
+
+/* ---------- tables ---------- */
+.twrap{background:var(--paper);border:1px solid var(--line);border-radius:8px;
+  overflow:auto;max-height:calc(100vh - 300px)}
+.pilotage-wrap table{border-collapse:collapse;width:100%;font-size:12.6px}
+.pilotage-wrap thead th{background:var(--ink);color:#fff;text-align:left;padding:9px;position:sticky;top:0;
+  cursor:pointer;user-select:none;white-space:nowrap;font-size:11.5px;font-weight:600;z-index:2}
+.pilotage-wrap thead th .arr{color:var(--gold);font-size:10px}
+.pilotage-wrap tbody td{padding:7px 9px;border-bottom:1px solid var(--line2);white-space:nowrap;vertical-align:top}
+.pilotage-wrap tbody tr:hover{background:#eef6fd}
+.pilotage-wrap tbody tr.click{cursor:pointer}
+.pilotage-wrap td.num{text-align:right}
+.pilotage-wrap td.syn{white-space:normal;min-width:280px;max-width:440px;font-size:12.8px}
+.badge{display:inline-block;border-radius:11px;padding:2px 9px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.b-vert{background:var(--vertF);color:var(--vert)}
+.b-jaune{background:var(--ambreF);color:var(--ambre)}
+.b-blanc{background:var(--grisF);color:var(--gris)}
+.b-noir{background:#e2e5e9;color:var(--ink)}
+.b-rouge{background:var(--rougeF);color:var(--rouge)}
+.late{color:var(--rouge);font-weight:600}
+.early{color:var(--vert);font-weight:600}
+.pgn{display:flex;gap:7px;align-items:center;justify-content:flex-end;margin-top:11px;
+  font-size:12.5px;color:var(--ink2)}
+.pgn button{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);
+  padding:5px 11px;cursor:pointer;font-family:inherit;font-size:12.5px}
+.pgn button:disabled{opacity:.4;cursor:not-allowed}
+.mut{color:var(--mut)}
+h2.sec{font-size:15px;font-weight:700;letter-spacing:-.01em;margin:18px 0 9px}
+
+/* ---------- tiroir commande ---------- */
+#ovl{display:none;position:fixed;inset:0;background:rgba(16,20,24,.42);z-index:60}
+#drawer{position:fixed;top:0;right:0;width:min(880px,94vw);height:100%;background:var(--field);
+  z-index:61;transform:translateX(101%);transition:transform .22s ease;
+  overflow:auto;box-shadow:-8px 0 28px rgba(16,20,24,.16)}
+#drawer.open{transform:none}
+#drawer .dh{display:flex;align-items:center;gap:12px;padding:15px 20px;background:var(--paper);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+#drawer .dh h3{font-size:17px;letter-spacing:-.01em;flex:1}
+#drawer .dh .x{background:none;border:1px solid var(--line);border-radius:var(--r);
+  padding:6px 11px;cursor:pointer;font-family:inherit;font-size:12.5px;color:var(--ink)}
+#dBody{padding:18px 20px 40px}
+.synbox{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--gold);
+  border-radius:8px;padding:13px 15px;font-size:14px;margin-bottom:15px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:9px;margin-bottom:15px}
+.kv .it{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px}
+.kv .it .k{font-size:11px;color:var(--mut);font-weight:600}
+.kv .it .v{font-size:15px;font-weight:700;margin-top:1px}
+.dact{display:flex;gap:9px;margin-bottom:15px;flex-wrap:wrap}
+
+/* ---------- macro v2 : actions, couverture, grille ---------- */
+.actbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px}
+.act{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 15px;border-top:3px solid var(--gold);cursor:pointer}
+.act:hover{border-color:var(--gold)}
+.act .t{font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.03em}
+.act .big{font-size:20px;font-weight:700;letter-spacing:-.02em;margin:3px 0 1px}
+.act .sub{font-size:12.5px;color:var(--ink2)}
+.act a{font-size:12.5px;font-weight:600;color:var(--goldD);text-decoration:none}
+.cover{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--line2);min-width:130px}
+.cover i{display:block;height:100%}
+.grid2{display:grid;grid-template-columns:7fr 5fr;gap:16px;align-items:start;margin-bottom:6px}
+.pilotage-wrap td .mini{font-size:11px;color:var(--mut);font-weight:400}
+@media (max-width:1100px){.grid2{grid-template-columns:1fr}}
+/* ---------- arrivées par semaine ---------- */
+.arrchart{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:16px 16px 8px;overflow-x:auto;margin-bottom:13px}
+.arrchart svg{display:block}
+.arrleg{display:flex;gap:18px;font-size:12.5px;color:var(--ink2);padding:4px 2px 8px}
+.arrleg i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.segArr{background:var(--ambreF);color:var(--ambre);border-radius:3px;padding:0 3px}
+.arrq{color:var(--ambre);font-weight:700}
+/* ---------- divers ---------- */
+.note{font-size:12.5px;color:var(--ink2);background:var(--paper);border:1px solid var(--line);
+  border-left:4px solid var(--ambre);border-radius:var(--r);padding:10px 13px;margin-bottom:13px}
+.meth td{padding:9px 11px;border-bottom:1px solid var(--line2);white-space:normal;vertical-align:top;font-size:13px}
+.meth td:first-child{font-weight:700;width:270px;color:var(--ink)}
+.pilotage-wrap input.qr{width:76px;border:1px solid var(--ambre);background:var(--ambreF);border-radius:4px;
+  padding:3px 6px;font-size:12.5px;text-align:right;font-family:inherit}
+.substTag{display:inline-block;margin-right:7px}
+@media (max-width:900px){
+.pilotage-wrap header{flex-wrap:wrap;gap:12px;padding:10px 14px}
+  .htitle{border-left:none;padding-left:0;flex:1 1 100%;order:3}
+.pilotage-wrap nav{top:auto;position:static;padding:0 10px}
+.pilotage-wrap main{padding:14px 12px 48px}
+  .twrap{max-height:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- intégration Symfony : bascule live/import + progress bar live ---------- */
+.pilotage-wrap .hide{display:none!important}
+.pilotage-wrap .srctabs{display:flex;gap:8px;margin-bottom:14px}
+.pilotage-wrap .srctabs button{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:var(--r);padding:8px 14px;font-weight:600;font-size:12.5px;cursor:pointer;font-family:inherit}
+.pilotage-wrap .srctabs button.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.pilotage-wrap .srctabs button:hover{filter:brightness(1.08)}
+.pilotage-wrap .coll-wrap{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:16px}
+.pilotage-wrap .coll-label{font-size:11.5px;font-weight:700;color:var(--ink2);margin-bottom:6px}
+.pilotage-wrap #pil-collections{border:1px solid var(--line);border-radius:var(--r);padding:4px;font-size:12.5px;min-width:220px;background:var(--paper);font-family:inherit}
+.pilotage-wrap #pil-collections option{padding:5px 9px;border-radius:4px}
+.pilotage-wrap #progLive{display:none;margin-top:14px}
+.pilotage-wrap #progLive.on{display:block}
+.pilotage-wrap #progBarLive{height:6px;background:var(--line2);border-radius:3px;overflow:hidden}
+.pilotage-wrap #progFillLive{height:100%;width:0;background:var(--gold);transition:width .25s}
+.pilotage-wrap #progTxtLive{font-size:12.5px;color:var(--ink2);margin-top:6px}
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="pilotage-wrap">
-
-  <!-- En-tête -->
-  <div class="pil-header">
-    <div class="pil-brand">
-      <h2>Pilotage Livraisons</h2>
-      <div class="sub">Backlog clients × Production × Stock — données live</div>
+<header>
+  <div class="htitle">
+    <h1>Pilotage Livraisons <em>V2</em></h1>
+    <div class="sub">Backlog client × backlog fournisseur × stock &amp; allocation — moteur V10 · données du <span id="fdate">…</span><span id="srcMode"></span></div>
+  </div>
+  <button class="hbtn sec" id="btnReset" title="Décharge tous les fichiers et revient à l’écran d’accueil">⟲ Tout décharger</button>
+  <button class="hbtn sec" id="btnLoad">Charger des fichiers</button>
+  <button class="hbtn" id="btnFull">Exporter le classeur</button>
+</header>
+<nav id="tabs">
+  <button data-t="macro" class="on">Macro View</button>
+  <button data-t="pfr">Pilotage France</button>
+  <button data-t="pint">Pilotage International</button>
+  <button data-t="subst">Substitutions</button>
+  <button data-t="rest">Reste à allouer</button>
+  <button data-t="arr">Arrivées par semaine</button>
+  <button data-t="meth">Méthode de calcul</button>
+</nav>
+<main>
+  <div id="loadZone">
+    <h3>Chargez les données pour lancer le calcul</h3>
+    <div class="lead">
+      Par défaut les 3 sources (backlog client, backlog fournisseur, stock &amp; allocation) sont chargées en direct depuis l'ERP.
+      Un mode d'import de fichiers (.xlsx, .xls, .csv) reste disponible pour les tests — le calcul part tout seul (30 à 60 s) dès que les 3 sources sont prêtes.
     </div>
-    <div class="hspacer"></div>
-    <div class="hmeta" id="hmeta"></div>
-    <button class="pil-btn" id="btnReset" disabled>Réinitialiser</button>
-    <button class="pil-btn primary" id="btnExport" disabled>Exporter Excel</button>
+
+    <div class="srctabs">
+      <button class="on" id="tabLive" type="button">Données live (ERP)</button>
+      <button id="tabFileImport" type="button">Import fichiers</button>
+    </div>
+
+    <div id="liveZone">
+      <div class="coll-wrap">
+        <div>
+          <div class="coll-label">Collections (Ctrl+clic pour sélection multiple) — filtre appliqué uniquement au backlog client</div>
+          <select id="pil-collections" multiple size="4">
+            <option value="2026-02-FW" selected>FW26 — 2026-02-FW</option>
+            <option value="2027-01-SS" selected>SS27 — 2027-01-SS</option>
+            <option value="2027-02-FW">FW27 — 2027-02-FW</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn gold" id="btnLoadLive">Charger les données</button>
+      <div id="progLive"><div id="progBarLive"><div id="progFillLive"></div></div><div id="progTxtLive"></div></div>
+    </div>
+
+    <div id="fileZone" class="hide">
+      <div class="srcline" id="l-bc"><span class="dot" id="d-bc"></span> Backlog client <span class="mut" id="n-bc"></span></div>
+      <div class="srcline" id="l-bf"><span class="dot" id="d-bf"></span> Backlog fournisseur <span class="mut" id="n-bf"></span></div>
+      <div class="srcline" id="l-st"><span class="dot" id="d-st"></span> Stock &amp; allocation <span class="mut" id="n-st"></span></div>
+      <input type="file" id="fileInp" multiple accept=".xlsx,.xls,.csv,.png" style="display:none">
+      <div style="margin-top:12px;display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn gold" id="btnCompute" disabled>Lancer le calcul</button>
+        <button class="btn ghost" id="btnCloseLoad">Fermer</button>
+      </div>
+      <div id="prog"><div id="progBar"><div id="progFill"></div></div><div id="progTxt"></div></div>
+    </div>
+
+    <details class="dates-det"><summary>Dates de calcul (automatiques)</summary>
+      <div class="dates">
+        <div>
+          <label for="refArrInp">Référence des arrivées (T0 stock et PO)</label>
+          <input type="date" id="refArrInp">
+        </div>
+        <div>
+          <label for="genDateInp">Jour de calcul (retards échus)</label>
+          <input type="date" id="genDateInp">
+        </div>
+        <div class="hint">Prerémplies à aujourd'hui.</div>
+      </div>
+    </details>
   </div>
 
-  <div class="pil-main">
+  <div class="panel on" id="p-macro"></div>
+  <div class="panel" id="p-pfr"></div>
+  <div class="panel" id="p-pint"></div>
+  <div class="panel" id="p-subst"></div>
+  <div class="panel" id="p-rest"></div>
+  <div class="panel" id="p-arr"></div>
+  <div class="panel" id="p-meth"></div>
+</main>
 
-    <!-- Zone de chargement -->
-    <div class="pil-section" id="importSec">
-      <div class="ey">Paramètres de chargement</div>
-
-      <div class="tabs" style="border:1px solid var(--line);border-bottom:none;border-radius:12px 12px 0 0;background:var(--card)">
-        <button class="tab on" id="tabApi" type="button">Données live (ERP)</button>
-        <button class="tab" id="tabFile" type="button">Import fichiers (test)</button>
-      </div>
-
-      <div id="pil-load-zone" style="border-radius:0 0 12px 12px;border-top:none">
-        <h3>Sélectionnez les collections à analyser</h3>
-        <p>Les données sont chargées en temps réel depuis l'ERP — aucun fichier à importer.</p>
-        <div class="pil-coll-wrap">
-          <div>
-            <div class="pil-coll-label">Collections (Ctrl+clic pour sélection multiple)</div>
-            <select id="pil-collections" multiple size="4">
-              <option value="2026-02-FW" selected>FW26 — 2026-02-FW</option>
-              <option value="2027-01-SS" selected>SS27 — 2027-01-SS</option>
-              <option value="2027-02-FW">FW27 — 2027-02-FW</option>
-            </select>
-          </div>
-        </div>
-        <button class="pil-btn primary" id="btnLoad">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          Charger les données
-        </button>
-        <div class="pil-bar" id="pbar"><i></i></div>
-        <div class="pil-status" id="pstatus"></div>
-      </div>
-
-      <div id="dropzone" class="hide" style="border-radius:0 0 12px 12px;border-top:none">
-        <h2>Déposez vos 3 fichiers ici</h2>
-        <p>Backlog client, backlog fournisseur et stock (.xlsx, .xls ou .csv) — glissez-déposez ou parcourez.</p>
-        <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.csv" class="hide">
-        <button class="pil-btn primary" id="btnPick" type="button">Parcourir…</button>
-        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px">
-          <span class="pill p-n" id="chip-clients">Backlog client</span>
-          <span class="pill p-n" id="chip-fourn">Backlog fournisseur</span>
-          <span class="pill p-n" id="chip-stock">Stock</span>
-        </div>
-        <div class="pil-bar" id="pbarFile"><i></i></div>
-        <div class="pil-status" id="pstatusFile"></div>
-      </div>
-      <div class="pil-card" style="margin-top:14px">
-        <details class="rules">
-          <summary>Règles de calcul appliquées</summary>
-          <ul>
-            <li><b>Périmètre</b> — collections sélectionnées ci-dessus ; samples (SMS / SPL) exclus ; réseaux Wholesale France et International uniquement.</li>
-            <li><b>Sources fournisseur retenues</b> — lignes « BL Fournisseur » (en production) et transferts partis de WSFCN / WDTTH (hubs Asie).</li>
-            <li><b>ETA</b> = date IC + <b>80 jours</b> de transit (fournisseur I.K.S. : 30 jours). Si la date de départ est absente : date IC estimée = date de la PO + 3 mois.</li>
-            <li><b>Couverture d'une ligne</b>, dans l'ordre : 1) stock du site du client (statut A1) → <i>livrable immédiatement</i> ; 2) stock des hubs Asie (ETA = aujourd'hui + 80 j) ; 3) PO fournisseur par ETA croissante ; 4) le reste est <b>à annuler</b>.</li>
-            <li><b>FFOB (enlèvement par le client)</b> — commandes dont le site de livraison est <b>WSFCN, WDTTH ou WFIFR</b> : le client récupère à l'usine ou à SF / DT, aucun transit à notre charge, la <b>date XF (mise à disposition)</b> fait foi, et le stock présent en hub est disponible immédiatement. Pièces déjà sorties = considérées enlevées.</li>
-            <li><b>Livraison par nos soins</b> — toutes les autres commandes, y compris l'export depuis Moussey (WLOGM) : ETA = date IC + 80 jours.</li>
-            <li><b>Ponctualité</b> — le stock disponible est compté <b>à temps</b> (livrable tout de suite) ; les pièces en production / transit sont à temps si leur date d'arrivée (ETA France, XF en FFOB) ≤ date demandée de la ligne, en retard sinon.</li>
-            <li><b>Statut commande</b> — % en retard = qté en retard ÷ (à temps + en retard) : 🟢 On time si 0 %, 🔴 Critique si ≥ 50 %, 🟠 Partiellement en retard entre les deux. Si <b>aucune source n'est trouvée</b> (ni stock, ni production) <b>et que la production de la collection est lancée (FW26)</b>, la commande est <b>⚫ À annuler</b>, cohérent avec le statut ANNULER de ses lignes dans le détail. En SS27 la production n'étant pas encore lancée, l'absence de PO est normale : la commande n'est pas annulée.</li>
-            <li><b>Arbitrage entre clients</b> sur une même référence — les plus gros comptes facturés d'abord, puis la date de livraison demandée la plus proche.</li>
-            <li><b>Site WFIFR</b> = livraison directe (pas de prélèvement sur stock). <b>Retard moyen</b> = moyenne des retards pondérée par les quantités.</li>
-          </ul>
-        </details>
-      </div>
-    </div>
-
-    <!-- App (masquée jusqu'au chargement) -->
-    <div id="pil-app" class="hide">
-      <div class="pil-section">
-        <div class="ey">Synthèse direction — vue d'ensemble</div>
-        <div class="kpis" id="kpis"></div>
-      </div>
-
-      <div class="pil-section">
-        <div class="grid2">
-          <div class="pil-card">
-            <div style="padding:13px 16px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px">Ponctualité des livraisons</div>
-            <div class="tw" style="max-height:none"><table id="tPonct"></table></div>
-          </div>
-          <div class="pil-card">
-            <div style="padding:13px 16px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px">Répartition France / International</div>
-            <div class="tw" style="max-height:none"><table id="tRepart"></table></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="pil-section">
-        <div class="grid2">
-          <div class="pil-card">
-            <div style="padding:13px 16px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px">Top 5 clients — Wholesale France</div>
-            <div class="tw" style="max-height:none"><table id="tTopFR"></table></div>
-          </div>
-          <div class="pil-card">
-            <div style="padding:13px 16px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px">Top 5 clients — International</div>
-            <div class="tw" style="max-height:none"><table id="tTopINT"></table></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="pil-section">
-        <div class="ey">Pilotage livraisons — une ligne par commande <span style="text-transform:none;letter-spacing:0;font-weight:600">(cliquez une commande pour voir son détail et ses PO)</span></div>
-        <div class="pil-card">
-          <div class="toolbar">
-            <input type="search" id="fSearch" placeholder="Rechercher un client, une commande, une PO…">
-            <select id="fCat"><option value="">Toutes catégories</option></select>
-            <select id="fStat"><option value="">Tous statuts</option></select>
-            <select id="fColl"><option value="">Toutes collections</option></select>
-            <label style="font-size:12px;color:var(--soft);display:flex;align-items:center;gap:6px"><input type="checkbox" id="fCancel"> Avec qté à annuler</label>
-            <div class="sp"></div>
-            <span class="count" id="cPil"></span>
-            <button class="pil-btn" id="btnCsvPil">Export CSV</button>
-          </div>
-          <div class="tw"><table id="tPil"></table></div>
-          <div class="pager" id="pgPil"></div>
-        </div>
-      </div>
-
-      <div class="pil-section">
-        <div class="ey">Détail par article</div>
-        <div class="pil-card">
-          <div class="toolbar">
-            <input type="search" id="dSearch" placeholder="Rechercher un SKU, une commande, un client…">
-            <select id="dStat"><option value="">Tous statuts</option></select>
-            <div class="sp"></div>
-            <span class="count" id="cDet"></span>
-            <button class="pil-btn" id="btnCsvDet">Export CSV</button>
-          </div>
-          <div class="tw"><table id="tDet"></table></div>
-          <div class="pager" id="pgDet"></div>
-        </div>
-      </div>
-    </div>{# /#pil-app #}
-
-    <div class="pil-foot">le coq sportif · pilotage livraisons — données live depuis l'ERP</div>
-  </div>{# /.pil-main #}
+<div id="ovl"></div>
+<div id="drawer">
+  <div class="dh"><h3 id="dTitle">Commande</h3><span id="dStat"></span><button class="x" id="dClose">Fermer</button></div>
+  <div id="dBody"></div>
+</div>
 </div>{# /.pilotage-wrap #}
-
-<div class="ov" id="ov"></div>
-<aside id="pil-drawer">
-  <div class="dhead">
-    <div style="flex:1">
-      <h3 id="dTitle">—</h3>
-      <div class="m" id="dMeta"></div>
-    </div>
-    <button class="pil-btn ghost" id="dClose">✕</button>
-  </div>
-  <div class="dbody">
-    <div class="dgrid" id="dKpi"></div>
-    <div class="ey">Sources — PO fournisseur et stock</div>
-    <div class="pil-card" style="margin-bottom:18px"><div class="tw" style="max-height:none"><table id="dSrc"></table></div></div>
-    <div class="ey">Lignes de la commande</div>
-    <div class="pil-card"><div class="tw" style="max-height:none"><table id="dLines"></table></div></div>
-  </div>
-</aside>
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-"use strict";
+const PIL=document.querySelector('.pilotage-wrap');
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const S={pfr:[],pint:[],detFR:{},detIN:{},subFR:null,subIN:null,rest:[],macro:[],methode:[],heads:{},
+  retained:{FR:{},IN:{}},filters:{},sort:{},page:{},full:{pfr:false,pint:false},substTab:'FR',srcFiles:{}};
+setTimeout(()=>{S.heads={pfr:HEAD_FR,pint:HEAD_INT,macro:HEAD_MACRO,rest:HEAD_REST};},0);
+/* index colonnes pilotage */
+const C={COLL:0,CAT:1,CLI:2,ORD:3,Q:4,DISPO:5,PC:6,STAT:7,SYN:8,ETA1:9,ETAC:10,DDEM:11,RECHU:12,MT:13,
+ QOT:14,QLATE:15,QCANC:16,PCANC:17,ASTK:18,APROD:19,SRC:20,SUBQ:21,A1T:22,A2T:23,A1R:24,A2R:25,
+ MAG:26,REF:27,CODC:28,GRPC:29,GRP:30,CODM:31,VILLE:32,REP:33,DCMD:34,PO:35};
+const RPREV=m=>m==='pfr'?37:36, PCT=m=>m==='pfr'?36:-1;
+/* ---------- en-têtes de sortie (le classeur n'est plus embarqué) ---------- */
+const HEAD_FR=['COLLECTION','CATÉGORIE','CLIENT FACTURÉ','N° COMMANDE','QTÉ RESTANTE À LIVRER',
+ 'PCS DISPO LOGTEX (allouées)','% COUV. LOGTEX','STATUT ACTION (pousser Logtex)','SYNTHÈSE — À DIRE AU CLIENT',
+ 'ETA PROCHAINE ARRIVÉE','ETA COMMANDE COMPLÈTE','DATE LIVRAISON DEMANDÉE',"RETARD ÉCHU (j) — vs AUJOURD'HUI",
+ 'MONTANT EUR','QTÉ À TEMPS','QTÉ EN RETARD','QTÉ À ANNULER','% À ANNULER','QTÉ ALLOUÉE SUR STOCK',
+ 'QTÉ ALLOUÉE SUR PROD (PO)','TYPE DE SOURCE','PCS SUBSTITUABLES','1ʳᵉ ARRIVÉE À TEMPS','DERN. ARRIVÉE À TEMPS',
+ '1ʳᵉ ARRIVÉE RETARD','DERN. ARRIVÉE RETARD','MAGASIN / CLIENT CMD','RÉF. CMD CLIENT','CODE CLIENT','GROUP CODE',
+ 'NOM GROUPEMENT','CODE MAGASIN (client cmd)','VILLE LIVRAISON','REPRÉSENTANT','DATE COMMANDE',
+ 'PO RATTACHÉS (allocation)','% COUVERTURE À TERME','RETARD PRÉVISIONNEL (j) — ETA vs DATE DEMANDÉE Client'];
+const HEAD_INT=HEAD_FR.slice(0,36).map((h,i)=>i===5?'PCS DISPO SF/DT (allouées, +10 j)':i===6?'% COUV. SF/DT':
+ i===7?'STATUT ACTION (expédition SF/DT)':i===11?'DATE DEMANDÉE':h)
+ .concat(['RETARD PRÉVISIONNEL (j) — ETA vs DATE DEMANDÉE Client']);
+const HEAD_MACRO=['SEGMENT','COLLECTION','🟢 PRÊT À ENVOYER (pcs)','🟢 CMD PRÊTES','🟢 VALEUR PRÊT (€)',
+ '🟡 PARTIEL (pcs)','🟡 CMD PARTIEL','RETARD PRÉV. MOYEN (j)','NB CMD EN RETARD (PRÉV.)','VALEUR EUR','TOTAL CMD'];
+const HEAD_REST=['SKU','COLLECTION','DESCRIPTION ARTICLE','SOURCE','PCS','DISPO','ETA'];
 
-/* ── Routes API ─────────────────────────────────────────────────────────── */
+const METHODE_V10=[
+ ['Périmètre','Une ligne de pilotage = un groupe commande × collection. Ligne retenue si DROPPÉ ≠ OUI, quantité > 0 et date de livraison renseignée. Le montant EUR additionne toutes les lignes du groupe, lignes droppées comprises.'],
+ ['Réseaux','France affichée = WHOLESALE FRANCE. E-commerce, retail et marketing contracts sont alloués avec la France mais ne sont pas affichés. Tout le reste part en international.'],
+ ['Sources','Stock : colonne « Stock Interne », sites commençant par W — Logtex (WLOGM), autres FR (WHSLM, WFIFR), SF Chine (WSFCN), DT Thaïlande (WDTTH). Production : backlog fournisseur filtré sur TYPE FLUX = BL Fournisseur, INTERSITE = NON, DROPPÉ = NON, site de réception en W.'],
+ ['Dates d\u2019arrivée','T0 paramétrable (13/08/2026 par défaut). France : stock Logtex et FR à T0 + 5 j · PO vers sites FR à ETA + 5 j (ETA passée ramenée à T0) · stock et PO Asie à XF + 90 j. International : stock SF/DT + 10 j · PO Asie ETA + 10 j · stock Logtex + 30 j · PO France ETA + 30 j.'],
+ ['Règle SS27','Collection 2027-01-SS : arrivée = XF usine + 80 j, quel que soit le site de réception, sans écrêtage à T0.'],
+ ['Allocation','Exclusive : une pièce ne sert qu\u2019une commande. Le module France consomme en premier, l\u2019international ensuite. Priorité : top 10 clients par € du module, puis date demandée, puis n° de commande. Deux passes par commande — passe 1 « à temps » (arrivée ≤ date demandée + 10 j), puis passe 2 au plus tôt. Candidats triés par arrivée croissante, stock avant PO.'],
+ ['Annulation','Vrai zéro seulement : plus aucune pièce disponible pour ce SKU, tous sites confondus, après les deux passes.'],
+ ['Retard échu','Date du jour de calcul moins date demandée. Masqué pour les commandes SS27 dont la date demandée est antérieure au 01/12/2026 (anomalie ERP), pour les commandes France annulées et pour les commandes internationales à 100 % disponibles.'],
+ ['Substitutions','Propositions exclusives puisées dans le reste à allouer, même collection obligatoire, 5 candidats au maximum par SKU manquant. Rang 1 = même article, autre taille (taille la plus proche d\u2019abord). Rang 2 = même modèle (premier mot de la désignation), autre coloris, accord client requis.'],
+ ['Reste à allouer','Stock et PO non consommés après les deux passes, par SKU × source, limité aux collections FW26 et SS27. L\u2019ETA affichée est l\u2019ETA brute du PO, sans délai de transport.'],
+ ['Écarts connus','Les colonnes de périmètre, d\u2019identité client et de montant sont reproduites à l\u2019identique. Les quantités allouées et les dates d\u2019arrivée restent à quelques pour cent du classeur de référence : les départages entre commandes à égalité de priorité sur un SKU en pénurie ne sont pas tous reproductibles.']
+];
+const nf=new Intl.NumberFormat('fr-FR'), nf2=new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0});
+const fmt=v=>v==null||v===''?'':nf.format(v);
+const fmtE=v=>v==null||v===''?'':nf2.format(v)+' €';
+const pdate=v=>{if(!v)return null;const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v));
+  return m?new Date(+m[1],+m[2]-1,+m[3]).getTime():null;};
+const fmtD=v=>{if(!v)return '';const [y,m,d]=String(v).split('-');return d&&m?`${d}/${m}/${y}`:v;};
+const fmtPct=v=>v==null||v===''?'':Math.round(v*100)+' %';
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const statCls=s=>String(s||'').includes('🟢')?'b-vert':String(s||'').includes('🟡')?'b-jaune':String(s||'').includes('⚫')?'b-noir':'b-blanc';
+
+/* ---------- décodage données embarquées ---------- */
+async function inflateB64(b64){
+  const bin=atob(b64), buf=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+  const ds=new DecompressionStream('gzip');
+  const stream=new Blob([buf]).stream().pipeThrough(ds);
+  const ab=await new Response(stream).arrayBuffer();
+  return JSON.parse(new TextDecoder().decode(ab));
+}
+async function boot(){
+  /* V2 : aucun calcul au lancement. On attend le dépôt des fichiers. */
+  PIL.classList.remove('has-data');
+  $('#loadZone').classList.add('on');
+  const today=new Date(),iso=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  if(!$('#refArrInp').value)$('#refArrInp').value=iso;
+  if(!$('#genDateInp').value)$('#genDateInp').value=iso;
+}
+function applyData(d,label){
+  S.pfr=d.pfr; S.pint=d.pint; S.detFR=d.detFR; S.detIN=d.detIN; S.subFR=d.subFR; S.subIN=d.subIN;
+  S.rest=d.rest; S.arrFlow=d.arrFlow||null; S.macro=d.macro||[]; S.methode=(d.methode&&d.methode.length)?d.methode:METHODE_V10;
+  S.heads={pfr:d.pfrHead||HEAD_FR,pint:d.pintHead||HEAD_INT,macro:d.macroHead||HEAD_MACRO,sub:d.subFR.head,rest:d.restHead||HEAD_REST};
+  S.fileDate=d.fileDate;
+  $('#fdate').textContent=d.fileDate; $('#srcMode').textContent=' '+label;
+  S.filters={pfr:{},pint:{},subst:{},rest:{},macro:{}}; S.sort={}; S.page={pfr:0,pint:0,subst:0,rest:0};
+  PIL.classList.add('has-data');
+  S._autoRun=false;
+  renderAll();
+}
+function renderAll(){renderMacro();renderPil('pfr');renderPil('pint');renderSubst();renderRest();renderArr();renderMeth();}
+
+
+/* ---------- Arrivées par semaine (Logtex/France vs Asie) ---------- */
+function flowFromDetails(){
+  /* classeur rechargé : on reconstruit le flux depuis les détails de sources */
+  const out=[],rx=/·\s*([\d,]+)\s*pcs\s*·\s*(\d{2})\/(\d{2})\/(\d{4})/;
+  const scan=(det,m)=>{for(const k in det){const s=det[k];if(!s)continue;
+    for(const seg of String(s).split(';')){const mm=rx.exec(seg);if(!mm)continue;
+      const q=parseInt(mm[1].replace(/,/g,''),10);
+      const t=new Date(+mm[4],+mm[3]-1,+mm[2]).getTime();
+      const asie=/SF|DT|Asie|Chine|Tha/i.test(seg)?1:0;
+      out.push([m,t,asie,q,/PO\s/.test(seg)?1:0]);}}};
+  scan(S.detFR||{},0);scan(S.detIN||{},1);
+  return out;
+}
+function renderArr(){
+  const p=$('#p-arr');if(!p)return;
+  let flow=S.arrFlow&&S.arrFlow.length?S.arrFlow:flowFromDetails();
+  if(!flow.length){p.innerHTML='<div class="note">Aucun flux d\u2019arrivée : lance un calcul depuis les 3 fichiers sources.</div>';return;}
+  const f=S.filters.arr||(S.filters.arr={mod:'0'});
+  const modSel=f.mod==null?'0':f.mod;
+  const rows=flow.filter(r=>String(r[0])===modSel);
+  /* agrégat par semaine (lundi) */
+  const wk=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()-((d.getDay()+6)%7)*86400000;};
+  const by={};let totF=0,totA=0;
+  for(const [,t,asie,q] of rows){const w=wk(t);(by[w]=by[w]||[0,0])[asie]+=q;if(asie)totA+=q;else totF+=q;}
+  let weeks=Object.keys(by).map(Number).sort((a,b)=>a-b);
+  if(weeks.length){/* semaines vides comprises, pour ne pas déformer la frise */
+    const all=[];for(let w=weeks[0];w<=weeks[weeks.length-1];w=wk(w+7.5*86400000)){all.push(w);by[w]=by[w]||[0,0];}
+    weeks=all;}
+  if(!weeks.length){p.innerHTML='<div class="note">Rien à afficher pour ce module.</div>';return;}
+  const isoW=t=>{const d=new Date(t);const th=new Date(d);th.setDate(d.getDate()+3);
+    const y0=new Date(th.getFullYear(),0,1);return 'S'+String(Math.ceil(((th-y0)/86400000+1)/7)).padStart(2,'0');};
+  const dd=t=>{const d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');};
+  const max=Math.max(...weeks.map(w=>by[w][0]+by[w][1]));
+  /* barres empilées en SVG */
+  const BW=34,GAP=12,H=230,PADL=52,PADB=34,PADT=12;
+  const width=PADL+weeks.length*(BW+GAP)+10;
+  const y=v=>PADT+(H-PADT-PADB)*(1-v/max);
+  let g='';
+  const grid=4;for(let i=0;i<=grid;i++){const v=max*i/grid,yy=y(v);
+    g+=`<line x1="${PADL-4}" y1="${yy}" x2="${width}" y2="${yy}" stroke="var(--line2)"/>`+
+       `<text x="${PADL-8}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--mut)">${nf.format(Math.round(v))}</text>`;}
+  weeks.forEach((w,i)=>{const [fr,as]=by[w];const x=PADL+i*(BW+GAP);
+    const yF=y(fr),yA=y(fr+as);
+    g+=`<g><title>${isoW(w)} — semaine du ${dd(w)} : ${nf.format(fr)} pcs France · ${nf.format(as)} pcs Asie</title>`+
+       (fr?`<rect x="${x}" y="${yF}" width="${BW}" height="${y(0)-yF}" fill="var(--gold)" rx="2"/>`:'')+
+       (as?`<rect x="${x}" y="${yA}" width="${BW}" height="${yF-yA}" fill="#5b6572" rx="2"/>`:'')+
+       `</g><text x="${x+BW/2}" y="${H-PADB+14}" text-anchor="middle" font-size="10" fill="var(--ink2)" font-weight="600">${isoW(w)}</text>`+
+       `<text x="${x+BW/2}" y="${H-PADB+26}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${dd(w)}</text>`;});
+  /* tableau récapitulatif avec cumul */
+  let cum=0;const tot=totF+totA;
+  const trows=weeks.map(w=>{const [fr,as]=by[w];cum+=fr+as;
+    return `<tr><td>${isoW(w)} — du ${dd(w)}</td><td class="num">${nf.format(fr)}</td><td class="num">${nf.format(as)}</td>`+
+           `<td class="num"><b>${nf.format(fr+as)}</b></td><td class="num">${nf.format(cum)}</td>`+
+           `<td class="num">${tot?Math.round(100*cum/tot):0} %</td></tr>`;}).join('');
+  p.innerHTML=`
+  <div class="fbar">
+    <div class="fg"><label>Module</label>
+      <select data-f="mod"><option value="0">France (+ réseaux domestiques)</option><option value="1">International</option></select></div>
+    <div class="sp"></div>
+    <button class="btn ghost" id="arrXls">&#8595; Export Excel</button>
+  </div>
+  <div class="cards">
+    <div class="card v"><div class="lab">Arrivées France / Logtex</div><div class="val">${nf.format(totF)} pcs</div><div class="det">stock + PO vers sites FR</div></div>
+    <div class="card n"><div class="lab">Arrivées via Asie</div><div class="val">${nf.format(totA)} pcs</div><div class="det">SF / DT / autres Asie</div></div>
+    <div class="card"><div class="lab">Étalement</div><div class="val">${weeks.length} semaines</div><div class="det">du ${dd(weeks[0])} au ${dd(weeks[weeks.length-1])}</div></div>
+  </div>
+  <div class="arrchart">
+    <div class="arrleg"><span><i style="background:var(--gold)"></i>France / Logtex</span><span><i style="background:#5b6572"></i>Asie (SF/DT)</span></div>
+    <svg width="${width}" height="${H}" viewBox="0 0 ${width} ${H}">${g}</svg>
+  </div>
+  <div class="twrap" style="max-height:420px"><table>
+    <thead><tr><th>Semaine</th><th>France / Logtex</th><th>Asie</th><th>Total</th><th>Cumul</th><th>% du flux</th></tr></thead>
+    <tbody>${trows}</tbody></table></div>`;
+  bindBar('#p-arr','arr',renderArr);
+  $('#arrXls').onclick=()=>{let c=0;
+    dlWb('Arrivees_par_semaine',[['ARRIVEES '+(modSel==='0'?'FRANCE':'INTL'),
+      [['SEMAINE','FRANCE/LOGTEX','ASIE','TOTAL','CUMUL'],
+       ...weeks.map(w=>{const[fr,as]=by[w];c+=fr+as;return [isoW(w)+' — '+dd(w),fr,as,fr+as,c];})]]]);};
+}
+
+
+/* ---------- « À pousser maintenant » : détail + export Excel ---------- */
+function pushRows(){
+  /* commandes 100 % dispo, dans le périmètre filtré de la Macro View */
+  const {fr,int}=macroRows();
+  return [...fr,...int].filter(r=>String(r[C.STAT]||'').includes('🟢'));
+}
+function pushLines(rows){
+  /* une ligne par commande × SKU, toutes infos client et produit */
+  const out=[];
+  rows.forEach(r=>{
+    const mod=fr_has(r)?'pfr':'pint';
+    const det=(mod==='pfr'?S.detFR:S.detIN)[r[C.ORD]]||[];
+    const nl=det.length||1;
+    if(!det.length){out.push({r,mod,sku:'',des:'',q:r[C.Q]||0,al:r[C.Q]||0,src:'',nl});return;}
+    det.forEach(l=>out.push({r,mod,sku:l[0],des:l[1],q:l[2]||0,al:l[3]||0,src:l[4]||'',nl}));
+  });
+  return out;
+}
+function fr_has(r){return S.pfr.indexOf(r)>=0;}
+const PUSH_HEAD=['N° COMMANDE','COLLECTION','CLIENT FACTURÉ','CODE CLIENT','MAGASIN / CLIENT CMD','CODE MAGASIN',
+ 'NOM GROUPEMENT','GROUP CODE','VILLE LIVRAISON','REPRÉSENTANT','RÉF. CMD CLIENT','DATE COMMANDE',
+ 'DATE LIVRAISON DEMANDÉE','SKU','DÉSIGNATION','QTÉ','PCS ALLOUÉES','SOURCES → ARRIVÉES',
+ 'MONTANT LIGNE (EUR)','MONTANT COMMANDE (EUR)'];
+function pushAoa(lines){
+  return lines.map(x=>{const r=x.r, qc=r[C.Q]||0, mt=r[C.MT]||0;
+    return [r[C.ORD],r[C.COLL],r[C.CLI],r[C.CODC],r[C.MAG],r[C.CODM],r[C.GRP],r[C.GRPC],r[C.VILLE],r[C.REP],
+      r[C.REF],fmtD(r[C.DCMD]),fmtD(r[C.DDEM]),x.sku,x.des,x.q,x.al,x.src,
+      qc?+( mt*x.q/qc ).toFixed(2):0, mt];});
+}
+function openPush(){
+  const all=pushRows();
+  if(!all.length){showModal('info','Aucune commande 100 % disponible dans le périmètre filtré.');return;}
+  S.pushSkip=S.pushSkip||{};
+  const draw=()=>{
+    const kept=all.filter(r=>!S.pushSkip[r[C.ORD]+'|'+r[C.COLL]]);
+    const lines=pushLines(kept);
+    const nC=kept.length, nP=kept.reduce((a,r)=>a+(r[C.Q]||0),0), nE=kept.reduce((a,r)=>a+(r[C.MT]||0),0);
+    const q=($('#pushQ')&&$('#pushQ').value||'').toLowerCase();
+    const vis=all.filter(r=>!q||[r[C.ORD],r[C.CLI],r[C.MAG],r[C.VILLE],r[C.REP],r[C.GRP]]
+      .some(v=>String(v||'').toLowerCase().includes(q)));
+    $('#dTitle').textContent='À pousser maintenant — '+fmt(nC)+' commande'+(nC>1?'s':'');
+    $('#dStat').innerHTML='<span class="badge b-vert">100 % dispo</span>';
+    $('#dBody').innerHTML=`
+      <div class="dact">
+        <button class="btn gold" id="pushXls">&#8595; Export Excel (${fmt(lines.length)} lignes)</button>
+        <button class="btn ghost" id="pushAll">Tout cocher</button>
+      </div>
+      <div class="kv">
+        <div class="it"><div class="k">Commandes retenues</div><div class="v">${fmt(nC)}${nC<all.length?' <span class="mut" style="font-size:12px">/ '+fmt(all.length)+'</span>':''}</div></div>
+        <div class="it"><div class="k">Pièces à sortir</div><div class="v">${fmt(nP)}</div></div>
+        <div class="it"><div class="k">Valeur</div><div class="v">${fmtE(nE)}</div></div>
+        <div class="it"><div class="k">Lignes article</div><div class="v">${fmt(lines.length)}</div></div>
+      </div>
+      <div class="note">Périmètre : filtres de la Macro View au ${today().split('-').reverse().join('/')}. Décochez ce que vous ne voulez pas expédier avant d\u2019exporter.</div>
+      <div class="fbar"><div class="fg"><label>Rechercher</label>
+        <input type="text" id="pushQ" placeholder="commande, client, magasin, ville, représentant…" value="${esc(q)}"></div></div>
+      <div class="twrap" style="max-height:50vh"><table id="pushTbl">
+        <thead><tr><th style="width:34px"></th><th>N° commande</th><th>Client facturé</th><th>Magasin</th><th>Ville</th><th>Représentant</th><th>Coll.</th><th>Demandée</th><th>Pcs</th><th>Art.</th><th>Montant</th></tr></thead>
+        <tbody>${vis.map(r=>{const k=r[C.ORD]+'|'+r[C.COLL];const on=!S.pushSkip[k];
+          const nl=((fr_has(r)?S.detFR:S.detIN)[r[C.ORD]]||[]).length;
+          return `<tr style="${on?'':'opacity:.42'}"><td><input type="checkbox" data-k="${esc(k)}" ${on?'checked':''}></td>`+
+            `<td><b>${esc(r[C.ORD])}</b></td><td>${esc(r[C.CLI])}</td><td>${esc(r[C.MAG]||'')}</td><td>${esc(r[C.VILLE]||'')}</td>`+
+            `<td>${esc(r[C.REP]||'')}</td><td>${esc(r[C.COLL])}</td><td>${fmtD(r[C.DDEM])}</td>`+
+            `<td class="num">${fmt(r[C.Q])}</td><td class="num">${fmt(nl)}</td><td class="num">${fmtE(r[C.MT])}</td></tr>`;}).join('')}
+        </tbody></table></div>`;
+    $$('#pushTbl input[type=checkbox]').forEach(cb=>cb.onchange=()=>{
+      if(cb.checked)delete S.pushSkip[cb.dataset.k]; else S.pushSkip[cb.dataset.k]=1; draw();});
+    let t;$('#pushQ').oninput=()=>{clearTimeout(t);t=setTimeout(()=>{draw();
+      const n=$('#pushQ');if(n){n.focus();const L=n.value.length;try{n.setSelectionRange(L,L);}catch(e){}}},300);};
+    $('#pushAll').onclick=()=>{S.pushSkip={};draw();};
+    $('#pushXls').onclick=()=>{
+      const d=new Date(),stamp=today().split('-').reverse().join('/');
+      dlWb('A_pousser_maintenant',[
+        ['SYNTHESE',[['À POUSSER MAINTENANT — commandes 100 % disponibles'],[],
+          ['Généré le',stamp],['Commandes',nC],['Pièces',nP],['Valeur EUR',+nE.toFixed(2)],
+          ['Lignes article',lines.length],[],['Périmètre',pushScope()]]],
+        ['DETAIL COMMANDES',[PUSH_HEAD,...pushAoa(lines)]]]);};
+  };
+  draw();
+  $('#ovl').style.display='block';$('#drawer').classList.add('open');
+}
+function pushScope(){
+  const f=S.filters.macro||{},parts=[];
+  if(f.seg)parts.push('Segment : '+f.seg); if(f.coll)parts.push('Collection : '+f.coll);
+  if(f.grp)parts.push('Groupement : '+f.grp); if(f.q)parts.push('Recherche : '+f.q);
+  return parts.length?parts.join(' · '):'Tous segments et collections';
+}
+
+
+/* ---------- graphe : livraisons demandées par mois, couverture ---------- */
+function renderMacChart(all){
+  const box=$('#macChart'); if(!box)return;
+  const drill=S.macroChartMonth||null;   /* 'YYYY-MM' quand on est descendu à la semaine */
+  const byK={};
+  const MO=['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
+  all.forEach(r=>{const t=pdate(r[C.DDEM]); if(t==null)return;
+    const d=new Date(t);
+    if(drill&&(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))!==drill)return;
+    let k,lab,sub;
+    if(drill){const w=t-((d.getDay()+6)%7)*86400000;const wd=new Date(w);
+      k=String(w);lab='sem. '+String(wd.getDate()).padStart(2,'0')+'/'+String(wd.getMonth()+1).padStart(2,'0');sub='';}
+    else{k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      lab=MO[d.getMonth()]+' '+String(d.getFullYear()).slice(2);sub='';}
+    const o=byK[k]=byK[k]||{lab,vert:0,ambre:0,gris:0};
+    const q=r[C.Q]||0,c=r[C.QCANC]||0;
+    if(String(r[C.STAT]||'').includes('🟢'))o.vert+=q;
+    else{o.gris+=c;o.ambre+=Math.max(0,q-c);}});
+  const keys=Object.keys(byK).sort();
+  if(!keys.length){box.innerHTML='';return;}
+  const mx=Math.max(...keys.map(k=>byK[k].vert+byK[k].ambre+byK[k].gris))||1;
+  const BW=40,GAP=16,H=250,PL=52,PR=46,PB=40,PT=14;
+  const W=PL+keys.length*(BW+GAP)+PR;
+  const y=v=>PT+(H-PT-PB)*(1-v/mx);
+  const y2=p=>PT+(H-PT-PB)*(1-Math.max(0,Math.min(1,(p-60)/42)));
+  let g='';for(let i=0;i<=4;i++){const v=mx*i/4,yy=y(v);
+    g+=`<line x1="${PL-4}" y1="${yy.toFixed(1)}" x2="${W-PR+4}" y2="${yy.toFixed(1)}" stroke="var(--line2)"/>`+
+       `<text x="${PL-8}" y="${(yy+4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--mut)">${v>=1000?Math.round(v/1000)+'k':Math.round(v)}</text>`;}
+  [70,80,90,100].forEach(p2=>{g+=`<text x="${W-PR+8}" y="${(y2(p2)+4).toFixed(1)}" font-size="10" fill="var(--goldD)">${p2} %</text>`;});
+  const pts=[];
+  keys.forEach((k,i)=>{const o=byK[k],T=o.vert+o.ambre+o.gris,x=PL+i*(BW+GAP);
+    const yv=y(o.vert),ya=y(o.vert+o.ambre),yg=y(T);
+    const pc=T?100*(1-o.gris/T):100;
+    g+=`<g class="mcm" data-k="${k}" style="cursor:${drill?'default':'pointer'}">`+
+      `<title>${o.lab} — ${fmt(T)} pcs demandées · ${fmt(o.vert)} en cmd 100 % · ${fmt(o.ambre)} partielles · ${fmt(o.gris)} à annuler · couverture ${pc.toFixed(0)} %</title>`+
+      (o.gris?`<rect x="${x}" y="${yg.toFixed(1)}" width="${BW}" height="${(y(0)-yg).toFixed(1)}" fill="#c2c8d0" rx="2"/>`:'')+
+      (o.ambre?`<rect x="${x}" y="${ya.toFixed(1)}" width="${BW}" height="${(y(0)-ya).toFixed(1)}" fill="var(--gold)" rx="2"/>`:'')+
+      (o.vert?`<rect x="${x}" y="${yv.toFixed(1)}" width="${BW}" height="${(y(0)-yv).toFixed(1)}" fill="var(--vert)" rx="2"/>`:'')+`</g>`+
+      `<text x="${x+BW/2}" y="${H-PB+15}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--ink2)">${o.lab}</text>`+
+      `<text x="${x+BW/2}" y="${H-PB+27}" text-anchor="middle" font-size="9.5" fill="var(--mut)">${T>=1000?Math.round(T/1000)+'k':fmt(T)} pcs</text>`;
+    pts.push([x+BW/2,y2(pc)]);});
+  g+=`<polyline fill="none" stroke="var(--goldD)" stroke-width="2" stroke-dasharray="4 3" points="${pts.map(p2=>p2[0].toFixed(1)+','+p2[1].toFixed(1)).join(' ')}"/>`;
+  pts.forEach(p2=>{g+=`<circle cx="${p2[0].toFixed(1)}" cy="${p2[1].toFixed(1)}" r="3.5" fill="var(--paper)" stroke="var(--goldD)" stroke-width="2"/>`;});
+  box.innerHTML=`<h2 class="sec">Livraisons demandées par ${drill?'semaine — '+drill.split('-').reverse().join('/'):'mois'} — couverture</h2>
+   <div class="arrchart" style="padding-bottom:4px">
+    <div class="arrleg"><span><i style="background:var(--vert)"></i>Cmd couvertes à 100 %</span><span><i style="background:var(--gold)"></i>Partielles</span><span><i style="background:#c2c8d0"></i>À annuler</span><span><i style="background:var(--goldD)"></i>% couverture à terme</span></div>
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg>
+    <div class="mut" style="font-size:11.5px;padding:2px 2px 8px">${drill?'<a id="mcBack" style="color:var(--goldD);font-weight:600;cursor:pointer">← Retour aux mois</a>':'Clic sur un mois → détail semaine par semaine.'} Axe = <b>date de livraison demandée</b>.</div>
+   </div>`;
+  if(drill){const bk=$('#mcBack');if(bk)bk.onclick=()=>{S.macroChartMonth=null;renderMacro();};}
+  else $$('#macChart .mcm').forEach(el=>el.onclick=()=>{S.macroChartMonth=el.dataset.k;renderMacro();});
+}
+/* ---------- articles qui bloquent le plus ---------- */
+function renderMacBlockers(all,fr){
+  const el=$('#macBlk'); if(!el)return;
+  const by={};
+  all.forEach(r=>{if(!((r[C.QCANC]||0)>0))return;
+    const det=(fr.includes(r)?S.detFR:S.detIN)[r[C.ORD]]||[];
+    const q=r[C.Q]||1,mt=r[C.MT]||0;
+    det.forEach(l=>{const c=l[7]||0;if(!(c>0))return;
+      const o=by[l[0]]=by[l[0]]||{sku:l[0],des:l[1]||'',pcs:0,eur:0,cmds:new Set()};
+      o.pcs+=c;o.eur+=mt*c/q;o.cmds.add(r[C.ORD]);});});
+  const top=Object.values(by).sort((a,b)=>b.eur-a.eur).slice(0,5);
+  el.innerHTML=`<thead><tr><th>SKU manquant</th><th>Cmd bloquées</th><th>€ bloqués</th></tr></thead><tbody>`+
+   (top.length?top.map(o=>`<tr><td><b>${esc(o.sku)}</b><div class="mini">${esc(o.des)} — manque ${fmt(o.pcs)} pcs</div></td>`+
+     `<td class="num">${fmt(o.cmds.size)}</td><td class="num late">${fmtE(o.eur)}</td></tr>`).join('')
+   :'<tr><td colspan="3" class="mut">Aucune annulation dans le périmètre filtré.</td></tr>')+'</tbody>';
+}
+/* ---------- prochaine arrivée majeure ---------- */
+function renderMacNext(all){
+  const el=$('#macNext'); if(!el)return;
+  let flow=S.arrFlow&&S.arrFlow.length?S.arrFlow:flowFromDetails();
+  const now=Date.now(),wk=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()-((d.getDay()+6)%7)*86400000;};
+  const by={};flow.forEach(([m,t,asie,q])=>{if(t<now)return;const w=wk(t);(by[w]=by[w]||[0,0])[asie]+=q;});
+  const ws=Object.keys(by).map(Number);
+  if(!ws.length){el.innerHTML='';return;}
+  const best=ws.sort((a,b)=>(by[b][0]+by[b][1])-(by[a][0]+by[a][1]))[0];
+  const [pF,pA]=by[best],tot=pF+pA;
+  const done=all.filter(r=>{const t=pdate(r[C.ETAC]);const st=String(r[C.STAT]||'');
+    return t!=null&&t>=best&&t<best+7*86400000&&!st.includes('🟢')&&!st.includes('⚫');});
+  const dE=done.reduce((a,r)=>a+(r[C.MT]||0),0);
+  const dd2=t=>{const d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
+  const iso=(t=>{const d=new Date(t),th=new Date(d);th.setDate(d.getDate()+3);
+    const y0=new Date(th.getFullYear(),0,1);return 'S'+String(Math.ceil(((th-y0)/86400000+1)/7)).padStart(2,'0');})(best);
+  const wISO=best.toString();
+  el.innerHTML=`<h2 class="sec">Prochaine arrivée majeure</h2>
+   <div class="act" style="border-top-color:var(--vert)">
+    <div class="t">📦 ${iso} — semaine du ${dd2(best)} · ${fmt(tot)} pcs (${pA>pF?'majorité Asie':'majorité France'})</div>
+    <div class="big">complète ${fmt(done.length)} commande${done.length>1?'s':''}</div>
+    <div class="sub">${fmtE(dE)} libérés à l\u2019expédition</div>
+    <a id="mnGo" style="cursor:pointer">Voir ces commandes →</a></div>`;
+  const d0=new Date(best);
+  const isoD=d0.getFullYear()+'-'+String(d0.getMonth()+1).padStart(2,'0')+'-'+String(d0.getDate()).padStart(2,'0');
+  $('#mnGo').onclick=()=>goTab('pfr',{etaw:isoD});
+}
+/* ---------- comparaison avec le calcul précédent ---------- */
+function loadPrevWb(file){
+  const rd=new FileReader();
+  rd.onload=e=>{try{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const take=n=>{const sh=wb.Sheets[n];return sh?XLSX.utils.sheet_to_json(sh,{header:1,raw:true}).slice(1):[];};
+    const rows=[...take('PILOTAGE FRANCE'),...take('PILOTAGE INTERNATIONAL')];
+    if(!rows.length){showModal('alert','Feuilles PILOTAGE introuvables dans ce classeur.');return;}
+    const map={};rows.forEach(r=>{if(r&&r[C.ORD]!=null)map[String(r[C.ORD])+'|'+r[C.COLL]]=r;});
+    S.prev={name:file.name,map};renderMacro();
+  }catch(err){showModal('alert','Lecture impossible : '+err.message);}};
+  rd.readAsArrayBuffer(file);
+}
+function renderMacPrev(fr,int){
+  const el=$('#macPrev'); if(!el)return;
+  if(!S.prev){el.innerHTML='';return;}
+  const cur={};[...fr,...int].forEach(r=>{cur[String(r[C.ORD])+'|'+r[C.COLL]]=r;});
+  const P=S.prev.map;
+  let nNew=0,eNew=0,toGreen=0,toEchu=0,cancPlus=0,cancMoins=0;
+  const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n;};
+  for(const k in cur){const r=cur[k],p=P[k];
+    if(!p){nNew++;eNew+=r[C.MT]||0;continue;}
+    const pg=String(p[C.STAT]||'').includes('🟢'),cg=String(r[C.STAT]||'').includes('🟢');
+    if(!pg&&cg)toGreen++;
+    if(!(num(p[C.RECHU])>0)&&(r[C.RECHU]||0)>0)toEchu++;
+    const d=(r[C.QCANC]||0)-num(p[C.QCANC]);
+    if(d>0)cancPlus+=d; else cancMoins-=d;}
+  el.innerHTML=`<h2 class="sec" style="margin-top:0">Depuis ${esc(S.prev.name.replace(/\.xlsx$/i,''))}</h2>
+   <div class="twrap" style="max-height:none;margin-bottom:14px"><table>
+    <thead><tr><th>Mouvement</th><th>Volume</th></tr></thead><tbody>
+    <tr><td>Nouvelles commandes entrées</td><td class="num">+${fmt(nNew)} cmd · ${fmtE(eNew)}</td></tr>
+    <tr><td>Passées 🟢 prêtes à envoyer</td><td class="num early">+${fmt(toGreen)} cmd</td></tr>
+    <tr><td>Basculées en retard échu</td><td class="num late">+${fmt(toEchu)} cmd</td></tr>
+    <tr><td>Annulations apparues</td><td class="num late">+${fmt(cancPlus)} pcs</td></tr>
+    <tr><td>Annulations résolues</td><td class="num early">−${fmt(cancMoins)} pcs</td></tr>
+    </tbody></table></div>`;
+}
+
+/* ---------- helpers filtres ---------- */
+function selOpt(list,ph){const u=[...new Set(list.filter(x=>x!=null&&x!==''))].sort();
+  return `<option value="">${ph}</option>`+u.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');}
+function bindBar(panel,key,cb){
+  $$(panel+' [data-f]').forEach(el=>{
+    const apply=()=>{S.filters[key][el.dataset.f]=el.value;S.page[key]=0;cb();
+      /* le re-rendu recrée la barre : on rend le focus au même champ, curseur en fin */
+      const nel=document.querySelector(panel+' [data-f="'+el.dataset.f+'"]');
+      if(nel&&nel.tagName==='INPUT'){nel.focus();const L=nel.value.length;try{nel.setSelectionRange(L,L);}catch(e){}}};
+    if(el.tagName==='INPUT'){
+      let t;
+      el.oninput=()=>{clearTimeout(t);t=setTimeout(apply,350);};
+      el.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(t);apply();}};
+    } else el.onchange=apply;
+  });
+}
+function chipHtml(key,cb){
+  const f=S.filters[key],act=Object.entries(f).filter(([,v])=>v);
+  if(!act.length)return '';
+  return act.map(([k,v])=>`<span class="chip" data-ck="${esc(k)}">${esc(v)}</span>`).join(' ')+
+   ` <button class="btn ghost" data-creset>Réinitialiser</button>`;
+}
+function bindChips(panel,key,cb){
+  $$(panel+' .chip[data-ck]').forEach(c=>c.onclick=()=>{delete S.filters[key][c.dataset.ck];syncBar(panel,key);cb();});
+  const r=$(panel+' [data-creset]'); if(r)r.onclick=()=>{S.filters[key]={};syncBar(panel,key);cb();};
+}
+function syncBar(panel,key){$$(panel+' [data-f]').forEach(el=>{el.value=S.filters[key][el.dataset.f]||'';});}
+
+/* ---------- MACRO VIEW ---------- */
+function macroRows(){
+  const f=S.filters.macro||{};
+  const test=(r,seg)=>{
+    if(f.seg&&f.seg!==seg)return false;
+    if(f.coll&&r[C.COLL]!==f.coll)return false;
+    if(f.stat&&r[C.STAT]!==f.stat)return false;
+    if(f.grp&&r[C.GRP]!==f.grp)return false;
+    if(f.q){const q=f.q.toLowerCase();
+      if(!String(r[C.CLI]||'').toLowerCase().includes(q)&&!String(r[C.ORD]||'').toLowerCase().includes(q)&&
+         !String(r[C.MAG]||'').toLowerCase().includes(q))return false;}
+    return true;};
+  return {fr:S.pfr.filter(r=>test(r,'France')),int:S.pint.filter(r=>test(r,'International'))};
+}
+function agg(rows,mod){
+  const a={pcs:0,mt:0,cmd:rows.length,pretP:0,pretC:0,pretE:0,partP:0,partC:0,cancP:0,cancC:0,
+    lateN:0,lateSum:0,otP:0,lateP:0,subQ:0};
+  const ri=RPREV(mod==='France'?'pfr':'pint');
+  for(const r of rows){
+    a.pcs+=r[C.Q]||0;a.mt+=r[C.MT]||0;a.otP+=r[C.QOT]||0;a.lateP+=r[C.QLATE]||0;a.cancP+=r[C.QCANC]||0;a.subQ+=r[C.SUBQ]||0;
+    if(r[C.QCANC]>0)a.cancC++;
+    const st=String(r[C.STAT]||'');
+    if(st.includes('🟢')){a.pretP+=r[C.DISPO]||0;a.pretC++;a.pretE+=r[C.MT]||0;}
+    else if(st.includes('🟡')){a.partP+=r[C.DISPO]||0;a.partC++;}
+    const rp=r[ri]; if(typeof rp==='number'&&rp>0){a.lateN++;a.lateSum+=rp;}
+  }
+  a.lateAvg=a.lateN?a.lateSum/a.lateN:0;
+  return a;
+}
+function renderMacro(){
+  const p=$('#p-macro');
+  const colls=[...new Set([...S.pfr,...S.pint].map(r=>r[C.COLL]))].sort();
+  const grps=[...new Set([...S.pfr,...S.pint].map(r=>r[C.GRP]))].filter(Boolean).sort();
+  const stats=['🟢 Pousser tout','🟡 Pousser partiel','⚪ Rien à pousser','⚫ Annulé'];
+  const f=S.filters.macro||{};
+  p.innerHTML=`
+  <div class="fbar">
+    <div class="fg"><label>Segment</label><select data-f="seg"><option value="">Tous</option><option>France</option><option>International</option></select></div>
+    <div class="fg"><label>Collection</label><select data-f="coll">${selOpt(colls,'Toutes')}</select></div>
+    <div class="fg"><label>Statut</label><select data-f="stat"><option value="">Tous</option>${stats.map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="fg"><label>Groupement</label><select data-f="grp">${selOpt(grps,'Tous')}</select></div>
+    <div class="fg"><label>Recherche client / commande</label><input type="text" data-f="q" placeholder="Client, n° commande, magasin…"></div>
+    <div class="sp"></div><div id="macChips"></div>
+    <button class="btn ghost" id="macCmp">⇆ Comparer au calcul précédent</button>
+    <input type="file" id="macCmpF" accept=".xlsx" style="display:none">
+    <button class="btn" id="macExp">⬇ Export macro (Excel)</button>
+  </div>
+  <div class="actbar" id="macActs"></div>
+  <div class="cards" id="macCards"></div>
+  <div class="grid2">
+    <div>
+      <h2 class="sec" style="margin-top:0">Top clients exposés — qui appeler aujourd'hui</h2>
+      <div class="twrap" style="max-height:none"><table id="macCliX"></table></div>
+      <div class="mut" style="font-size:11.5px;margin-top:5px">Barre : <span style="color:var(--vert);font-weight:700">■</span> dispo maintenant · <span style="color:var(--goldD);font-weight:700">■</span> en arrivage · <span style="color:#9aa2ac;font-weight:700">■</span> à annuler. Tri par € en retard échu.</div>
+      <div id="macChart"></div>
+    </div>
+    <div>
+      <div id="macPrev"></div>
+      <h2 class="sec" style="margin-top:0">Articles qui bloquent le plus</h2>
+      <div class="twrap" style="max-height:none"><table id="macBlk"></table></div>
+      <div id="macNext"></div>
+    </div>
+  </div>
+  <h2 class="sec">Synthèse par segment × collection</h2>
+  <div class="twrap" style="max-height:340px"><table id="macTbl"></table></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+    <div><h2 class="sec" style="margin-top:0">Répartition des statuts</h2><div class="twrap" style="max-height:300px"><table id="macStat"></table></div></div>
+    <div><h2 class="sec" style="margin-top:0">Top 10 clients (montant restant)</h2><div class="twrap" style="max-height:300px"><table id="macTop"></table></div></div>
+  </div>`;
+  syncBar('#p-macro','macro');
+  bindBar('#p-macro','macro',renderMacro);
+  $('#macCmp').onclick=()=>$('#macCmpF').click();
+  $('#macCmpF').onchange=e=>{if(e.target.files[0])loadPrevWb(e.target.files[0]);e.target.value='';};
+  $('#macChips').innerHTML=chipHtml('macro',renderMacro); bindChips('#p-macro','macro',renderMacro);
+  const {fr,int}=macroRows();
+  const gFR=agg(fr,'France'),gIN=agg(int,'International');
+  const tot={};for(const k of Object.keys(gFR))tot[k]=(gFR[k]||0)+(gIN[k]||0);
+  tot.lateAvg=tot.lateN?tot.lateSum/tot.lateN:0;
+  /* € et pondérations */
+  const all=[...fr,...int];
+  const eEchu=all.filter(r=>(r[C.RECHU]||0)>0);
+  const echuE=eEchu.reduce((a,r)=>a+(r[C.MT]||0),0);
+  const cancE=all.reduce((a,r)=>a+((r[C.Q]||0)>0?(r[C.MT]||0)*(r[C.QCANC]||0)/(r[C.Q]||1):0),0);
+  let wS=0,wE=0;all.forEach(r=>{const ri=RPREV(fr.includes(r)?'pfr':'pint'),rp=r[ri];
+    if(typeof rp==='number'&&rp>0){wS+=rp*(r[C.MT]||0);wE+=(r[C.MT]||0);}});
+  const lateAvgE=wE?wS/wE:0;
+  /* bandeau d'actions */
+  const now0=new Date();now0.setHours(0,0,0,0);
+  const win7=all.filter(r=>{const t=pdate(r[C.DDEM]);const st=String(r[C.STAT]||'');
+    return t!=null&&t>=now0.getTime()&&t<=now0.getTime()+7*86400000&&(st.includes('🟡')||st.includes('⚪'));});
+  const w7E=win7.reduce((a,r)=>a+(r[C.MT]||0),0);
+  const subRows=[...(S.subFR&&S.subFR.rows||[]),...(S.subIN&&S.subIN.rows||[])];
+  const ratP=subRows.reduce((a,r)=>a+Math.min(+r[13]||0,+r[10]||0),0);
+  const act=(ico,t,big,sub,link,go)=>`<div class="act" data-ago='${JSON.stringify(go)}'>
+    <div class="t">${ico} ${t}</div><div class="big">${big}</div><div class="sub">${sub}</div><a>${link} →</a></div>`;
+  $('#macActs').innerHTML=
+    act('✅','À pousser maintenant',fmt(tot.pretC)+' cmd · '+fmtE(tot.pretE),'100 % dispo — détail et export Excel en un clic','Ouvrir le détail',{push:1})+
+    act('⏰','Fenêtre qui se ferme < 7 j',fmt(win7.length)+' cmd · '+fmtE(w7E),'date demandée imminente, couverture incomplète','Traiter en priorité',{win:1})+
+    act('🔄','Annulations rattrapables',fmt(ratP)+' pcs','substitution disponible immédiatement à proposer','Ouvrir les substitutions',{tab:'subst'});
+  $$('#macActs .act').forEach(c=>c.onclick=()=>{const go=JSON.parse(c.dataset.ago);
+    if(go.push)return openPush();
+    if(go.tab)return switchTab(go.tab);
+    if(go.win)return goTab(f.seg==='International'?'pint':'pfr',{win:'7'});});
+  /* clients exposés */
+  const byC={};all.forEach(r=>{const k=r[C.CLI]||'?';const o=byC[k]=byC[k]||{cli:k,cmd:0,pcs:0,echu:0,canc:0,sub:0,disp:0,alloc:0,qcanc:0,frN:0};
+    o.cmd++;o.pcs+=r[C.Q]||0;o.sub+=r[C.SUBQ]||0;o.disp+=r[C.DISPO]||0;
+    o.alloc+=(r[C.ASTK]||0)+(r[C.APROD]||0);o.qcanc+=r[C.QCANC]||0;
+    if((r[C.RECHU]||0)>0)o.echu+=r[C.MT]||0;
+    if((r[C.Q]||0)>0)o.canc+=(r[C.MT]||0)*(r[C.QCANC]||0)/(r[C.Q]||1);
+    if(fr.includes(r))o.frN++;});
+  const cliX=Object.values(byC).sort((a,b)=>b.echu-a.echu).slice(0,8);
+  $('#macCliX').innerHTML=`<thead><tr><th>Client</th><th>€ en retard</th><th>€ à annuler</th><th>Subst.</th><th>Couverture</th><th></th></tr></thead><tbody>`+
+   cliX.map(o=>{const T=o.pcs||1,v=100*o.disp/T,am=Math.max(0,100*(o.alloc-o.disp)/T),gr=100*o.qcanc/T;
+    return `<tr><td><b>${esc(o.cli)}</b><div class="mini">${fmt(o.cmd)} cmd · ${fmt(o.pcs)} pcs</div></td>`+
+     `<td class="num ${o.echu>0?'late':''}">${fmtE(o.echu)}</td><td class="num">${fmtE(o.canc)}</td><td class="num">${fmt(o.sub)}</td>`+
+     `<td><div class="cover"><i style="width:${v.toFixed(1)}%;background:var(--vert)"></i><i style="width:${am.toFixed(1)}%;background:var(--gold)"></i><i style="width:${gr.toFixed(1)}%;background:#c2c8d0"></i></div></td>`+
+     `<td><a class="clix" data-cli="${esc(o.cli)}" data-m="${o.frN>0?'pfr':'pint'}" style="color:var(--goldD);font-weight:600;cursor:pointer">Ouvrir →</a></td></tr>`;}).join('')+'</tbody>';
+  $$('#macCliX .clix').forEach(a2=>a2.onclick=()=>goTab(a2.dataset.m,{q:a2.dataset.cli}));
+  renderMacChart(all);
+  renderMacBlockers(all,fr);
+  renderMacNext(all);
+  renderMacPrev(fr,int);
+  const card=(cls,lab,val,det,go)=>`<div class="card ${cls}" data-go='${go?JSON.stringify(go):""}'>
+    <div class="lab">${lab}</div><div class="val">${val}</div><div class="det">${det||''}</div></div>`;
+  $('#macCards').innerHTML=
+   card('n','Commandes affichées',fmt(tot.cmd),fmt(tot.pcs)+' pcs · '+fmtE(tot.mt))+
+   card('v','🟢 Prêt à envoyer — à pousser maintenant',fmt(tot.pretC)+' cmd · '+fmtE(tot.pretE),fmt(tot.pretP)+' pcs 100 % dispo · <b>clic → détail et export</b>',{push:1})+
+   card('j','🟡 Partiel (pcs dispo)',fmt(tot.partP)+' pcs',fmt(tot.partC)+' cmd',{stat:'🟡 Pousser partiel'})+
+   card('v','Qté à temps',fmt(tot.otP)+' pcs','vs demande '+fmt(tot.pcs),{ponc:'ontime'})+
+   card('r','€ en retard échu',fmtE(echuE),fmt(eEchu.length)+' cmd concernées',{ponc:'echu'})+
+   card('r','€ menacés d\u2019annulation',fmtE(cancE),fmt(tot.cancP)+' pcs',{ponc:'canc'})+
+   card('r','Qté en retard',fmt(tot.lateP)+' pcs','retard moyen '+lateAvgE.toFixed(1)+' j (pondéré €) · '+tot.lateAvg.toFixed(1)+' j (simple)',{ponc:'late'})+
+   card('r','⚫ À annuler',fmt(tot.cancP)+' pcs',fmt(tot.cancC)+' cmd concernées',{ponc:'canc'})+
+   card('n','Cmd en retard (prév.)',fmt(tot.lateN),'ETA vs date demandée',{ponc:'late'})+
+   card('j','Pcs substituables',fmt(tot.subQ),'voir onglet Substitutions',{tab:'subst'});
+  $$('#macCards .card').forEach(c=>c.onclick=()=>{
+    const go=c.dataset.go?JSON.parse(c.dataset.go):null; if(!go)return;
+    if(go.push){openPush();return;}
+    if(go.tab){switchTab(go.tab);return;}
+    const seg=f.seg; const preset={...go}; if(f.coll)preset.coll=f.coll;
+    if(seg==='International')goTab('pint',preset); else goTab('pfr',preset);
+  });
+  /* table segment × collection */
+  const H=S.heads.macro;
+  const groups=[];
+  const mk=(seg,rows,mod)=>{const by={};rows.forEach(r=>{(by[r[C.COLL]]=by[r[C.COLL]]||[]).push(r);});
+    Object.keys(by).sort().forEach(cl=>groups.push({seg,cl,a:agg(by[cl],seg)}));};
+  mk('France — Wholesale France',fr,'France'); mk('International — Wholesale International',int,'International');
+  let mh=`<thead><tr>${H.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
+  const line=(g)=>`<tr class="click" data-seg="${g.seg.startsWith('France')?'pfr':'pint'}" data-coll="${esc(g.cl||'')}">
+    <td>${esc(g.seg)}</td><td>${esc(g.cl)}</td><td class="num">${fmt(g.a.pretP)}</td><td class="num">${fmt(g.a.pretC)}</td>
+    <td class="num">${fmtE(g.a.pretE)}</td><td class="num">${fmt(g.a.partP)}</td><td class="num">${fmt(g.a.partC)}</td>
+    <td class="num">${g.a.lateAvg.toFixed(1)}</td><td class="num">${fmt(g.a.lateN)}</td><td class="num">${fmtE(g.a.mt)}</td><td class="num">${fmt(g.a.cmd)}</td></tr>`;
+  mh+=groups.map(line).join('');
+  const at={seg:'TOTAL',cl:'',a:tot};
+  mh+=`<tr style="font-weight:800;background:#dcedfb"><td>TOTAL</td><td></td><td class="num">${fmt(tot.pretP)}</td><td class="num">${fmt(tot.pretC)}</td><td class="num">${fmtE(tot.pretE)}</td><td class="num">${fmt(tot.partP)}</td><td class="num">${fmt(tot.partC)}</td><td class="num">${tot.lateAvg.toFixed(1)}</td><td class="num">${fmt(tot.lateN)}</td><td class="num">${fmtE(tot.mt)}</td><td class="num">${fmt(tot.cmd)}</td></tr></tbody>`;
+  $('#macTbl').innerHTML=mh;
+  $$('#macTbl tr.click').forEach(tr=>tr.onclick=()=>goTab(tr.dataset.seg,{coll:tr.dataset.coll}));
+  /* statuts */
+  const stAgg={};[...fr.map(r=>['pfr',r]),...int.map(r=>['pint',r])].forEach(([m,r])=>{
+    const k=m+'|'+r[C.STAT];stAgg[k]=stAgg[k]||{n:0,p:0,mt:0};stAgg[k].n++;stAgg[k].p+=r[C.Q]||0;stAgg[k].mt+=r[C.MT]||0;});
+  let sh=`<thead><tr><th>Segment</th><th>Statut</th><th>Cmd</th><th>Pcs</th><th>Montant</th></tr></thead><tbody>`;
+  Object.keys(stAgg).sort().forEach(k=>{const [m,st]=k.split('|');const v=stAgg[k];
+    sh+=`<tr class="click" data-m="${m}" data-st="${esc(st)}"><td>${m==='pfr'?'France':'International'}</td><td><span class="badge ${statCls(st)}">${esc(st)}</span></td><td class="num">${fmt(v.n)}</td><td class="num">${fmt(v.p)}</td><td class="num">${fmtE(v.mt)}</td></tr>`;});
+  $('#macStat').innerHTML=sh+'</tbody>';
+  $$('#macStat tr.click').forEach(tr=>tr.onclick=()=>goTab(tr.dataset.m,{stat:tr.dataset.st}));
+  /* top clients */
+  const byCli={};[...fr,...int].forEach(r=>{const k=r[C.CLI]||'?';byCli[k]=byCli[k]||{mt:0,p:0,n:0};byCli[k].mt+=r[C.MT]||0;byCli[k].p+=r[C.Q]||0;byCli[k].n++;});
+  const top=Object.entries(byCli).sort((a,b)=>b[1].mt-a[1].mt).slice(0,10);
+  $('#macTop').innerHTML=`<thead><tr><th>Client facturé</th><th>Cmd</th><th>Pcs</th><th>Montant</th></tr></thead><tbody>`+
+   top.map(([cl,v])=>`<tr class="click" data-cli="${esc(cl)}"><td>${esc(cl)}</td><td class="num">${fmt(v.n)}</td><td class="num">${fmt(v.p)}</td><td class="num">${fmtE(v.mt)}</td></tr>`).join('')+'</tbody>';
+  $$('#macTop tr.click').forEach(tr=>tr.onclick=()=>goTab('pfr',{q:tr.dataset.cli}));
+  $('#macExp').onclick=()=>{
+    const rows=groups.map(g=>[g.seg,g.cl,g.a.pretP,g.a.pretC,g.a.pretE,g.a.partP,g.a.partC,+g.a.lateAvg.toFixed(2),g.a.lateN,g.a.mt,g.a.cmd]);
+    rows.push(['TOTAL','',tot.pretP,tot.pretC,tot.pretE,tot.partP,tot.partC,+tot.lateAvg.toFixed(2),tot.lateN,tot.mt,tot.cmd]);
+    dlWb('Macro_View',[['Maccro View',[H,...rows]]]);
+  };
+}
+
+/* ---------- PILOTAGES ---------- */
+function pilRows(mod){
+  const rows=mod==='pfr'?S.pfr:S.pint, f=S.filters[mod]||{};
+  return rows.filter(r=>{
+    if(f.coll&&r[C.COLL]!==f.coll)return false;
+    if(f.stat&&r[C.STAT]!==f.stat)return false;
+    if(f.src&&r[C.SRC]!==f.src)return false;
+    if(f.grp&&r[C.GRP]!==f.grp)return false;
+    if(f.rep&&r[C.REP]!==f.rep)return false;
+    if(f.ponc){
+      if(f.ponc==='ontime'&&!((r[C.QOT]||0)>0&&(r[C.QLATE]||0)===0&&(r[C.QCANC]||0)===0))return false;
+      if(f.ponc==='late'&&!((r[C.QLATE]||0)>0))return false;
+      if(f.ponc==='canc'&&!((r[C.QCANC]||0)>0))return false;
+      if(f.ponc==='subst'&&!((r[C.SUBQ]||0)>0))return false;
+      if(f.ponc==='echu'&&!((r[C.RECHU]||0)>0))return false;
+    }
+    if(f.win){const t=pdate(r[C.DDEM]);const now=new Date();now.setHours(0,0,0,0);
+      const lim=now.getTime()+(+f.win)*86400000;
+      if(t==null||t<now.getTime()||t>lim)return false;
+      const st=String(r[C.STAT]||''); if(!(st.includes('🟡')||st.includes('⚪')))return false;}
+    if(f.etaw){const w0=pdate(f.etaw),t=pdate(r[C.ETAC]);
+      if(w0==null||t==null||t<w0||t>=w0+7*86400000)return false;}
+    if(f.q){const q=f.q.toLowerCase();
+      const hay=[r[C.ORD],r[C.CLI],r[C.MAG],r[C.VILLE],r[C.REF],r[C.CODC],r[C.GRP],r[C.PO],r[C.REP]].map(x=>String(x||'').toLowerCase()).join('¦');
+      if(!hay.includes(q))return false;}
+    return true;
+  });
+}
+function renderPil(mod){
+  const p=$('#p-'+mod), rows=mod==='pfr'?S.pfr:S.pint, H=S.heads[mod];
+  const f=S.filters[mod]||{};
+  const colls=[...new Set(rows.map(r=>r[C.COLL]))].sort();
+  const stats=[...new Set(rows.map(r=>r[C.STAT]))].sort();
+  const srcs=[...new Set(rows.map(r=>r[C.SRC]))].filter(Boolean).sort();
+  const grps=[...new Set(rows.map(r=>r[C.GRP]))].filter(Boolean).sort();
+  const reps=[...new Set(rows.map(r=>r[C.REP]))].filter(Boolean).sort();
+  p.innerHTML=`
+  <div class="fbar">
+    <div class="fg"><label>Recherche</label><input type="text" data-f="q" placeholder="N° commande, client, ville, PO, réf…"></div>
+    <div class="fg"><label>Collection</label><select data-f="coll">${selOpt(colls,'Toutes')}</select></div>
+    <div class="fg"><label>Statut</label><select data-f="stat">${selOpt(stats,'Tous')}</select></div>
+    <div class="fg"><label>Ponctualité</label><select data-f="ponc"><option value="">Toutes</option>
+      <option value="ontime">100 % à temps</option><option value="late">Avec retard</option>
+      <option value="canc">Avec annulation</option><option value="subst">Avec substituables</option></select></div>
+    <div class="fg"><label>Source</label><select data-f="src">${selOpt(srcs,'Toutes')}</select></div>
+    <div class="fg"><label>Groupement</label><select data-f="grp">${selOpt(grps,'Tous')}</select></div>
+    <div class="fg"><label>Représentant</label><select data-f="rep">${selOpt(reps,'Tous')}</select></div>
+    <div class="sp"></div><div data-chips></div>
+    <button class="btn ghost" data-tog>${S.full[mod]?'Vue synthèse':'Vue complète'}</button>
+    <button class="btn" data-exp>⬇ Export vue filtrée</button>
+  </div>
+  <div class="mut" data-count style="margin:-4px 0 8px 4px"></div>
+  <div class="twrap"><table data-tbl></table></div>
+  <div class="pgn" data-pgn></div>`;
+  syncBar('#p-'+mod,mod);
+  bindBar('#p-'+mod,mod,()=>renderPilTable(mod));
+  p.querySelector('[data-tog]').onclick=()=>{S.full[mod]=!S.full[mod];renderPil(mod);renderPilTable(mod);};
+  p.querySelector('[data-exp]').onclick=()=>exportPil(mod);
+  renderPilTable(mod);
+}
+function pilCols(mod){
+  if(S.full[mod])return S.heads[mod].map((h,i)=>i);
+  const base=[C.COLL,C.CLI,C.ORD,C.Q,C.DISPO,C.PC,C.STAT,C.SYN,C.ETA1,C.ETAC,C.DDEM,C.MT,RPREV(mod),C.SUBQ];
+  return base;
+}
+function renderPilTable(mod){
+  const p=$('#p-'+mod);
+  let rows=pilRows(mod);
+  const cols=pilCols(mod), H=S.heads[mod];
+  const st=S.sort[mod];
+  if(st){rows=[...rows].sort((a,b)=>{const x=a[st.i],y=b[st.i];
+    if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;
+    const c=typeof x==='number'&&typeof y==='number'?x-y:String(x).localeCompare(String(y),'fr');
+    return st.d?-c:c;});}
+  const per=100, pg=S.page[mod]||0, npg=Math.max(1,Math.ceil(rows.length/per));
+  const view=rows.slice(pg*per,(pg+1)*per);
+  const totQ=rows.reduce((s,r)=>s+(r[C.Q]||0),0), totM=rows.reduce((s,r)=>s+(r[C.MT]||0),0);
+  p.querySelector('[data-count]').textContent=`${nf.format(rows.length)} commandes · ${nf.format(totQ)} pcs · ${nf2.format(totM)} € — clique sur une commande pour le détail`;
+  p.querySelector('[data-chips]').innerHTML=chipHtml(mod,()=>{renderPil(mod);});
+  bindChips('#p-'+mod,mod,()=>{renderPil(mod);});
+  const th=cols.map(i=>`<th data-i="${i}">${esc(H[i]||'')}${st&&st.i===i?`<span class="arr"> ${st.d?'▼':'▲'}</span>`:''}</th>`).join('');
+  const td=(r,i)=>{
+    const v=r[i];
+    if(i===C.STAT)return `<td><span class="badge ${statCls(v)}">${esc(v)}</span></td>`;
+    if(i===C.SYN)return `<td class="syn">${esc(v)}</td>`;
+    if(i===C.MT)return `<td class="num">${fmtE(v)}</td>`;
+    if(i===C.PC||i===C.PCANC||i===PCT(mod))return `<td class="num">${fmtPct(v)}</td>`;
+    if(i===C.ETA1||i===C.ETAC||i===C.DDEM||i===C.DCMD||(i>=C.A1T&&i<=C.A2R))return `<td>${fmtD(v)}</td>`;
+    if(i===RPREV(mod)||i===C.RECHU){if(v==null||v==='')return '<td></td>';
+      return `<td class="num ${v>0?'late':'early'}">${v>0?'+':''}${fmt(v)} j</td>`;}
+    if(i===C.SUBQ)return v>0?`<td class="num"><span class="substTag" data-sub="${esc(r[C.ORD])}">🔁 ${fmt(v)}</span></td>`:'<td class="num"></td>';
+    if(typeof v==='number')return `<td class="num">${fmt(v)}</td>`;
+    return `<td>${esc(v)}</td>`;
+  };
+  p.querySelector('[data-tbl]').innerHTML=`<thead><tr>${th}</tr></thead><tbody>`+
+    view.map(r=>`<tr class="click" data-ord="${esc(r[C.ORD])}">${cols.map(i=>td(r,i)).join('')}</tr>`).join('')+'</tbody>';
+  p.querySelectorAll('thead th').forEach(h=>h.onclick=()=>{const i=+h.dataset.i;
+    S.sort[mod]=st&&st.i===i?{i,d:!st.d}:{i,d:false};renderPilTable(mod);});
+  p.querySelectorAll('tbody tr[data-ord]').forEach(tr=>tr.onclick=e=>{
+    if(e.target.dataset.sub){goSubst(e.target.dataset.sub,mod==='pfr'?'FR':'IN');e.stopPropagation();return;}
+    openDrawer(tr.dataset.ord,mod);});
+  p.querySelector('[data-pgn]').innerHTML=`<button ${pg===0?'disabled':''} data-pp>◀ Précédent</button>
+    Page ${pg+1} / ${npg} <button ${pg>=npg-1?'disabled':''} data-pn>Suivant ▶</button>`;
+  const pp=p.querySelector('[data-pp]'),pn=p.querySelector('[data-pn]');
+  if(pp)pp.onclick=()=>{S.page[mod]=pg-1;renderPilTable(mod);};
+  if(pn)pn.onclick=()=>{S.page[mod]=pg+1;renderPilTable(mod);};
+}
+
+/* ---------- TIROIR COMMANDE ---------- */
+let curOrd=null,curMod=null;
+function openDrawer(ord,mod){
+  curOrd=ord;curMod=mod;
+  const rows=mod==='pfr'?S.pfr:S.pint;
+  const r=rows.find(x=>x[C.ORD]===ord); if(!r)return;
+  const det=(mod==='pfr'?S.detFR:S.detIN)[ord]||[];
+  const sub=(mod==='pfr'?S.subFR:S.subIN).rows.filter(s=>s[0]===ord);
+  $('#dTitle').textContent=ord+' — '+(r[C.CLI]||'');
+  $('#dStat').innerHTML=`<span class="badge ${statCls(r[C.STAT])}">${esc(r[C.STAT])}</span>`;
+  const it=(k,v)=>v==null||v===''?'':`<div class="it"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  const rp=r[RPREV(mod)];
+  $('#dBody').innerHTML=`
+   <div class="synbox">${esc(r[C.SYN])}</div>
+   <div class="dact">
+     <button class="btn gold" id="dExp">⬇ Détail commande (Excel)</button>
+     ${sub.length?`<button class="btn" id="dSub">🔁 Substitutions possibles (${sub.length} lignes · ${fmt(r[C.SUBQ])} pcs)</button>`:''}
+     <button class="btn ghost" id="dCsv">⬇ Lignes (CSV)</button>
+   </div>
+   <div class="kv">
+    ${it('Qté restante à livrer',fmt(r[C.Q])+' pcs')}
+    ${it(mod==='pfr'?'Dispo Logtex (allouées)':'Dispo SF/DT (allouées)',fmt(r[C.DISPO])+' pcs · '+fmtPct(r[C.PC]))}
+    ${it('Montant',fmtE(r[C.MT]))}
+    ${it('À temps / retard / annulé',fmt(r[C.QOT])+' / '+fmt(r[C.QLATE])+' / '+fmt(r[C.QCANC]))}
+    ${it('Alloué stock / prod',fmt(r[C.ASTK])+' / '+fmt(r[C.APROD])+' ('+esc(r[C.SRC]||'')+')')}
+    ${it('Date demandée',fmtD(r[C.DDEM]))}
+    ${it('ETA prochaine arrivée',fmtD(r[C.ETA1]))}
+    ${it('ETA commande complète',fmtD(r[C.ETAC]))}
+    ${it('Retard échu (vs aujourd\u2019hui)',r[C.RECHU]!=null&&r[C.RECHU]!==''?fmt(r[C.RECHU])+' j':'')}
+    ${it('Retard prévisionnel (ETA vs demandée)',rp!=null&&rp!==''?(rp>0?'+':'')+fmt(rp)+' j':'')}
+    ${mod==='pfr'?it('% couverture à terme',fmtPct(r[PCT(mod)])):''}
+    ${it('Fenêtre à temps',r[C.A1T]?fmtD(r[C.A1T])+' → '+fmtD(r[C.A2T]):'')}
+    ${it('Fenêtre retard',r[C.A1R]?fmtD(r[C.A1R])+' → '+fmtD(r[C.A2R]):'')}
+    ${it('PO rattachés',esc(r[C.PO]))}
+   </div>
+   <h2 class="sec" style="margin-top:4px">Client</h2>
+   <div class="kv">
+    ${it('Client facturé',esc(r[C.CLI]))}${it('Magasin / client cmd',esc(r[C.MAG]))}
+    ${it('Réf. cmd client',esc(r[C.REF]))}${it('Code client',esc(r[C.CODC]))}
+    ${it('Groupement',esc(r[C.GRP])+(r[C.GRPC]?' ('+esc(r[C.GRPC])+')':''))}
+    ${it('Code magasin',esc(r[C.CODM]))}${it('Ville livraison',esc(r[C.VILLE]))}
+    ${it('Représentant',esc(r[C.REP]))}${it('Date commande',fmtD(r[C.DCMD]))}
+    ${it('Collection',esc(r[C.COLL]))}${it('Catégorie',esc(r[C.CAT]))}
+   </div>
+   <h2 class="sec">Détail par article (${det.length} lignes)</h2>
+   <div class="mut" id="dSum" style="margin:-3px 0 8px"></div>
+   <div class="fbar"><div class="fg"><label>Filtrer</label><input type="text" id="dQ" placeholder="SKU, désignation, source…"></div>
+    <div class="fg"><label>Ligne</label><select id="dF"><option value="">Toutes</option><option value="arr">En arrivage</option><option value="ot">À temps</option><option value="late">Retard</option><option value="canc">Annulé</option></select></div></div>
+   <div class="twrap" style="max-height:46vh"><table id="dTbl"></table></div>`;
+  /* découpe des sources : ce qui est déjà au départ (Logtex en France, SF/DT à l'international)
+     contre ce qui est encore en arrivage, avec sa date */
+  const dispoRx=mod==='pfr'?/^Stock Logtex/:/^Stock (SF|DT)/;
+  const segs=str=>String(str||'').split(';').map(t=>t.trim()).filter(Boolean).map(t=>{
+    const m=/·\s*([\d,]+)\s*pcs\s*·\s*(\d{2})\/(\d{2})\/(\d{4})/.exec(t);
+    return m?{txt:t,q:parseInt(m[1].replace(/,/g,''),10),ts:new Date(+m[4],+m[3]-1,+m[2]).getTime(),d:m[2]+'/'+m[3]+'/'+m[4],dispo:dispoRx.test(t)}:null;
+  }).filter(Boolean);
+  const parsed=det.map(l=>{const sg=segs(l[4]);
+    const dq=sg.filter(x=>x.dispo).reduce((a,x)=>a+x.q,0);
+    const ar=sg.filter(x=>!x.dispo);
+    return {sg,dq,aq:ar.reduce((a,x)=>a+x.q,0),amin:ar.length?Math.min(...ar.map(x=>x.ts)):null};});
+  const totD=parsed.reduce((a,x)=>a+x.dq,0),totA=parsed.reduce((a,x)=>a+x.aq,0);
+  const amins=parsed.filter(x=>x.amin!=null).map(x=>x.amin);
+  const fmtTs=t=>{const d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
+  $('#dSum').textContent=fmt(totD)+' pcs déjà '+(mod==='pfr'?'à Logtex':'en SF/DT')
+    +(totA?' · '+fmt(totA)+' pcs en arrivage (première le '+fmtTs(Math.min(...amins))+')':' · rien en arrivage');
+  const dispoLab=mod==='pfr'?'Dispo Logtex':'Dispo SF/DT';
+  const srcHtml=sg=>sg.map(x=>x.dispo?esc(x.txt):`<span class="segArr">${esc(x.txt)}</span>`).join('<span class="mut"> ; </span>');
+  const draw=()=>{
+    const q=($('#dQ').value||'').toLowerCase(), ff=$('#dF').value;
+    let lines=det.map((l,i)=>[l,parsed[i]]).filter(([l,p])=>{
+      if(q&&!(String(l[0]).toLowerCase().includes(q)||String(l[1]||'').toLowerCase().includes(q)||String(l[4]||'').toLowerCase().includes(q)))return false;
+      if(ff==='ot'&&!(l[5]>0))return false; if(ff==='late'&&!(l[6]>0))return false; if(ff==='canc'&&!(l[7]>0))return false;
+      if(ff==='arr'&&!(p.aq>0))return false;
+      return true;});
+    $('#dTbl').innerHTML=`<thead><tr><th>SKU</th><th>Désignation</th><th>Qté</th><th>Allouée</th><th>${dispoLab}</th><th>En arrivage</th><th>Sources → arrivées</th><th>À temps</th><th>Retard</th><th>Annulé</th></tr></thead><tbody>`+
+     lines.map(([l,p])=>`<tr><td><b>${esc(l[0])}</b></td><td style="white-space:normal">${esc(l[1])}</td><td class="num">${fmt(l[2])}</td><td class="num">${fmt(l[3])}</td>`+
+      `<td class="num">${p.dq?fmt(p.dq):''}</td>`+
+      `<td class="num">${p.aq?`<span class="arrq">${fmt(p.aq)}</span><div class="mut" style="font-size:10.5px">dès le ${fmtTs(p.amin)}</div>`:''}</td>`+
+      `<td style="white-space:normal;max-width:330px">${srcHtml(p.sg)}</td>`+
+      `<td class="num ${l[5]>0?'early':''}">${fmt(l[5])}</td><td class="num ${l[6]>0?'late':''}">${fmt(l[6])}</td><td class="num ${l[7]>0?'late':''}">${fmt(l[7])}</td></tr>`).join('')+'</tbody>';
+  };
+  $('#dQ').oninput=draw;$('#dF').onchange=draw;draw();
+  $('#dExp').onclick=()=>exportOrder(ord,mod);
+  $('#dCsv').onclick=()=>{
+    const head=['N° COMMANDE','SKU','DÉSIGNATION','QTÉ','ALLOUÉE','DISPO','EN ARRIVAGE','1RE ARRIVÉE','SOURCES → ARRIVÉES','À TEMPS','RETARD','ANNULÉ'];
+    const csv=[head.join(';'),...det.map((l,i)=>[ord,l[0],l[1],l[2],l[3],parsed[i].dq,parsed[i].aq,parsed[i].amin?fmtTs(parsed[i].amin):'',l[4],l[5],l[6],l[7]].map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(';'))].join('\r\n');
+    dlBlob(new Blob(['\ufeff'+csv],{type:'text/csv'}),`Detail_${ord}.csv`);
+  };
+  const ds=$('#dSub'); if(ds)ds.onclick=()=>{closeDrawer();goSubst(ord,mod==='pfr'?'FR':'IN');};
+  $('#ovl').style.display='block';$('#drawer').classList.add('open');
+}
+function closeDrawer(){$('#ovl').style.display='none';$('#drawer').classList.remove('open');}
+
+/* ---------- SUBSTITUTIONS ---------- */
+function goSubst(ord,tab){S.substTab=tab||S.substTab;S.filters.subst={q:ord||''};switchTab('subst');renderSubst();}
+function renderSubst(){
+  const p=$('#p-subst'), tab=S.substTab, sd=tab==='FR'?S.subFR:S.subIN;
+  const f=S.filters.subst||{};
+  const types=[...new Set(sd.rows.map(r=>r[7]))].filter(Boolean).sort();
+  p.innerHTML=`
+  <div class="fbar">
+    <button class="btn ${tab==='FR'?'gold':'ghost'}" id="sbFR">🇫🇷 Subst France</button>
+    <button class="btn ${tab==='IN'?'gold':'ghost'}" id="sbIN">🌍 Subst International</button>
+    <div class="fg" style="min-width:260px"><label>N° de commande / client / SKU</label><input type="text" data-f="q" placeholder="Tape le n° de commande…"></div>
+    <div class="fg"><label>Type de substitution</label><select data-f="type">${selOpt(types,'Tous')}</select></div>
+    <div class="fg"><label>Dispo</label><select data-f="dispo"><option value="">Toutes</option><option value="now">Dispo maintenant</option><option value="later">À terme uniquement</option></select></div>
+    <div class="sp"></div><div data-chips></div>
+    <button class="btn" id="sbExp">⬇ Export (avec qtés retenues)</button>
+  </div>
+  <div class="cards" id="sbCards"></div>
+  <div class="note">✏️ La colonne <b>QTÉ RETENUE</b> est saisissable (fond jaune) — tes saisies partent dans les exports Excel. Rang 1 = même article, autre taille · Rang 2 = même modèle, autre coloris (accord client requis). Substitut toujours de la même collection.</div>
+  <div class="mut" data-count style="margin:-4px 0 8px 4px"></div>
+  <div class="twrap"><table data-tbl></table></div><div class="pgn" data-pgn></div>`;
+  $('#sbFR').onclick=()=>{S.substTab='FR';S.page.subst=0;renderSubst();};
+  $('#sbIN').onclick=()=>{S.substTab='IN';S.page.subst=0;renderSubst();};
+  syncBar('#p-subst','subst');bindBar('#p-subst','subst',()=>renderSubstTable());
+  $('#sbExp').onclick=()=>exportSubst();
+  renderSubstTable();
+}
+function substRows(){
+  const tab=S.substTab, sd=tab==='FR'?S.subFR:S.subIN, f=S.filters.subst||{};
+  return sd.rows.filter(r=>{
+    if(f.type&&r[7]!==f.type)return false;
+    if(f.dispo==='now'&&!((r[10]||0)>0))return false;
+    if(f.dispo==='later'&&((r[10]||0)>0))return false;
+    if(f.q){const q=f.q.toLowerCase();
+      const hay=[r[0],r[1],r[3],r[4],r[8],r[9]].map(x=>String(x||'').toLowerCase()).join('¦');
+      if(!hay.includes(q))return false;}
+    return true;});
+}
+function renderSubstTable(){
+  const p=$('#p-subst'), tab=S.substTab, sd=tab==='FR'?S.subFR:S.subIN;
+  const rows=substRows();
+  const man=rows.reduce((s,r)=>s+(r[5]||0),0), prop=rows.reduce((s,r)=>s+(r[13]||0),0),
+        now=rows.reduce((s,r)=>s+Math.min(r[10]||0,r[13]||0),0);
+  const ret=Object.values(S.retained[tab]).reduce((s,v)=>s+(+v||0),0);
+  $('#sbCards').innerHTML=
+   `<div class="card r"><div class="lab">Pcs manquantes (vue)</div><div class="val">${fmt(man)}</div><div class="det">module ${tab==='FR'?'France':'International'} : ${fmt(sd.stats[1])} au total</div></div>
+    <div class="card j"><div class="lab">Pcs proposées</div><div class="val">${fmt(prop)}</div><div class="det">total module : ${fmt(sd.stats[3])}</div></div>
+    <div class="card v"><div class="lab">Dont dispo maintenant</div><div class="val">${fmt(now)}</div><div class="det">total module : ${fmt(sd.stats[5])}</div></div>
+    <div class="card n"><div class="lab">Qté retenue (saisie)</div><div class="val">${fmt(ret)}</div><div class="det">reprise dans les exports</div></div>`;
+  p.querySelector('[data-count]').textContent=`${nf.format(rows.length)} lignes de proposition`;
+  p.querySelector('[data-chips]').innerHTML=chipHtml('subst',renderSubst);bindChips('#p-subst','subst',renderSubst);
+  const per=100,pg=S.page.subst||0,npg=Math.max(1,Math.ceil(rows.length/per));
+  const view=rows.slice(pg*per,(pg+1)*per);
+  const H=sd.head;
+  $('#p-subst [data-tbl]').innerHTML=`<thead><tr>${H.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`+
+   view.map(r=>{
+    const key=r[0]+'|'+r[3]+'|'+r[8], val=S.retained[tab][key]??(r[14]??'');
+    return `<tr><td class="click" style="font-weight:700;color:#2b84d4" data-ord="${esc(r[0])}">${esc(r[0])}</td><td>${esc(r[1])}</td>
+     <td><span class="badge ${statCls(r[2])}">${esc(r[2])}</span></td><td><b>${esc(r[3])}</b></td><td style="white-space:normal">${esc(r[4])}</td>
+     <td class="num">${fmt(r[5])}</td><td class="num">${fmt(r[6])}</td><td>${esc(r[7])}</td><td><b>${esc(r[8])}</b></td>
+     <td style="white-space:normal">${esc(r[9])}</td><td class="num ${r[10]>0?'early':''}">${fmt(r[10])}</td>
+     <td class="num">${fmt(r[11])}</td><td>${fmtD(r[12])}</td><td class="num">${fmt(r[13])}</td>
+     <td><input class="qr" type="number" min="0" data-k="${esc(key)}" value="${val}"></td></tr>`;}).join('')+'</tbody>';
+  p.querySelectorAll('input.qr').forEach(inp=>inp.onchange=()=>{S.retained[tab][inp.dataset.k]=inp.value;renderSubstTable();});
+  p.querySelectorAll('td.click[data-ord]').forEach(td=>td.onclick=()=>openDrawer(td.dataset.ord,tab==='FR'?'pfr':'pint'));
+  $('#p-subst [data-pgn]').innerHTML=`<button ${pg===0?'disabled':''} data-pp>◀</button> Page ${pg+1}/${npg} <button ${pg>=npg-1?'disabled':''} data-pn>▶</button>`;
+  const pp=$('#p-subst [data-pp]'),pn=$('#p-subst [data-pn]');
+  if(pp)pp.onclick=()=>{S.page.subst=pg-1;renderSubstTable();};
+  if(pn)pn.onclick=()=>{S.page.subst=pg+1;renderSubstTable();};
+}
+
+/* ---------- RESTE À ALLOUER ---------- */
+function restRows(){
+  const f=S.filters.rest||{};
+  return S.rest.filter(r=>{
+    if(f.coll&&r[1]!==f.coll)return false;
+    if(f.src&&r[3]!==f.src)return false;
+    if(f.dispo&&r[5]!==f.dispo)return false;
+    if(f.q){const q=f.q.toLowerCase();
+      if(!(String(r[0]).toLowerCase().includes(q)||String(r[2]||'').toLowerCase().includes(q)))return false;}
+    return true;});
+}
+function renderRest(){
+  const p=$('#p-rest');
+  const colls=[...new Set(S.rest.map(r=>r[1]))].filter(Boolean).sort();
+  const srcs=[...new Set(S.rest.map(r=>r[3]))].filter(Boolean).sort();
+  const disp=[...new Set(S.rest.map(r=>r[5]))].filter(Boolean).sort();
+  p.innerHTML=`
+  <div class="fbar">
+    <div class="fg"><label>Recherche</label><input type="text" data-f="q" placeholder="SKU, description…"></div>
+    <div class="fg"><label>Collection</label><select data-f="coll">${selOpt(colls,'Toutes')}</select></div>
+    <div class="fg"><label>Source</label><select data-f="src">${selOpt(srcs,'Toutes')}</select></div>
+    <div class="fg"><label>Dispo</label><select data-f="dispo">${selOpt(disp,'Toutes')}</select></div>
+    <div class="sp"></div><div data-chips></div>
+    <button class="btn" id="rsExp">⬇ Export vue filtrée</button>
+  </div>
+  <div class="cards" id="rsCards"></div>
+  <div class="note">📦 <b>Pool des marchés</b> : stock et PO non consommés après l'allocation France → International (collections FW26 + SS27). L'international peut y sourcer si besoin — c'est déjà intégré à l'allocation et aux substitutions. L'ETA affichée est l'ETA brute du PO, sans délai de transport.</div>
+  <div class="mut" data-count style="margin:-4px 0 8px 4px"></div>
+  <div class="twrap"><table data-tbl></table></div><div class="pgn" data-pgn></div>`;
+  syncBar('#p-rest','rest');bindBar('#p-rest','rest',renderRestTable);
+  $('#rsExp').onclick=()=>{
+    const rows=restRows();
+    dlWb('Reste_a_allouer',[['RESTE A ALLOUER',[S.heads.rest,...rows]]]);
+  };
+  renderRestTable();
+}
+function renderRestTable(){
+  const p=$('#p-rest'), rows=restRows();
+  const now=rows.filter(r=>r[5]==='Maintenant').reduce((s,r)=>s+(r[4]||0),0);
+  const later=rows.filter(r=>r[5]!=='Maintenant').reduce((s,r)=>s+(r[4]||0),0);
+  const skus=new Set(rows.map(r=>r[0])).size;
+  $('#rsCards').innerHTML=
+   `<div class="card v"><div class="lab">Pcs dispo maintenant</div><div class="val">${fmt(Math.round(now))}</div></div>
+    <div class="card j"><div class="lab">Pcs à terme (PO)</div><div class="val">${fmt(Math.round(later))}</div></div>
+    <div class="card n"><div class="lab">SKU concernés</div><div class="val">${fmt(skus)}</div></div>`;
+  p.querySelector('[data-count]').textContent=`${nf.format(rows.length)} lignes SKU × source`;
+  p.querySelector('[data-chips]').innerHTML=chipHtml('rest',renderRest);bindChips('#p-rest','rest',renderRest);
+  const per=200,pg=S.page.rest||0,npg=Math.max(1,Math.ceil(rows.length/per));
+  const view=rows.slice(pg*per,(pg+1)*per);
+  p.querySelector('[data-tbl]').innerHTML=`<thead><tr>${S.heads.rest.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`+
+   view.map(r=>`<tr><td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td style="white-space:normal">${esc(r[2])}</td><td>${esc(r[3])}</td><td class="num">${fmt(r[4])}</td><td>${r[5]==='Maintenant'?'<span class="badge b-vert">Maintenant</span>':esc(r[5])}</td><td>${fmtD(r[6])}</td></tr>`).join('')+'</tbody>';
+  p.querySelector('[data-pgn]').innerHTML=`<button ${pg===0?'disabled':''} data-pp>◀</button> Page ${pg+1}/${npg} <button ${pg>=npg-1?'disabled':''} data-pn>▶</button>`;
+  const pp=p.querySelector('[data-pp]'),pn=p.querySelector('[data-pn]');
+  if(pp)pp.onclick=()=>{S.page.rest=pg-1;renderRestTable();};
+  if(pn)pn.onclick=()=>{S.page.rest=pg+1;renderRestTable();};
+}
+
+/* ---------- MÉTHODE ---------- */
+function renderMeth(){
+  $('#p-meth').innerHTML=`<div class="note">📘 Contenu repris de l'onglet <b>MÉTHODE DE CALCUL</b> du classeur — c'est le contrat appliqué par la moulinette V9 embarquée dans cet outil.</div>
+   <div class="twrap" style="max-height:none"><table class="meth"><tbody>`+
+   S.methode.map(([a,b])=>`<tr><td>${esc(a)}</td><td>${esc(b)}</td></tr>`).join('')+'</tbody></table></div>';
+}
+
+/* ---------- EXPORTS ---------- */
+function dlBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+function aoaSheet(wb,name,aoa){const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!freeze']={xSplit:0,ySplit:1};XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));}
+function dlWb(base,sheets){
+  const wb=XLSX.utils.book_new();
+  sheets.forEach(([n,aoa])=>aoaSheet(wb,n,aoa));
+  const out=XLSX.write(wb,{type:'array',bookType:'xlsx'});
+  dlBlob(new Blob([out],{type:'application/octet-stream'}),`${base}_${today()}.xlsx`);
+}
+function today(){const d=new Date();return d.toISOString().slice(0,10);}
+function exportPil(mod){
+  const rows=pilRows(mod);
+  dlWb(mod==='pfr'?'Pilotage_France':'Pilotage_International',
+   [[mod==='pfr'?'PILOTAGE FRANCE':'PILOTAGE INTERNATIONAL',[S.heads[mod],...rows]]]);
+}
+function substAoa(tab){
+  const sd=tab==='FR'?S.subFR:S.subIN;
+  const rows=sd.rows.map(r=>{const key=r[0]+'|'+r[3]+'|'+r[8];const v=S.retained[tab][key];
+    const rr=[...r]; if(v!=null&&v!=='')rr[14]=+v; return rr;});
+  return [sd.head,...rows];
+}
+function exportSubst(){
+  const tab=S.substTab, sd=tab==='FR'?S.subFR:S.subIN;
+  const rows=substRows().map(r=>{const key=r[0]+'|'+r[3]+'|'+r[8];const v=S.retained[tab][key];
+    const rr=[...r]; if(v!=null&&v!=='')rr[14]=+v; return rr;});
+  dlWb(tab==='FR'?'Subst_France':'Subst_Intl',[[tab==='FR'?'SUBST FRANCE':'SUBST INTL',[sd.head,...rows]]]);
+}
+function exportOrder(ord,mod){
+  const rows=mod==='pfr'?S.pfr:S.pint, H=S.heads[mod];
+  const r=rows.find(x=>x[C.ORD]===ord); if(!r)return;
+  const det=(mod==='pfr'?S.detFR:S.detIN)[ord]||[];
+  const tab=mod==='pfr'?'FR':'IN', sd=tab==='FR'?S.subFR:S.subIN;
+  const sub=sd.rows.filter(s=>s[0]===ord).map(s=>{const key=s[0]+'|'+s[3]+'|'+s[8];const v=S.retained[tab][key];
+    const rr=[...s]; if(v!=null&&v!=='')rr[14]=+v; return rr;});
+  const info=H.map((h,i)=>[h,r[i]]);
+  const sheets=[['COMMANDE',[['Champ','Valeur'],...info]],
+    ['DETAIL',[['N° COMMANDE','SKU','DÉSIGNATION','QTÉ','ALLOUÉE','SOURCES → ARRIVÉES','À TEMPS','RETARD','ANNULÉ'],...det.map(l=>[ord,...l])]]];
+  if(sub.length)sheets.push(['SUBSTITUTIONS',[sd.head,...sub]]);
+  dlWb('Commande_'+ord,sheets);
+}
+function exportFull(){
+  const H=S.heads;
+  const detAoa=(d)=>{const out=[['N° COMMANDE','SKU','DÉSIGNATION','QTÉ','ALLOUÉE','SOURCES → ARRIVÉES','À TEMPS','RETARD','ANNULÉ']];
+    for(const ord of Object.keys(d))for(const l of d[ord])out.push([ord,...l]);return out;};
+  const {fr,int}=(()=>{const svg=S.filters.macro;S.filters.macro={};const r=macroRows();S.filters.macro=svg;return r;})();
+  const gFR=agg(fr,'France'),gIN=agg(int,'International');
+  const groups=[];const mk=(seg,rows,tag)=>{const by={};rows.forEach(r=>{(by[r[C.COLL]]=by[r[C.COLL]]||[]).push(r);});
+    Object.keys(by).sort().forEach(cl=>{const a=agg(by[cl],tag);groups.push([seg,cl,a.pretP,a.pretC,a.pretE,a.partP,a.partC,+a.lateAvg.toFixed(2),a.lateN,a.mt,a.cmd]);});};
+  mk('France — Wholesale France',fr,'France');mk('International — Wholesale International',int,'International');
+  const tot={};for(const k of Object.keys(gFR))tot[k]=(gFR[k]||0)+(gIN[k]||0);tot.lateAvg=tot.lateN?tot.lateSum/tot.lateN:0;
+  groups.push(['TOTAL','',tot.pretP,tot.pretC,tot.pretE,tot.partP,tot.partC,+tot.lateAvg.toFixed(2),tot.lateN,tot.mt,tot.cmd]);
+  dlWb('Pilotage_Livraisons_V2',[
+    ['Maccro View',[H.macro,...groups]],
+    ['PILOTAGE FRANCE',[H.pfr,...S.pfr]],
+    ['PILOTAGE INTERNATIONAL',[H.pint,...S.pint]],
+    ['DETAIL FRANCE',detAoa(S.detFR)],
+    ['DETAIL INTL',detAoa(S.detIN)],
+    ['SUBST FRANCE',substAoa('FR')],
+    ['SUBST INTL',substAoa('IN')],
+    ['RESTE A ALLOUER',[S.heads.rest,...S.rest]],
+    ['METHODE DE CALCUL',[['Sujet','Règle'],...S.methode]]
+  ]);
+}
+
+/* ---------- NAVIGATION ---------- */
+function switchTab(t){
+  $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  $$('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-'+t));
+}
+function goTab(mod,preset){
+  if(mod==='pfr'||mod==='pint'){S.filters[mod]={};
+    if(preset)for(const[k,v]of Object.entries(preset))if(v)S.filters[mod][k]=v;
+    S.page[mod]=0;renderPil(mod);}
+  switchTab(mod);
+}
+$$('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.t));
+$('#dClose').onclick=closeDrawer;$('#ovl').onclick=closeDrawer;
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+$('#btnFull').onclick=function(){
+  const btn=this, label=btn.textContent;
+  btn.disabled=true; btn.textContent='Génération du classeur…';
+  /* setTimeout laisse le navigateur repeindre l'état "chargement" avant le
+     calcul synchrone (export de plusieurs dizaines de milliers de lignes),
+     qui bloquerait sinon le thread principal sans aucun retour visuel. */
+  setTimeout(()=>{
+    try{exportFull();}
+    catch(err){showModal('alert','Erreur export : '+err.message);console.error(err);}
+    finally{btn.disabled=false;btn.textContent=label;}
+  },30);
+};
+
+/* ---------- CHARGEMENT DE FICHIERS ---------- */
+$('#btnLoad').onclick=()=>$('#loadZone').classList.toggle('on');
+$('#btnReset').onclick=()=>{
+  confirmModal(
+    'Décharger tous les fichiers et revenir à l\u2019écran d\u2019accueil ?<br>Les quantités retenues saisies dans Substitutions seront perdues.',
+    ()=>location.reload(),
+    'Tout décharger'
+  );
+};
+$('#btnCloseLoad').onclick=()=>{if(PIL.classList.contains('has-data'))$('#loadZone').classList.remove('on');};
+$('#loadZone').onclick=e=>{if(e.target.id==='loadZone'||e.target.tagName==='H3')$('#fileInp').click();};
+$('#fileInp').onchange=e=>handleFiles([...e.target.files]);
+['dragover','dragleave','drop'].forEach(ev=>{
+  PIL.addEventListener(ev,e=>{e.preventDefault();
+    $('#loadZone').classList.toggle('drag',ev==='dragover');
+    if(ev==='drop'){$('#loadZone').classList.add('on');handleFiles([...e.dataTransfer.files]);}});
+});
+async function handleFiles(files){
+  for(const f of files){
+    if(f.type.startsWith('image/'))continue;
+    const buf=await f.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:true});
+    if(wb.SheetNames.some(n=>n.trim().toUpperCase().startsWith('PILOTAGE FRANCE'))){loadPilotageWb(wb,f.name);return;}
+    classifySource(wb,f.name);
+  }
+}
+function sheetAoa(wb,name){return XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,raw:true});}
+function classifySource(wb,fname){
+  /* détecte backlog client / fournisseur / stock par les en-têtes */
+  let best=null;
+  for(const sn of wb.SheetNames){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null,range:0,raw:false});
+    let hi=-1,heads=null;
+    for(let i=0;i<Math.min(6,rows.length);i++){
+      const up=(rows[i]||[]).map(x=>String(x||'').trim().toUpperCase());
+      if(up.filter(Boolean).length>4){hi=i;heads=up;break;}
+    }
+    if(!heads)continue;
+    const has=t=>heads.some(h=>h.includes(t));
+    if(has('TYPE FLUX')||has('INTERSITE')){best={k:'bf',sn,hi};break;}
+    if(has('STOCK INTERNE')&&has('SITE')){best={k:'st',sn,hi};break;}
+    if(has('MAINNETWORK')||((has('QUANTITE')||has('QUANTITÉ'))&&has('SKU'))){best={k:'bc',sn,hi};break;}
+  }
+  if(!best){showModal('alert','Fichier non reconnu : '+fname+'<br>Attendu : backlog client, backlog fournisseur ou stock &amp; allocation (ou le classeur Pilotage).');return;}
+  const ws=wb.Sheets[best.sn];
+  const json=XLSX.utils.sheet_to_json(ws,{defval:null,range:best.hi,raw:true,cellDates:true});
+  S.srcFiles[best.k]={rows:json,name:fname,aoa:XLSX.utils.sheet_to_json(ws,{header:1,defval:null,range:best.hi,raw:true,cellDates:true})};
+  const lbl={bc:'d-bc',bf:'d-bf',st:'d-st'}[best.k], nm={bc:'n-bc',bf:'n-bf',st:'n-st'}[best.k];
+  $('#'+lbl).classList.add('ok');$('#l-'+best.k).classList.add('ok');
+  $('#'+nm).textContent='— '+fname+' ('+nf.format(json.length)+' lignes)';
+  const ready=S.srcFiles.bc&&S.srcFiles.bf&&S.srcFiles.st;
+  $('#btnCompute').disabled=!ready;
+  /* les 3 sources sont là : le calcul part tout seul */
+  if(ready&&!S._autoRun){S._autoRun=true;
+    setTimeout(()=>{computeV9().catch(e=>{showModal('alert','Erreur moulinette : '+e.message);console.error(e);$('#prog').style.display='none';S._autoRun=false;});},150);}
+}
+function loadPilotageWb(wb,fname){
+  prog(.2,'Lecture du classeur Pilotage…');
+  setTimeout(()=>{
+  try{
+    const get=n=>wb.SheetNames.find(s=>s.trim().toUpperCase()===n)||wb.SheetNames.find(s=>s.trim().toUpperCase().startsWith(n));
+    const aoa=n=>sheetAoa(wb,get(n)).map(r=>r.map(v=>v instanceof Date?v.toISOString().slice(0,10):v));
+    const pfrA=aoa('PILOTAGE FRANCE'),pintA=aoa('PILOTAGE INTERNATIONAL');
+    const dFR=aoa('DETAIL FRANCE'),dIN=aoa('DETAIL INTL');
+    const grp=(a)=>{const d={};for(let i=1;i<a.length;i++){const r=a[i];if(!r||!r[0])continue;(d[r[0]]=d[r[0]]||[]).push(r.slice(1,9));}return d;};
+    const sub=(n)=>{const a=sheetAoa(wb,get(n)).map(r=>r.map(v=>v instanceof Date?v.toISOString().slice(0,10):v));
+      const hi=a.findIndex(r=>String(r[0]||'').trim().toUpperCase()==='COMMANDE');
+      return {stats:a[1]||[],head:a[hi],rows:a.slice(hi+1).filter(r=>r&&r[0])};};
+    const restA=aoa('RESTE A ALLOUER');
+    const rHi=restA.findIndex(r=>String(r[0]||'').trim().toUpperCase()==='SKU');
+    let meth=[];const ms=get('METHODE');
+    if(ms)meth=sheetAoa(wb,ms).filter(r=>r&&(r[0]||r[1])).map(r=>[String(r[0]||''),String(r[1]||'')]);
+    const d={fileDate:fname.replace(/\.xlsx?$/i,''),
+      pfrHead:pfrA[0],pfr:pfrA.slice(1).filter(r=>r&&r[3]),
+      pintHead:pintA[0],pint:pintA.slice(1).filter(r=>r&&r[3]),
+      detFR:grp(dFR),detIN:grp(dIN),subFR:sub('SUBST FRANCE'),subIN:sub('SUBST INTL'),
+      restHead:restA[rHi],rest:restA.slice(rHi+1).filter(r=>r&&r[0]),restStats:restA[1]||[],
+      macroHead:S.heads.macro,macro:[],methode:meth.length?meth:S.methode};
+    prog(1,'Terminé');
+    applyData(d,'(classeur chargé : '+fname+')');
+    setTimeout(()=>{$('#prog').style.display='none';$('#loadZone').classList.remove('on');},600);
+  }catch(err){showModal('alert','Erreur de lecture du classeur : '+err.message);$('#prog').style.display='none';}
+  },30);
+}
+function prog(x,t){$('#prog').style.display='block';$('#progFill').style.width=Math.round(x*100)+'%';$('#progTxt').textContent=t;}
+$('#btnCompute').onclick=()=>{S._autoRun=true;computeV9().catch(e=>{showModal('alert','Erreur moulinette : '+e.message);console.error(e);$('#prog').style.display='none';});};
+
+boot().catch(e=>{PIL.insertAdjacentHTML('afterbegin','<div style="padding:20px;background:#fbe9e7;color:#b3261e;font-weight:700">Erreur de chargement des données : '+e.message+' — utilise un navigateur récent (Chrome, Edge, Firefox, Safari 16.4+).</div>');console.error(e);});
+
+/* préremplir la date de calcul avec aujourd'hui */
+try{const gi=document.getElementById('genDateInp');if(gi&&!gi.value)gi.value=new Date().toISOString().slice(0,10);}catch(e){}
+
+
+/* ============ Intégration Symfony : routes API + mode live ERP ============ */
 const URL_CLIENT = '{{ path('app_pilotage_backlog_client_json') }}';
 const URL_FOURN  = '{{ path('app_pilotage_backlog_fournisseur_json') }}';
 const URL_STOCK  = '{{ path('app_pilotage_stock_json') }}';
 
-/* ── Constantes / règles (identiques à l'outil PM) ──────────────────────── */
-const R={TRANSIT:80,TRANSIT_IKS:30,XF_DEF:90,
-  COLLECTIONS:['2026-02-FW','2027-01-SS','2027-02-FW'],
-  COLL_PROD_LANCEE:['2026-02-FW'],
-  HUBS:['WSFCN','WDTTH'],DIRECT:'WFIFR',FFOB_SITES:['WSFCN','WDTTH','WFIFR'],SAMPLE:/_(SMS|SPL)/i};
-const DAY=86400000;
-let TODAY=new Date(); TODAY.setHours(0,0,0,0);
-
-/* ── Utilitaires ─────────────────────────────────────────────────────────── */
-const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
-const nf=new Intl.NumberFormat('fr-FR');
-const ef=new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0});
-const fmtN=v=>v==null||isNaN(v)?'':nf.format(Math.round(v));
-const fmtE=v=>v==null||isNaN(v)?'':ef.format(v);
-const fmtP=v=>v==null||isNaN(v)?'':Math.round(v*100)+'%';
-const fmtD=d=>!d?'':String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
-const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const addD=(d,n)=>d?new Date(d.getTime()+n*DAY):null;
-const diffD=(a,b)=>(a&&b)?Math.round((a-b)/DAY):null;
-
-function toDate(v){
-  if(v==null||v==='')return null;
-  if(v instanceof Date)return isNaN(v)?null:new Date(v.getFullYear(),v.getMonth(),v.getDate());
-  if(typeof v==='number'){const d=new Date(Date.UTC(1899,11,30)+v*DAY);return isNaN(d)?null:new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());}
-  const s=String(v).trim();
-  let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
-  if(m){let y=+m[3];if(y<100)y+=2000;return new Date(y,+m[2]-1,+m[1]);}
-  m=s.match(/^(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/);
-  if(m)return new Date(+m[1],+m[2]-1,+m[3]);
-  const d=new Date(s);return isNaN(d)?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
+function toAoa(rows){
+  if(!rows||!rows.length)return [[]];
+  const heads=Object.keys(rows[0]);
+  return [heads,...rows.map(r=>heads.map(h=>r[h]))];
 }
-const toNum=v=>{if(v==null||v==='')return 0;if(typeof v==='number')return v;
-  const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return isNaN(n)?0:n;};
-
-function colMap(row){const m={};for(const k in row)m[norm(k)]=k;return m;}
-const G=(row,map,...names)=>{for(const n of names){const k=map[norm(n)];if(k!==undefined&&row[k]!=null&&row[k]!=='')return row[k];}return null;};
-
-/* ── État ───────────────────────────────────────────────────────────────── */
-const S={clients:null,fourn:null,stock:null,detail:[],orders:[],srcByOrder:new Map(),
-  pilPage:0,detPage:0,pilSort:{k:'eur',dir:-1},PER:150};
-
-/* ── Barre de progression ───────────────────────────────────────────────── */
-function prog(p,txt){
-  const b=document.getElementById('pbar');
+function progLive(p,txt){
+  const b=$('#progLive');
   b.classList.add('on');
-  b.querySelector('i').style.width=(p*100)+'%';
-  document.getElementById('pstatus').textContent=txt||'';
+  $('#progFillLive').style.width=Math.round(p*100)+'%';
+  $('#progTxtLive').textContent=txt||'';
 }
-
-/* ── Chargement via API ─────────────────────────────────────────────────── */
-document.getElementById('btnLoad').addEventListener('click', async function(){
-  const selected=Array.from(document.getElementById('pil-collections').selectedOptions).map(o=>o.value);
-  if(!selected.length){prog(0,'Veuillez sélectionner au moins une collection.');return;}
+/* bascule Live (ERP) / Import fichiers (test) — comme la V1 */
+$('#tabLive').addEventListener('click',()=>{
+  $('#tabLive').classList.add('on');$('#tabFileImport').classList.remove('on');
+  $('#liveZone').classList.remove('hide');$('#fileZone').classList.add('hide');
+});
+$('#tabFileImport').addEventListener('click',()=>{
+  $('#tabFileImport').classList.add('on');$('#tabLive').classList.remove('on');
+  $('#fileZone').classList.remove('hide');$('#liveZone').classList.add('hide');
+});
+$('#btnLoadLive').addEventListener('click', async function(){
+  const selected=[...document.querySelectorAll('#pil-collections option:checked')].map(o=>o.value);
+  if(!selected.length){progLive(0,'Veuillez sélectionner au moins une collection.');return;}
   this.disabled=true;
-  prog(.05,'Connexion à l\'ERP…');
+  progLive(.05,'Connexion à l\'ERP…');
   const params=selected.map(c=>'collections[]='+encodeURIComponent(c)).join('&');
   try{
     /* Requêtes séquentielles (pas Promise.all) : évite de saturer MSSQL avec
        3 requêtes lourdes simultanées, qui provoquait des timeouts 524 en préprod. */
-    prog(.1,'Chargement du backlog client…');
+    progLive(.1,'Chargement du backlog client…');
     const clientData=await fetch(URL_CLIENT+'?'+params).then(r=>{if(!r.ok)throw new Error('Backlog client : HTTP '+r.status);return r.json();});
-    prog(.2,'Backlog client reçu ('+fmtN(clientData.length)+' lignes) — chargement du backlog fournisseur…');
+    progLive(.2,'Backlog client reçu ('+fmt(clientData.length)+' lignes) — chargement du backlog fournisseur…');
     const fournData=await fetch(URL_FOURN).then(r=>{if(!r.ok)throw new Error('Backlog fournisseur : HTTP '+r.status);return r.json();});
-    prog(.3,'Backlog fournisseur reçu ('+fmtN(fournData.length)+' lignes) — chargement du stock…');
+    progLive(.3,'Backlog fournisseur reçu ('+fmt(fournData.length)+' lignes) — chargement du stock…');
     const stockData=await fetch(URL_STOCK).then(r=>{if(!r.ok)throw new Error('Stock : HTTP '+r.status);return r.json();});
-    prog(.35,'Données reçues — '+fmtN(clientData.length)+' lignes client, '+fmtN(fournData.length)+' lignes fourn., '+fmtN(stockData.length)+' références stock…');
-    S.clients=clientData; S.fourn=fournData; S.stock=stockData;
-    setTimeout(compute,60);
+    progLive(.35,'Données reçues — '+fmt(clientData.length)+' lignes client, '+fmt(fournData.length)+' lignes fourn., '+fmt(stockData.length)+' références stock. Calcul en cours…');
+    S.srcFiles.bc={rows:clientData,name:'ERP (live)',aoa:toAoa(clientData)};
+    S.srcFiles.bf={rows:fournData,name:'ERP (live)',aoa:toAoa(fournData)};
+    S.srcFiles.st={rows:stockData,name:'ERP (live)',aoa:toAoa(stockData)};
+    S._autoRun=true;
+    setTimeout(()=>{computeV9().catch(err=>{
+      showModal('alert','Erreur moulinette : '+err.message);console.error(err);
+      $('#prog').style.display='none';progLive(0,'Erreur : '+err.message);this.disabled=false;
+    });},60);
   }catch(err){
-    prog(0,'Erreur : '+err.message);
+    progLive(0,'Erreur : '+err.message);
     this.disabled=false;
   }
 });
 
-/* ── Bascule Live / Import fichiers ─────────────────────────────────────── */
-const tabApi=document.getElementById('tabApi'),tabFile=document.getElementById('tabFile'),
-  zoneApi=document.getElementById('pil-load-zone'),zoneFile=document.getElementById('dropzone');
-tabApi.addEventListener('click',()=>{tabApi.classList.add('on');tabFile.classList.remove('on');zoneApi.classList.remove('hide');zoneFile.classList.add('hide');});
-tabFile.addEventListener('click',()=>{tabFile.classList.add('on');tabApi.classList.remove('on');zoneFile.classList.remove('hide');zoneApi.classList.add('hide');});
 
-/* ── Import fichiers (mode test, identique à l'outil PM) ────────────────── */
-let xlsxReady=null;
-function loadXlsx(){
-  if(window.XLSX)return Promise.resolve();
-  if(xlsxReady)return xlsxReady;
-  xlsxReady=new Promise((resolve,reject)=>{
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload=resolve;s.onerror=()=>reject(new Error('Impossible de charger la bibliothèque Excel.'));
-    document.head.appendChild(s);
-  });
-  return xlsxReady;
-}
-function progFile(p,txt){
-  const b=document.getElementById('pbarFile');
-  b.classList.add('on');
-  b.querySelector('i').style.width=(p*100)+'%';
-  document.getElementById('pstatusFile').textContent=txt||'';
-}
-function mark(id,name){
-  const c=document.getElementById('chip-'+id);
-  c.classList.add('ok');
-  c.textContent=c.textContent.split(' — ')[0]+' — '+name.slice(0,34);
-}
-async function handle(files){
-  if(!files.length)return;
-  try{ await loadXlsx(); }catch(err){ progFile(0,err.message); return; }
-  progFile(.05,'Lecture des fichiers…');
-  for(let i=0;i<files.length;i++){
-    const f=files[i];
-    progFile(.05+.2*(i/files.length),'Lecture de '+f.name+'…');
-    try{
-      const buf=await f.arrayBuffer();
-      const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
-      if(!rows.length)continue;
-      const keys=Object.keys(rows[0]).map(norm);
-      const has=n=>keys.includes(norm(n));
-      if(has('MAINNETWORK')||(has('SKU')&&has('QUANTITE'))){S.clients=rows;mark('clients',f.name);}
-      else if(has('TYPE FLUX')||has('QTE A LIVRER')){S.fourn=rows;mark('fourn',f.name);}
-      else if(has('STOCK INTERNE')||has('STATUS STOCK')){S.stock=rows;mark('stock',f.name);}
-      else{progFile(.1,'Fichier non reconnu : '+f.name);}
-    }catch(err){progFile(0,'Erreur sur '+f.name+' : '+err.message);}
-  }
-  if(S.clients&&S.fourn&&S.stock){progFile(.3,'Fichiers reçus, calcul en cours…');setTimeout(compute,60);}
-  else progFile(.15,'En attente des fichiers manquants…');
-}
-const dz=document.getElementById('dropzone'),fi=document.getElementById('fileInput');
-document.getElementById('btnPick').addEventListener('click',()=>fi.click());
-fi.addEventListener('change',e=>handle([...e.target.files]));
-['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over');}));
-['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();if(ev==='drop')handle([...e.dataTransfer.files]);dz.classList.remove('over');}));
+/* MOULINETTE V10 — recalcul depuis les 3 fichiers sources
+   Calibrée sur les exports réels (Backlog_Clients / Backlog_Fournisseur / Stock_allocation).
+   Périmètre validé : groupes commande × collection, montant = toutes lignes (droppées incluses). */
+'use strict';
+const R={
+  refArr:'',   /* vide = date du jour de calcul */
+  genDate:null,          // date du jour du calcul (null = aujourd'hui)
+  sortMode:'topset-date',// 'topset-date' | 'euro-date' | 'top-euro-then-date'
+  passMode:'order',     // 'global' (passe 1 tous, puis passe 2 tous) | 'order' (par commande)   // T0 des arrivées (figé, comme le classeur V9) — modifiable
+  grace:10,
+  frStockDelay:5, frPoDelay:5, frAsiaDelay:90,
+  ss27PoDelay:80,
+  intPrepDelay:10, intPoAsiaDelay:10, intFrDelay:30,
+  topClients:10,
+  sitesLog:['WLOGM'], sitesFRo:['WHSLM','WFIFR'], siteSF:'WSFCN', siteDT:'WDTTH',
+  netsFR:['WHOLESALE FRANCE'], netsFRdom:['E-COMMERCE','RETAIL','MARKETING CONTRACTS'],
+  frUsesAsiaStock:true, frAsiaGroups:['SF','DT'], domFirst:true,
+  fairShare:{FR:false,INT:false},  // partage proportionnel entre non-top-10 à même date
+  frStockCol:'I', asiaStockCol:'I',  // 'I'=Stock Interne, 'D'=Stock Disponible
+  stockStatuses:['A1'],
+  collFW:'2026-02-FW', collSS:'2027-01-SS',
+  ss27EchuCutoff:'2026-12-01', substMaxCand:5, substR2Max:99, substR2OnlyIfNoR1:false, substR2SameSize:false, debugRaw:false
+};
+const DAY=864e5;
+const T0=(()=>{const d=new Date();return Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());})();
+let TARR=T0,TGEN=T0; // initialisés depuis R dans computeV9
+const dstr=t=>new Date(t).toISOString().slice(0,10);
+const dfr=t=>{const s=dstr(t);return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);};
+const nUS=n=>Math.round(n).toLocaleString('en-US');
+function toT(v){ if(v==null||v==='')return null;
+  if(v instanceof Date)return Date.UTC(v.getFullYear(),v.getMonth(),v.getDate());
+  if(typeof v==='number')return Date.UTC(1899,11,30)+Math.round(v)*DAY;
+  const s=String(v).trim();
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m)return Date.UTC(+m[1],+m[2]-1,+m[3]);
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return Date.UTC(+m[3],+m[2]-1,+m[1]);
+  const d=new Date(s); return isNaN(d)?null:Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());}
+const NRM=s=>String(s??'').trim().toUpperCase().replace(/\s+/g,' ');
+function findKey(obj,cands){
+  const keys=Object.keys(obj);
+  for(const c of cands){for(const k of keys)if(NRM(k)===c)return k;}
+  for(const c of cands){for(const k of keys)if(NRM(k).includes(c))return k;}
+  return null;}
+function letterIdx(L){let n=0;for(const ch of L)n=n*26+(ch.charCodeAt(0)-64);return n-1;}
+function pick(rows,cands,letter){
+  const k=rows.length?findKey(rows[0].obj,cands):null;
+  if(k)return r=>r.obj[k];
+  if(letter!=null){const i=letterIdx(letter);return r=>r.arr[i];}
+  return ()=>null;}
+const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n;};
 
-/* ── Moteur de calcul (identique à l'outil PM) ──────────────────────────── */
-function compute(){
-  prog(.4,'Préparation du backlog clients…');
-  const cm=colMap(S.clients[0]||{});
-  let cl=[];
-  for(const r of S.clients){
-    const coll=String(G(r,cm,'COLLECTION')||'');
-    if(!R.COLLECTIONS.includes(coll))continue;
-    const sku=String(G(r,cm,'SKU')||'');
-    if(!sku||R.SAMPLE.test(sku))continue;
-    const q=toNum(G(r,cm,'QUANTITE','QTE','QUANTITÉ'));
-    if(q<=0)continue;
-    const net=String(G(r,cm,'MAINNETWORK')||'').trim().toUpperCase();
-    let cat=null;
-    if(net==='WHOLESALE FRANCE')cat='WHOLESALE FRANCE';
-    else if(net==='WHOLESALE INTERNATIONAL'||net==='WHOLESALE EUROPE')cat='INTERNATIONAL';
-    else continue;
-    const site=String(G(r,cm,'SITE')||'').trim();
-    cl.push({cat,site,sku,qte:q,
-      ord:String(G(r,cm,'N° COMMANDE','N COMMANDE','NO COMMANDE')||'').trim(),
-      ref:G(r,cm,'REF. COMMANDE','REF COMMANDE')||'',
-      cf:String(G(r,cm,'NOM CLIENT')||'').trim(),
-      mag:(String(G(r,cm,'CODE CLIENT CMD.','CODE CLIENT CMD')||'').trim()+' - '+String(G(r,cm,'NOM CLIENT CMD.','NOM CLIENT CMD')||'').trim()).trim(),
-      des:G(r,cm,'DESIGNATION')||'',coll,
-      drop:String(G(r,cm,'DROPPÉ','DROPPE')||'NON').trim().toUpperCase(),
-      dliv:toDate(G(r,cm,'DATE LIVRAISON')),dcmd:toDate(G(r,cm,'DATE COMMANDE')),
-      eur:toNum(G(r,cm,'PRIX EUR')),direct:site===R.DIRECT,ffob:R.FFOB_SITES.includes(site)});
-  }
-  prog(.5,'Préparation du backlog fournisseur…');
-  const fm=colMap(S.fourn[0]||{});
-  const supply=new Map();
-  for(const r of S.fourn){
-    const coll=String(G(r,fm,'COLLECTION')||'');
-    if(!R.COLLECTIONS.includes(coll))continue;
-    const art=String(G(r,fm,'ARTICLE')||'');
-    if(!art||R.SAMPLE.test(art))continue;
-    const flux=String(G(r,fm,'TYPE FLUX')||'').trim();
-    const exp=String(G(r,fm,'SITE EXPEDITION')||'').trim();
-    const isBL=flux==='BL Fournisseur';
-    if(!isBL&&!R.HUBS.includes(exp))continue;
-    const q=toNum(G(r,fm,'QTÉ À LIVRER','QTE A LIVRER'));
-    if(q<=0)continue;
-    const fourn=String(G(r,fm,'NOM FOURN.','NOM FOURN')||'').trim();
-    const podate=toDate(G(r,fm,'DATE DE COMMANDE'));
-    let xf=toDate(G(r,fm,'DATE EXPÉDITION','DATE EXPEDITION'));
-    let est=false;
-    if(!xf&&podate){xf=addD(podate,R.XF_DEF);est=true;}
-    if(!xf)continue;
-    const iks=/I\.?K\.?S/i.test(fourn);
-    const transit=(isBL&&iks)?R.TRANSIT_IKS:R.TRANSIT;
-    const eta=addD(xf,transit);
-    const orig=isBL?('En production'+(est?' (date IC estimée : PO + 3 mois)':'')):('Parti de '+exp+' (transfert interne)');
-    if(!supply.has(art))supply.set(art,[]);
-    supply.get(art).push({po:String(G(r,fm,'N° COMMANDE','N COMMANDE','NO COMMANDE')||'').trim(),fourn,
-      ref:String(G(r,fm,'REF. INTERNE','REF INTERNE')||'').trim(),xf,eta,rem:q,orig,
-      type:isBL?'PO usine':'Stock Asia'});
-  }
-  for(const a of supply.values())a.sort((x,y)=>x.eta-y.eta);
+async function computeV9(){
+  const tick=()=>new Promise(r=>setTimeout(r,25));
+  const _ra=(typeof document!=='undefined'&&document.getElementById('refArrInp')&&document.getElementById('refArrInp').value)||R.refArr;
+  const _gd=(typeof document!=='undefined'&&document.getElementById('genDateInp')&&document.getElementById('genDateInp').value)||R.genDate;
+  TGEN=_gd?(toT(_gd)||T0):T0; TARR=toT(_ra)||TGEN;
+  /* Saisons déduites du code collection (AAAA-01-SS → 1er janv AAAA, AAAA-02-FW → 1er juil AAAA).
+     Une collection est « pré-saison » si sa saison n'a pas commencé à la date de calcul :
+     ses PO partent du XF usine + 80 j, et ses dates demandées antérieures au mois précédant
+     la saison sont traitées en anomalie ERP (retard échu masqué). */
+  const COLLSET=new Set();
+  const seasonStart=c=>{const m=/^(\d{4})-(\d{2})/.exec(String(c||''));if(!m)return null;
+    return new Date(+m[1], m[2]==='01'?0:6, 1).getTime();};
+  const isFut=c=>{const t=seasonStart(c);return t!=null&&t>TGEN;};
+  const preSeasonCutoff=c=>{const t=seasonStart(c);if(t==null)return null;
+    const d=new Date(t);d.setMonth(d.getMonth()-1);return d.getTime();};
 
-  prog(.58,'Préparation du stock…');
-  const sm=colMap(S.stock[0]||{});
-  const stock=new Map();
-  for(const r of S.stock){
-    if(String(G(r,sm,'STATUS STOCK')||'').trim()!=='A1')continue;
-    const site=String(G(r,sm,'SITE')||'').trim(),art=String(G(r,sm,'ARTICLE')||'').trim();
-    if(!site||!art)continue;
-    const q=toNum(G(r,sm,'STOCK INTERNE'));
-    if(q<=0)continue;
-    const k=site+'|'+art;stock.set(k,(stock.get(k)||0)+q);
+  const FLOW=[],RAW=[]; /* arrivées allouées : [0=FR|1=INT, ts, 0=France|1=Asie, pcs, 0=stock|1=PO] */
+  prog(.05,'Lecture des sources…');await tick();
+  const BC=S.srcFiles.bc, BF=S.srcFiles.bf, ST=S.srcFiles.st;
+  const wrap=f=>{const heads=f.aoa[0];return f.aoa.slice(1).map(arr=>{
+    const obj={};heads.forEach((h,i)=>{if(h!=null&&obj[h]===undefined)obj[h]=arr[i];});return {obj,arr};});};
+  const bc=wrap(BC), bf=wrap(BF), st=wrap(ST);
+
+  /* ---- STOCK : Stock Interne, sites W ---- */
+  const gSite=pick(st,['SITE'],'A'), gArt=pick(st,['ARTICLE','SKU'],'E'),
+        gStk=pick(st,['STOCK INTERNE'],'H'), gStkD=pick(st,['STOCK DISPONIBLE'],'L'),
+        gColl=pick(st,['COLLECTION','DERNIERE COLLECTION'],'D'),
+        gStat=pick(st,['STATUS STOCK','STATUT STOCK'],'G');
+  const stock={}, collBySku={};
+  for(const r of st){
+    const site=NRM(gSite(r)); if(!site.startsWith('W'))continue;
+    if(R.stockStatuses&&R.stockStatuses.length&&!R.stockStatuses.includes(String(gStat(r)||'').trim()))continue;
+    const sku=String(gArt(r)||'').trim(); if(!sku)continue;
+    const coll=String(gColl(r)||'').trim(); if(coll&&!collBySku[sku]&&/\d{4}-\d{2}/.test(coll))collBySku[sku]=coll;
+    let grp;
+    if(R.sitesLog.includes(site))grp='LOG'; else if(R.sitesFRo.includes(site))grp='FRO';
+    else if(site===R.siteSF)grp='SF'; else if(site===R.siteDT)grp='DT'; else grp='ASO';
+    const useDispo=(grp==='LOG'||grp==='FRO')?R.frStockCol==='D':R.asiaStockCol==='D';
+    const q=useDispo?num(gStkD(r)):num(gStk(r));
+    if(q>0)(stock[sku]=stock[sku]||{LOG:0,FRO:0,SF:0,DT:0,ASO:0})[grp]+=q;
+  }
+  prog(.15,'Construction de l\u2019offre (stock + PO)…');await tick();
+
+  /* ---- BACKLOG FOURNISSEUR ---- */
+  const fFlux=pick(bf,['TYPE FLUX'],'B'), fInt=pick(bf,['INTERSITE'],'A'),
+        fDrop=pick(bf,['DROPPÉ','DROPPE'],'I'), fRec=pick(bf,['SITE RECEPTION','SITE RÉCEPTION'],'D'),
+        fArt=pick(bf,['ARTICLE','SKU'],'G'), fPo=pick(bf,['N° COMMANDE','N°COMMANDE','NO COMMANDE'],'L'),
+        fEta=pick(bf,['DATE LIVRAISON'],'O'), fXf=pick(bf,['DATE EXPÉDITION','DATE EXPEDITION'],'N'),
+        fQ=pick(bf,['QTÉ À LIVRER','QTE A LIVRER'],'R'), fCollP=pick(bf,['COLLECTION'],'E');
+  const pos=[];
+  for(const r of bf){
+    if(NRM(fFlux(r))!=='BL FOURNISSEUR')continue;
+    if(NRM(fInt(r))==='OUI')continue;
+    if(NRM(fDrop(r))==='OUI')continue;
+    const rec=NRM(fRec(r)); if(!rec.startsWith('W'))continue;
+    const sku=String(fArt(r)||'').trim(); const q=num(fQ(r)); if(!sku||q<=0)continue;
+    let eta=toT(fEta(r)); const xf=toT(fXf(r));
+    const rawEta=eta; if(eta!=null&&eta<TARR)eta=TARR;
+    const dest=(R.sitesLog.includes(rec)||R.sitesFRo.includes(rec))?'FR':'ASIE';
+    const coll=String(fCollP(r)||'').trim();
+    if(coll&&!collBySku[sku]&&/\d{4}-\d{2}/.test(coll))collBySku[sku]=coll;
+    pos.push({sku,q,left:q,eta:eta==null?TARR:eta,rawEta,xf,dest,po:String(fPo(r)||'').trim()});
   }
 
-  prog(.64,'Priorisation des clients…');
-  const tot=new Map();
-  for(const r of cl)tot.set(r.cf,(tot.get(r.cf)||0)+r.qte);
-  const rank=new Map([...tot.entries()].sort((a,b)=>b[1]-a[1]).map(([k],i)=>[k,i]));
-  cl.sort((a,b)=>(rank.get(a.cf)-rank.get(b.cf))||((a.dliv||9e15)-(b.dliv||9e15))
-    ||((a.dcmd||9e15)-(b.dcmd||9e15))||(a.ord<b.ord?-1:a.ord>b.ord?1:0)||(a.sku<b.sku?-1:1));
+  /* ---- BACKLOG CLIENT : groupes commande × collection ---- */
+  prog(.25,'Backlog client (groupes commande × collection)…');await tick();
+  const cNet=pick(bc,['MAINNETWORK'],'B'), cColl=pick(bc,['COLLECTION'],'D'),
+        cSku=pick(bc,['SKU'],'F'), cDesig=pick(bc,['DESIGNATION','DÉSIGNATION'],'L'),
+        cDrop=pick(bc,['DROPPÉ','DROPPE'],'M'), cGrpC=pick(bc,['GROUP CODE'],'N'),
+        cCodM=pick(bc,['CODE CLIENT CMD.','CODE CLIENT CMD'],'O'), cMag=pick(bc,['NOM CLIENT CMD.','NOM CLIENT CMD'],'P'),
+        cCodC=pick(bc,['CODE CLIENT','CLIENT'],'Q'), cCli=pick(bc,['NOM CLIENT','CLIENT FACTURÉ'],'R'),
+        cVille=pick(bc,['VILLE'],'T'), cGrp=pick(bc,['NOM GROUPEMENT','GROUPEMENT'],'U'),
+        cOrd=pick(bc,['N° COMMANDE','N°COMMANDE','NO COMMANDE'],'V'), cRef=pick(bc,['REF. COMMANDE','REF COMMANDE'],'W'),
+        cDCmd=pick(bc,['DATE COMMANDE','DATE DE COMMANDE'],'X'), cDL=pick(bc,['DATE LIVRAISON'],'Y'),
+        cRep=pick(bc,['REPRESENTANT 1','REPRÉSENTANT 1','REPRESENTANT'],'Z'),
+        cQ=pick(bc,['QUANTITE','QUANTITÉ'],'AB'), cMt=pick(bc,['PRIX EUR','MONTANT EUR','MONTANT'],'AH');
+  const orders={}; let demTot=0;
+  for(const r of bc){
+    const ord=String(cOrd(r)||'').trim(); if(!ord)continue;
+    const net=NRM(cNet(r));
+    let mod,show;
+    if(R.netsFR.includes(net)){mod='FR';show=true;}
+    else if(R.netsFRdom.includes(net)){mod='FR';show=false;}
+    else {mod='INT';show=true;}
+    const coll=String(cColl(r)||'').trim(); if(coll)COLLSET.add(coll);
+    const key=ord+'|'+coll+'|'+mod;
+    const o=orders[key]=orders[key]||{ord,coll,mod,show,nets:{},dl:null,cli:'',mag:'',ref:'',codc:null,grpc:null,
+      grp:'',codm:null,ville:'',rep:'',dcmd:null,mt:0,q:0,lines:[]};
+    if(net)o.nets[net]=(o.nets[net]||0)+1;
+    o.mt+=num(cMt(r));
+    const fill=(k,v)=>{if(!o[k]&&v!=null&&v!=='')o[k]=v;};
+    fill('cli',String(cCli(r)||'').trim());fill('mag',String(cMag(r)||'').trim());
+    fill('ref',String(cRef(r)||'').trim());fill('codc',cCodC(r));fill('grpc',cGrpC(r));
+    fill('grp',String(cGrp(r)||'').trim());fill('codm',cCodM(r));fill('ville',String(cVille(r)||'').trim());
+    fill('rep',String(cRep(r)||'').trim());if(!o.dcmd)o.dcmd=toT(cDCmd(r));
+    /* ligne valide = non droppée, qté>0, date livraison présente */
+    if(NRM(cDrop(r))==='OUI')continue;
+    const q=num(cQ(r)); if(q<=0)continue;
+    const dl=toT(cDL(r)); if(dl==null)continue;
+    const sku=String(cSku(r)||'').trim(); if(!sku)continue;
+    if(o.dl==null||dl<o.dl)o.dl=dl;
+    o.q+=q; demTot+=q;
+    if(coll&&!collBySku[sku]&&/\d{4}-\d{2}/.test(coll))collBySku[sku]=coll;
+    o.lines.push({sku,q,left:q,desig:String(cDesig(r)||'').trim(),alloc:[]});
+  }
+  const ctrl={demande:demTot};
 
-  prog(.70,'Affectation du stock…');
-  const take=(site,sku,need)=>{if(need<=0)return 0;const k=site+'|'+sku,a=stock.get(k)||0;if(a<=0)return 0;
-    const t=Math.min(need,a);stock.set(k,a-t);return t;};
-  for(const r of cl)r.qs=(r.direct||R.HUBS.includes(r.site))?0:take(r.site,r.sku,r.qte);
-
-  prog(.76,'Affectation de la production…');
-  const ETA_HUB=addD(TODAY,R.TRANSIT);
-  const srcByOrder=new Map();
-  for(const r of cl){
-    const ffob=r.ffob;
-    let need=r.qte-r.qs,qp=0,onT=r.qs,late=0,lateW=0,lateQ=0;
-    const etasOn=[],etasLate=[],srcs=[],types=new Set(),pos=[];
-    if(r.qs>0){srcs.push({t:'Stock local',lab:'STOCK '+r.site,q:r.qs,eta:TODAY,xf:null,
-      st:'Déjà en stock, livrable immédiatement',on:true});types.add('Stock local');}
-    if(need>0&&!r.direct){
-      const hubs=R.HUBS.includes(r.site)?[r.site,...R.HUBS.filter(h=>h!==r.site)]:R.HUBS;
-      for(const h of hubs){
-        if(need<=0)continue;
-        const t=take(h,r.sku,need);
-        if(t>0){need-=t;qp+=t;
-          const e=ffob?TODAY:ETA_HUB;
-          const on=ffob?true:(r.dliv?e<=r.dliv:false);
-          (on?etasOn:etasLate).push(e);
-          if(on)onT+=t;else{late+=t;lateW+=Math.max(0,diffD(e,r.dliv))*t;lateQ+=t;}
-          srcs.push({t:'Stock Asia',lab:'STOCK '+h,q:t,eta:e,xf:null,
-            st:ffob?('Disponible à '+h+' — FFOB, à enlever par le client'):('Déjà produit, en stock à '+h+' (Asie) — transit '+R.TRANSIT+' j'),on});types.add('Stock Asia');}
+  /* ---- ALLOCATION SÉQUENTIELLE : FRANCE puis INTERNATIONAL ---- */
+  const stockLeft=JSON.parse(JSON.stringify(stock));
+  const posBySku={}; for(const p of pos)(posBySku[p.sku]=posBySku[p.sku]||[]).push(p);
+  const stockLabel={LOG:'Stock Logtex',FRO:'Stock France (WHSLM/WFIFR)',SF:'Stock SF Chine',DT:'Stock DT Thaïlande',ASO:'Stock Asie (autre)'};
+  function candidates(mod,sku,isSS27){
+    const stq=stockLeft[sku]||{}, out=[];
+    const push=(kind,grp,arr,poRef)=>out.push({kind,grp,arr,poRef});
+    if(mod==='FR'){
+      if(stq.LOG>0)push('S','LOG',TARR+R.frStockDelay*DAY);
+      if(stq.FRO>0)push('S','FRO',TARR+R.frStockDelay*DAY);
+      for(const p of posBySku[sku]||[]){ if(p.left<=0)continue;
+        if(isSS27)push('P',p.dest==='FR'?'FR':'ASIE',(p.xf!=null?p.xf:p.rawEta!=null?p.rawEta:p.eta)+R.ss27PoDelay*DAY,p);
+        else if(p.dest==='FR')push('P','FR',p.eta+R.frPoDelay*DAY,p);
+        else push('P','ASIE',Math.max((p.xf!=null?p.xf:p.eta),TARR)+R.frAsiaDelay*DAY,p);}
+      if(R.frUsesAsiaStock)for(const g of R.frAsiaGroups)
+        if(stq[g]>0)push('S',g,TARR+R.frAsiaDelay*DAY);
+    }else{
+      if(stq.SF>0)push('S','SF',TARR+R.intPrepDelay*DAY);
+      if(stq.DT>0)push('S','DT',TARR+R.intPrepDelay*DAY);
+      if(stq.ASO>0)push('S','ASO',TARR+R.intPrepDelay*DAY);
+      for(const p of posBySku[sku]||[]){ if(p.left<=0)continue;
+        push('P',p.dest==='ASIE'?'ASIE':'FR',p.eta+(p.dest==='ASIE'?R.intPoAsiaDelay:R.intFrDelay)*DAY,p);}
+      if(stq.LOG>0)push('S','LOG',TARR+R.intFrDelay*DAY);
+      if(stq.FRO>0)push('S','FRO',TARR+R.intFrDelay*DAY);
+    }
+    out.sort((a,b)=>a.arr-b.arr||(a.kind==='S'?-1:1)-(b.kind==='S'?-1:1));
+    return out;
+  }
+  function take(c,sku,need){
+    if(c.kind==='S'){const st=stockLeft[sku];const t=Math.min(need,st[c.grp]);st[c.grp]-=t;return t;}
+    const t=Math.min(need,c.poRef.left);c.poRef.left-=t;return t;
+  }
+  const runModule=async(mod,pct)=>{
+    prog(pct,'Allocation module '+(mod==='FR'?'FRANCE':'INTERNATIONAL')+'…');await tick();
+    const os=Object.values(orders).filter(o=>o.mod===mod&&o.lines.length);
+    const byCli={}; os.forEach(o=>byCli[o.cli]=(byCli[o.cli]||0)+o.mt);
+    const rank=Object.fromEntries(Object.entries(byCli).sort((a,b)=>b[1]-a[1]).map((x,i)=>[x[0],i]));
+    const top=new Set(Object.keys(rank).filter(c=>rank[c]<R.topClients));
+    const domKey=o=>R.domFirst?(o.show?1:0):0;
+    const KEYFN={dom:o=>domKey(o),top:o=>top.has(o.cli)?0:1,dl:o=>o.dl,coll:o=>o.coll,
+      dcmd:o=>o.dcmd!=null?o.dcmd:Infinity,ord:o=>o.ord,rank:o=>rank[o.cli]!=null?rank[o.cli]:9999};
+    const KEYS=(R.sortKeys&&R.sortKeys.length?R.sortKeys:['dom','top','dl','coll','dcmd']);
+    const pri=o=>KEYS.map(k=>KEYFN[k](o));
+    os.sort((a,b)=>{const pa=pri(a),pb=pri(b);
+      for(let i=0;i<pa.length;i++){if(pa[i]<pb[i])return -1;if(pa[i]>pb[i])return 1;}
+      return a.ord.localeCompare(b.ord);});
+    /* paliers : top clients = séquentiel (palier singleton) ; autres = groupés par priorité */
+    const fair=R.fairShare&&R.fairShare[mod];
+    const tiers=[];let cur=null,curKey='';
+    for(const o of os){
+      const isTop=top.has(o.cli)&&domKey(o)===0;
+      if(!fair||isTop){tiers.push([o]);curKey='';continue;}
+      const k=JSON.stringify(pri(o));
+      if(k!==curKey){cur=[];tiers.push(cur);curKey=k;}cur.push(o);}
+    /* demandes par SKU dans un palier */
+    const allocTier=(tier,pass)=>{
+      const isSS27=isFut(tier[0].coll)&&mod==='FR';
+      const limit=tier[0].dl+R.grace*DAY;
+      const bySku={};
+      for(const o of tier)for(const l of o.lines)
+        if(l.left>0)(bySku[l.sku]=bySku[l.sku]||[]).push(l);
+      for(const sku of Object.keys(bySku)){
+        for(const c of candidates(mod,sku,isSS27)){
+          const lines=bySku[sku].filter(l=>l.left>0);
+          if(!lines.length)break;
+          if(pass===1&&c.arr>limit)continue;
+          const need=lines.reduce((a,l)=>a+l.left,0);
+          const avail=c.kind==='S'?stockLeft[sku][c.grp]:c.poRef.left;
+          if(avail<=0)continue;
+          const give=Math.min(need,avail);
+          /* partage proportionnel au besoin (plus forts restes) */
+          let shares;
+          if(give>=need)shares=lines.map(l=>l.left);
+          else{
+            const raw=lines.map(l=>give*l.left/need);
+            shares=raw.map(Math.floor);
+            let rem=give-shares.reduce((a,b)=>a+b,0);
+            const order=raw.map((v,i)=>[v-Math.floor(v),i]).sort((a,b)=>b[0]-a[0]);
+            for(let j=0;j<order.length&&rem>0;j++){shares[order[j][1]]++;rem--;}
+          }
+          lines.forEach((l,i)=>{const t=Math.min(shares[i],l.left);
+            if(t>0){take(c,sku,t);l.left-=t;
+              FLOW.push([mod==='FR'?0:1,c.arr,(c.grp==='LOG'||c.grp==='FRO'||c.grp==='FR')?0:1,t,c.kind==='S'?0:1]);
+              l.alloc.push({kind:c.kind,grp:c.grp,arr:c.arr,q:t,po:c.poRef?c.poRef.po:null});}});
+        }
       }
-    }
-    let arr2=supply.get(r.sku);
-    if(arr2&&ffob)arr2=arr2.slice().sort((x,y)=>(x.xf||x.eta)-(y.xf||y.eta));
-    if(arr2&&need>0){
-      for(const sp of arr2){
-        if(need<=0)break;
-        if(sp.rem<=0)continue;
-        const t=Math.min(need,sp.rem);sp.rem-=t;need-=t;qp+=t;
-        const e=ffob?sp.xf:sp.eta;
-        const on=r.dliv?e<=r.dliv:false;
-        (on?etasOn:etasLate).push(e);
-        if(on)onT+=t;else{late+=t;lateW+=Math.max(0,diffD(e,r.dliv))*t;lateQ+=t;}
-        srcs.push({t:sp.type,lab:sp.po,q:t,eta:e,xf:sp.xf,
-          st:(ffob?'FFOB — mise à disposition XF '+fmtD(sp.xf)+' · ':'')+sp.orig+(sp.fourn?' — '+sp.fourn:''),on});
-        types.add(sp.type);if(sp.type==='PO usine')pos.push(sp.po);
+    };
+    if(R.passMode==='order'){for(const t of tiers){allocTier(t,1);allocTier(t,2);}}
+    else {for(const t of tiers)allocTier(t,1); for(const t of tiers)allocTier(t,2);}
+  };
+  await runModule('FR',.4); await runModule('INT',.55);
+
+  /* ---- AGRÉGATION ---- */
+  prog(.68,'Agrégation par commande…');await tick();
+  const pfr=[],pint=[],detFR={},detIN={};
+  let sumOT=0,sumLate=0,sumCanc=0;
+  for(const o of Object.values(orders)){
+    const mod=o.mod, limit=o.dl!=null?o.dl+R.grace*DAY:null;
+    let aStk=0,aProd=0,prio=0,ot=0,late=0,canc=0,arrs=[],arrsOT=[],arrsLate=[],posSet=new Set();
+    const det=[];
+    for(const l of o.lines){
+      let lot=0,llate=0;
+      const srcs=[];
+      for(const a of l.alloc){
+        if(R.debugRaw)RAW.push([o.ord,l.sku,a.kind,a.grp,a.arr,a.q,a.po||null,mod]);
+        if(a.kind==='S')aStk+=a.q; else {aProd+=a.q; if(a.po)posSet.add(a.po);}
+        const prioGrp=mod==='FR'?(a.grp==='LOG'):(a.grp==='SF'||a.grp==='DT');
+        if(a.kind==='S'&&prioGrp)prio+=a.q;
+        if(limit!=null&&a.arr<=limit){lot+=a.q;arrsOT.push(a.arr);}else{llate+=a.q;arrsLate.push(a.arr);}
+        arrs.push(a.arr);
+        const lbl=a.kind==='S'?stockLabel[a.grp]:('PO '+(a.po||'?')+' → '+(a.grp==='ASIE'?'Asie':'Logtex'));
+        srcs.push(lbl+' · '+a.q+' pcs · '+dfr(a.arr));
       }
+      ot+=lot; late+=llate; if(l.left>0)canc+=l.left;
+      det.push([l.sku,l.desig,l.q,l.q-l.left,srcs.join('  ;  '),lot,llate,l.left]);
     }
-    r.qp=qp;r.qa=need;r.on=onT;r.late=late;r.lateW=lateW;r.lateQ=lateQ;
-    r.etaOnArr=etasOn;r.etaLateArr=etasLate;
-    const allE=srcs.map(s=>s.eta).filter(Boolean);
-    r.eta=allE.length?new Date(Math.max(...allE)):null;
-    r.ret=(r.eta&&r.dliv)?Math.max(0,diffD(r.eta,r.dliv)):null;
-    r.cov=r.qte?(r.qs+r.qp)/r.qte:0;
-    r.srcTxt=srcs.map(s=>s.lab+' · '+fmtN(s.q)+' pcs'+(s.xf?' · IC '+fmtD(s.xf):'')+' · ETA '+fmtD(s.eta)+' · '+s.st).join(' | ');
-    r.types=[...types];r.pos=[...new Set(pos)];
-    r.st=r.drop==='OUI'?'ANNULER (droppé)':(r.qa>=r.qte?'ANNULER':(r.qa>0?'PARTIEL':(qp===0?'LIVRABLE':(late>0?'RETARD':'OK DELAI'))));
-    if(!srcByOrder.has(r.ord))srcByOrder.set(r.ord,[]);
-    const acc=srcByOrder.get(r.ord);
-    for(const s of srcs){
-      const e=acc.find(x=>x.lab===s.lab&&x.eta&&s.eta&&+x.eta===+s.eta);
-      if(e){e.q+=s.q;e.nsku++;}else acc.push({...s,nsku:1});
+    if(mod==='FR'||o.show){sumOT+=ot;sumLate+=late;sumCanc+=canc;}
+    if(!o.show)continue;
+    const coll=o.coll||'';
+    const eta1=arrs.length?Math.min(...arrs):null, etaC=arrs.length?Math.max(...arrs):null;
+    const a1t=arrsOT.length?Math.min(...arrsOT):null,a2t=arrsOT.length?Math.max(...arrsOT):null;
+    const a1r=arrsLate.length?Math.min(...arrsLate):null,a2r=arrsLate.length?Math.max(...arrsLate):null;
+    const stat=o.q<=0||canc>=o.q?'⚫ Annulé':prio>=o.q?'🟢 Pousser tout':prio>0?'🟡 Pousser partiel':'⚪ Rien à pousser';
+    const src=(o.q<=0||canc>=o.q)?'Aucune source':(aStk>0&&aProd>0?'Stock + Prod':aStk>0?'Stock':aProd>0?'Prod':'Aucune source');
+    const arriv=(aStk+aProd)-prio;
+    let syn;
+    if(stat==='⚫ Annulé')syn='❌ Annulée — plus rien à livrer';
+    else if(mod==='FR'){
+      if(stat==='🟢 Pousser tout')syn='✅ 100 % dispo à Logtex — '+nUS(prio)+' pcs à pousser maintenant';
+      else if(stat==='🟡 Pousser partiel')syn='🟡 '+nUS(prio)+' pcs dispo à Logtex · '+nUS(arriv)+' pcs en arrivage d\x27ici le '+(etaC?dfr(etaC):'?');
+      else syn='⏳ Rien à Logtex — '+nUS(arriv)+' pcs attendues entre le '+(eta1?dfr(eta1):'?')+' et le '+(etaC?dfr(etaC):'?');
+    }else{
+      if(stat==='🟢 Pousser tout')syn='✅ 100 % dispo usine SF/DT — '+nUS(prio)+' pcs livrables ~ '+dfr(TGEN+R.intPrepDelay*DAY)+' (+'+R.intPrepDelay+' j préparation)';
+      else if(stat==='🟡 Pousser partiel')syn='🟡 '+nUS(prio)+' pcs dispo SF/DT (livrables ~ '+dfr(TGEN+R.intPrepDelay*DAY)+') · '+nUS(arriv)+' pcs en arrivage d\x27ici le '+(etaC?dfr(etaC):'?');
+      else syn='⏳ Rien de dispo SF/DT — '+nUS(arriv)+' pcs attendues entre le '+(eta1?dfr(eta1):'?')+' et le '+(etaC?dfr(etaC):'?');
+    }
+    if(stat!=='⚫ Annulé'&&canc>0)syn+=' · '+nUS(canc)+' pcs annulées';
+    let rechu=null;
+    const isAnomaly=isFut(coll)&&o.dl!=null&&o.dl<preSeasonCutoff(coll);
+    const rechuHidden=isAnomaly||(mod==='FR'&&stat==='⚫ Annulé')||(mod==='INT'&&stat==='🟢 Pousser tout');
+    if(!rechuHidden&&o.dl!=null&&o.dl<TGEN)rechu=Math.round((TGEN-o.dl)/DAY);
+    const rprev=(etaC!=null&&o.dl!=null)?Math.round((etaC-o.dl)/DAY):null;
+    const nets=Object.entries(o.nets).sort((a,b)=>b[1]-a[1]);
+    const cat=nets.length?nets[0][0]:(mod==='FR'?'WHOLESALE FRANCE':'WHOLESALE INTERNATIONAL');
+    const row=[coll,cat,o.cli,o.ord,o.q,prio,o.q?+(prio/o.q).toFixed(4):0,stat,syn,
+      eta1?dstr(eta1):null,etaC?dstr(etaC):null,o.dl!=null?dstr(o.dl):null,rechu,+o.mt.toFixed(2),
+      ot,late,canc,o.q?+(canc/o.q).toFixed(4):0,aStk,aProd,src,0,
+      a1t?dstr(a1t):null,a2t?dstr(a2t):null,a1r?dstr(a1r):null,a2r?dstr(a2r):null,
+      o.mag||o.cli,o.ref,o.codc,o.grpc,o.grp,o.codm,o.ville,o.rep,o.dcmd?dstr(o.dcmd):null,
+      [...posSet].sort().join(' \u00b7 ')];
+    if(mod==='FR'){row.push(o.q?+(((o.q-canc)/o.q)).toFixed(4):0);row.push(rprev);pfr.push(row);
+      (detFR[o.ord]=detFR[o.ord]||[]).push(...det);o._row=row;}
+    else{row.push(rprev);pint.push(row);(detIN[o.ord]=detIN[o.ord]||[]).push(...det);o._row=row;}
+  }
+  const statOrder=s=>s.startsWith('🟢')?0:s.startsWith('🟡')?1:s.startsWith('⚪')?2:3;
+  const srt=(a,b)=>statOrder(a[7])-statOrder(b[7])||b[6]-a[6]||b[13]-a[13];
+  pfr.sort(srt);pint.sort(srt);
+
+  /* ---- RESTE À ALLOUER ---- */
+  prog(.8,'Reste à allouer & substitutions…');await tick();
+  const rest=[],restPool=[];
+  const grpSrc={LOG:'Logtex (WLOGM)',FRO:'Autres FR (WHSLM/WFIFR)',SF:'SF Chine (WSFCN)',DT:'DT Thaïlande (WDTTH)',ASO:'Autres Asie'};
+  for(const sku of Object.keys(stockLeft)){
+    const coll=collBySku[sku]||'';
+    for(const g of ['LOG','FRO','SF','DT','ASO']){
+      const q=stockLeft[sku][g]||0; if(q<=0)continue;
+      restPool.push({sku,coll,stock:true,q,left:q,eta:null,grp:g});
+      if(COLLSET.has(coll))rest.push([sku,coll,'',grpSrc[g],q,'Maintenant',null]);
     }
   }
-
-  prog(.88,'Agrégation par commande…');
-  const om=new Map();
-  for(const r of cl){
-    let o=om.get(r.ord);
-    if(!o){o={cat:r.cat,cf:r.cf,mag:r.mag,ord:r.ord,ref:r.ref,coll:r.coll,dliv:r.dliv,
-      qte:0,on:0,late:0,qs:0,qp:0,qa:0,eur:0,nl:0,ffob:false,etaOn:[],etaLate:[],retW:0,retQ:0,types:new Set(),pos:new Set()};om.set(r.ord,o);}
-    o.qte+=r.qte;o.on+=r.on;o.late+=r.late;o.qs+=r.qs;o.qp+=r.qp;o.qa+=r.qa;o.eur+=r.eur;o.nl++;
-    if(r.ffob)o.ffob=true;
-    if(!o.dliv||(r.dliv&&r.dliv<o.dliv))o.dliv=r.dliv;
-    o.retW+=r.lateW;o.retQ+=r.lateQ;
-    for(const t of r.types)o.types.add(t);
-    for(const p of r.pos)o.pos.add(p);
+  for(const p of pos){ if(p.left<=0)continue;
+    const coll=collBySku[p.sku]||'';
+    restPool.push({sku:p.sku,coll,stock:false,q:p.left,left:p.left,eta:p.rawEta!=null?p.rawEta:p.eta,grp:p.dest});
+    if(COLLSET.has(coll))
+      rest.push([p.sku,coll,'',p.dest==='FR'?'PO → France':'PO → Asie',p.left,'À terme',dstr(p.rawEta!=null?p.rawEta:p.eta)]);
   }
-  for(const r of cl){
-    const o=om.get(r.ord);
-    for(const e of r.etaOnArr)o.etaOn.push(e);
-    for(const e of r.etaLateArr)o.etaLate.push(e);
-  }
-  const ORDER=['Stock local','Stock Asia','PO usine'];
-  const orders=[...om.values()].map(o=>{
-    const covq=o.on+o.late;
-    o.pctLate=covq?o.late/covq:0;o.pctOn=covq?o.on/covq:0;
-    o.stat=(covq===0&&R.COLL_PROD_LANCEE.includes(o.coll))?'⚫ À annuler':(o.pctLate===0?'🟢 On time':(o.pctLate>=.5?'🔴 Critique +50% retard':'🟠 Partiellement en retard'));
-    o.cov=o.qte?(o.qs+o.qp)/o.qte:0;
-    o.retMoy=o.retQ?o.retW/o.retQ:null;
-    o.etaOn1=o.etaOn.length?new Date(Math.min(...o.etaOn)):null;
-    o.etaOn2=o.etaOn.length?new Date(Math.max(...o.etaOn)):null;
-    o.etaL1=o.etaLate.length?new Date(Math.min(...o.etaLate)):null;
-    o.etaL2=o.etaLate.length?new Date(Math.max(...o.etaLate)):null;
-    o.nsrc=(srcByOrder.get(o.ord)||[]).length;
-    o.tsrc=[...o.types].sort((a,b)=>ORDER.indexOf(a)-ORDER.indexOf(b)).join(' + ')||'—';
-    o.posTxt=[...o.pos].join(' ; ');
-    return o;});
-  S.detail=cl;S.orders=orders;S.srcByOrder=srcByOrder;
-  prog(1,'Terminé — '+fmtN(orders.length)+' commandes, '+fmtN(cl.length)+' lignes article.');
-  setTimeout(render,40);
-}
+  rest.sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
 
-/* ── Rendu ──────────────────────────────────────────────────────────────── */
-function render(){
-  document.getElementById('pil-app').classList.remove('hide');
-  document.getElementById('importSec').classList.add('hide');
-  document.getElementById('btnExport').disabled=false;
-  document.getElementById('btnReset').disabled=false;
-  const o=S.orders;
-  const nQ=o.reduce((s,x)=>s+x.qte,0),nE=o.reduce((s,x)=>s+x.eur,0),
-        nS=o.reduce((s,x)=>s+x.qs,0),nP=o.reduce((s,x)=>s+x.qp,0),nA=o.reduce((s,x)=>s+x.qa,0);
-  const cnt=t=>o.filter(x=>x.stat.includes(t)).length;
-  document.getElementById('hmeta').innerHTML='Analyse au <strong>'+fmtD(TODAY)+'</strong><br>'+fmtN(o.length)+' commandes · '+fmtN(S.detail.length)+' lignes';
-  document.getElementById('kpis').innerHTML=[
-    ['Commandes',fmtN(o.length),fmtN(S.detail.length)+' lignes article'],
-    ['Pièces commandées',fmtN(nQ),fmtN(nS)+' en stock · '+fmtN(nP)+' à venir'],
-    ['Montant commandé',fmtE(nE),''],
-    ['Taux de couverture',fmtP(nQ?(nS+nP)/nQ:0),fmtN(nA)+' pcs à annuler'],
-    ['Commandes on time',fmtN(cnt('On time')),fmtP(o.length?cnt('On time')/o.length:0)+' du total'],
-    ['Commandes critiques',fmtN(cnt('Critique')),fmtP(o.length?cnt('Critique')/o.length:0)+' du total'],
-    ['Commandes à annuler',fmtN(cnt('À annuler')),'aucune source identifiée'],
-  ].map(k=>'<div class="pil-card kpi"><div class="lab">'+k[0]+'</div><div class="val num">'+k[1]+'</div><div class="sub">'+k[2]+'</div></div>').join('');
-
-  const P=[['⚫ À annuler','p-n'],['🟢 On time','p-g'],['🟠 Partiellement en retard','p-a'],['🔴 Critique +50% retard','p-r']];
-  document.getElementById('tPonct').innerHTML='<thead><tr><th>Statut</th><th class="r">Commandes</th><th class="r">% du total</th><th class="r">Montant €</th></tr></thead><tbody>'+
-    P.map(([s,c])=>{const g=o.filter(x=>x.stat===s);return '<tr><td><span class="pill '+c+'">'+s+'</span></td><td class="r num">'+fmtN(g.length)+'</td><td class="r num">'+fmtP(o.length?g.length/o.length:0)+'</td><td class="r num">'+fmtE(g.reduce((a,b)=>a+b.eur,0))+'</td></tr>'}).join('')+'</tbody>';
-
-  document.getElementById('tRepart').innerHTML='<thead><tr><th>Catégorie</th><th class="r">Commandes</th><th class="r">Pièces</th><th class="r">Montant €</th><th class="r">Couverture</th></tr></thead><tbody>'+
-    ['WHOLESALE FRANCE','INTERNATIONAL'].map(c=>{const g=o.filter(x=>x.cat===c),q=g.reduce((a,b)=>a+b.qte,0);
-      return '<tr><td><b>'+c+'</b></td><td class="r num">'+fmtN(g.length)+'</td><td class="r num">'+fmtN(q)+'</td><td class="r num">'+fmtE(g.reduce((a,b)=>a+b.eur,0))+'</td><td class="r num">'+fmtP(q?g.reduce((a,b)=>a+b.qs+b.qp,0)/q:0)+'</td></tr>'}).join('')+'</tbody>';
-
-  const top=(cat,el)=>{
-    const m=new Map();
-    for(const x of o.filter(y=>y.cat===cat)){const e=m.get(x.cf)||{eur:0,g:0,a:0,r:0};e.eur+=x.eur;
-      if(x.stat.includes('On time'))e.g++;else if(x.stat.includes('Partiellement'))e.a++;else e.r++;m.set(x.cf,e);}
-    const tot=[...m.values()].reduce((s,x)=>s+x.eur,0);
-    document.getElementById(el).innerHTML='<thead><tr><th>Client facturé</th><th class="r">Montant €</th><th class="r">% CA</th><th class="c">🟢</th><th class="c">🟠</th><th class="c">🔴</th></tr></thead><tbody>'+
-      [...m.entries()].sort((a,b)=>b[1].eur-a[1].eur).slice(0,5).map(([k,v])=>
-        '<tr class="clickable" onclick="pilFilterClient('+JSON.stringify(k).replace(/"/g,'&quot;')+')"><td>'+esc(k)+'</td><td class="r num">'+fmtE(v.eur)+'</td><td class="r num">'+fmtP(tot?v.eur/tot:0)+
-        '</td><td class="c num">'+v.g+'</td><td class="c num">'+v.a+'</td><td class="c num">'+v.r+'</td></tr>').join('')+'</tbody>';};
-  top('WHOLESALE FRANCE','tTopFR');top('INTERNATIONAL','tTopINT');
-
-  const sel=(id,vals)=>{const e=document.getElementById(id);e.innerHTML=e.children[0].outerHTML+vals.map(v=>'<option>'+esc(v)+'</option>').join('')};
-  sel('fCat',[...new Set(o.map(x=>x.cat))].sort());
-  sel('fStat',['🟢 On time','🟠 Partiellement en retard','🔴 Critique +50% retard','⚫ À annuler']);
-  sel('fColl',[...new Set(o.map(x=>x.coll))].sort());
-  sel('dStat',[...new Set(S.detail.map(x=>x.st))].sort());
-  drawPil();drawDet();
-}
-window.pilFilterClient=c=>{document.getElementById('fSearch').value=c;S.pilPage=0;drawPil();
-  document.getElementById('tPil').scrollIntoView({behavior:'smooth',block:'center'});};
-
-/* ── Table pilotage ─────────────────────────────────────────────────────── */
-const PILCOLS=[['cat','Catégorie'],['cf','Client facturé'],['ord','N° commande'],['stat','Statut'],['coll','Collection'],
- ['dliv','Date demandée'],['qte','Qté commandée'],['pctOn','% à temps'],['pctLate','% en retard'],['on','Qté à temps'],
- ['etaOn1','1ʳᵉ ETA à temps'],['etaOn2','Dernière ETA à temps'],['late','Qté en retard'],['etaL1','1ʳᵉ ETA retard'],
- ['etaL2','Dernière ETA retard'],['retMoy','Retard moy (j)'],['qs','Qté dispo (stock)'],['qp','Qté à venir (prod)'],
- ['qa','Qté à annuler'],['cov','% couverture'],['nsrc','Nb sources'],['tsrc','Type de source'],['posTxt','PO fournisseur'],
- ['eur','Montant EUR'],['mag','Magasin / client cmd'],['ref','Réf. cmd client']];
-function pilFiltered(){
-  const q=norm(document.getElementById('fSearch').value),cat=document.getElementById('fCat').value,
-    st=document.getElementById('fStat').value,co=document.getElementById('fColl').value,ca=document.getElementById('fCancel').checked;
-  let a=S.orders.filter(o=>(!cat||o.cat===cat)&&(!st||o.stat===st)&&(!co||o.coll===co)&&(!ca||o.qa>0)
-    &&(!q||norm(o.cf).includes(q)||norm(o.ord).includes(q)||norm(o.mag).includes(q)||norm(o.posTxt).includes(q)||norm(o.ref).includes(q)));
-  const{k,dir}=S.pilSort;
-  a.sort((x,y)=>{let A=x[k],B=y[k];if(A instanceof Date)A=+A;if(B instanceof Date)B=+B;
-    if(A==null)A=-Infinity;if(B==null)B=-Infinity;
-    return (typeof A==='string'?A.localeCompare(B):A-B)*dir;});
-  return a;}
-function drawPil(){
-  const a=pilFiltered(),tot=Math.ceil(a.length/S.PER);
-  if(S.pilPage>=tot)S.pilPage=0;
-  const page=a.slice(S.pilPage*S.PER,(S.pilPage+1)*S.PER);
-  document.getElementById('cPil').textContent=fmtN(a.length)+' commandes · '+fmtN(a.reduce((s,x)=>s+x.qte,0))+' pcs · '+fmtE(a.reduce((s,x)=>s+x.eur,0));
-  const th=PILCOLS.map(([k,l])=>'<th class="s" data-k="'+k+'">'+l+(S.pilSort.k===k?(S.pilSort.dir>0?' ▲':' ▼'):'')+'</th>').join('');
-  const body=page.map(o=>{
-    const pc=o.stat.includes('On time')?'p-g':o.stat.includes('Partiellement')?'p-a':o.stat.includes('À annuler')?'p-n':'p-r';
-    const cc=o.cov>=.999?'hi':o.cov<.5?'lo':'';
-    return '<tr class="clickable'+(o.stat.includes('À annuler')?' cancel':'')+'" data-ord="'+esc(o.ord)+'">'+
-      '<td>'+esc(o.cat)+'</td><td>'+esc(o.cf)+'</td><td><b>'+esc(o.ord)+'</b></td>'+
-      '<td><span class="pill '+pc+'">'+o.stat+'</span></td><td>'+esc(o.coll)+'</td><td class="num">'+fmtD(o.dliv)+'</td>'+
-      '<td class="r num">'+fmtN(o.qte)+'</td><td class="r num ontime">'+fmtP(o.pctOn)+'</td>'+
-      '<td class="r num '+(o.pctLate>0?'late':'')+'">'+fmtP(o.pctLate)+'</td><td class="r num">'+fmtN(o.on)+'</td>'+
-      '<td class="num">'+fmtD(o.etaOn1)+'</td><td class="num">'+fmtD(o.etaOn2)+'</td>'+
-      '<td class="r num">'+fmtN(o.late)+'</td><td class="num">'+fmtD(o.etaL1)+'</td><td class="num">'+fmtD(o.etaL2)+'</td>'+
-      '<td class="r num '+(o.retMoy?'late':'')+'">'+  (o.retMoy==null?'':Math.round(o.retMoy))+'</td>'+
-      '<td class="r num">'+fmtN(o.qs)+'</td><td class="r num">'+fmtN(o.qp)+'</td>'+
-      '<td class="r num '+(o.qa>0?'late':'')+'">'+fmtN(o.qa)+'</td>'+
-      '<td><div class="cov"><div class="track"><div class="fill '+cc+'" style="width:'+Math.min(100,o.cov*100)+'%"></div></div><span>'+fmtP(o.cov)+'</span></div></td>'+
-      '<td class="r num">'+o.nsrc+'</td><td>'+esc(o.tsrc)+'</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(o.posTxt)+'">'+esc(o.posTxt)+'</td>'+
-      '<td class="r num">'+fmtE(o.eur)+'</td><td>'+esc(o.mag)+'</td><td>'+esc(o.ref)+'</td></tr>';}).join('');
-  document.getElementById('tPil').innerHTML='<thead><tr>'+th+'</tr></thead><tbody>'+body+'</tbody>';
-  document.querySelectorAll('#tPil th.s').forEach(t=>t.onclick=()=>{const k=t.dataset.k;
-    S.pilSort=(S.pilSort.k===k)?{k,dir:-S.pilSort.dir}:{k,dir:-1};S.pilPage=0;drawPil();});
-  document.querySelectorAll('#tPil tbody tr').forEach(t=>t.onclick=()=>openDrawer(t.dataset.ord));
-  document.getElementById('pgPil').innerHTML=pager(S.pilPage,tot,'pil');
-  bindPager('pil');}
-function pager(p,tot,id){if(tot<=1)return'';
-  return '<button data-a="f" data-id="'+id+'" '+(p===0?'disabled':'')+'>«</button><button data-a="p" data-id="'+id+'" '+(p===0?'disabled':'')+'>‹</button>'+
-   '<span>page '+(p+1)+' / '+tot+'</span><button data-a="n" data-id="'+id+'" '+(p>=tot-1?'disabled':'')+'>›</button><button data-a="l" data-id="'+id+'" '+(p>=tot-1?'disabled':'')+'>»</button>';}
-function bindPager(id){document.querySelectorAll('#pg'+(id==='pil'?'Pil':'Det')+' button').forEach(b=>b.onclick=()=>{
-  const a=b.dataset.a,arr=id==='pil'?pilFiltered():detFiltered(),tot=Math.ceil(arr.length/S.PER);
-  let p=id==='pil'?S.pilPage:S.detPage;
-  p=a==='f'?0:a==='l'?tot-1:a==='p'?Math.max(0,p-1):Math.min(tot-1,p+1);
-  if(id==='pil'){S.pilPage=p;drawPil();}else{S.detPage=p;drawDet();}});}
-
-/* ── Table détail ───────────────────────────────────────────────────────── */
-function detFiltered(){
-  const q=norm(document.getElementById('dSearch').value),st=document.getElementById('dStat').value;
-  return S.detail.filter(r=>(!st||r.st===st)&&(!q||norm(r.sku).includes(q)||norm(r.ord).includes(q)||norm(r.cf).includes(q)||norm(r.des).includes(q)));}
-function drawDet(){
-  const a=detFiltered(),tot=Math.ceil(a.length/S.PER);
-  if(S.detPage>=tot)S.detPage=0;
-  const page=a.slice(S.detPage*S.PER,(S.detPage+1)*S.PER);
-  document.getElementById('cDet').textContent=fmtN(a.length)+' lignes · '+fmtN(a.reduce((s,x)=>s+x.qte,0))+' pcs';
-  document.getElementById('tDet').innerHTML='<thead><tr><th>Catégorie</th><th>Client facturé</th><th>N° commande</th><th>SKU</th><th>Désignation</th>'+
-    '<th class="r">Qté cmd</th><th>Date demandée</th><th>ETA</th><th class="r">Retard (j)</th><th>Statut</th>'+
-    '<th class="r">Qté stock</th><th class="r">Qté prod/transit</th><th class="r">Qté à annuler</th><th>PO / sources</th><th>Collection</th><th>Droppé</th><th class="r">Montant</th></tr></thead><tbody>'+
-    page.map(r=>{const pc=r.st==='LIVRABLE'||r.st==='OK DELAI'?'p-g':r.st==='RETARD'?'p-a':r.st==='PARTIEL'?'p-a':'p-r';
-      return '<tr><td>'+esc(r.cat)+'</td><td>'+esc(r.cf)+'</td><td><b>'+esc(r.ord)+'</b></td><td>'+esc(r.sku)+'</td><td>'+esc(r.des)+'</td>'+
-      '<td class="r num">'+fmtN(r.qte)+'</td><td class="num">'+fmtD(r.dliv)+'</td><td class="num">'+fmtD(r.eta)+'</td>'+
-      '<td class="r num '+(r.ret>0?'late':'')+'">'+(r.ret==null?'':r.ret)+'</td><td><span class="pill '+pc+'">'+esc(r.st)+'</span></td>'+
-      '<td class="r num">'+fmtN(r.qs)+'</td><td class="r num">'+fmtN(r.qp)+'</td><td class="r num '+(r.qa>0?'late':'')+'">'+fmtN(r.qa)+'</td>'+
-      '<td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.srcTxt)+'">'+esc(r.srcTxt)+'</td>'+
-      '<td>'+esc(r.coll)+'</td><td>'+esc(r.drop)+'</td><td class="r num">'+fmtE(r.eur)+'</td></tr>';}).join('')+'</tbody>';
-  document.getElementById('pgDet').innerHTML=pager(S.detPage,tot,'det');bindPager('det');}
-
-/* ── Drawer commande ────────────────────────────────────────────────────── */
-function openDrawer(ord){
-  const o=S.orders.find(x=>x.ord===ord);if(!o)return;
-  const lines=S.detail.filter(r=>r.ord===ord),srcs=(S.srcByOrder.get(ord)||[]).slice().sort((a,b)=>a.eta-b.eta);
-  document.getElementById('dTitle').textContent=o.ord+' — '+o.cf;
-  document.getElementById('dMeta').innerHTML=esc(o.mag)+' · '+esc(o.cat)+' · '+esc(o.coll)+' · réf. client '+esc(o.ref)+
-    ' · demandée le <b>'+fmtD(o.dliv)+'</b> · <span class="pill '+(o.stat.includes('On time')?'p-g':o.stat.includes('Partiellement')?'p-a':o.stat.includes('À annuler')?'p-n':'p-r')+'">'+o.stat+'</span>';
-  document.getElementById('dKpi').innerHTML=[
-    ['Qté commandée',fmtN(o.qte)],['Dispo stock',fmtN(o.qs)],['À venir (prod)',fmtN(o.qp)],
-    ['À annuler',fmtN(o.qa)],['Couverture',fmtP(o.cov)],['À temps',fmtN(o.on)],['En retard',fmtN(o.late)],
-    ['Mode',o.ffob?'FFOB (enlèvement)':'Livré (+'+R.TRANSIT+' j)'],
-    ['Retard moyen',o.retMoy==null?'—':Math.round(o.retMoy)+' j'],['Montant',fmtE(o.eur)]
-  ].map(k=>'<div class="dbox"><div class="l">'+k[0]+'</div><div class="v num">'+k[1]+'</div></div>').join('');
-  document.getElementById('dSrc').innerHTML='<thead><tr><th>Source</th><th>Type</th><th>État</th><th>Date IC</th><th>ETA</th><th class="r">Retard</th><th class="r">Qté</th><th class="r">Nb SKU</th></tr></thead><tbody>'+
-    (srcs.length?srcs.map(s=>{const rt=(s.eta&&o.dliv)?Math.max(0,diffD(s.eta,o.dliv)):null;
-      return '<tr><td><b>'+esc(s.lab)+'</b></td><td>'+esc(s.t)+'</td><td>'+esc(s.st)+'</td><td class="num">'+fmtD(s.xf)+'</td><td class="num">'+fmtD(s.eta)+'</td>'+
-      '<td class="r num '+(rt?'late':'ontime')+'">'+(rt==null?'':rt?'+'+rt+' j':'à temps')+'</td><td class="r num">'+fmtN(s.q)+'</td><td class="r num">'+s.nsku+'</td></tr>';}).join('')
-      :'<tr><td colspan="8" style="color:var(--faint)">Aucune source — commande à annuler</td></tr>')+'</tbody>';
-  document.getElementById('dLines').innerHTML='<thead><tr><th>SKU</th><th>Désignation</th><th class="r">Qté</th><th>Date demandée</th><th>ETA</th><th class="r">Retard</th><th>Statut</th><th class="r">Stock</th><th class="r">Prod</th><th class="r">À annuler</th></tr></thead><tbody>'+
-    lines.map(r=>{const pc=r.st==='LIVRABLE'||r.st==='OK DELAI'?'p-g':(r.st==='RETARD'||r.st==='PARTIEL')?'p-a':'p-r';
-      return '<tr><td><b>'+esc(r.sku)+'</b></td><td>'+esc(r.des)+'</td><td class="r num">'+fmtN(r.qte)+'</td><td class="num">'+fmtD(r.dliv)+'</td>'+
-      '<td class="num">'+fmtD(r.eta)+'</td><td class="r num '+(r.ret>0?'late':'ontime')+'">'+(r.ret==null?'':r.ret>0?'+'+r.ret+' j':'à temps')+'</td>'+
-      '<td><span class="pill '+pc+'">'+esc(r.st)+'</span></td><td class="r num">'+fmtN(r.qs)+'</td><td class="r num">'+fmtN(r.qp)+'</td><td class="r num">'+fmtN(r.qa)+'</td></tr>';}).join('')+'</tbody>';
-  document.getElementById('pil-drawer').classList.add('open');document.getElementById('ov').classList.add('on');}
-const closeD=()=>{document.getElementById('pil-drawer').classList.remove('open');document.getElementById('ov').classList.remove('on')};
-document.getElementById('dClose').onclick=closeD;document.getElementById('ov').onclick=closeD;
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
-
-/* ── Filtres ────────────────────────────────────────────────────────────── */
-['fSearch','fCat','fStat','fColl','fCancel'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{S.pilPage=0;drawPil()}));
-['dSearch','dStat'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{S.detPage=0;drawDet()}));
-document.getElementById('btnReset').onclick=()=>location.reload();
-
-/* ── Export CSV ─────────────────────────────────────────────────────────── */
-function csv(rows,name){
-  const c=rows.map(r=>r.map(v=>{const s=v==null?'':(v instanceof Date?fmtD(v):String(v));
-    return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(';')).join('\n');
-  const b=new Blob(['﻿'+c],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');
-  a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
-document.getElementById('btnCsvPil').onclick=()=>csv([PILCOLS.map(c=>c[1]),...pilFiltered().map(o=>PILCOLS.map(([k])=>
-  k==='pctOn'||k==='pctLate'||k==='cov'?(o[k]==null?'':(o[k]*100).toFixed(1).replace('.',',')+'%'):
-  (o[k] instanceof Date?fmtD(o[k]):(k==='retMoy'&&o[k]!=null?Math.round(o[k]):o[k]))))],'pilotage_livraisons.csv');
-document.getElementById('btnCsvDet').onclick=()=>csv([['Catégorie','Client facturé','N° commande','SKU','Désignation','Qté commandée','Date demandée','ETA','Retard (j)','Statut','Qté stock','Qté prod/transit','Qté à annuler','PO / sources','Collection','Droppé','Montant EUR'],
-  ...detFiltered().map(r=>[r.cat,r.cf,r.ord,r.sku,r.des,r.qte,fmtD(r.dliv),fmtD(r.eta),r.ret,r.st,r.qs,r.qp,r.qa,r.srcTxt,r.coll,r.drop,r.eur])],'detail_par_article.csv');
-
-/* ── Export Excel (SheetJS via CDN) ─────────────────────────────────────── */
-document.getElementById('btnExport').onclick=async()=>{
-  const b=document.getElementById('btnExport');b.disabled=true;b.textContent='Chargement…';
-  try{ await loadXlsx(); doExcel(); }
-  catch(err){ alert(err.message); }
-  finally{ b.disabled=false;b.textContent='Exporter Excel'; }};
-function doExcel(){
-  try{
-    const wb=XLSX.utils.book_new(),o=S.orders;
-    const nQ=o.reduce((s,x)=>s+x.qte,0),nE=o.reduce((s,x)=>s+x.eur,0),nS=o.reduce((s,x)=>s+x.qs,0),nP=o.reduce((s,x)=>s+x.qp,0),nA=o.reduce((s,x)=>s+x.qa,0);
-    const cnt=t=>o.filter(x=>x.stat.includes(t)).length,sum=t=>o.filter(x=>x.stat.includes(t)).reduce((a,x)=>a+x.eur,0);
-
-    /* ── Onglet 1 : Synthèse direction ── */
-    const syn=[['SYNTHÈSE DIRECTION — État des livraisons'],['Analyse au',fmtD(TODAY)],[],
-      ["VUE D'ENSEMBLE"],['Nombre de commandes',o.length],['Pièces commandées (total)',nQ],
-      ['Pièces disponibles en stock',nS],['Pièces à venir (production)',nP],['Pièces à annuler',nA],
-      ['Montant total commandé',nE],['Taux de couverture global',nQ?(nS+nP)/nQ:0],[],
-      ['PONCTUALITÉ DES LIVRAISONS','Commandes','% du total','Montant €'],
-      ['🟢 On time',cnt('On time'),o.length?cnt('On time')/o.length:0,sum('On time')],
-      ['🟠 Partiellement en retard',cnt('Partiellement'),o.length?cnt('Partiellement')/o.length:0,sum('Partiellement')],
-      ['⚫ À annuler (aucune source, collection lancée)',cnt('À annuler'),o.length?cnt('À annuler')/o.length:0,sum('À annuler')],
-      ['🔴 Critique +50% retard',cnt('Critique'),o.length?cnt('Critique')/o.length:0,sum('Critique')],[]];
-    for(const cat of ['WHOLESALE FRANCE','INTERNATIONAL']){
-      const m=new Map();
-      for(const x of o.filter(y=>y.cat===cat)){const e=m.get(x.cf)||{eur:0,g:0,a:0,r:0};e.eur+=x.eur;
-        if(x.stat.includes('On time'))e.g++;else if(x.stat.includes('Partiellement'))e.a++;else e.r++;m.set(x.cf,e);}
-      const tot=[...m.values()].reduce((s,x)=>s+x.eur,0);
-      syn.push(['TOP 5 CLIENTS — '+cat,'Montant €','% CA','🟢','🟠','🔴']);
-      [...m.entries()].sort((a,b)=>b[1].eur-a[1].eur).slice(0,5).forEach(([k,v])=>syn.push([k,v.eur,tot?v.eur/tot:0,v.g,v.a,v.r]));
-      syn.push([]);
+  /* ---- SUBSTITUTIONS ---- */
+  const desigBySku={};
+  for(const o of Object.values(orders))for(const l of o.lines)if(l.desig&&!desigBySku[l.sku])desigBySku[l.sku]=l.desig;
+  function base(sku){const i=sku.lastIndexOf('_');return i>0?sku.slice(0,i):sku;}
+  function size(sku){const i=sku.lastIndexOf('_');return i>0?sku.slice(i+1):'';}
+  function model(sku){const d=desigBySku[sku]||'';return d.split(/\s+/)[0]||null;}
+  const poolBySku={},poolByModel={};
+  for(const e of restPool){(poolBySku[base(e.sku)]=poolBySku[base(e.sku)]||[]).push(e);
+    const m=model(e.sku);if(m)(poolByModel[m+'|'+e.coll]=poolByModel[m+'|'+e.coll]||[]).push(e);}
+  const subHead=['COMMANDE','CLIENT','STATUT CMD','SKU MANQUANT','DÉSIGNATION','QTÉ MANQUANTE','RANG','TYPE DE SUBSTITUTION','SKU SUBSTITUT','DÉSIGNATION SUBSTITUT','PCS DISPO MAINTENANT','PCS À TERME','ETA À TERME','QTÉ PROPOSÉE','QTÉ RETENUE (SAISIE)'];
+  const okGrp=(e,mod)=>mod==='FR'?(e.stock?(e.grp==='LOG'||e.grp==='FRO'):e.grp==='FR')
+                                 :(e.stock?(e.grp==='SF'||e.grp==='DT'||e.grp==='ASO'):e.grp==='ASIE');
+  function buildSubst(mod){
+    const rows=[];let manq=0,prop=0,now=0;
+    const os=Object.values(orders).filter(o=>o.mod===mod&&o.show&&o._row);
+    for(const o of os){
+      for(const l of o.lines){
+        if(l.left<=0)continue;
+        manq+=l.left;const coll=o.coll||'';
+        let need=l.left,got=0,gotNow=0,nCand=0;
+        const propose=(e,rang,type)=>{
+          if(need<=0||e.left<=0||nCand>=R.substMaxCand)return;
+          nCand++;
+          if(e.coll!==coll||!coll)return;
+          if(!okGrp(e,mod))return;
+          const t=Math.min(need,e.left);e.left-=t;need-=t;got+=t;
+          if(e.stock)gotNow+=t;
+          rows.push([o.ord,o.cli,o._row[7],l.sku,l.desig,l.left,rang,type,e.sku,desigBySku[e.sku]||'',
+            e.stock?t:0,e.stock?0:t,e.eta?dstr(e.eta):null,t,null]);
+        };
+        const sib=(poolBySku[base(l.sku)]||[]).filter(e=>e.sku!==l.sku&&e.left>0&&e.coll===coll);
+        const mySz=parseFloat(size(l.sku))||0;
+        sib.sort((a,b)=>Math.abs((parseFloat(size(a.sku))||0)-mySz)-Math.abs((parseFloat(size(b.sku))||0)-mySz)||(b.stock-a.stock));
+        for(const e of sib)propose(e,1,'Même article, autre taille');
+        const r1got=got;
+        if(need>0&&!(R.substR2OnlyIfNoR1&&r1got>0)){const m=model(l.sku);
+          if(m){const cand=(poolByModel[m+'|'+coll]||[]).filter(e=>base(e.sku)!==base(l.sku)&&e.left>0);
+            cand.sort((a,b)=>(b.stock-a.stock));
+            let n2=0;
+            for(const e of cand){ if(n2>=R.substR2Max)break;
+              if(R.substR2SameSize&&size(e.sku)!==size(l.sku))continue;
+              const before=got; propose(e,2,'Même modèle, autre coloris (accord client)');
+              if(got>before)n2++; }}}
+        prop+=got;now+=gotNow;
+        o._row[21]=(o._row[21]||0)+got;
+        o._subNow=(o._subNow||0)+gotNow;
+      }
+      if(o._subNow>0&&!String(o._row[8]).includes('🔄')){
+        o._row[8]+=' · 🔄 '+nUS(o._subNow)+' pcs substituables dispo';}
     }
-    syn.push(['RÉPARTITION FRANCE / INTERNATIONAL','Commandes','Pièces','Montant €']);
-    ['WHOLESALE FRANCE','INTERNATIONAL'].forEach(c=>{const g=o.filter(x=>x.cat===c);
-      syn.push([c,g.length,g.reduce((a,b)=>a+b.qte,0),g.reduce((a,b)=>a+b.eur,0)]);});
-    const s1=XLSX.utils.aoa_to_sheet(syn);
-    s1['!cols']=[{wch:38},{wch:16},{wch:14},{wch:16},{wch:8},{wch:8}];
-    XLSX.utils.book_append_sheet(wb,s1,'SYNTHÈSE DIRECTION');
+    return {stats:['Pcs manquantes module :',manq,'Pcs proposées :',prop,'dont dispo maintenant :',now],head:subHead,rows};
+  }
+  const subFR=buildSubst('FR'), subIN=buildSubst('INT');
 
-    /* ── Onglet 2 : Pilotage livraisons ── */
-    const p=[PILCOLS.map(c=>c[1].toUpperCase())];
-    for(const x of o)p.push(PILCOLS.map(([k])=>x[k] instanceof Date?fmtD(x[k]):(k==='retMoy'&&x[k]!=null?Math.round(x[k]):x[k])));
-    const s2=XLSX.utils.aoa_to_sheet(p);
-    s2['!cols']=PILCOLS.map(c=>({wch:Math.max(11,Math.min(30,c[1].length+4))}));
-    s2['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:o.length,c:PILCOLS.length-1}})};
-    s2['!freeze']={xSplit:3,ySplit:1};
-    XLSX.utils.book_append_sheet(wb,s2,'PILOTAGE LIVRAISONS');
-
-    /* ── Onglet 3 : Détail par article ── */
-    const d=[['CATÉGORIE','CLIENT FACTURÉ','N° COMMANDE','SKU','DÉSIGNATION','QTÉ COMMANDÉE','DATE DEMANDÉE','ETA','RETARD vs DATE DEMANDÉE','STATUT','QTÉ LIVRABLE (stock)','QTÉ PROD / TRANSIT','QTÉ À ANNULER','PO / SOURCES','COLLECTION','DROPPÉ','MONTANT EUR']];
-    for(const r of S.detail)d.push([r.cat,r.cf,r.ord,r.sku,r.des,r.qte,fmtD(r.dliv),fmtD(r.eta),r.ret,r.st,r.qs,r.qp,r.qa,r.srcTxt,r.coll,r.drop,r.eur]);
-    const s3=XLSX.utils.aoa_to_sheet(d);
-    s3['!cols']=[{wch:17},{wch:24},{wch:15},{wch:12},{wch:28},{wch:10},{wch:12},{wch:12},{wch:10},{wch:14},{wch:11},{wch:11},{wch:11},{wch:70},{wch:11},{wch:8},{wch:11}];
-    XLSX.utils.book_append_sheet(wb,s3,'DETAIL PAR ARTICLE');
-
-    XLSX.writeFile(wb,'Pilotage_livraisons_'+fmtD(TODAY).replace(/\//g,'-')+'.xlsx');
-  }catch(e){alert('Export impossible : '+e.message);}
+  ctrl.onT=sumOT;ctrl.late=sumLate;ctrl.canc=sumCanc;
+  prog(.95,'Rendu…');await tick();
+  const ORDDBG=R.debugRaw?Object.values(orders).map(o=>[o.ord,o.cli,o.coll,o.dl,o.mt,o.show?1:0,o.mod||null,o.dcmd||null]):null;
+  const d={arrFlow:FLOW,rawAlloc:R.debugRaw?RAW:null,ordersDbg:ORDDBG,fileDate:dfr(TGEN)+' · arrivées à partir du '+dfr(TARR)+' · collections '+([...COLLSET].sort().join(', ')||'—'),
+    pfrHead:S.heads.pfr,pfr,pintHead:S.heads.pint,pint,detFR,detIN,subFR,subIN,
+    restHead:S.heads.rest||['SKU','COLLECTION','DESCRIPTION ARTICLE','SOURCE','PCS','DISPO','ETA'],
+    rest,restStats:[],macroHead:S.heads.macro,macro:[],methode:S.methode};
+  for(const r of d.rest)r[2]=desigBySku[r[0]]||'';
+  S.ctrl=ctrl;
+  prog(1,'Terminé — '+nUS(ctrl.demande)+' pcs de demande retenue');
+  applyData(d,'(recalcul V10 : '+nUS(ctrl.demande)+' pcs retenues · '+nUS(ctrl.onT)+' à temps · '+nUS(ctrl.late)+' retard · '+nUS(ctrl.canc)+' annulées)');
+  setTimeout(()=>{$('#prog').style.display='none';$('#loadZone').classList.remove('on');},1200);
 }
 
-}); // DOMContentLoaded
+});
 </script>
 {% endblock %}

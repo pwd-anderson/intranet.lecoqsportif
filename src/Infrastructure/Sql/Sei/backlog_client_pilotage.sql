@@ -1,4 +1,4 @@
--- Requête allégée dédiée au module Pilotage Livraisons
+-- Requête allégée dédiée au module Pilotage Livraisons (moteur V2)
 -- Alias alignés sur les noms de colonnes attendus par le moteur JS
 SELECT
     SOH.STOFCY_0                                                           AS [SITE],
@@ -7,6 +7,10 @@ SELECT
     BPC_INV.BPCNAM_0                                                       AS [NOM CLIENT],
     SOH.BPCORD_0                                                           AS [CODE CLIENT CMD.],
     SOH.BPCNAM_0                                                           AS [NOM CLIENT CMD.],
+    ATX6.TEXTE_0                                                           AS [GROUP CODE],
+    ATX4.TEXTE_0                                                           AS [NOM GROUPEMENT],
+    BPA.CTY_0                                                              AS [VILLE],
+    REP1.REPNAM_0                                                          AS [REPRESENTANT 1],
     SOQ.SOHNUM_0                                                           AS [NO COMMANDE],
     CASE WHEN SOH.CUSORDREF_0 <> '' THEN SOH.CUSORDREF_0 ELSE SOH.ZNORIGIN_0 END AS [REF. COMMANDE],
     SOQ.YCOLLECT_0                                                         AS [COLLECTION],
@@ -26,11 +30,23 @@ FROM X3_LCS.SORDERQ SOQ
     INNER JOIN X3_LCS.ITMMASTER ITM ON SOQ.ITMREF_0 = ITM.ITMREF_0
     INNER JOIN X3_LCS.BPCUSTOMER BPC ON SOH.BPCORD_0 = BPC.BPCNUM_0
     LEFT  JOIN X3_LCS.BPCUSTOMER BPC_INV ON SOH.BPCINV_0 = BPC_INV.BPCNUM_0
+    LEFT  JOIN X3_LCS.BPADDRESS BPA ON BPC.BPCNUM_0 = BPA.BPANUM_0 AND BPA.BPAADD_0 = SOH.BPAADD_0
+    LEFT  JOIN X3_LCS.SALESREP REP1 ON BPC.REP_0 = REP1.REPNUM_0
     LEFT  JOIN X3_LCS.ATEXTRA ATX ON ATX.IDENT2_0 = BPC.TSCCOD_2
                                   AND ATX.CODFIC_0  = 'ATABDIV'
                                   AND ATX.LANGUE_0  = 'FRA'
                                   AND ATX.ZONE_0    = 'LNGDES'
                                   AND ATX.IDENT1_0  = '32'
+    LEFT  JOIN X3_LCS.ATEXTRA ATX4 ON ATX4.IDENT2_0 = BPC.ZGROUPIND_0
+                                  AND ATX4.CODFIC_0 = 'ATABDIV'
+                                  AND ATX4.LANGUE_0 = 'FRA'
+                                  AND ATX4.ZONE_0   = 'LNGDES'
+                                  AND ATX4.IDENT1_0 = '6021'
+    LEFT  JOIN X3_LCS.ATEXTRA ATX6 ON ATX6.IDENT2_0 = BPC.ZGRPCOD_0
+                                  AND ATX6.CODFIC_0 = 'ATABDIV'
+                                  AND ATX6.LANGUE_0 = 'FRA'
+                                  AND ATX6.ZONE_0   = 'LNGDES'
+                                  AND ATX6.IDENT1_0 = '6028'
     LEFT  JOIN X3_LCS.ZITMCOL ITC ON ITC.ITMREF_0   = LEFT(ITM.ITMREF_0, CHARINDEX('_', ITM.ITMREF_0 + '_') - 1)
                                   AND ITC.YCOLLECT_0 = SOQ.YCOLLECT_0
 WHERE

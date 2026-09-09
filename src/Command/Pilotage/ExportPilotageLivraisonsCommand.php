@@ -15,10 +15,17 @@ use Symfony\Component\Mime\Email;
 
 #[AsCommand(
     name: 'app:pilotage:export-livraisons',
-    description: 'Génère l\'export Excel du Pilotage Livraisons (3 onglets) et l\'envoie par e-mail',
+    description: 'Génère l\'export Excel du Pilotage Livraisons (9 onglets) et l\'envoie par e-mail',
 )]
 class ExportPilotageLivraisonsCommand extends Command
 {
+    /**
+     * Collections actives — mêmes valeurs que les options cochées par défaut
+     * dans le sélecteur web (templates/pilotage/pilotage.html.twig, #pil-collections).
+     * À tenir synchronisé manuellement si le PM fait évoluer les collections suivies.
+     */
+    private const array COLLECTIONS = ['2026-02-FW', '2027-01-SS'];
+
     public function __construct(
         private Pilotage $pilotage,
         private PilotageEngine $engine,
@@ -36,7 +43,7 @@ class ExportPilotageLivraisonsCommand extends Command
     {
         $output->writeln('<comment>Pilotage Livraisons — chargement des données…</comment>');
 
-        $clientRows = $this->pilotage->getBacklogClient([]);
+        $clientRows = $this->pilotage->getBacklogClient(self::COLLECTIONS);
         $fournRows = $this->pilotage->getBacklogFournisseur();
         $stockRows = $this->pilotage->getStock();
 
@@ -54,10 +61,18 @@ class ExportPilotageLivraisonsCommand extends Command
 
         $result = $this->engine->compute($clientRows, $fournRows, $stockRows);
 
+        $nbFR = count($result['pfr']);
+        $nbINT = count($result['pint']);
+        $ctrl = $result['ctrl'];
+
         $output->writeln(sprintf(
-            '<comment>%d commandes, %d lignes article — génération du fichier Excel…</comment>',
-            count($result['orders']),
-            count($result['detail'])
+            '<comment>%d commandes France, %d commandes International (%d pcs demandées, %d à temps, %d en retard, %d annulées) — génération du fichier Excel…</comment>',
+            $nbFR,
+            $nbINT,
+            (int) round($ctrl['demande']),
+            (int) round($ctrl['onT']),
+            (int) round($ctrl['late']),
+            (int) round($ctrl['canc'])
         ));
 
         $dir = $this->projectDir . '/var/upload/export/pilotage_livraison';
@@ -69,7 +84,7 @@ class ExportPilotageLivraisonsCommand extends Command
         $filename = 'Pilotage_livraisons_' . (new \DateTimeImmutable())->format('Y-m-d') . '.xlsx';
         $path = $dir . '/' . $filename;
 
-        $spreadsheet = $this->exporter->build($result['orders'], $result['detail'], $this->engine);
+        $spreadsheet = $this->exporter->build($result);
         $this->exporter->save($spreadsheet, $path);
 
         $output->writeln('<info>Fichier généré : ' . $path . '</info>');
@@ -83,9 +98,9 @@ class ExportPilotageLivraisonsCommand extends Command
         $email = (new Email())
             ->subject('Pilotage Livraisons — export du ' . (new \DateTimeImmutable())->format('d/m/Y'))
             ->html(sprintf(
-                '<p>Bonjour,</p><p>Veuillez trouver ci-joint l\'export automatique du Pilotage Livraisons (%d commandes, %d lignes article).</p><p>Le Coq Sportif — Intranet</p>',
-                count($result['orders']),
-                count($result['detail'])
+                '<p>Bonjour,</p><p>Veuillez trouver ci-joint l\'export automatique du Pilotage Livraisons (%d commandes France, %d commandes International).</p><p>Le Coq Sportif — Intranet</p>',
+                $nbFR,
+                $nbINT
             ))
             ->attachFromPath($path);
 
