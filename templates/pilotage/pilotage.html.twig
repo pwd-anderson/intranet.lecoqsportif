@@ -209,6 +209,8 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:-.01em;margin:18px 0 9px}
 .pilotage-wrap .srctabs button{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:var(--r);padding:8px 14px;font-weight:600;font-size:12.5px;cursor:pointer;font-family:inherit}
 .pilotage-wrap .srctabs button.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
 .pilotage-wrap .srctabs button:hover{filter:brightness(1.08)}
+.pilotage-wrap .srctabs button#btnShowDiagram{background:transparent;color:var(--goldD);border-color:var(--goldD)}
+.pilotage-wrap .srctabs button#btnShowDiagram:hover{background:var(--bleuF)}
 .pilotage-wrap .coll-wrap{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:16px}
 .pilotage-wrap .coll-label{font-size:11.5px;font-weight:700;color:var(--ink2);margin-bottom:6px}
 .pilotage-wrap #pil-collections{border:1px solid var(--line);border-radius:var(--r);padding:4px;font-size:12.5px;min-width:220px;background:var(--paper);font-family:inherit}
@@ -252,6 +254,7 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:-.01em;margin:18px 0 9px}
     <div class="srctabs">
       <button class="on" id="tabLive" type="button">Données live (ERP)</button>
       <button id="tabFileImport" type="button">Import fichiers</button>
+      <button id="btnShowDiagram" type="button" style="margin-left:auto">Comment ça calcule ?</button>
     </div>
 
     <div id="liveZone">
@@ -311,6 +314,98 @@ h2.sec{font-size:15px;font-weight:700;letter-spacing:-.01em;margin:18px 0 9px}
   <div id="dBody"></div>
 </div>
 </div>{# /.pilotage-wrap #}
+
+{# Modale explicative : schéma de la moulinette (SVG statique, aucune dépendance externe) #}
+<div class="modal fade" id="diagramModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Comment la moulinette calcule le pilotage</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body" style="overflow-x:auto">
+        <svg viewBox="0 0 920 580" style="width:100%;height:auto;min-width:760px;font-family:system-ui,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+          <defs>
+            <marker id="pilArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#172b4c"></path>
+            </marker>
+          </defs>
+
+          <text x="460" y="26" text-anchor="middle" font-size="19" font-weight="700" fill="#172b4c">Moulinette Pilotage Livraisons</text>
+
+          <!-- Zone Sources -->
+          <rect x="10" y="55" width="200" height="320" rx="10" fill="#dbe4ff" opacity="0.4"></rect>
+          <text x="110" y="75" text-anchor="middle" font-size="13" font-weight="700" fill="#1e40af">SOURCES</text>
+          <rect id="s1" x="20" y="90" width="180" height="80" rx="8" fill="#eef6fd" stroke="#40a2ed" stroke-width="2"></rect>
+          <text x="110" y="124" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">Backlog Client</text>
+          <text x="110" y="142" text-anchor="middle" font-size="11.5" fill="#3d4753">(commandes en attente)</text>
+
+          <rect id="s2" x="20" y="190" width="180" height="80" rx="8" fill="#eef6fd" stroke="#40a2ed" stroke-width="2"></rect>
+          <text x="110" y="224" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">Backlog Fournisseur</text>
+          <text x="110" y="242" text-anchor="middle" font-size="11.5" fill="#3d4753">(PO usine + stock Asie)</text>
+
+          <rect id="s3" x="20" y="290" width="180" height="80" rx="8" fill="#eef6fd" stroke="#40a2ed" stroke-width="2"></rect>
+          <text x="110" y="324" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">Stock &amp; Allocation</text>
+          <text x="110" y="342" text-anchor="middle" font-size="11.5" fill="#3d4753">(stock dispo par site)</text>
+
+          <!-- Zone Moteur -->
+          <rect x="250" y="55" width="260" height="320" rx="10" fill="#e5dbff" opacity="0.4"></rect>
+          <text x="380" y="75" text-anchor="middle" font-size="13" font-weight="700" fill="#5b21b6">MOTEUR DE CALCUL</text>
+          <rect id="e1" x="270" y="90" width="220" height="65" rx="8" fill="#f3edff" stroke="#8b5cf6" stroke-width="2"></rect>
+          <text x="380" y="118" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">1. Regrouper les lignes</text>
+          <text x="380" y="136" text-anchor="middle" font-size="11.5" fill="#3d4753">par commande x collection</text>
+
+          <rect id="e2" x="270" y="170" width="220" height="90" rx="8" fill="#f3edff" stroke="#8b5cf6" stroke-width="2"></rect>
+          <text x="380" y="200" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">2. Allouer le stock puis les PO</text>
+          <text x="380" y="218" text-anchor="middle" font-size="11.5" fill="#3d4753">France d'abord,</text>
+          <text x="380" y="234" text-anchor="middle" font-size="11.5" fill="#3d4753">puis International</text>
+
+          <rect id="e3" x="270" y="275" width="220" height="90" rx="8" fill="#f3edff" stroke="#8b5cf6" stroke-width="2"></rect>
+          <text x="380" y="305" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">3. Calculer ETA,</text>
+          <text x="380" y="323" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">couverture et statut</text>
+          <text x="380" y="341" text-anchor="middle" font-size="11.5" fill="#3d4753">de chaque commande</text>
+
+          <!-- Zone Sorties -->
+          <rect x="550" y="55" width="200" height="360" rx="10" fill="#d3f9d8" opacity="0.4"></rect>
+          <text x="650" y="75" text-anchor="middle" font-size="13" font-weight="700" fill="#15803d">SORTIES</text>
+          <rect id="o1" x="560" y="90" width="180" height="55" rx="8" fill="#eafaf0" stroke="#22c55e" stroke-width="2"></rect>
+          <text x="650" y="122" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">Pilotage France</text>
+
+          <rect id="o2" x="560" y="160" width="180" height="55" rx="8" fill="#eafaf0" stroke="#22c55e" stroke-width="2"></rect>
+          <text x="650" y="192" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">Pilotage International</text>
+
+          <rect id="o3" x="560" y="230" width="180" height="55" rx="8" fill="#eafaf0" stroke="#22c55e" stroke-width="2"></rect>
+          <text x="650" y="255" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">Substitutions</text>
+          <text x="650" y="272" text-anchor="middle" font-size="11" fill="#3d4753">(remplacements SKU)</text>
+
+          <rect id="o4" x="560" y="300" width="180" height="55" rx="8" fill="#eafaf0" stroke="#22c55e" stroke-width="2"></rect>
+          <text x="650" y="332" text-anchor="middle" font-size="13" font-weight="700" fill="#172b4c">Reste à allouer</text>
+
+          <!-- Export final -->
+          <rect id="final" x="560" y="400" width="180" height="60" rx="8" fill="#fff8e6" stroke="#f59e0b" stroke-width="2"></rect>
+          <text x="650" y="424" text-anchor="middle" font-size="12.5" font-weight="700" fill="#172b4c">Classeur Excel (9 onglets)</text>
+          <text x="650" y="442" text-anchor="middle" font-size="11" fill="#3d4753">+ email automatique</text>
+
+          <!-- Flèches sources -> moteur -->
+          <path d="M200,130 C225,130 225,122 270,122" fill="none" stroke="#40a2ed" stroke-width="2" marker-end="url(#pilArrow)"></path>
+          <path d="M200,230 C225,230 225,215 270,215" fill="none" stroke="#40a2ed" stroke-width="2" marker-end="url(#pilArrow)"></path>
+          <path d="M200,330 C225,330 225,320 270,320" fill="none" stroke="#40a2ed" stroke-width="2" marker-end="url(#pilArrow)"></path>
+
+          <!-- Flèches moteur -> sorties (depuis l'étape 3) -->
+          <path d="M490,320 C520,320 520,117 560,117" fill="none" stroke="#8b5cf6" stroke-width="2" marker-end="url(#pilArrow)"></path>
+          <path d="M490,320 C520,320 520,187 560,187" fill="none" stroke="#8b5cf6" stroke-width="2" marker-end="url(#pilArrow)"></path>
+          <path d="M490,320 C520,320 520,257 560,257" fill="none" stroke="#8b5cf6" stroke-width="2" marker-end="url(#pilArrow)"></path>
+          <path d="M490,320 C520,320 520,327 560,327" fill="none" stroke="#8b5cf6" stroke-width="2" marker-end="url(#pilArrow)"></path>
+
+          <!-- Flèche sorties -> export -->
+          <path d="M650,378 L650,400" fill="none" stroke="#22c55e" stroke-width="2" marker-end="url(#pilArrow)"></path>
+
+          <text x="460" y="565" text-anchor="middle" font-size="12" fill="#6b7683">Priorité : plus gros clients facturés d'abord, puis date de livraison la plus proche</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}
@@ -1452,6 +1547,9 @@ $('#tabLive').addEventListener('click',()=>{
 $('#tabFileImport').addEventListener('click',()=>{
   $('#tabFileImport').classList.add('on');$('#tabLive').classList.remove('on');
   $('#fileZone').classList.remove('hide');$('#liveZone').classList.add('hide');
+});
+$('#btnShowDiagram').addEventListener('click',()=>{
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('diagramModal')).show();
 });
 $('#btnLoadLive').addEventListener('click', async function(){
   const selected=[...document.querySelectorAll('#pil-collections option:checked')].map(o=>o.value);
