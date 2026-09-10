@@ -237,6 +237,7 @@ class Sales
                         'ITEM_GROUP' => $row['ITEM_GROUP'] ?? null,
                         'DESIGNATION_MODELE' => $row['DESIGNATION_MODELE'] ?? null,
                         'PRIX' => $row['PRIX'] ?? null,
+                        'MARKET_PRICE' => $row['MARKET_PRICE'] ?? null,
                         'DEVISE' => $row['DEVISE'] ?? null,
                         'GROUPE_TARIF' => $row['GROUPE_TARIF'] ?? null,
                         'Total' => 0,
@@ -299,7 +300,8 @@ class Sales
         try {
             $query = "
             select distinct SPL.PLICRI1_0 as GROUPE_TARIF from X3_LCS.SPRICLIST AS SPL
-            where SPL.PLI_0 = 'T10'";
+            where SPL.PLI_0 IN ('T10', 'T11')
+            order by SPL.PLICRI1_0;";
             return $this->mssqlSei()->executeQuery($query);
 
         } catch (\Exception $e) {
