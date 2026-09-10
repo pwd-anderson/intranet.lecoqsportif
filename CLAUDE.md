@@ -67,8 +67,9 @@ Every business domain (Achats, Ventes, Stock, IT) follows the same structure for
 4. **AG Grid config** stored in MySQL `aggrid_option` table (`grid_name` matches the key in `$config`). INSERT scripts are versioned in `src/Infrastructure/Sql/AgGrid/`
 5. **Sidebar link** in `templates/partials/_sidebar.html.twig`
 6. **Translation key** `sidebar.stat.{domain}.{identifier}` in `translations/messages.fr.yaml` and `messages.en.yaml`
+7. **Section auto-open** : ajouter le nom de la route dans la liste `currentRoute in [...]` du bloc `<li class="treeview {% if currentRoute in [...] %}active{% endif %}">` correspondant à la section (Ventes, ADV, Achats, IT...) dans `_sidebar.html.twig`. Sans ça, le menu ne se déroule pas automatiquement sur la nouvelle stat (elle reste accessible, juste pas mise en évidence dans le sidebar). Ne pas utiliser `path starts with '/...'` pour ce test — plusieurs sections partagent le même préfixe d'URL (ex: Ventes et ADV commencent toutes les deux par `/sales/`), ce qui ouvre les deux blocs en même temps.
 
-When adding a new generic stat, all six steps are required. The Twig template is shared and never modified.
+When adding a new generic stat, all seven steps are required. The Twig template is shared and never modified.
 
 ### Stat pattern (special / SSRM)
 

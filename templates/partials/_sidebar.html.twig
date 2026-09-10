@@ -39,7 +39,7 @@
 
                     {# ----- Ventes : SALES, MARKETING, MANAGEMENT, CONTROLLING, ADMIN ----- #}
                     {% if isSuperUser or is_granted('ROLE_SALES') or is_granted('ROLE_MARKETING') %}
-                    <li class="treeview {% if path starts with '/sales' %}active{% endif %}">
+                    <li class="treeview {% if currentRoute in ['app_kpi_retail', 'app_kpi_retail_x3', 'app_sales_reassort', 'app_sales_excess_for_sales', 'app_sales_poid_famille_par_variant', 'app_sales_best_demand_per_style', 'app_sales_sell_in_suivi_ps', 'app_sales_suivi_perf_wholesale_fr', 'app_sales_ventes_qte_ca_client'] %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/ecommerce.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.sales'|trans }}</span>
@@ -78,7 +78,7 @@
 
                     {# ----- Achats : PURCHASING, MANAGEMENT, CONTROLLING, ADMIN ----- #}
                     {% if isSuperUser or is_granted('ROLE_PURCHASING') %}
-                    <li class="treeview {% if path starts with '/purchase' %}active{% endif %}">
+                    <li class="treeview {% if currentRoute in ['app_backlog_fournisseur_x3', 'app_reception_fournisseur'] %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/purchase.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.purchasing'|trans }}</span>
@@ -113,7 +113,7 @@
 
                     {# ----- IT : IT, MANAGEMENT, ADMIN ----- #}
                     {% if isSuperUser or is_granted('ROLE_IT') %}
-                    <li class="treeview {% if path starts with '/it' %}active{% endif %}">
+                    <li class="treeview {% if currentRoute in ['app_it_tcd_cmd_non_soldees', 'app_it_detail_tcd'] %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/it.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.it'|trans }}</span>
