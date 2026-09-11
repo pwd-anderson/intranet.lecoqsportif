@@ -66,8 +66,8 @@
 .da-wrap .citem .nm{font-weight:600;font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .da-wrap .citem .qt{font-size:11.5px;opacity:.75;font-variant-numeric:tabular-nums}
 .da-wrap .main{flex:1;min-width:0;padding:26px 34px 60px}
-.da-wrap .placeholder{color:var(--muted);max-width:46ch;margin:12vh auto;text-align:center}
-.da-wrap .placeholder h2{font-family:"Archivo",sans-serif;font-weight:700;color:var(--ink-2)}
+.da-wrap .da-placeholder{color:var(--muted);max-width:46ch;margin:12vh auto;text-align:center}
+.da-wrap .da-placeholder h2{font-family:"Archivo",sans-serif;font-weight:700;color:var(--ink-2)}
 .da-wrap .chead h2{font-family:"Archivo",sans-serif;font-weight:800;font-size:26px;margin:0;color:var(--ink)}
 .da-wrap .chead .meta{color:var(--muted);font-size:13px;margin-top:2px}
 .da-wrap .toolrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
@@ -192,7 +192,10 @@
 .da-wrap .srcswitch{display:flex;gap:8px;margin:0 14px 10px}
 .da-wrap .srcswitch button{flex:1;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
 .da-wrap .srcswitch button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-.da-wrap #daloading{padding:40px 24px;color:var(--muted);text-align:center}
+.da-wrap #daloading{padding:15vh 24px 24px;color:var(--muted);text-align:center}
+.da-wrap .da-spinner{width:34px;height:34px;margin:0 auto 18px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:da-spin .8s linear infinite}
+.da-wrap .da-loading-text{font-size:13px}
+@keyframes da-spin{to{transform:rotate(360deg)}}
 @media (max-width: 860px){
   .da-wrap .app{flex-direction:column}
   .da-wrap .side{width:100%;flex:none;height:auto;position:static;max-height:45vh}
@@ -211,7 +214,7 @@
   <div class="app">
     <aside class="side">
       <div class="brand">
-        <h1>Le Coq Sportif <span>· B2B</span></h1>
+        <h1>Distributor <span>Availability</span></h1>
         <div class="sub">Backlog of <span id="gendate"></span> · <span id="nbcli"></span> distributors</div>
       </div>
       <div class="srcswitch">
@@ -230,8 +233,11 @@
     </aside>
 
     <main class="main" id="main">
-      <div id="daloading">Loading live data from SEI Cube…</div>
-      <div class="placeholder" id="placeholder" hidden>
+      <div id="daloading">
+        <div class="da-spinner" aria-hidden="true"></div>
+        <div class="da-loading-text" id="daloadingText">Loading live data from SEI Cube…</div>
+      </div>
+      <div class="da-placeholder" id="placeholder" hidden>
         <h2>Select a distributor</h2>
         <p>Pick a distributor from the list to see what is ready for pick-up and the estimated arrival dates for the rest of their orders.</p>
       </div>
@@ -654,15 +660,15 @@ const URL_STOCK   = "{{ path('api_distributor_availability_stock') }}";
 /* DA-STRIP:START — chargement live (mode Symfony) : absent des fichiers exportés
    par generateDistPages(), qui embarquent déjà leurs données dans #DB (DB_SEED). */
 async function loadLive(){
-  el('daloading').hidden=false; el('daloading').textContent='Loading live data from SEI Cube…';
+  el('daloading').hidden=false; el('daloadingText').textContent='Loading live data from SEI Cube…';
   try{
-    el('daloading').textContent='Loading customer backlog…';
+    el('daloadingText').textContent='Loading customer backlog…';
     const client = await fetch(URL_CLIENT).then(r=>{ if(!r.ok) throw new Error('Backlog client : HTTP '+r.status); return r.json(); });
-    el('daloading').textContent='Loading French market reserve…';
+    el('daloadingText').textContent='Loading French market reserve…';
     const frres  = await fetch(URL_FRRES).then(r=>{ if(!r.ok) throw new Error('Réserve France : HTTP '+r.status); return r.json(); });
-    el('daloading').textContent='Loading supplier backlog…';
+    el('daloadingText').textContent='Loading supplier backlog…';
     const fourn  = await fetch(URL_FOURN).then(r=>{ if(!r.ok) throw new Error('Backlog fournisseur : HTTP '+r.status); return r.json(); });
-    el('daloading').textContent='Loading Logtex stock…';
+    el('daloadingText').textContent='Loading Logtex stock…';
     const stock  = await fetch(URL_STOCK).then(r=>{ if(!r.ok) throw new Error('Stock : HTTP '+r.status); return r.json(); });
 
     const CL = normalizeClientRows(client);
@@ -672,7 +678,7 @@ async function loadLive(){
     const res = compute(CL, supply, pool, frRes);
     applyResult(res);
   }catch(e){
-    el('daloading').textContent='';
+    el('daloadingText').textContent='';
     showModal('alert','Erreur de chargement des données live : '+e.message);
     console.error(e);
   }
