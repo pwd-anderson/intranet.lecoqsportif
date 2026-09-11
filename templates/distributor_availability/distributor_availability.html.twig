@@ -1,0 +1,1390 @@
+{% extends 'base.html.twig' %}
+
+{#
+  Module Distributor Availability — voir CLAUDE.md.
+  Porté fidèlement depuis public/template/Distributor_Availability_intranet_3.html (fichier de
+  référence PM, source de vérité pour la logique métier : FIFO, priorisation, Cambodge, PO_OVERRIDE).
+  Différences vs le fichier de référence :
+   - auto-chargement au DOMContentLoaded (pas de bouton manuel comme Pilotage) ;
+   - les 4 sources SQL sont déjà filtrées/agrégées côté serveur (5 distributeurs, réserve France) ;
+   - palette de couleurs intranet (#40a2ed / #2b84d4 / #172b4c), comme Pilotage Livraisons ;
+   - mode "Import fichiers (test)" conservé en secours (bascule Live/Import).
+#}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<style id="daStyle">
+.da-wrap{
+  /* Palette intranet — mêmes valeurs hexadécimales que templates/pilotage/pilotage.html.twig */
+  --bg:#eceef1;
+  --surface:#ffffff;
+  --surface-2:#eef0f3;
+  --ink:#172b4c;
+  --ink-2:#3d4753;
+  --muted:#6b7683;
+  --line:#d8dce2;
+  --accent:#2b84d4;      /* goldD intranet */
+  --accent-ink:#ffffff;
+  --accent-soft:#eef6fd; /* bleuF intranet */
+  --good:#0f7b3d; --good-bg:#e7f4ec;
+  --warn:#a86a00; --warn-bg:#fdf2dc;
+  --late:#c8102e; --late-bg:#fceaec;
+  --unk:#5b6572;  --unk-bg:#eef0f3;
+  --shadow:0 1px 3px rgba(23,43,76,.08);
+  box-sizing:border-box;
+}
+.da-wrap *{box-sizing:border-box}
+.da-wrap{background:var(--bg);color:var(--ink);font-family:"Source Sans 3",-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14.5px;line-height:1.45;min-height:calc(100vh - 60px)}
+.da-wrap .app{display:flex;min-height:calc(100vh - 60px)}
+.da-wrap body.dist .side,.da-wrap.dist .side,.da-wrap.dist #internview,.da-wrap.dist #updview,.da-wrap.dist #genview,
+.da-wrap.dist .legend,.da-wrap.dist .modetabs,.da-wrap.dist details.howto{display:none!important}
+.da-wrap.dist #placeholder{display:none}
+.da-wrap.dist .main{padding:30px clamp(18px,4vw,54px) 70px}
+.da-wrap.dist .sitecode,.da-wrap.dist .sitebadge .cd{display:none}
+.da-wrap .disthead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:14px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.da-wrap .disthead .logo{font-family:"Archivo",sans-serif;font-weight:800;font-size:14px;letter-spacing:.03em;text-transform:uppercase}
+.da-wrap .disthead .logo span{color:var(--accent)}
+.da-wrap .disthead .asof{margin-left:auto;color:var(--muted);font-size:12.5px}
+.da-wrap .distnote{margin-top:26px;color:var(--muted);font-size:12.5px;max-width:70ch;border-top:1px solid var(--line);padding-top:12px}
+.da-wrap .side{width:300px;flex:0 0 300px;border-right:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;position:sticky;top:60px;height:calc(100vh - 60px)}
+.da-wrap .brand{padding:18px 18px 12px;border-bottom:1px solid var(--line)}
+.da-wrap .brand h1{font-family:"Archivo",sans-serif;font-weight:800;font-size:17px;letter-spacing:.02em;margin:0;text-transform:uppercase;color:var(--ink)}
+.da-wrap .brand h1 span{color:var(--accent)}
+.da-wrap .brand .sub{color:var(--muted);font-size:12px;margin-top:2px}
+.da-wrap .modetabs{display:flex;gap:3px;padding:10px 14px 0}
+.da-wrap .modetabs button{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:8px 8px 0 0;border-bottom:0;padding:7px 2px;font:inherit;font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.da-wrap .modetabs button.on{background:var(--accent);color:var(--accent-ink)}
+.da-wrap .modetabs button:focus-visible{outline:2px solid var(--accent)}
+.da-wrap .searchbox{padding:12px 14px;border-bottom:1px solid var(--line)}
+.da-wrap .searchbox input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.da-wrap .searchbox input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.da-wrap .clist{overflow-y:auto;flex:1;padding:6px}
+.da-wrap .citem{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);padding:8px 10px;border-radius:8px;cursor:pointer;font:inherit}
+.da-wrap .citem:hover{background:var(--surface-2)}
+.da-wrap .citem.on{background:var(--accent);color:var(--accent-ink)}
+.da-wrap .citem .nm{font-weight:600;font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.da-wrap .citem .qt{font-size:11.5px;opacity:.75;font-variant-numeric:tabular-nums}
+.da-wrap .main{flex:1;min-width:0;padding:26px 34px 60px}
+.da-wrap .placeholder{color:var(--muted);max-width:46ch;margin:12vh auto;text-align:center}
+.da-wrap .placeholder h2{font-family:"Archivo",sans-serif;font-weight:700;color:var(--ink-2)}
+.da-wrap .chead h2{font-family:"Archivo",sans-serif;font-weight:800;font-size:26px;margin:0;color:var(--ink)}
+.da-wrap .chead .meta{color:var(--muted);font-size:13px;margin-top:2px}
+.da-wrap .toolrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.da-wrap .btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.da-wrap .btn:hover{background:var(--surface-2)}
+.da-wrap .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.da-wrap .btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.da-wrap .filterinp{flex:1;min-width:180px;max-width:340px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.da-wrap .sitefilter{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.da-wrap .sitefilter button{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:5px 13px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+.da-wrap .sitefilter button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.da-wrap .sitefilter button .n{opacity:.75;font-variant-numeric:tabular-nums;font-weight:400}
+.da-wrap .ordertot{margin-top:20px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.da-wrap .ordertot .lbl{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.da-wrap .ordertot .v{font-family:"Archivo",sans-serif;font-weight:800;font-size:26px;font-variant-numeric:tabular-nums;line-height:1}
+.da-wrap .ordertot .u{color:var(--muted);font-size:13px}
+.da-wrap .propbar{display:flex;gap:2px;margin-top:9px;height:12px;border-radius:6px;overflow:hidden;background:var(--surface-2)}
+.da-wrap .propbar span{display:block;min-width:2px}
+.da-wrap .propbar .sg-pickup{background:var(--good)}
+.da-wrap .propbar .sg-dated{background:var(--accent)}
+.da-wrap .propbar .sg-nodate{background:var(--muted)}
+.da-wrap .propbar .sg-fr{background:var(--accent-soft)}
+.da-wrap .propbar .sg-other{background:var(--line)}
+.da-wrap .fchips{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.da-wrap .fchip{display:flex;flex-direction:column;gap:1px;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;padding:8px 13px;font:inherit;cursor:pointer;min-width:118px}
+.da-wrap .fchip:hover{background:var(--surface-2)}
+.da-wrap .fchip.on{border-width:2px;padding:7px 12px}
+.da-wrap .fchip.on.c-pickup{border-color:var(--good)} .da-wrap .fchip.on.c-dated{border-color:var(--accent)}
+.da-wrap .fchip.on.c-nodate{border-color:var(--muted)} .da-wrap .fchip.on.c-other{border-color:var(--line);background:var(--surface-2)}
+.da-wrap .fchip .fv{font-family:"Archivo",sans-serif;font-weight:800;font-size:19px;font-variant-numeric:tabular-nums;line-height:1.1}
+.da-wrap .fchip .fl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:5px}
+.da-wrap .fchip .fl::before{content:"";width:8px;height:8px;border-radius:2px;background:currentColor;flex:none}
+.da-wrap .fchip.c-pickup .fl{color:var(--good)} .da-wrap .fchip.c-dated .fl{color:var(--accent)}
+.da-wrap .fchip.c-nodate .fl{color:var(--muted)} .da-wrap .fchip.c-other .fl{color:var(--ink-2)}
+.da-wrap .fchip .fp{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.da-wrap .filterbar{display:none;align-items:center;gap:10px;margin-top:12px;padding:8px 13px;border-radius:9px;background:var(--accent-soft);font-size:13.5px;font-weight:600}
+.da-wrap .filterbar.on{display:flex}
+.da-wrap .filterbar button{margin-left:auto;border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:7px;padding:3px 10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.da-wrap details.howto{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 15px}
+.da-wrap details.howto summary{cursor:pointer;padding:10px 0;font-size:13.5px;font-weight:700;color:var(--accent);list-style:none}
+.da-wrap details.howto summary::-webkit-details-marker{display:none}
+.da-wrap details.howto summary::before{content:"?  ";font-weight:800}
+.da-wrap details.howto[open] summary{border-bottom:1px solid var(--line)}
+.da-wrap details.howto dl{margin:0;padding:10px 0 14px;font-size:13.5px}
+.da-wrap details.howto dt{font-weight:700;margin-top:9px}
+.da-wrap details.howto dt:first-child{margin-top:0}
+.da-wrap details.howto dd{margin:2px 0 0;color:var(--ink-2)}
+.da-wrap .tiles{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.da-wrap .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px;min-width:150px;box-shadow:var(--shadow)}
+.da-wrap .tile .v{font-family:"Archivo",sans-serif;font-weight:800;font-size:24px;font-variant-numeric:tabular-nums;line-height:1.1}
+.da-wrap .tile .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.da-wrap .tile.sites{min-width:200px}
+.da-wrap .tile.sites .l{margin-top:0;margin-bottom:6px}
+.da-wrap .tile.sites table{font-size:13px;border-collapse:collapse}
+.da-wrap .tile.sites td{padding:1px 0;border:0}
+.da-wrap .tile.sites td.num{padding-left:14px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;color:var(--good)}
+.da-wrap section{margin-top:34px}
+.da-wrap .sechead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;border-bottom:2px solid var(--accent);padding-bottom:6px}
+.da-wrap .sechead h3{font-family:"Archivo",sans-serif;font-weight:800;font-size:17px;text-transform:uppercase;letter-spacing:.04em;margin:0;color:var(--ink)}
+.da-wrap .sechead .cnt{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.da-wrap .ordergrp{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-top:14px;overflow:hidden;box-shadow:var(--shadow)}
+.da-wrap .ohead{display:flex;gap:14px;flex-wrap:wrap;align-items:baseline;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:13px}
+.da-wrap .ohead .ono{font-weight:700}
+.da-wrap .ohead .oref{color:var(--ink-2)}
+.da-wrap .ohead .odate{color:var(--muted)}
+.da-wrap .ohead .osum{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.da-wrap .twrap{overflow-x:auto}
+.da-wrap table{border-collapse:collapse;width:100%;font-size:13.5px}
+.da-wrap th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:7px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+.da-wrap td{padding:6px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.da-wrap tr:last-child td{border-bottom:0}
+.da-wrap td.num,.da-wrap th.num{text-align:right;font-variant-numeric:tabular-nums}
+.da-wrap td.art{font-weight:600;white-space:nowrap}
+.da-wrap td.sz{white-space:nowrap}
+.da-wrap td.desc{color:var(--ink-2);max-width:34ch}
+.da-wrap .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+.da-wrap .chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.da-wrap .chip.gd{color:var(--good);background:var(--good-bg)}
+.da-wrap .chip.wn{color:var(--warn);background:var(--warn-bg)}
+.da-wrap .chip.lt{color:var(--late);background:var(--late-bg)}
+.da-wrap .chip.uk{color:var(--unk);background:var(--unk-bg)}
+.da-wrap .chip.st{color:var(--accent);background:var(--accent-soft)}
+.da-wrap .sitebadge{display:inline-block;border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2);background:var(--surface)}
+.da-wrap .sitebadge .cd{font-weight:400;opacity:.6;margin-left:5px;font-family:ui-monospace,Menlo,monospace;letter-spacing:0}
+.da-wrap .sitecode{font-weight:400;opacity:.55;font-family:ui-monospace,Menlo,monospace;font-size:.85em;letter-spacing:0;margin-left:5px}
+.da-wrap table.allouer{font-size:12px}
+.da-wrap table.allouer thead th{position:sticky;top:0;background:var(--surface-2);z-index:2;padding:7px 6px}
+.da-wrap table.allouer td{padding:5px 6px}
+.da-wrap table.allouer td.desc{max-width:9ch;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.da-wrap table.allouer td.cli{max-width:11ch;overflow:hidden;text-overflow:ellipsis;font-weight:700;white-space:nowrap}
+.da-wrap table.allouer td.cmd{white-space:nowrap;font-variant-numeric:tabular-nums}
+.da-wrap td.sku{white-space:nowrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;font-weight:600}
+.da-wrap td.po{white-space:nowrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85em;color:var(--ink-2)}
+.da-wrap table.allouer td.src{white-space:nowrap;color:var(--good);font-weight:600}
+.da-wrap .act{display:inline-block;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;white-space:nowrap}
+.da-wrap .act.a1{background:var(--warn-bg);color:var(--warn)}
+.da-wrap .act.a0{background:var(--good-bg);color:var(--good)}
+.da-wrap table.allouer tr.newcli td{border-top:2px solid var(--accent)}
+.da-wrap table.allouer tbody tr:hover td{background:var(--accent-soft)}
+.da-wrap .updwrap{max-width:760px}
+.da-wrap .updwrap h2{font-family:"Archivo",sans-serif;font-weight:800;font-size:24px;margin:0 0 4px;color:var(--ink)}
+.da-wrap .updwrap .intro{color:var(--ink-2);max-width:64ch}
+.da-wrap .dropzone{display:block;border:2px dashed var(--line);border-radius:12px;padding:16px 18px;margin-top:14px;background:var(--surface);cursor:pointer}
+.da-wrap .dropzone:hover{border-color:var(--accent)}
+.da-wrap .dropzone.ok{border-style:solid;border-color:var(--good);background:var(--good-bg)}
+.da-wrap .dropzone.err{border-style:solid;border-color:var(--late);background:var(--late-bg)}
+.da-wrap .dropzone .dz-title{font-weight:700}
+.da-wrap .dropzone .dz-hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+.da-wrap .dropzone .dz-state{font-size:13px;margin-top:6px;font-weight:600}
+.da-wrap .dropzone input{display:none}
+.da-wrap .ctrltable{margin-top:18px;border-collapse:collapse;font-size:13.5px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;width:100%}
+.da-wrap .ctrltable th,.da-wrap .ctrltable td{padding:7px 14px;border-bottom:1px solid var(--line);text-align:right}
+.da-wrap .ctrltable th:first-child,.da-wrap .ctrltable td:first-child{text-align:left}
+.da-wrap .ctrltable tr:last-child td{border-bottom:0}
+.da-wrap .updlog{margin-top:14px;font-size:12.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;max-height:220px;overflow-y:auto;white-space:pre-wrap}
+.da-wrap .updlog .err{color:var(--late);font-weight:700}
+.da-wrap .legend{margin-top:26px;color:var(--muted);font-size:12.5px;max-width:72ch}
+.da-wrap .legend code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:var(--surface-2);padding:0 4px;border-radius:3px}
+.da-wrap .legend b{color:var(--ink-2)}
+.da-wrap .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9999}
+.da-wrap .toast.show{opacity:1}
+.da-wrap .srcswitch{display:flex;gap:8px;margin:0 14px 10px}
+.da-wrap .srcswitch button{flex:1;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+.da-wrap .srcswitch button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.da-wrap #daloading{padding:40px 24px;color:var(--muted);text-align:center}
+@media (max-width: 860px){
+  .da-wrap .app{flex-direction:column}
+  .da-wrap .side{width:100%;flex:none;height:auto;position:static;max-height:45vh}
+  .da-wrap .main{padding:18px 14px 50px}
+}
+@media print{
+  .da-wrap .side,.da-wrap .toolrow,.da-wrap .searchbox{display:none!important}
+  .da-wrap .main{padding:0}
+  .da-wrap .ordergrp,.da-wrap .tile{box-shadow:none;break-inside:avoid}
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="da-wrap" id="daRoot">
+  <div class="app">
+    <aside class="side">
+      <div class="brand">
+        <h1>Le Coq Sportif <span>· B2B</span></h1>
+        <div class="sub">Backlog of <span id="gendate"></span> · <span id="nbcli"></span> distributors</div>
+      </div>
+      <div class="srcswitch">
+        <button id="srcLive" class="on">Live (SEI Cube)</button>
+        <button id="srcImport">Import fichiers (test)</button>
+      </div>
+      <div class="modetabs" role="tablist">
+        <button id="tabClients" class="on" role="tab" aria-selected="true">Clients</button>
+        <button id="tabSites" role="tab" aria-selected="false">Sites</button>
+        <button id="tabIntern" role="tab" aria-selected="false" title="Communicated to the distributor, still to be allocated in the system">Allocate</button>
+        <button id="tabUpdate" role="tab" aria-selected="false" title="Upload files (test mode)">⟳ Import</button>
+        <button id="tabGen" role="tab" aria-selected="false" title="Build one file per distributor">Distributor pages</button>
+      </div>
+      <div class="searchbox"><input id="csearch" type="search" placeholder="Search a distributor…" aria-label="Search"></div>
+      <nav class="clist" id="clist" aria-label="Distributor list"></nav>
+    </aside>
+
+    <main class="main" id="main">
+      <div id="daloading">Loading live data from SEI Cube…</div>
+      <div class="placeholder" id="placeholder" hidden>
+        <h2>Select a distributor</h2>
+        <p>Pick a distributor from the list to see what is ready for pick-up and the estimated arrival dates for the rest of their orders.</p>
+      </div>
+      <div class="disthead" id="disthead" hidden>
+        <span class="logo">Le Coq Sportif <span>· B2B Availability</span></span>
+        <span class="asof" id="distasof"></span>
+      </div>
+      <div id="view" hidden>
+        <div class="chead">
+          <h2 id="cname"></h2>
+          <div class="meta" id="cmeta"></div>
+        </div>
+        <div class="toolrow">
+          <input class="filterinp" id="fsearch" type="search" placeholder="Filter by item, SKU, description, order…" aria-label="Filter rows">
+          <button class="btn" id="btnexport" hidden style="border-color:var(--accent);color:var(--accent)">⬇ Export to Excel</button>
+          <button class="btn" id="btnprint">Print / PDF</button>
+          <button class="btn" id="btncopyA">Copy “Available” for Excel</button>
+          <button class="btn" id="btncopyR">Copy “Incoming” for Excel</button>
+        </div>
+        <div class="sitefilter" id="sitefilter" role="group" aria-label="Filter by shipping site"></div>
+        <div class="ordertot" id="ordertot"></div>
+        <div class="propbar" id="propbar"></div>
+        <div class="fchips" id="fchips" role="group" aria-label="Filter by status"></div>
+        <div class="filterbar" id="filterbar"><span id="filtertext"></span><button id="clearfilter">Show all</button></div>
+        <details class="howto">
+          <summary>How to read these figures</summary>
+          <dl>
+            <dt>Total ordered</dt>
+            <dd>Everything the distributor has ordered, across all orders. The blocks below add up exactly to this total.</dd>
+            <dt>Ready for pick-up</dt>
+            <dd>Units physically available today: those already allocated to their orders on their own site, plus French stock (Logtex Moussey, WLOGM) allocated to them once the domestic market reserve is set aside.</dd>
+            <dt>Pending · with a date</dt>
+            <dd>Missing units covered by an existing supplier purchase order. The date shown is the expected arrival at the warehouse — not a firm availability date. If that date has already passed, the line is flagged “supplier delay”.</dd>
+            <dt>Unavailable references</dt>
+            <dd>Missing units with no supplier order behind them, or only partly covered. This is the real topic for the purchasing team: nothing allows us to commit to a date yet.</dd>
+            <dt>Cambodia</dt>
+            <dd>Cambodia never takes part in any calculation — no allocation, no supplier dates. It appears only for Pacific, whose units are ready to collect on site now, and Umnyama, whose units will be ready there on 15 September 2026.</dd>
+            <dt>Unclassified</dt>
+            <dd>Units ordered, not yet allocated, but not flagged as short by the system. Usually recent orders not yet processed for allocation. Marginal volume.</dd>
+          </dl>
+        </details>
+        <div class="tiles" id="tiles"></div>
+
+        <section id="secA">
+          <div class="sechead"><h3>Ready for pick-up</h3><span class="cnt" id="cntA"></span></div>
+          <div id="bodyA"></div>
+        </section>
+
+        <section id="secR">
+          <div class="sechead"><h3 id="secRttl">Incoming — backorders</h3><span class="cnt" id="cntR"></span></div>
+          <div id="bodyR"></div>
+        </section>
+
+        <p class="distnote" id="distnote" hidden></p>
+        <p class="legend">
+          <b>Method:</b> shortages are matched against the supplier backlog (“BL Fournisseur” inbound), first ordered first served, after French stock (Logtex Moussey, WLOGM) has been allocated by priority — Pacific, Umnyama, Niala, Getro, Sports Life, then first ordered first served — once the domestic market reserve for the next 3 months is set aside. On top of the supplier file, <b>purchase-order updates confirmed by the purchasing team</b> override the dates: a PO confirmed ex-factory switches its lines to available, and a PO with no firm ex-factory date shows the window announced by the supplier instead of a single date.
+          <b>Confirmed</b> = a supplier arrival covers the line · <b>Partial</b> = partly covered · <b>Supplier delay</b> = arrival expected on a date already passed · <b>To be confirmed</b> = no supplier order behind it.
+          The site shown on each block is the pick-up / shipping site, with its warehouse code: France <code>WLOGM</code>, China <code>WSFCN</code>, Thailand <code>WDTTH</code>, Cambodia <code>WTAKH</code>, Madagascar <code>WCOMG</code>. Cambodia (<code>WTAKH</code>) is kept out of every calculation: it appears only for Pacific (ready to collect now) and Umnyama (ready on 15 September 2026). The tool covers the 5 distributors tracked: Pacific, Umnyama, Niala, Getro, Sports Life. Sample orders (reference <code>SPL</code>) and everything relating to <code>SS27</code> are excluded.
+          Figures are indicative and non-contractual.
+        </p>
+      </div>
+      <div id="internview" hidden>
+        <div class="chead">
+          <h2>To allocate in the system</h2>
+          <div class="meta">Quantities already communicated to distributors as available for pick-up but not yet allocated in the ERP. Internal worklist — every row carries its distributor, the warehouse the units are picked from and the action to take in the ERP.
+          <b>Create a new line</b>: the order already carries an allocation somewhere, so the additional part needs an additional line — a single misqualified row makes the ERP reject the whole order.
+          <b>Amend existing line</b>: the order carries no allocation at all, so the line can be repointed straight to the source site. <b>Allocate on the existing line</b>: the units land on the very site the order sits on — no line to create or repoint, the existing line just needs allocating once the goods are booked in.</div>
+        </div>
+        <div class="toolrow">
+          <button class="btn" id="btnexportI" hidden style="border-color:var(--accent);color:var(--accent)">⬇ Export to Excel</button>
+          <button class="btn" id="btncopyI">Copy for Excel</button>
+          <button class="btn" id="btnprintI">Print / PDF</button>
+        </div>
+        <div class="tiles" id="tilesI"></div>
+        <div id="bodyI"></div>
+      </div>
+      <div class="updwrap" id="updview" hidden>
+        <h2>Import test (files)</h2>
+        <p class="intro">Mode secours pour tester le moteur de calcul hors ligne, sans passer par le SEI Cube. Les fichiers Excel déposés ici passent par la même règle de calcul (priorité, FIFO, Cambodge, PO_OVERRIDE) que le mode Live. Le mode Live (chargement automatique au chargement de la page) reste le mode normal d'utilisation.</p>
+        <label class="dropzone" id="dzC">
+          <span class="dz-title">1 · Customer backlog</span>
+          <span class="dz-hint">Excel file with the columns Site, Nom Client Cmde, N° Commande, Article, Variant, Quantité Allouée, Quantité en rupture…</span>
+          <span class="dz-state" id="stC">No file</span>
+          <input type="file" id="fC" accept=".xlsx,.xls">
+        </label>
+        <label class="dropzone" id="dzF">
+          <span class="dz-title">2 · Supplier backlog</span>
+          <span class="dz-hint">Excel file with TYPE FLUX, ARTICLE, QTÉ À LIVRER, DATE LIVRAISON…</span>
+          <span class="dz-state" id="stF">No file</span>
+          <input type="file" id="fF" accept=".xlsx,.xls">
+        </label>
+        <label class="dropzone" id="dzS">
+          <span class="dz-title">3 · Logtex stock (WLOGM, statut A1)</span>
+          <span class="dz-hint">Excel file with Article, Status Stock, Stock Disponible…</span>
+          <span class="dz-state" id="stS">No file</span>
+          <input type="file" id="fS" accept=".xlsx,.xls">
+        </label>
+        <div id="ctrlzone"></div>
+        <div class="updlog" id="updlog" hidden></div>
+        <div class="toolrow">
+          <button class="btn primary" id="btnpublish" disabled>Use this dataset</button>
+        </div>
+      </div>
+
+      <div id="genview" hidden>
+        <div class="chead">
+          <h2>Distributor pages</h2>
+          <div class="meta">One self-contained HTML file per distributor, built from the data currently loaded on this page. Each file shows that distributor its ready-for-pick-up lines only — no other distributor, no warehouse code, no supplier purchase order, no internal rule. Send the file, or put it on the intranet next to this one.</div>
+        </div>
+        <div class="toolrow">
+          <button class="btn primary" id="btngenall">Generate the 5 files</button>
+        </div>
+        <div class="updlog" id="genlog" hidden></div>
+        <div id="gencards"></div>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script id="RULES" type="application/json">{
+    "SITECODE": {"France":"WLOGM","China":"WSFCN","Thailand":"WDTTH","Cambodia":"WTAKH","Madagascar":"WCOMG"},
+    "SITEMAP":  {"WLOGM":"France","WSFCN":"China","WDTTH":"Thailand","WTAKH":"Cambodia","WCOMG":"Madagascar"},
+    "ACTION":   {"1":"Create a new line","0":"Amend existing line","2":"Allocate on the existing line"},
+    "PRIO": ["PACIFIC INTERNATIONAL TRADE S.A.S","UMNYAMA NKUKHU SPORTSWEAR PTY LTD","NIALA SERVICIOS SA","GETRO A/S","SPORTS LIFE S.A.R.L"],
+    "KEEPCLI": ["PACIFIC","UMNYAMA","NIALA","GETRO","SPORTS LIFE"],
+    "KH_CLI": {"PACIFIC":null,"UMNYAMA":"2026-09-15"},
+    "FR_RESERVE_MONTHS": 3,
+    "PO_OVERRIDE": [
+      {"po":["CALCSI26-00552"],"mode":"ready"},
+      {"po":["CAB26-00056","CAB26-00057","CAB25-03679/016","CAB25-03679/041","CAB25-03679/044","CAB26-00058"],
+       "mode":"window","end":"2026-10-15","label":"late September – mid October 2026"}
+    ]
+  }</script>
+  <script id="DB" type="application/json">{}</script>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script id="daXlsxLib" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script id="daScript">
+document.addEventListener('DOMContentLoaded', function(){
+'use strict';
+const ROOT = document.getElementById('daRoot');
+const el = id => document.getElementById(id);
+const NOOP = {classList:{toggle(){},add(){},remove(){}}, setAttribute(){}, addEventListener(){}};
+
+const RULES = (()=>{ const e=document.getElementById('RULES');
+  try{ return (e && e.textContent.trim()) ? JSON.parse(e.textContent) : {}; }catch(err){ return {}; } })();
+const SITECODE = RULES.SITECODE || {};
+const SITEMAP  = RULES.SITEMAP  || {};
+const ACTION   = RULES.ACTION   || {};
+const PRIO     = RULES.PRIO     || [];
+const KEEPCLI  = RULES.KEEPCLI  || [];
+const KH_CLI   = RULES.KH_CLI   || {};
+const FR_RESERVE_MONTHS = RULES.FR_RESERVE_MONTHS || 3;
+const PO_OVERRIDE = RULES.PO_OVERRIDE || [];
+const STOCKSITE = 'France';
+/* Sur la page live, #DB est vide ({}) au chargement (les données arrivent via loadLive()).
+   Sur un fichier exporté par generateDistPages(), #DB contient déjà le sous-ensemble d'un
+   seul distributeur (clé "only") — même mécanisme que le fichier de référence PM. */
+const DB_SEED = (()=>{ const e=document.getElementById('DB');
+  try{ const t=e && e.textContent.trim(); if(!t || t==='{}') return null; const d=JSON.parse(t);
+    return (d && d.C) ? d : null; }catch(err){ return null; } })();
+const DIST = (DB_SEED && DB_SEED.only && DB_SEED.C[DB_SEED.only]) ? DB_SEED.only : null;
+const DIST_BAD = !!(DB_SEED && DB_SEED.only) && !DIST;
+
+/* DA-STRIP:START — moteur de calcul et règles métier internes : jamais présents
+   dans un fichier exporté par generateDistPages() (voir #DA-STRIP dans distFile()),
+   même si le code source de la page live les contient — un distributeur ne doit
+   trouver AUCUNE trace, même dans du code mort, d'un autre client ou d'une règle
+   interne (ex: "UMNYAMA" codé en dur dans la restriction Madagascar/WCOMG). */
+function poOverride(pl){
+  if(!pl || !pl.length) return null;
+  for(const o of PO_OVERRIDE){ if(pl.every(p=>o.po.indexOf(p)>=0)) return o; }
+  return null;
+}
+const keptClient = n => KEEPCLI.some(k=>String(n).toUpperCase().includes(k));
+const khAllowed = n => Object.keys(KH_CLI).some(k=>String(n).toUpperCase().includes(k));
+const khDate = n => { const u=String(n).toUpperCase(); for(const k in KH_CLI) if(u.includes(k)) return KH_CLI[k]; return null; };
+const RE_SPL = /(^|[^A-Z0-9])SPL([^A-Z0-9]|$)/;
+const RE_SS27 = /SS\s*27|SS-27|2027-01-SS/;
+const excluded = (ref,coll) => {
+  const r=String(ref||'').toUpperCase(), c=String(coll||'').toUpperCase();
+  return RE_SPL.test(r) || RE_SS27.test(r) || RE_SS27.test(c);
+};
+/* DA-STRIP:END */
+
+const codeOf = s => SITECODE[s] || '';
+function siteLbl(s,cls){ const c=codeOf(s); return s + (c ? '<span class="'+(cls||'sitecode')+'">'+c+'</span>' : ''); }
+const showPO = () => true;
+const skuOf = p => p[0]+'_'+p[1];
+function siteBadge(s){ const c=codeOf(s); return '<span class="sitebadge">'+s+(c?'<span class="cd">'+c+'</span>':'')+'</span>'; }
+const fmtN = n => (n||0).toLocaleString('en-GB');
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtD(s){ if(!s) return ''; const [y,m,d]=s.split('-'); return (+d)+' '+MONTHS[+m-1]+' '+y; }
+const SIZE_ORDER = {'XXXS':1,'XXS':2,'XS':3,'S':4,'M':5,'L':6,'XL':7,'XXL':8,'2XL':8,'XXXL':9,'3XL':9,'4XL':10,'5XL':11,'TU':50,'OS':50};
+function szKey(s){ s=(s||'').toUpperCase(); if(SIZE_ORDER[s]) return SIZE_ORDER[s]; const n=parseFloat(s.replace(',','.')); return isNaN(n)?60:100+n; }
+function toast(msg){ const t=el('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+let TODAY = new Date().toISOString().slice(0,10);
+let P = [], C = {}, I = {};
+let names = [];
+
+/* ===================== MOTEUR DE CALCUL ======================
+   Porté fidèlement depuis public/template/Distributor_Availability_intranet_3.html
+   (bloc #adminjs, fonction maybeRun(), lignes ~868-993 du fichier de référence).
+   compute() prend des lignes déjà normalisées (identiques que la source soit
+   l'API live ou l'import Excel) : {site,cli,num,cmd,ref,art,vr,desc,dcmd,dliv,qt,qa,qr,rst}
+   pour CL, une map supply[sku] = [[date,qty,po], ...] triée, une map pool[sku] = qty,
+   et une map frRes[sku] = quantité réservée au marché France (déjà avant la coupure). */
+/* DA-STRIP:START — voir note plus haut */
+function compute(CL, supply, pool, frRes){
+  // réserve marché France : on retire du pool ce qui est déjà promis aux autres clients France
+  let heldTotal=0;
+  for(const sk in frRes){
+    const av=pool[sk]||0; if(av<=0) continue;
+    const take=Math.min(av,frRes[sk]); pool[sk]=av-take; heldTotal+=take;
+  }
+
+  const allocOrder={};
+  for(const l of CL){ allocOrder[l.cmd]=(allocOrder[l.cmd]||0)+l.qa; }
+
+  const prioRank={}; PRIO.forEach((n,i)=>prioRank[n]=i);
+  const rupt=CL.filter(l=>l.qr>0 && l.site!=='WTAKH').map((l,i)=>({...l,i,sku:l.art+'_'+l.vr,prio:prioRank[l.cli]??99}));
+
+  function fifoPass(needOf){
+    rupt.sort((a,b)=>(a.sku<b.sku?-1:a.sku>b.sku?1:0) || (a.dcmd<b.dcmd?-1:a.dcmd>b.dcmd?1:0) || (a.cmd<b.cmd?-1:a.cmd>b.cmd?1:0) || a.i-b.i);
+    const pos={}; let cov=0;
+    for(const l of rupt){
+      const need=Math.max(needOf(l),0);
+      const start=pos[l.sku]||0, end=start+need; pos[l.sku]=end;
+      l.dFull=null; l.dFirst=null; l.qCov=0; l.po=[];
+      if(need<=0) continue;
+      const sup=supply[l.sku];
+      if(sup){
+        let cum=0;
+        for(const [d,q,po] of sup){
+          cum+=q;
+          if(cum>start){
+            if(!l.dFirst) l.dFirst=d;
+            if(po && l.po.indexOf(po)<0) l.po.push(po);
+            l.qCov=Math.min(cum,end)-start;
+          }
+          if(cum>=end){ l.dFull=d; break; }
+        }
+      }
+      cov+=Math.max(l.qCov,0);
+    }
+    return cov;
+  }
+
+  fifoPass(l=>l.qr);
+  let ovReadyQty=0;
+  for(const l of rupt){
+    const ov=poOverride(l.po||[]);
+    l.qrd=(ov && ov.mode==='ready') ? l.qr : 0;
+    ovReadyQty+=l.qrd;
+  }
+  rupt.sort((a,b)=>a.prio-b.prio || (a.dcmd<b.dcmd?-1:a.dcmd>b.dcmd?1:0) || (a.cmd<b.cmd?-1:a.cmd>b.cmd?1:0) || a.i-b.i);
+  let stockAlloc=0;
+  for(const l of rupt){
+    const avail=pool[l.sku]||0;
+    l.qs=Math.max(Math.min(l.qr-l.qrd,avail),0);
+    if(l.qs>0){ pool[l.sku]=avail-l.qs; stockAlloc+=l.qs; }
+  }
+  const fifoCov=fifoPass(l=>l.qr-l.qrd-l.qs);
+
+  const skuIdx={}; const P2=[];
+  const getIdx=(l)=>{ const k=l.art+'_'+l.vr; if(!(k in skuIdx)){ skuIdx[k]=P2.length; P2.push([l.art,l.vr,l.desc]); } return skuIdx[k]; };
+  const sname=s=>SITEMAP[s]||s;
+  const cnum=v=>{ const f=parseFloat(v); return isNaN(f)?String(v??''):String(Math.trunc(f)); };
+  const C2={}; const I2={}; let allocQty=0, residQty=0;
+  const newc=l=>C2[l.cli]=C2[l.cli]||{num:cnum(l.num),a:[],r:[],t:{},na:{}};
+  for(const l of CL){
+    const c=newc(l), sn2=sname(l.site);
+    c.t[sn2]=(c.t[sn2]||0)+Math.trunc(l.qt);
+    if(l.site!=='WTAKH') c.na[sn2]=(c.na[sn2]||0)+Math.max(0,Math.trunc(l.rst)-Math.max(0,Math.trunc(l.qr)));
+    else c.na[sn2]=c.na[sn2]||0;
+  }
+  for(const l of CL){
+    if(l.site==='WTAKH'){
+      const q=Math.trunc(l.qa)+Math.max(0,Math.trunc(l.qr));
+      if(q>0){
+        const c=newc(l), d=khDate(l.cli);
+        if(d){ c.r.push([getIdx(l),l.cmd,q,2,d,d,q,l.dliv,l.ref,'Cambodia',0,'','']); residQty+=q; }
+        else { c.a.push([getIdx(l),l.cmd,q,l.dliv,l.ref,'Cambodia']); allocQty+=q; }
+      }
+      continue;
+    }
+    if(l.qa>0){
+      const c=newc(l);
+      c.a.push([getIdx(l),l.cmd,Math.trunc(l.qa),l.dliv,l.ref,sname(l.site)]);
+      allocQty+=Math.trunc(l.qa);
+    }
+  }
+  let ovReady=0, ovWin=0;
+  for(const l of rupt){
+    const c=newc(l);
+    const idx=getIdx(l);
+    const site0=sname(l.site);
+    const qrd=Math.trunc(l.qrd||0), qs=Math.trunc(l.qs), resid=Math.trunc(l.qr)-qs-qrd;
+    if(qrd>0){
+      let hit=null;
+      for(const al of c.a){ if(al[0]===idx && al[1]===l.cmd && al[5]===site0){ hit=al; break; } }
+      if(hit) hit[2]+=qrd; else c.a.push([idx,l.cmd,qrd,l.dliv,l.ref,site0]);
+      allocQty+=qrd; ovReady+=qrd;
+      (I2[l.cli]=I2[l.cli]||[]).push([idx,l.cmd,l.ref,qrd,l.dliv,site0,2,site0]);
+    }
+    if(qs>0){
+      let hit=null;
+      for(const al of c.a){ if(al[0]===idx && al[1]===l.cmd && al[5]==='France'){ hit=al; break; } }
+      if(hit) hit[2]+=qs; else c.a.push([idx,l.cmd,qs,l.dliv,l.ref,'France']);
+      allocQty+=qs;
+      const act = site0==='France' ? 2 : ((allocOrder[l.cmd]||0)>0 ? 1 : 0);
+      (I2[l.cli]=I2[l.cli]||[]).push([idx,l.cmd,l.ref,qs,l.dliv,site0,act,'France']);
+    }
+    if(resid>0){
+      const site=site0, ov=poOverride(l.po||[]);
+      let st = l.dFull?2 : l.qCov>0?1 : 0, dF=l.dFull, dFi=l.dFirst, lab='';
+      if(ov && ov.mode==='window'){ st=2; dF=ov.end; dFi=ov.end; lab=ov.label; ovWin+=resid; }
+      c.r.push([idx,l.cmd,resid,st,dF,dFi,Math.trunc(l.qCov),l.dliv,l.ref,site,0,(l.po||[]).join(' + '),lab]);
+      residQty+=resid;
+    }
+  }
+  const today=new Date();
+  const gen=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  return {gen,P:P2,C:C2,I:I2,stats:{allocQty,residQty,stockAlloc,fifoCov,ovReady,ovWin,heldTotal}};
+}
+
+/* ===================== NORMALISATION DES SOURCES =====================
+   Les 4 requêtes SQL (src/Infrastructure/Sql/Sei/distributor_availability_*.sql)
+   sont déjà filtrées côté serveur (5 sites autorisés, 5 distributeurs suivis pour
+   le backlog client, France uniquement statut A1 pour le stock, BL Fournisseur
+   uniquement). Reste à porter côté JS les règles qui ne peuvent pas être du SQL
+   pur : Madagascar réservé à Umnyama, Cambodge réservé à Pacific/Umnyama,
+   exclusion SPL/SS27 — exactement comme le fichier de référence (lignes ~774-799). */
+function normalizeClientRows(rows){
+  const CL=[];
+  for(const r of rows){
+    const site=String(r['SITE']??'').trim();
+    if(!(site in SITEMAP)) continue;
+    const cli=String(r['NOM CLIENT CMDE']??'').trim();
+    if(!keptClient(cli)) continue;
+    if(site==='WCOMG' && !cli.toUpperCase().includes('UMNYAMA')) continue;
+    if(site==='WTAKH' && !khAllowed(cli)) continue;
+    if(excluded(r['REFERENCE CLIENT'], r['COLLECTION'])) continue;
+    const cmd=r['N° COMMANDE'];
+    if(cmd==null || String(cmd).trim()==='') continue;
+    CL.push({
+      site, cli, num:r['N° CLIENT CMDE'], cmd:String(cmd).trim(),
+      ref:String(r['REFERENCE CLIENT']??'').trim(),
+      art:String(r['ARTICLE']??'').trim(), vr:String(r['VARIANT']??'').trim(),
+      desc:String(r['DESCRIPTION ARTICLE']??'').trim(),
+      dcmd:r['DATE COMMANDE']||'9999-12-31', dliv:r['DATE DE LIVRAISON']||null,
+      qt:Number(r['QUANTITE'])||0, qa:Number(r['QUANTITE ALLOUEE'])||0,
+      qr:Number(r['QUANTITE EN RUPTURE'])||0, rst:Number(r['RESTE A ALLOUER'])||0,
+    });
+  }
+  return CL;
+}
+function normalizeFranceReserve(rows){
+  const frRes={};
+  for(const r of rows){
+    const sk=String(r['ARTICLE']??'').trim()+'_'+String(r['VARIANT']??'').trim();
+    frRes[sk]=(frRes[sk]||0)+(Number(r['RESTE A ALLOUER'])||0);
+  }
+  return frRes;
+}
+function normalizeSupply(rows){
+  const supply={};
+  for(const r of rows){
+    if(String(r['TYPE FLUX']??'').trim()!=='BL Fournisseur') continue;
+    const q=Number(r['QTE A LIVRER'])||0; if(q<=0) continue;
+    const d=r['DATE LIVRAISON']; if(!d) continue;
+    const sku=String(r['ARTICLE']??'').trim();
+    const po=String(r['N° COMMANDE']??'').trim();
+    const kk=d+'\u0000'+po;
+    (supply[sku]=supply[sku]||{})[kk]=(supply[sku][kk]||0)+q;
+  }
+  for(const k in supply) supply[k]=Object.entries(supply[k])
+    .map(([kk,q])=>{ const i=kk.indexOf('\u0000'); return [kk.slice(0,i), q, kk.slice(i+1)]; })
+    .sort((a,b)=> a[0]<b[0]?-1 : a[0]>b[0]?1 : (a[2]<b[2]?-1:a[2]>b[2]?1:0));
+  return supply;
+}
+function normalizePool(rows){
+  const pool={};
+  for(const r of rows){
+    if(String(r['STATUS STOCK']??'').trim()!=='A1') continue;
+    const q=Number(r['STOCK DISPONIBLE'])||0; if(q<=0) continue;
+    const sku=String(r['ARTICLE']??'').trim();
+    pool[sku]=(pool[sku]||0)+q;
+  }
+  return pool;
+}
+
+/* DA-STRIP:END */
+function applyResult(res){
+  TODAY=res.gen; P=res.P; C=res.C; I=res.I||{};
+  names = Object.keys(C).sort((a,b)=>a.localeCompare(b,'en'));
+  if(el('gendate')) el('gendate').textContent = fmtD(TODAY);
+  if(el('nbcli'))   el('nbcli').textContent   = names.length;
+  el('daloading').hidden=true;
+  el('placeholder').hidden=false;
+  renderList();
+}
+
+/* ===================== CHARGEMENT LIVE (API JSON) =====================
+   Auto-chargement au DOMContentLoaded (contrairement à Pilotage qui attend un
+   clic) : la volumétrie de ce module (~26 700 lignes / 4 requêtes <1s chacune,
+   5 distributeurs uniquement) le permet largement.
+   Chargement séquentiel : même choix que Pilotage pour rester cohérent avec le
+   reste du site, même si ici la faible volumétrie rendrait un Promise.all sans
+   risque — on documente le choix plutôt que de le changer sans raison. */
+const URL_CLIENT = "{{ path('api_distributor_availability_backlog_client') }}";
+const URL_FRRES   = "{{ path('api_distributor_availability_france_reserve') }}";
+const URL_FOURN   = "{{ path('api_distributor_availability_backlog_fournisseur') }}";
+const URL_STOCK   = "{{ path('api_distributor_availability_stock') }}";
+
+/* DA-STRIP:START — chargement live (mode Symfony) : absent des fichiers exportés
+   par generateDistPages(), qui embarquent déjà leurs données dans #DB (DB_SEED). */
+async function loadLive(){
+  el('daloading').hidden=false; el('daloading').textContent='Loading live data from SEI Cube…';
+  try{
+    el('daloading').textContent='Loading customer backlog…';
+    const client = await fetch(URL_CLIENT).then(r=>{ if(!r.ok) throw new Error('Backlog client : HTTP '+r.status); return r.json(); });
+    el('daloading').textContent='Loading French market reserve…';
+    const frres  = await fetch(URL_FRRES).then(r=>{ if(!r.ok) throw new Error('Réserve France : HTTP '+r.status); return r.json(); });
+    el('daloading').textContent='Loading supplier backlog…';
+    const fourn  = await fetch(URL_FOURN).then(r=>{ if(!r.ok) throw new Error('Backlog fournisseur : HTTP '+r.status); return r.json(); });
+    el('daloading').textContent='Loading Logtex stock…';
+    const stock  = await fetch(URL_STOCK).then(r=>{ if(!r.ok) throw new Error('Stock : HTTP '+r.status); return r.json(); });
+
+    const CL = normalizeClientRows(client);
+    const frRes = normalizeFranceReserve(frres);
+    const supply = normalizeSupply(fourn);
+    const pool = normalizePool(stock);
+    const res = compute(CL, supply, pool, frRes);
+    applyResult(res);
+  }catch(e){
+    el('daloading').textContent='';
+    showModal('alert','Erreur de chargement des données live : '+e.message);
+    console.error(e);
+  }
+}
+
+/* ===================== IMPORT FICHIERS (mode test) =====================
+   Reprend le parsing Excel du fichier de référence (bloc #adminjs) pour
+   produire les mêmes structures normalisées, puis appelle le même compute(). */
+const upd={files:{}, result:null, inited:false};
+function log(msg,isErr){ const e=el('updlog'); e.hidden=false; const l=document.createElement('div'); if(isErr) l.className='err'; l.textContent=msg; e.appendChild(l); e.scrollTop=e.scrollHeight; }
+function clearLog(){ const e=el('updlog'); e.innerHTML=''; e.hidden=true; }
+const norm = s => String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+const N = v => { const n=typeof v==='number'?v:parseFloat(String(v??'').replace(',','.').replace(/\s/g,'')); return isNaN(n)?0:n; };
+function toISO(v){
+  if(v==null || v==='') return null;
+  if(typeof v==='number'){ const d=new Date(Math.round((v-25569)*86400000)); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); }
+  if(v instanceof Date){ return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0'); }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];
+  return null;
+}
+async function sheetRows(file){ const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',raw:true,dense:true}); const ws=wb.Sheets[wb.SheetNames[0]]; return XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null}); }
+function headerIndex(rows,mustHave){ for(let i=0;i<Math.min(rows.length,10);i++){ const hs=(rows[i]||[]).map(norm); if(mustHave.every(h=>hs.includes(norm(h)))) return i; } return -1; }
+function colmap(headerRow,wanted){ const hs=headerRow.map(norm); const map={}; const missing=[]; for(const [key,ns] of Object.entries(wanted)){ let idx=-1; for(const n of ns){ idx=hs.indexOf(norm(n)); if(idx>=0) break; } if(idx<0) missing.push(ns[0]); else map[key]=idx; } return {map,missing}; }
+
+function initUpdate(){
+  if(upd.inited) return; upd.inited=true;
+  [['fC','dzC','stC','client'],['fF','dzF','stF','fourn'],['fS','dzS','stS','stock']].forEach(([fid,dzid,stid,role])=>{
+    const inp=el(fid), dz=el(dzid), st=el(stid);
+    inp.addEventListener('change',()=>{
+      if(!inp.files.length) return;
+      upd.files[role]=inp.files[0];
+      st.textContent=inp.files[0].name+' — '+(inp.files[0].size/1e6).toFixed(1)+' MB';
+      dz.classList.remove('err'); dz.classList.add('ok');
+      maybeRun();
+    });
+  });
+}
+
+async function maybeRun(){
+  if(!(upd.files.client && upd.files.fourn && upd.files.stock)) return;
+  clearLog(); upd.result=null;
+  el('btnpublish').disabled=true;
+  el('ctrlzone').innerHTML='';
+  try{
+    log('Reading the files…');
+    const [rc,rf,rs]=await Promise.all([sheetRows(upd.files.client),sheetRows(upd.files.fourn),sheetRows(upd.files.stock)]);
+
+    const hc=headerIndex(rc,['N° Commande','Nom Client Cmde','Quantité Allouée']);
+    if(hc<0) throw new Error('Customer backlog: expected columns not found.');
+    const cw=colmap(rc[hc],{site:['Site'],num:['N° Client Cmde'],cli:['Nom Client Cmde'],cmd:['N° Commande'],ref:['Référence Client'],art:['Article'],var:['Variant'],desc:['Description Article'],dcmd:['Date Commande'],dliv:['Date de livraison'],coll:['Collection'],qt:['Quantité'],qa:['Quantité Allouée'],qr:['Quantité en rupture'],rst:['Reste à Allouer']});
+    if(cw.missing.length) throw new Error('Customer backlog: missing columns: '+cw.missing.join(', '));
+    const CL=[]; const frRes={};
+    const _cut=new Date(); _cut.setMonth(_cut.getMonth()+FR_RESERVE_MONTHS);
+    const FR_CUT=_cut.toISOString().slice(0,10);
+    for(let i=hc+1;i<rc.length;i++){
+      const r=rc[i]; if(!r) continue;
+      const cmd=r[cw.map.cmd]; if(cmd==null||String(cmd).trim()==='') continue;
+      const site=String(r[cw.map.site]??'').trim();
+      if(!(site in SITEMAP)) continue;
+      const cli=String(r[cw.map.cli]??'').trim();
+      if(site==='WLOGM' && !keptClient(cli)){
+        const rst=N(r[cw.map.rst]);
+        if(rst>0){
+          const dv=toISO(r[cw.map.dliv]);
+          if(!dv || dv<=FR_CUT){
+            const sk=String(r[cw.map.art]??'').trim()+'_'+String(r[cw.map.var]??'').trim();
+            frRes[sk]=(frRes[sk]||0)+rst;
+          }
+        }
+      }
+      if(!keptClient(cli)) continue;
+      if(site==='WCOMG' && !cli.toUpperCase().includes('UMNYAMA')) continue;
+      if(excluded(r[cw.map.ref], r[cw.map.coll])) continue;
+      if(site==='WTAKH' && !khAllowed(cli)) continue;
+      CL.push({site,cli,num:r[cw.map.num],cmd:String(cmd).trim(),ref:String(r[cw.map.ref]??'').trim(),
+        art:String(r[cw.map.art]??'').trim(),vr:String(r[cw.map.var]??'').trim(),desc:String(r[cw.map.desc]??'').trim(),
+        dcmd:toISO(r[cw.map.dcmd])||'9999-12-31',dliv:toISO(r[cw.map.dliv]),qt:N(r[cw.map.qt]),qa:N(r[cw.map.qa]),qr:N(r[cw.map.qr]),rst:N(r[cw.map.rst])});
+    }
+    if(!CL.length) throw new Error('No rows kept: check the file contains orders for Pacific, Umnyama, Niala, Getro or Sports Life.');
+    log('Customer backlog: '+CL.length.toLocaleString('en-GB')+' rows kept');
+
+    const hf=headerIndex(rf,['TYPE FLUX','ARTICLE','QTÉ À LIVRER']);
+    if(hf<0) throw new Error('Supplier backlog: expected columns not found.');
+    const fw=colmap(rf[hf],{flux:['TYPE FLUX'],art:['ARTICLE'],q:['QTÉ À LIVRER'],dl:['DATE LIVRAISON'],po:['N° COMMANDE']});
+    if(fw.missing.length) throw new Error('Supplier backlog: missing columns: '+fw.missing.join(', '));
+    const fournRows=[];
+    for(let i=hf+1;i<rf.length;i++){
+      const r=rf[i]; if(!r) continue;
+      fournRows.push({'TYPE FLUX':r[fw.map.flux],'ARTICLE':r[fw.map.art],'QTE A LIVRER':N(r[fw.map.q]),'DATE LIVRAISON':toISO(r[fw.map.dl]),'N° COMMANDE':r[fw.map.po]});
+    }
+    const supply=normalizeSupply(fournRows);
+    log('Supplier backlog: '+fournRows.length.toLocaleString('en-GB')+' rows read');
+
+    const hs2=headerIndex(rs,['Article','Status Stock','Stock Disponible']);
+    if(hs2<0) throw new Error('Stock file: expected columns not found.');
+    const sw=colmap(rs[hs2],{art:['Article'],st:['Status Stock'],q:['Stock Disponible']});
+    if(sw.missing.length) throw new Error('Stock file: missing columns: '+sw.missing.join(', '));
+    const siteCol=rs[hs2].findIndex(h=>norm(h)==='site');
+    const stockRows=[];
+    for(let i=hs2+1;i<rs.length;i++){
+      const r=rs[i]; if(!r) continue;
+      if(siteCol>=0 && String(r[siteCol]??'').trim()!=='WLOGM') continue;
+      stockRows.push({'ARTICLE':r[sw.map.art],'STATUS STOCK':r[sw.map.st],'STOCK DISPONIBLE':N(r[sw.map.q])});
+    }
+    const pool=normalizePool(stockRows);
+    log('Logtex WLOGM A1 stock: '+Object.values(pool).reduce((s,v)=>s+v,0).toLocaleString('en-GB')+' units available');
+
+    const res=compute(CL,supply,pool,frRes);
+    upd.result=res;
+    const fmt=n=>Math.round(n).toLocaleString('en-GB');
+    el('ctrlzone').innerHTML='<table class="ctrltable"><thead><tr><th>Check</th><th>Value</th></tr></thead><tbody>'+
+      '<tr><td>Distributors</td><td>'+Object.keys(res.C).length+'</td></tr>'+
+      '<tr><td>Units ready for pick-up</td><td>'+fmt(res.stats.allocQty)+'</td></tr>'+
+      '<tr><td>Units pending</td><td>'+fmt(res.stats.residQty)+'</td></tr>'+
+      '<tr><td>… of which dated via supplier</td><td>'+fmt(res.stats.fifoCov)+'</td></tr>'+
+      '<tr><td>French stock allocated</td><td>'+fmt(res.stats.stockAlloc)+'</td></tr>'+
+      '</tbody></table>';
+    log('Calculation complete. Click "Use this dataset" to switch the page to this import.');
+    el('btnpublish').disabled=false;
+  }catch(e){
+    log(String(e.message||e),true);
+  }
+}
+el('btnpublish').addEventListener('click',()=>{
+  if(!upd.result) return;
+  applyResult(upd.result);
+  toast('Import dataset in use');
+  setMode('client');
+});
+/* DA-STRIP:END */
+
+/* ===================== RENDU (vues Clients / Sites / Allocate) =====================
+   Porté fidèlement depuis le fichier de référence (bloc #viewjs), adapté pour ne
+   plus dépendre de la variable DIST (aucune vue distributeur isolée sur cette page —
+   c'est le rôle des fichiers générés par generateDistPages()). renderList()/renderClient()
+   restent présents dans les fichiers exportés : c'est renderClient() qui affiche le détail
+   du distributeur dans DIST_BAD/DIST au démarrage (voir plus bas). */
+const clist = el('clist');
+const csearch = el('csearch');
+let current = null;
+let mode = 'client';
+let siteFilter = null;
+let statusFilter = null;
+let curA = [], curR = [];
+
+function siteAgg(){
+  const SITES={};
+  for(const n of names){
+    const c=C[n];
+    for(const l of c.a){ const s=l[5]||'—'; (SITES[s]=SITES[s]||{a:0,r:0}).a+=l[2]; }
+    for(const l of c.r){ const s=l[9]||'—'; (SITES[s]=SITES[s]||{a:0,r:0}).r+=l[2]; }
+  }
+  return SITES;
+}
+function renderList(){
+  if(!clist||!csearch) return;
+  const q=csearch.value.trim().toLowerCase();
+  clist.innerHTML=''; let shown=0;
+  if(mode==='client'){
+    for(const n of names){
+      if(q && !n.toLowerCase().includes(q) && !(C[n].num||'').includes(q)) continue;
+      shown++;
+      const c=C[n];
+      const qa=c.a.reduce((s,l)=>s+l[2],0), qr=c.r.reduce((s,l)=>s+l[2],0);
+      const b=document.createElement('button');
+      b.className='citem'+(mode==='client'&&n===current?' on':'');
+      b.innerHTML='<span class="nm"></span><span class="qt">'+fmtN(qa)+' ready · '+fmtN(qr)+' incoming</span>';
+      b.querySelector('.nm').textContent=n;
+      b.addEventListener('click',()=>select(n));
+      clist.appendChild(b);
+    }
+    if(!shown) clist.innerHTML='<p style="color:var(--muted);padding:10px 12px;font-size:13px">No matching distributor.</p>';
+  } else {
+    const SITES=siteAgg();
+    const siteNames=Object.keys(SITES).sort((x,y)=>(SITES[y].a+SITES[y].r)-(SITES[x].a+SITES[x].r));
+    for(const n of siteNames){
+      if(q && !n.toLowerCase().includes(q)) continue;
+      shown++;
+      const s=SITES[n];
+      const b=document.createElement('button');
+      b.className='citem'+(mode==='site'&&n===current?' on':'');
+      b.innerHTML='<span class="nm">'+siteLbl(n)+'</span><span class="qt">'+fmtN(s.a)+' ready · '+fmtN(s.r)+' incoming</span>';
+      b.addEventListener('click',()=>selectSite(n));
+      clist.appendChild(b);
+    }
+    if(!shown) clist.innerHTML='<p style="color:var(--muted);padding:10px 12px;font-size:13px">No matching site.</p>';
+  }
+}
+if(csearch) csearch.addEventListener('input',renderList);
+
+const tabC=el('tabClients')||NOOP, tabS=el('tabSites')||NOOP, tabU=el('tabUpdate')||NOOP, tabI=el('tabIntern')||NOOP, tabG=el('tabGen')||NOOP;
+function setMode(m){
+  mode=(m==='update'||m==='intern'||m==='gen')?mode:m;
+  if(m==='client'||m==='site') current=null;
+  tabC.classList.toggle('on',m==='client'); tabS.classList.toggle('on',m==='site'); tabU.classList.toggle('on',m==='update'); tabI.classList.toggle('on',m==='intern'); tabG.classList.toggle('on',m==='gen');
+  el('view').hidden=true;
+  el('updview').hidden = m!=='update';
+  el('internview').hidden = m!=='intern';
+  el('genview').hidden = m!=='gen';
+  el('placeholder').hidden = (m==='update'||m==='intern'||m==='gen') || !names.length;
+  if(m==='client'||m==='site'){
+    if(csearch){ csearch.value=''; csearch.placeholder = m==='client'?'Search a distributor…':'Search a site…'; }
+    const ph2=document.querySelector('#placeholder h2');
+    if(ph2) ph2.textContent = m==='client'?'Select a distributor':'Select a shipping site';
+    renderList();
+  } else if(m==='update'){ initUpdate(); }
+  else if(m==='gen'){ /* rien à faire */ }
+  else { renderIntern(); }
+}
+tabC.addEventListener('click',()=>setMode('client'));
+tabS.addEventListener('click',()=>setMode('site'));
+tabU.addEventListener('click',()=>setMode('update'));
+tabI.addEventListener('click',()=>setMode('intern'));
+tabG.addEventListener('click',()=>setMode('gen'));
+
+const fsearch=el('fsearch');
+fsearch.addEventListener('input',()=>{ if(!current) return; mode==='client'?renderClient(current):renderSite(current); });
+
+function renderSummary(A,R,tot,na,rerender){
+  const qa=A.reduce((s,l)=>s+l[2],0);
+  const qDated=R.filter(l=>l[3]===2).reduce((s,l)=>s+l[2],0);
+  const qNo=R.reduce((s,l)=>s+l[2],0)-qDated;
+  const qLate=R.filter(l=>l[3]===2 && l[4]<TODAY).reduce((s,l)=>s+l[2],0);
+  const total=tot ? tot : (qa+qDated+qNo+na);
+  const base=total; const pct=v=>base?Math.round(v/base*100):0;
+
+  el('ordertot').innerHTML='<span class="lbl">Total ordered</span><span class="v">'+fmtN(total)+'</span><span class="u">units ordered</span>';
+
+  const segs=[['pickup',qa],['dated',qDated],['nodate',qNo],['other',na]];
+  el('propbar').innerHTML=segs.filter(([,v])=>v>0).map(([k,v])=>'<span class="sg-'+k+'" style="flex:'+v+'" title="'+fmtN(v)+' units"></span>').join('');
+
+  const chips=[['pickup','Ready for pick-up',qa,true],['dated','Pending · with date',qDated,true],['nodate','Unavailable references',qNo,true],['other','Unclassified',na,false]].filter(c=>c[2]>0||c[0]==='pickup');
+  el('fchips').innerHTML=chips.map(([k,lbl,v,click])=>
+    '<button class="fchip c-'+k+(statusFilter===k?' on':'')+'" data-f="'+k+'"'+(click?'':' disabled style="cursor:default;opacity:.75"')+'>'+
+    '<span class="fv">'+fmtN(v)+'</span><span class="fl">'+lbl+'</span><span class="fp">'+pct(v)+'% of the order</span></button>').join('');
+  document.querySelectorAll('#fchips .fchip[data-f]').forEach(b=>{
+    if(b.disabled) return;
+    b.addEventListener('click',()=>{ statusFilter=(statusFilter===b.dataset.f)?null:b.dataset.f; rerender(); });
+  });
+
+  const LBL={pickup:'Ready for pick-up only',dated:'Pending with an arrival date only',nodate:'Unavailable references only'};
+  const fb=el('filterbar');
+  fb.classList.toggle('on',!!statusFilter);
+  if(statusFilter) el('filtertext').textContent='Filter on — '+LBL[statusFilter]+'. Exports only include these rows.';
+  return {qa,qDated,qNo,qLate,total};
+}
+function sectionVis(){
+  el('secA').hidden = statusFilter && statusFilter!=='pickup';
+  el('secR').hidden = statusFilter==='pickup';
+  el('btncopyA').hidden = statusFilter && statusFilter!=='pickup';
+  el('btncopyR').hidden = statusFilter==='pickup';
+}
+function applyStatus(A,R){
+  return {
+    A: statusFilter && statusFilter!=='pickup' ? [] : A,
+    R: statusFilter==='pickup' ? [] : (statusFilter==='dated' ? R.filter(l=>l[3]===2) : statusFilter==='nodate' ? R.filter(l=>l[3]!==2) : R)
+  };
+}
+function chipFor(l){
+  const st=l[3], resid=l[2], win=l[12]||'';
+  let out='';
+  if(win){ out+='<span class="chip gd">expected '+win+'</span>'; }
+  else if(st===2){
+    if(l[4] < TODAY) out+='<span class="chip lt">supplier delay · expected '+fmtD(l[4])+'</span>';
+    else out+='<span class="chip gd">confirmed · arriving '+fmtD(l[4])+'</span>';
+  } else if(st===1){
+    out+='<span class="chip wn">partial · '+fmtN(l[6])+' units around '+fmtD(l[5])+', balance to confirm</span>';
+  } else {
+    out+='<span class="chip uk">to be confirmed</span>';
+  }
+  return out;
+}
+function groupByOrder(lines,siteIdx){
+  const m=new Map();
+  for(const l of lines){ const k=l[1]+'||'+(l[siteIdx]||''); if(!m.has(k)) m.set(k,{ono:l[1],lines:[]}); m.get(k).lines.push(l); }
+  return [...m.values()];
+}
+function matches(l,q,kind){
+  if(!q) return true;
+  const p=P[l[0]];
+  const ref = kind==='a' ? (l[4]||'') : (l[8]||'');
+  const site = kind==='a' ? (l[5]||'') : (l[9]||'');
+  return (p[0]+' '+skuOf(p)+' '+p[1]+' '+p[2]+' '+l[1]+' '+ref+' '+site).toLowerCase().includes(q);
+}
+
+function renderClient(name){
+  current=name; const c=C[name]; const q=fsearch.value.trim().toLowerCase();
+  el('placeholder').hidden=true;
+  const view=el('view'); view.hidden=false;
+  el('cname').textContent=name;
+  el('cmeta').textContent='Customer no. '+c.num+' · as at '+fmtD(TODAY);
+
+  const csites={};
+  for(const l of c.a){ const s=l[5]||'—'; (csites[s]=csites[s]||{a:0,r:0}).a+=l[2]; }
+  for(const l of c.r){ const s=l[9]||'—'; (csites[s]=csites[s]||{a:0,r:0}).r+=l[2]; }
+  if(siteFilter && !csites[siteFilter]) siteFilter=null;
+  const sf=el('sitefilter');
+  sf.hidden=Object.keys(csites).length<2;
+  let sfHtml='<button'+(siteFilter?'':' class="on"')+' data-s="">All sites</button>';
+  for(const [s,v] of Object.entries(csites).sort((x,y)=>(y[1].a+y[1].r)-(x[1].a+x[1].r))){
+    sfHtml+='<button'+(siteFilter===s?' class="on"':'')+' data-s="'+s+'">'+siteLbl(s)+' <span class="n">'+fmtN(v.a)+' · '+fmtN(v.r)+'</span></button>';
+  }
+  sf.innerHTML=sfHtml;
+  sf.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ siteFilter=b.dataset.s||null; statusFilter=null; renderClient(name); }));
+
+  const A0=c.a.filter(l=>matches(l,q,'a') && (!siteFilter || (l[5]||'—')===siteFilter));
+  const R0=c.r.filter(l=>matches(l,q,'r') && (!siteFilter || (l[9]||'—')===siteFilter));
+  const sumMap=m=>Object.entries(m||{}).filter(([k])=>!siteFilter||k===siteFilter).reduce((s,[,v])=>s+v,0);
+  const tot=sumMap(c.t), na=sumMap(c.na);
+  const S=renderSummary(A0,R0,q?0:tot,q?0:na,()=>renderClient(name));
+  const {A,R}=applyStatus(A0,R0);
+  curA=A.map(l=>({l,cli:name})); curR=R.map(l=>({l,cli:name}));
+  sectionVis();
+  const qa=A.reduce((s,l)=>s+l[2],0), qr=R.reduce((s,l)=>s+l[2],0);
+
+  const bySite={};
+  for(const l of A){ const s2=l[5]||'—'; bySite[s2]=(bySite[s2]||0)+l[2]; }
+  const siteRows=Object.entries(bySite).sort((x,y)=>y[1]-x[1]).map(([s2,v])=>'<tr><td>'+siteLbl(s2)+'</td><td class="num">'+fmtN(v)+'</td></tr>').join('');
+  el('tiles').innerHTML =
+    (A.length?'<div class="tile sites"><div class="l">Ready for pick-up by site</div><table><tbody>'+siteRows+'</tbody></table></div>':'')+
+    (S.qLate>0&&!statusFilter?'<div class="tile"><div class="v" style="color:var(--late)">'+fmtN(S.qLate)+'</div><div class="l">of which already overdue</div></div>':'');
+
+  const bodyA=el('bodyA');
+  el('cntA').textContent=A.length+' rows · '+fmtN(qa)+' units';
+  bodyA.innerHTML='';
+  if(!A.length){ bodyA.innerHTML='<p style="color:var(--muted);margin-top:12px">Nothing ready for pick-up'+(q?' for this filter':'')+'.</p>'; }
+  for(const grp of groupByOrder(A,5)){
+    const lines=grp.lines;
+    lines.sort((x,y)=>(P[x[0]][0]+'').localeCompare(P[y[0]][0])||szKey(P[x[0]][1])-szKey(P[y[0]][1]));
+    const sum=lines.reduce((s,l)=>s+l[2],0);
+    const ref=lines[0][4]||'';
+    const g=document.createElement('div'); g.className='ordergrp';
+    let rows='';
+    for(const l of lines){ const p=P[l[0]]; rows+='<tr><td class="art">'+p[0]+'</td><td class="sku">'+skuOf(p)+'</td><td class="desc">'+p[2]+'</td><td class="sz">'+p[1]+'</td><td class="num">'+fmtN(l[2])+'</td></tr>'; }
+    g.innerHTML='<div class="ohead"><span class="ono">'+grp.ono+'</span>'+siteBadge(lines[0][5]||'')+(ref?'<span class="oref">'+ref+'</span>':'')+
+      (lines[0][3]?'<span class="odate">requested delivery '+fmtD(lines[0][3])+'</span>':'')+
+      '<span class="osum">'+fmtN(sum)+' units</span></div>'+
+      '<div class="twrap"><table><thead><tr><th>Item</th><th>SKU</th><th>Description</th><th>Size</th><th class="num">Qty ready</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    bodyA.appendChild(g);
+  }
+
+  const bodyR=el('bodyR');
+  el('cntR').textContent=R.length+' rows · '+fmtN(qr)+' units';
+  bodyR.innerHTML='';
+  if(!R.length){ bodyR.innerHTML='<p style="color:var(--muted);margin-top:12px">No backorder'+(q?' for this filter':'')+' — everything is available.</p>'; }
+  for(const grp of groupByOrder(R,9)){
+    const lines=grp.lines;
+    lines.sort((x,y)=>{
+      const kx=(x[10]||0)>=x[2], ky=(y[10]||0)>=y[2];
+      const dx=kx?'0000':(x[4]||x[5]||'9999'), dy=ky?'0000':(y[4]||y[5]||'9999');
+      return dx.localeCompare(dy)||(P[x[0]][0]+'').localeCompare(P[y[0]][0])||szKey(P[x[0]][1])-szKey(P[y[0]][1]);
+    });
+    const sum=lines.reduce((s,l)=>s+l[2],0);
+    const ref=lines[0][8]||'';
+    const g=document.createElement('div'); g.className='ordergrp';
+    let rows='';
+    for(const l of lines){ const p=P[l[0]];
+      rows+='<tr><td class="art">'+p[0]+'</td><td class="sku">'+skuOf(p)+'</td><td class="desc">'+p[2]+'</td><td class="sz">'+p[1]+'</td><td class="num">'+fmtN(l[2])+'</td><td>'+chipFor(l)+'</td><td class="po">'+(l[11]||'')+'</td></tr>';
+    }
+    g.innerHTML='<div class="ohead"><span class="ono">'+grp.ono+'</span>'+siteBadge(lines[0][9]||'')+(ref?'<span class="oref">'+ref+'</span>':'')+
+      (lines[0][7]?'<span class="odate">requested delivery '+fmtD(lines[0][7])+'</span>':'')+
+      '<span class="osum">'+fmtN(sum)+' units</span></div>'+
+      '<div class="twrap"><table><thead><tr><th>Item</th><th>SKU</th><th>Description</th><th>Size</th><th class="num">Qty missing</th><th>Availability</th><th>PO number</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    bodyR.appendChild(g);
+  }
+  renderList();
+}
+function select(name){ fsearch.value=''; siteFilter=null; statusFilter=null; renderClient(name); el('main').scrollIntoView({behavior:'auto'}); }
+function selectSite(name){ fsearch.value=''; siteFilter=null; statusFilter=null; renderSite(name); el('main').scrollIntoView({behavior:'auto'}); }
+
+function renderSite(site){
+  current=site; const q=fsearch.value.trim().toLowerCase();
+  el('placeholder').hidden=true; el('disthead').hidden=true;
+  el('view').hidden=false;
+  el('cname').innerHTML='Site '+siteLbl(site);
+  const sfEl=el('sitefilter'); sfEl.hidden=true; sfEl.innerHTML='';
+  let A=[],R=[];
+  for(const n of names){
+    const c=C[n];
+    for(const l of c.a){ if((l[5]||'—')===site && (!q||matches(l,q,'a')||n.toLowerCase().includes(q))) A.push({l,cli:n}); }
+    for(const l of c.r){ if((l[9]||'—')===site && (!q||matches(l,q,'r')||n.toLowerCase().includes(q))) R.push({l,cli:n}); }
+  }
+  const nbCli=new Set(A.map(e=>e.cli).concat(R.map(e=>e.cli))).size;
+  el('cmeta').textContent=nbCli+' distributors · as at '+fmtD(TODAY);
+  const A0l=A.map(e=>e.l), R0l=R.map(e=>e.l);
+  let tot=0,na=0;
+  for(const n of names){ const c=C[n]; tot+=(c.t&&c.t[site])||0; na+=(c.na&&c.na[site])||0; }
+  const S=renderSummary(A0l,R0l,q?0:tot,q?0:na,()=>renderSite(site));
+  const keep=applyStatus(A0l,R0l);
+  const keepA=new Set(keep.A), keepR=new Set(keep.R);
+  A=A.filter(e=>keepA.has(e.l)); R=R.filter(e=>keepR.has(e.l));
+  curA=A; curR=R;
+  sectionVis();
+  const qa=A.reduce((s,e)=>s+e.l[2],0), qr=R.reduce((s,e)=>s+e.l[2],0);
+  el('tiles').innerHTML = (S.qLate>0&&!statusFilter?'<div class="tile"><div class="v" style="color:var(--late)">'+fmtN(S.qLate)+'</div><div class="l">of which already overdue</div></div>':'');
+
+  function groupOC(entries){
+    const m=new Map();
+    for(const e of entries){ const k=e.cli+'||'+e.l[1]; if(!m.has(k)) m.set(k,{cli:e.cli,ono:e.l[1],lines:[]}); m.get(k).lines.push(e.l); }
+    return [...m.values()].sort((x,y)=>x.cli.localeCompare(y.cli,'en')||x.ono.localeCompare(y.ono));
+  }
+  const bodyA=el('bodyA');
+  el('cntA').textContent=A.length+' rows · '+fmtN(qa)+' units';
+  bodyA.innerHTML='';
+  if(!A.length){ bodyA.innerHTML='<p style="color:var(--muted);margin-top:12px">Nothing ready for pick-up on this site'+(q?' for this filter':'')+'.</p>'; }
+  for(const grp of groupOC(A)){
+    grp.lines.sort((x,y)=>(P[x[0]][0]+'').localeCompare(P[y[0]][0])||szKey(P[x[0]][1])-szKey(P[y[0]][1]));
+    const sum=grp.lines.reduce((s,l)=>s+l[2],0);
+    const g=document.createElement('div'); g.className='ordergrp';
+    let rows='';
+    for(const l of grp.lines){ const p=P[l[0]]; rows+='<tr><td class="art">'+p[0]+'</td><td class="sku">'+skuOf(p)+'</td><td class="desc">'+p[2]+'</td><td class="sz">'+p[1]+'</td><td class="num">'+fmtN(l[2])+'</td></tr>'; }
+    g.innerHTML='<div class="ohead"><span class="ono"></span><span class="oref">'+grp.ono+(grp.lines[0][4]?' · '+grp.lines[0][4]:'')+'</span>'+
+      (grp.lines[0][3]?'<span class="odate">requested delivery '+fmtD(grp.lines[0][3])+'</span>':'')+
+      '<span class="osum">'+fmtN(sum)+' units</span></div>'+
+      '<div class="twrap"><table><thead><tr><th>Item</th><th>SKU</th><th>Description</th><th>Size</th><th class="num">Qty ready</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    g.querySelector('.ono').textContent=grp.cli;
+    bodyA.appendChild(g);
+  }
+  const bodyR=el('bodyR');
+  el('cntR').textContent=R.length+' rows · '+fmtN(qr)+' units';
+  bodyR.innerHTML='';
+  if(!R.length){ bodyR.innerHTML='<p style="color:var(--muted);margin-top:12px">No backorder on this site'+(q?' for this filter':'')+'.</p>'; }
+  for(const grp of groupOC(R)){
+    grp.lines.sort((x,y)=>{
+      const kx=(x[10]||0)>=x[2], ky=(y[10]||0)>=y[2];
+      const dx=kx?'0000':(x[4]||x[5]||'9999'), dy=ky?'0000':(y[4]||y[5]||'9999');
+      return dx.localeCompare(dy)||(P[x[0]][0]+'').localeCompare(P[y[0]][0])||szKey(P[x[0]][1])-szKey(P[y[0]][1]);
+    });
+    const sum=grp.lines.reduce((s,l)=>s+l[2],0);
+    const g=document.createElement('div'); g.className='ordergrp';
+    let rows='';
+    for(const l of grp.lines){ const p=P[l[0]]; rows+='<tr><td class="art">'+p[0]+'</td><td class="sku">'+skuOf(p)+'</td><td class="desc">'+p[2]+'</td><td class="sz">'+p[1]+'</td><td class="num">'+fmtN(l[2])+'</td><td>'+chipFor(l)+'</td><td class="po">'+(l[11]||'')+'</td></tr>'; }
+    g.innerHTML='<div class="ohead"><span class="ono"></span><span class="oref">'+grp.ono+(grp.lines[0][8]?' · '+grp.lines[0][8]:'')+'</span>'+
+      (grp.lines[0][7]?'<span class="odate">requested delivery '+fmtD(grp.lines[0][7])+'</span>':'')+
+      '<span class="osum">'+fmtN(sum)+' units</span></div>'+
+      '<div class="twrap"><table><thead><tr><th>Item</th><th>SKU</th><th>Description</th><th>Size</th><th class="num">Qty missing</th><th>Availability</th><th>PO number</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    g.querySelector('.ono').textContent=grp.cli;
+    bodyR.appendChild(g);
+  }
+  renderList();
+}
+
+function collectRows(kind){ return kind==='a'?curA:curR; }
+function tableFor(kind){
+  const rows=collectRows(kind);
+  if(kind==='a'){
+    const head=['Distributor','Site','Site code','Order','Cust. ref','Item','SKU','Description','Size','Qty ready for pick-up'];
+    return {head, data: rows.map(e=>{ const l=e.l,p=P[l[0]]; return [e.cli,l[5]||'',codeOf(l[5]),l[1],l[4]||'',p[0],skuOf(p),p[2],p[1],l[2]]; })};
+  }
+  const head=['Distributor','Site','Site code','Order','Cust. ref','Item','SKU','Description','Size','Qty missing','Status','Estimated arrival','PO number','Qty partly covered'];
+  return {head, data: rows.map(e=>{ const l=e.l,p=P[l[0]], w=l[12]||'';
+    return [e.cli,l[9]||'',codeOf(l[9]),l[1],l[8]||'',p[0],skuOf(p),p[2],p[1],l[2],
+      w?'Confirmed':(l[3]===2?(l[4]<TODAY?'Supplier delay':'Confirmed'):(l[3]===1?'Partial':'To be confirmed')),
+      w||l[4]||l[5]||'',l[11]||'',l[3]===1?l[6]:'']; })};
+}
+function copyTSV(kind){
+  if(!current) return;
+  const t=tableFor(kind);
+  const out=[t.head].concat(t.data).map(r=>r.join('\t')).join('\n')+'\n';
+  navigator.clipboard.writeText(out).then(()=>toast('Copied — paste straight into Excel'),()=>toast('Copy not available in this browser'));
+}
+el('btncopyA').addEventListener('click',()=>copyTSV('a'));
+el('btncopyR').addEventListener('click',()=>copyTSV('r'));
+
+function browserSave(filename,data,type){
+  const blob=new Blob([data],{type:type||'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename; a.style.display='none';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
+function csvOf(t){
+  const esc=v=>{ v=(v==null?'':String(v)); if(v.includes(';')||v.includes('"')||v.includes('\n')) v='"'+v.replace(/"/g,'""')+'"'; return v; };
+  return '﻿sep=;\r\n'+[t.head].concat(t.data.map(r=>r.map(x=>esc(String(x==null?'':x))))).map(r=>r.join(';')).join('\r\n')+'\r\n';
+}
+function fslug(s){ return String(s).replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim(); }
+function exportExcel(){
+  if(!current) return;
+  const base=fslug(mode==='client'?current+(siteFilter?' - '+siteFilter:''):'Site '+current);
+  for(const [kind,label] of [['a','Ready for pick-up'],['r','Pending']]){
+    const t=tableFor(kind); if(!t.data.length) continue;
+    browserSave(label+' - '+base+' - '+fmtD(TODAY)+'.csv', csvOf(t));
+    toast(label+' exported — the file opens in Excel');
+  }
+}
+el('btnexport').hidden=false;
+el('btnexport').addEventListener('click',exportExcel);
+el('btnprint').addEventListener('click',()=>window.print());
+el('clearfilter').addEventListener('click',()=>{ statusFilter=null; if(mode==='client') renderClient(current); else renderSite(current); });
+
+/* DA-STRIP:START — vue "Allocate" (interne, staff LCS uniquement) : son conteneur
+   #internview est retiré du clone par distFile(), donc ces addEventListener sur
+   des éléments absents planteraient le script exporté ; en plus les données I
+   (allocation interne) n'ont rien à faire dans un fichier destiné à un distributeur. */
+/* ===================== ALLOCATE (interne) ===================== */
+function renderIntern(){
+  el('placeholder').hidden=true; el('view').hidden=true; el('disthead').hidden=true;
+  el('internview').hidden=false;
+  const iclients=Object.keys(I).sort((a,b)=>a.localeCompare(b,'en'));
+  const tot=iclients.reduce((s,n)=>s+I[n].reduce((x,l)=>x+l[3],0),0);
+  const nl=iclients.reduce((s,n)=>s+I[n].length,0);
+  const recap=iclients.map(n=>{ const q=I[n].reduce((x,l)=>x+l[3],0); return '<tr><td>'+n+'</td><td class="num">'+fmtN(q)+'</td></tr>'; }).join('');
+  let nNew=0,nMod=0,nAll=0;
+  for(const n of iclients) for(const l of I[n]){ const a=l[6]||0; if(a===1) nNew++; else if(a===2) nAll++; else nMod++; }
+  el('tilesI').innerHTML=
+    '<div class="tile" style="border-color:var(--accent)"><div class="v" style="color:var(--accent)">'+fmtN(tot)+'</div><div class="l">units to allocate</div></div>'+
+    '<div class="tile"><div class="v">'+fmtN(nl)+'</div><div class="l">rows to process</div></div>'+
+    (nNew?'<div class="tile"><div class="v" style="color:var(--warn)">'+fmtN(nNew)+'</div><div class="l">new lines to create</div></div>':'')+
+    (nMod?'<div class="tile"><div class="v" style="color:var(--good)">'+fmtN(nMod)+'</div><div class="l">lines to amend</div></div>':'')+
+    (nAll?'<div class="tile"><div class="v" style="color:var(--good)">'+fmtN(nAll)+'</div><div class="l">lines to allocate as they are</div></div>':'')+
+    (iclients.length?'<div class="tile sites"><div class="l">Split by distributor</div><table><tbody>'+recap+'</tbody></table></div>':'');
+
+  const body=el('bodyI'); body.innerHTML='';
+  if(!nl){ body.innerHTML='<p style="color:var(--muted);margin-top:14px">Nothing to allocate — every unit communicated as available is already allocated in the system.</p>'; return; }
+  const rows=[];
+  for(const n of iclients) for(const l of I[n]) rows.push({cli:n,l});
+  rows.sort((x,y)=> x.cli.localeCompare(y.cli,'en') || (x.l[1]<y.l[1]?-1:x.l[1]>y.l[1]?1:0) || (P[x.l[0]][0]+'').localeCompare(P[y.l[0]][0]) || szKey(P[x.l[0]][1])-szKey(P[y.l[0]][1]));
+  let html='<div class="ordergrp" style="margin-top:16px"><div class="twrap"><table class="allouer"><thead><tr>'+
+    '<th>Distributor</th><th>Order</th><th>Cust. ref</th><th>Item</th><th>SKU</th><th>Description</th><th>Size</th>'+
+    '<th class="num">Qty to allocate</th><th>Picked from</th><th>ERP action</th><th>Order site</th></tr></thead><tbody>';
+  let prev=null;
+  for(const e of rows){
+    const p=P[e.l[0]]; const isNew=e.cli!==prev; prev=e.cli;
+    html+='<tr'+(isNew?' class="newcli"':'')+'>'+
+      '<td class="cli">'+e.cli+'</td>'+'<td class="cmd">'+e.l[1]+'</td>'+
+      '<td class="desc" title="'+(e.l[2]||'')+'">'+(e.l[2]||'')+'</td>'+
+      '<td class="art">'+p[0]+'</td>'+'<td class="sku">'+skuOf(p)+'</td>'+
+      '<td class="desc" title="'+p[2].replace(/"/g,'&quot;')+'">'+p[2]+'</td>'+'<td class="sz">'+p[1]+'</td>'+
+      '<td class="num">'+fmtN(e.l[3])+'</td>'+'<td class="src">'+siteLbl(e.l[7]||STOCKSITE)+'</td>'+
+      '<td><span class="act a'+(e.l[6]||0)+'">'+ACTION[e.l[6]||0]+'</span></td>'+
+      '<td style="white-space:nowrap">'+siteLbl(e.l[5]||'')+'</td></tr>';
+  }
+  html+='</tbody></table></div></div>';
+  body.innerHTML=html;
+}
+function internTable(){
+  const head=['Distributor','Order','Cust. ref','Item','SKU','Description','Size','Qty to allocate','Picked from','Stock site code','ERP action','Order site','Order site code','Requested delivery'];
+  const data=[];
+  for(const n of Object.keys(I).sort((a,b)=>a.localeCompare(b,'en'))){
+    for(const l of I[n]){ const p=P[l[0]]; const pk=l[7]||STOCKSITE; data.push([n,l[1],l[2]||'',p[0],skuOf(p),p[2],p[1],l[3],pk,codeOf(pk),ACTION[l[6]||0],l[5]||'',codeOf(l[5]),l[4]||'']); }
+  }
+  return {head,data};
+}
+el('btncopyI').addEventListener('click',()=>{
+  const t=internTable();
+  const out=[t.head].concat(t.data).map(r=>r.join('\t')).join('\n')+'\n';
+  navigator.clipboard.writeText(out).then(()=>toast('Copied — paste straight into Excel'),()=>toast('Copy not available in this browser'));
+});
+el('btnprintI').addEventListener('click',()=>window.print());
+
+/* ===================== GÉNÉRATION DES PAGES DISTRIBUTEUR =====================
+   Porté fidèlement depuis generateDistPages()/distSubset()/distFile() du fichier
+   de référence, avec le même garde-fou anti-fuite : chaque fichier généré est
+   scanné pour vérifier qu'aucun autre nom de distributeur n'y apparaît avant
+   d'autoriser le téléchargement. */
+function glog(msg,bad){ const e=el('genlog'); e.hidden=false; const d=document.createElement('div'); if(bad) d.className='err'; d.textContent=msg; e.appendChild(d); e.scrollTop=e.scrollHeight; }
+function distSlug(n){ return String(n).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40); }
+function distSubset(cli){
+  const c=C[cli];
+  const rk=c.r.filter(l=>l[9]==='Cambodia');
+  const used=[...new Set(c.a.map(l=>l[0]).concat(rk.map(l=>l[0])))].sort((x,y)=>x-y);
+  const remap={}; used.forEach((o,i)=>{ remap[o]=i; });
+  const a=c.a.map(l=>[remap[l[0]]].concat(l.slice(1)));
+  const r=rk.map(l=>{ const x=[remap[l[0]]].concat(l.slice(1)); x[11]=''; return x; });
+  const t={}; for(const l of a) t[l[5]]=(t[l[5]]||0)+l[2]; for(const l of r) t[l[9]]=(t[l[9]]||0)+l[2];
+  const na={}; for(const k in t) na[k]=0;
+  return {gen:TODAY, only:cli, P:used.map(o=>P[o]), C:{[cli]:{num:c.num,a,r,t,na}}, I:{}};
+}
+/**
+ * Génère une page HTML autonome (self-contained) pour un distributeur, en clonant
+ * le VRAI DOM du widget (#daRoot) — même principe que le fichier de référence PM
+ * (qui clone document.documentElement), adapté puisque notre page vit dans le
+ * layout de l'intranet : on ne clone que le widget, pas le header/sidebar du site.
+ * Le clone embarque son propre <style id="daStyle"> et le <script id="daScript">
+ * de cette page (mêmes fonctions, dont renderClient) — aucune donnée des autres
+ * distributeurs, aucune règle interne (RULES retiré), aucun appel réseau.
+ */
+function distFile(cli){
+  const sub=distSubset(cli);
+  const title = cli+' · Availability';
+
+  const root=el('daRoot').cloneNode(true);
+  const q=sel=>root.querySelector(sel);
+  const qa=sel=>root.querySelectorAll(sel);
+
+  // Données : #DB du clone reçoit le sous-ensemble filtré, #RULES est retiré
+  const dbEl=q('#DB'); if(dbEl) dbEl.textContent=JSON.stringify(sub).replace(/<\//g,'<\\/');
+  const rulesEl=q('#RULES'); if(rulesEl) rulesEl.remove();
+
+  // Blocs entièrement internes : retirés du DOM (pas juste masqués)
+  ['.side','.legend','.modetabs','details.howto','#internview','#updview','#genview']
+    .forEach(s=>qa(s).forEach(e=>e.remove()));
+
+  // Zones dynamiques reconstruites par le script au chargement : on repart vierge
+  ['#clist','#tiles','#bodyA','#bodyR','#sitefilter','#tilesI','#bodyI','#gencards',
+   '#ctrlzone','#updlog','#genlog','#fchips','#propbar','#ordertot'].forEach(s=>{ const e=q(s); if(e) e.innerHTML=''; });
+  ['#cname','#cmeta'].forEach(s=>{ const e=q(s); if(e) e.textContent=''; });
+  ['#view','#updlog','#genlog'].forEach(s=>{ const e=q(s); if(e) e.setAttribute('hidden',''); });
+  const ph=q('#placeholder'); if(ph) ph.removeAttribute('hidden');
+
+  // Zone d'upload (mode Import) réinitialisée
+  ['stC','stF','stS'].forEach(id=>{ const e=q('#'+id); if(e) e.textContent='No file'; });
+  ['dzC','dzF','dzS'].forEach(id=>{ const e=q('#'+id); if(e) e.classList.remove('ok','err'); });
+  const bp=q('#btnpublish'); if(bp){ bp.setAttribute('disabled',''); bp.textContent='Publish the update'; }
+
+  // Les boutons d'onglets (Sites/Update/Allocate/Distributor pages) disparaissent déjà
+  // avec .modetabs ci-dessus — le script partagé les référence via el(id)||NOOP,
+  // donc leur absence ne casse rien (même principe que le fichier de référence PM).
+
+  const styleTag=el('daStyle'), scriptTag=el('daScript');
+  // Retire le moteur de calcul / import / génération (voir marqueurs DA-STRIP dans
+  // le script) : même du code mort ne doit jamais mentionner un autre distributeur
+  // ou une règle interne dans le fichier livré.
+  const scriptSrc=(scriptTag?scriptTag.textContent:'')
+    .replace(/\/\* DA-STRIP:START[\s\S]*?DA-STRIP:END \*\//g, '');
+  const html='<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'+
+    '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+    '<title>'+title.replace(/</g,'&lt;')+'</title>'+
+    '<style>'+(styleTag?styleTag.textContent:'')+'</style></head><body>'+
+    root.outerHTML+
+    '<script>'+scriptSrc+'<\/script>'+
+    '</body></html>';
+
+  const units=Object.values(sub.C[cli].t).reduce((s,v)=>s+v,0);
+  return {html, units, lines: sub.C[cli].a.length+sub.C[cli].r.length,
+    name:'Availability - '+cli.replace(/[\\/:*?"<>|]/g,' ').trim()+' - '+fmtD(TODAY)+'.html',
+    slug: distSlug(cli)};
+}
+
+async function generateDistPages(){
+  const btn=el('btngenall');
+  btn.disabled=true; btn.textContent='Generating…';
+  el('genlog').innerHTML=''; el('gencards').innerHTML='';
+  const rows=[];
+  try{
+    for(const cli of names){
+      const f=distFile(cli);
+      // garde-fou : aucun autre distributeur ne doit apparaître dans le fichier généré
+      const leak=names.filter(n=>n!==cli && f.html.indexOf(n)>=0);
+      if(leak.length) throw new Error('Aborted — '+cli+' file would mention '+leak.join(', '));
+      browserSave(f.name, f.html, 'text/html;charset=utf-8');
+      glog(f.name+' — '+fmtN(f.units)+' units, '+fmtN(f.lines)+' lines');
+      rows.push(f);
+      await new Promise(r=>setTimeout(r,300));
+    }
+    el('gencards').innerHTML=
+      '<div class="ordergrp" style="margin-top:16px"><div class="twrap"><table><thead><tr>'+
+      '<th>Distributor</th><th class="num">Units ready</th><th class="num">Lines</th><th>File</th>'+
+      '</tr></thead><tbody>'+rows.map(f=>'<tr><td>'+f.name.split(' - ')[1]+'</td>'+
+      '<td class="num">'+fmtN(f.units)+'</td><td class="num">'+fmtN(f.lines)+'</td>'+
+      '<td class="desc">'+f.name+'</td></tr>').join('')+'</tbody></table></div></div>';
+    glog('Done — '+rows.length+' files in your downloads folder. Checked: no file mentions another distributor.');
+    btn.textContent='Generate the 5 files';
+  }catch(e){
+    glog(String(e.message||e),true);
+    btn.textContent='Generate the 5 files';
+  }
+  btn.disabled=false;
+}
+el('btngenall').addEventListener('click',generateDistPages);
+
+/* ===================== BASCULE LIVE / IMPORT ===================== */
+el('srcLive').addEventListener('click',()=>{
+  el('srcLive').classList.add('on'); el('srcImport').classList.remove('on');
+  if(typeof confirmModal==='function'){
+    confirmModal('Recharger les données live depuis le SEI Cube et écraser le dataset importé actuel ?', ()=>loadLive());
+  } else {
+    loadLive();
+  }
+});
+el('srcImport').addEventListener('click',()=>{
+  el('srcImport').classList.add('on'); el('srcLive').classList.remove('on');
+  setMode('update');
+});
+
+/* DA-STRIP:END */
+
+/* ===================== DÉMARRAGE ===================== */
+if(DIST_BAD){
+  document.body.classList.add('dist');
+  el('disthead').hidden=false;
+  el('view').hidden=true;
+  el('placeholder').hidden=false;
+  el('placeholder').style.display='block';
+  const ph=document.querySelector('#placeholder h2'); if(ph) ph.textContent='Link not recognised';
+  const pp=document.querySelector('#placeholder p'); if(pp) pp.textContent='This availability link is not valid. Please ask your Le Coq Sportif contact for an up-to-date link.';
+} else if(DIST){
+  // Fichier exporté par generateDistPages() : les données du seul distributeur
+  // sont déjà dans #DB, pas d'appel réseau — voir DB_SEED plus haut.
+  TODAY=DB_SEED.gen; P=DB_SEED.P; C=DB_SEED.C; I=DB_SEED.I||{};
+  names=Object.keys(C).sort((a,b)=>a.localeCompare(b,'en'));
+  document.body.classList.add('dist');
+  el('disthead').hidden=false;
+  el('distasof').textContent='Backlog as at '+fmtD(TODAY);
+  const note=el('distnote');
+  note.hidden=false;
+  note.innerHTML='This page lists <b>only what is ready for you to collect</b>: units available now '+
+    'at the site shown on each order, plus units already produced and waiting on site from the date '+
+    'shown. Order lines still awaiting production or shipment are not listed here — they are followed '+
+    'up separately. Figures are indicative and non-contractual, and reflect the backlog at the date above.';
+  const howto=document.querySelector('details.howto'); if(howto) howto.remove();
+  const rt=el('secRttl'); if(rt) rt.textContent='Ready from the date shown';
+  renderClient(DIST);
+} else {
+  /* Page live normale : auto-chargement au DOMContentLoaded (contrairement à
+     Pilotage qui attend un clic) — la volumétrie de ce module (~26 700 lignes
+     / 4 requêtes <1s chacune, 5 distributeurs uniquement) le permet largement. */
+  loadLive();
+}
+
+}); // DOMContentLoaded
+</script>
+{% endblock %}
