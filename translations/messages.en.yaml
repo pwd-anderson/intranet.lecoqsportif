@@ -75,3 +75,5 @@ sidebar:
         suivi_commandes_web_sav: "Suivi Commandes web pour SAV"
     pilotage:
         livraisons: "Delivery Tracking"
+    modules:
+        distributor_availability: "Distributor Availability"
