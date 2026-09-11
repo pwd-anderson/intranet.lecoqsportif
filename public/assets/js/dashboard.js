@@ -11,6 +11,29 @@ function buildUrlWithNetwork(url) {
     return `${url}${separator}network=${encodeURIComponent(network)}`;
 }
 
+/**
+ * Dernier recours photo produit, quand toute la cascade de noms de fichiers
+ * devinés (_2.webp, _1.jpg, etc.) a échoué : demande au backend la vraie URL
+ * via la recherche Shopify (gère les fichiers uploadés avec un suffixe UUID
+ * imprévisible). La locale est déduite de l'URL courante (/fr/... ou /en/...)
+ * pour ne pas dépendre d'une variable injectée depuis Twig — ce fichier JS
+ * est partagé entre plusieurs pages (dashboard.html.twig, dashboard_sellout.html.twig).
+ */
+function dashboardLookupPhotoFallback(img) {
+    const article = img.dataset.article;
+    if (!article) { img.src = '/assets/images/no-image.png'; return; }
+
+    const locale = (window.location.pathname.match(/^\/(fr|en)\//) || [null, 'fr'])[1];
+    const url = `/${locale}/images/lecoqsportif_lookup/${encodeURIComponent(article)}`;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            img.src = (data.success && data.url) ? data.url : '/assets/images/no-image.png';
+        })
+        .catch(() => { img.src = '/assets/images/no-image.png'; });
+}
+
 function destroyExistingChart(selector) {
     const el = document.querySelector(selector);
     if (!el) {
@@ -517,6 +540,7 @@ function renderTopProductSalesChart(apiUrl, selector, barColor = '#00b894', unit
 
         const safeResult = result.map(p => ({
             image: p.image || '',
+            code: p.code || '',
             label: p.label || '',
             value: Number(p.value || 0)
         }));
@@ -525,6 +549,7 @@ function renderTopProductSalesChart(apiUrl, selector, barColor = '#00b894', unit
 
         safeResult.forEach(p => {
             const percent = maxValue > 0 ? (p.value / maxValue) * 100 : 0;
+            const articleBase = String(p.code).split('_')[0];
 
             el.innerHTML += `
     <div class="top-product-row">
@@ -532,17 +557,27 @@ function renderTopProductSalesChart(apiUrl, selector, barColor = '#00b894', unit
              class="top-product-img"
              alt=""
              data-fallback-step="0"
+             data-article="${articleBase}"
              onerror="
                  const step = parseInt(this.dataset.fallbackStep, 10);
                  if (step === 0) {
                      this.dataset.fallbackStep = '1';
-                     this.src = this.src.replace('_2.jpg', '_new_1.jpg');
+                     this.src = this.src.replace('_2.webp', '_new_1.webp');
                  } else if (step === 1) {
                      this.dataset.fallbackStep = '2';
-                     this.src = this.src.replace('_new_1.jpg', '_1.jpg');
+                     this.src = this.src.replace('_new_1.webp', '_1.webp');
                  } else if (step === 2) {
                      this.dataset.fallbackStep = '3';
-                     this.src = '/assets/images/no-image.png';
+                     this.src = this.src.replace('_1.webp', '_2.jpg');
+                 } else if (step === 3) {
+                     this.dataset.fallbackStep = '4';
+                     this.src = this.src.replace('_2.jpg', '_new_1.jpg');
+                 } else if (step === 4) {
+                     this.dataset.fallbackStep = '5';
+                     this.src = this.src.replace('_new_1.jpg', '_1.jpg');
+                 } else if (step === 5) {
+                     this.dataset.fallbackStep = '6';
+                     dashboardLookupPhotoFallback(this);
                  } else {
                      this.onerror = null;
                  }
@@ -607,6 +642,33 @@ function injectImagesIntoYAxis(chartContext, data) {
             img.setAttributeNS(null, 'height', imgSize.toString());
             img.setAttribute('data-label', item.label);
             img.style.pointerEvents = 'none';
+
+            const articleBase = String(item.code || '').split('_')[0];
+            let fallbackStep = 0;
+            const cascade = ['_2.webp', '_new_1.webp', '_1.webp', '_2.jpg', '_new_1.jpg', '_1.jpg'];
+            img.addEventListener('error', function onImgError() {
+                fallbackStep++;
+                if (fallbackStep < cascade.length) {
+                    const cur = img.getAttributeNS(null, 'href');
+                    img.setAttributeNS(null, 'href', cur.replace(cascade[fallbackStep - 1], cascade[fallbackStep]));
+                } else if (fallbackStep === cascade.length && articleBase) {
+                    const locale = (window.location.pathname.match(/^\/(fr|en)\//) || [null, 'fr'])[1];
+                    fetch(`/${locale}/images/lecoqsportif_lookup/${encodeURIComponent(articleBase)}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success && data.url) {
+                                img.setAttributeNS(null, 'href', data.url);
+                            } else {
+                                img.removeEventListener('error', onImgError);
+                                img.remove();
+                            }
+                        })
+                        .catch(() => { img.removeEventListener('error', onImgError); img.remove(); });
+                } else {
+                    img.removeEventListener('error', onImgError);
+                    img.remove();
+                }
+            });
 
             label.parentNode.insertBefore(img, label);
         }

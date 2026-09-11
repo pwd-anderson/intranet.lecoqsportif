@@ -172,7 +172,7 @@ final class SellOutDashboardController extends AbstractController
             $itemdes = trim((string) ($row['itemdes'] ?? ''));
             $base    = explode('_', $itemn)[0] ?? $itemn;
             $out[] = [
-                'image' => 'https://www.lecoqsportif.com/cdn/shop/files/' . rawurlencode($base) . '_2.jpg',
+                'image' => 'https://www.lecoqsportif.com/cdn/shop/files/' . rawurlencode($base) . '_2.webp',
                 'code'  => $itemn,
                 'label' => $itemdes !== '' ? $itemdes : $itemn,
                 'value' => (float) ($row['salesqty'] ?? 0),

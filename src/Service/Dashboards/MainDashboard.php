@@ -333,7 +333,7 @@ class MainDashboard
                 $safeArticleBase  = rawurlencode($articleBase);
 
                 $out[] = [
-                    'image' => "https://www.lecoqsportif.com/cdn/shop/files/{$safeArticleBase}_2.jpg",
+                    'image' => "https://www.lecoqsportif.com/cdn/shop/files/{$safeArticleBase}_2.webp",
                     'code'  => $itemNo,
                     'label' => (string) ($r->ItemDescription ?? ''),
                     'value' => (float)  ($r->TotalSales      ?? 0),
@@ -682,7 +682,7 @@ class MainDashboard
                 }
                 $base = explode('_', $itemNo)[0] ?? $itemNo;
                 $out[] = [
-                    'image' => "https://www.lecoqsportif.com/cdn/shop/files/" . rawurlencode($base) . "_2.jpg",
+                    'image' => "https://www.lecoqsportif.com/cdn/shop/files/" . rawurlencode($base) . "_2.webp",
                     'code'  => $itemNo,
                     'label' => (string) ($r->ItemDescription ?? ''),
                     'value' => (float)  ($r->TotalSales ?? 0),
@@ -895,7 +895,7 @@ class MainDashboard
                 }
                 $base  = explode('_', $itemNo)[0] ?? $itemNo;
                 $out[] = [
-                    'image' => "https://www.lecoqsportif.com/cdn/shop/files/" . rawurlencode($base) . "_2.jpg",
+                    'image' => "https://www.lecoqsportif.com/cdn/shop/files/" . rawurlencode($base) . "_2.webp",
                     'code'  => $itemNo,
                     'label' => (string) ($r->ItemDescription ?? ''),
                     'value' => (float)  ($r->TotalSales ?? 0),
