@@ -702,22 +702,36 @@ function asciiFr(s) {
 // GENERATION ZPL — port fidèle de build_zpl() (zebra_app.py, layout 102x102mm)
 // =============================================================================
 
+/* La taille de l'article ("Size") peut être un simple caractère ("M", "42")
+   ou une chaîne beaucoup plus longue (jusqu'à 16 caractères observés, ex.
+   "OUTSIZE_XXL"). Une police fixe (90,90 points) déborderait du bloc de
+   178 points de large dès que le texte dépasse quelques caractères.
+   La formule d'origine (largeur moyenne fixe par caractère, 0.62x la
+   hauteur) sous-estimait la largeur réelle pour certaines longueurs
+   (ex: "SMSM", 4 caractères -> police 68pt calculée trop grande) : le
+   texte débordait alors du cadre de 170pt et le ^FB (limité à 1 ligne)
+   provoquait un chevauchement visuel au lieu de couper proprement. On
+   mesure maintenant la largeur réelle via un canvas et on réduit la
+   police jusqu'à ce qu'elle tienne, avec une marge de sécurité car la
+   police système utilisée pour la mesure ne correspond pas exactement
+   à la police ZPL "0" imprimée. */
+let _sizeFontMeasureCtx = null;
 function computeSizeFontSize(text) {
-  /* La taille de l'article ("Size") peut être un simple caractère ("M", "42")
-     ou une chaîne beaucoup plus longue (jusqu'à 16 caractères observés, ex.
-     "OUTSIZE_XXL"). Une police fixe (90,90 points) déborderait du bloc de
-     178 points de large dès que le texte dépasse quelques caractères — cette
-     fonction calcule donc une taille de police qui diminue avec le nombre de
-     caractères, pour que le texte reste toujours contenu dans le bloc. */
-  const len = Math.max(1, String(text || "").length);
+  text = String(text || "");
   const MAX_FONT = 90;   // taille d'origine (validée) pour 1-3 caractères
   const MIN_FONT = 16;   // taille plancher pour rester lisible à 16 caractères
   const BOX_WIDTH = 170; // largeur utile du bloc FB178 (petite marge de sécurité)
-  const CHAR_WIDTH_FACTOR = 0.62; // largeur moyenne d'un caractère ≈ 0.62x sa hauteur (police ZPL "0")
-  let fontSize = Math.floor(BOX_WIDTH / (len * CHAR_WIDTH_FACTOR));
-  fontSize = Math.min(fontSize, MAX_FONT);
-  fontSize = Math.max(fontSize, MIN_FONT);
-  return fontSize;
+  const SAFETY_MARGIN = 0.90;
+  if (!_sizeFontMeasureCtx) {
+    _sizeFontMeasureCtx = document.createElement("canvas").getContext("2d");
+  }
+  for (let fontSize = MAX_FONT; fontSize > MIN_FONT; fontSize--) {
+    _sizeFontMeasureCtx.font = `bold ${fontSize}px Arial, sans-serif`;
+    if (_sizeFontMeasureCtx.measureText(text).width <= BOX_WIDTH * SAFETY_MARGIN) {
+      return fontSize;
+    }
+  }
+  return MIN_FONT;
 }
 
 function buildZpl(otb, sku, taille, qty, itemName) {
