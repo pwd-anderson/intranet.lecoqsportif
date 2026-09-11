@@ -24,7 +24,8 @@
   --ink-2:#3d4753;
   --muted:#6b7683;
   --line:#d8dce2;
-  --accent:#2b84d4;      /* goldD intranet */
+  --accent:#40a2ed;       /* bleu primaire intranet (.btn-primary, color_theme.css) */
+  --accent-hover:#168be4; /* survol .btn-primary intranet */
   --accent-ink:#ffffff;
   --accent-soft:#eef6fd; /* bleuF intranet */
   --good:#0f7b3d; --good-bg:#e7f4ec;
@@ -74,6 +75,7 @@
 .da-wrap .btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 .da-wrap .btn:hover{background:var(--surface-2)}
 .da-wrap .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.da-wrap .btn.primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover)}
 .da-wrap .btn.primary:disabled{opacity:.45;cursor:not-allowed}
 .da-wrap .filterinp{flex:1;min-width:180px;max-width:340px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
 .da-wrap .sitefilter{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
