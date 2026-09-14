@@ -6,6 +6,7 @@ use App\Service\DistributorAvailability;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class DistributorAvailabilityController extends AbstractController
@@ -21,9 +22,11 @@ final class DistributorAvailabilityController extends AbstractController
      * pas besoin de la compression gzip utilisée par Pilotage Livraisons.
      */
     #[Route('/distributor-availability/api/backlog-client', name: 'api_distributor_availability_backlog_client', methods: ['GET'])]
-    public function backlogClientJson(DistributorAvailability $service, Helpers $helpers): JsonResponse
+    public function backlogClientJson(DistributorAvailability $service, Helpers $helpers, Request $request): JsonResponse
     {
-        return new JsonResponse($helpers->convertArrayToUtf8($service->getBacklogClient()));
+        $collections = $request->query->all('collection');
+
+        return new JsonResponse($helpers->convertArrayToUtf8($service->getBacklogClient($collections)));
     }
 
     #[Route('/distributor-availability/api/france-reserve', name: 'api_distributor_availability_france_reserve', methods: ['GET'])]

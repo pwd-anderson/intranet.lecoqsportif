@@ -5,8 +5,12 @@
   Porté fidèlement depuis public/template/Distributor_Availability_intranet_3.html (fichier de
   référence PM, source de vérité pour la logique métier : FIFO, priorisation, Cambodge, PO_OVERRIDE).
   Différences vs le fichier de référence :
-   - auto-chargement au DOMContentLoaded (pas de bouton manuel comme Pilotage) ;
-   - les 4 sources SQL sont déjà filtrées/agrégées côté serveur (5 distributeurs, réserve France) ;
+   - chargement déclenché par un bouton "Load data" (#btnLoadDA), comme Pilotage —
+     l'auto-chargement initial a été retiré à la demande de PM ;
+   - filtre collections (multi-select TomSelect, table cache x3_collection) appliqué
+     uniquement au backlog client, comme sur Excess for Sales — vide = toutes collections ;
+   - les 4 sources SQL sont déjà filtrées/agrégées côté serveur (5 distributeurs, réserve France),
+     sauf le stock qui couvre désormais tous les sites (retrait du filtre WLOGM à la demande de PM) ;
    - palette de couleurs intranet (#40a2ed / #2b84d4 / #172b4c), comme Pilotage Livraisons ;
    - mode "Import fichiers (test)" conservé en secours (bascule Live/Import).
 #}
@@ -14,6 +18,7 @@
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 <style id="daStyle">
 .da-wrap{
   /* Palette intranet — mêmes valeurs hexadécimales que templates/pilotage/pilotage.html.twig */
@@ -69,6 +74,13 @@
 .da-wrap .main{flex:1;min-width:0;padding:26px 34px 60px}
 .da-wrap .da-placeholder{color:var(--muted);max-width:46ch;margin:12vh auto;text-align:center}
 .da-wrap .da-placeholder h2{font-family:"Archivo",sans-serif;font-weight:700;color:var(--ink-2)}
+.da-wrap .da-load-row{margin:20px 0 16px;text-align:left}
+.da-wrap .da-load-row label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+.da-wrap .da-load-row .da-load-hint{font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0}
+.da-wrap .da-load-row .ts-wrapper{font-size:13px}
+.da-wrap .da-load-actions{display:flex;gap:8px;justify-content:center}
+.da-wrap #btnLoadDA{font-size:14px;padding:9px 20px}
+.da-wrap #btnResetDA{font-size:14px;padding:9px 16px}
 .da-wrap .chead h2{font-family:"Archivo",sans-serif;font-weight:800;font-size:26px;margin:0;color:var(--ink)}
 .da-wrap .chead .meta{color:var(--muted);font-size:13px;margin-top:2px}
 .da-wrap .toolrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
@@ -235,7 +247,19 @@
     </aside>
 
     <main class="main" id="main">
-      <div id="daloading">
+      <div id="daLoadZone" class="da-placeholder">
+        <h2>Distributor Availability</h2>
+        <p>Select one or more collections, then load the live backlog, supply and stock data from the SEI Cube. By default, with no collection selected, all collections are included.</p>
+        <div class="da-load-row">
+          <label for="daCollections">Collections <span class="da-load-hint">(none selected = all collections)</span></label>
+          <select id="daCollections" multiple></select>
+        </div>
+        <div class="da-load-actions">
+          <button class="btn primary" id="btnLoadDA" type="button">Load data</button>
+          <button class="btn" id="btnResetDA" type="button">Reset</button>
+        </div>
+      </div>
+      <div id="daloading" hidden>
         <div class="da-spinner" aria-hidden="true"></div>
         <div class="da-loading-text" id="daloadingText">Loading live data from SEI Cube…</div>
       </div>
@@ -380,6 +404,8 @@
 {% block javascripts %}
 {{ parent() }}
 <script id="daXlsxLib" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="{{ asset('assets/js/pages/ag-grid-common.js') }}"></script>
 <script id="daScript">
 document.addEventListener('DOMContentLoaded', function(){
 'use strict';
@@ -648,9 +674,9 @@ function applyResult(res){
 }
 
 /* ===================== CHARGEMENT LIVE (API JSON) =====================
-   Auto-chargement au DOMContentLoaded (contrairement à Pilotage qui attend un
-   clic) : la volumétrie de ce module (~26 700 lignes / 4 requêtes <1s chacune,
-   5 distributeurs uniquement) le permet largement.
+   Chargement déclenché par le bouton "Load data" (#btnLoadDA), pas automatique
+   au DOMContentLoaded : le filtre collections (backlog client uniquement, comme
+   sur Excess for Sales) doit pouvoir être choisi par l'utilisateur avant l'appel.
    Chargement séquentiel : même choix que Pilotage pour rester cohérent avec le
    reste du site, même si ici la faible volumétrie rendrait un Promise.all sans
    risque — on documente le choix plutôt que de le changer sans raison. */
@@ -661,11 +687,44 @@ const URL_STOCK   = "{{ path('api_distributor_availability_stock') }}";
 
 /* DA-STRIP:START — chargement live (mode Symfony) : absent des fichiers exportés
    par generateDistPages(), qui embarquent déjà leurs données dans #DB (DB_SEED). */
+
+/* Liste des collections (multi-select), même source et même séquence
+   (peupler le <select> natif puis initialiser TomSelect) que le dropdown
+   d'Excess for Sales (table cache x3_collection côté serveur) — filtre
+   appliqué uniquement au backlog client, comme documenté dans le mail à PM. */
+fetch("{{ path('poid_famille_par_variant_collections_json') }}")
+  .then(r=>r.json())
+  .then(list=>{
+    const sel=el('daCollections');
+    (list||[]).forEach(c=>{
+      const opt=document.createElement('option'); opt.value=c; opt.textContent=c;
+      sel.appendChild(opt);
+    });
+    if(window.AgGridCommon){
+      window.daCollectionsTomSelect = window.AgGridCommon.setupMultiSelect('#daCollections', {
+        placeholder: 'All collections'
+      });
+    }
+  })
+  .catch(e=>console.error('Chargement des collections échoué', e));
+el('btnLoadDA').addEventListener('click', ()=>{
+  el('daLoadZone').hidden=true;
+  loadLive();
+});
+el('btnResetDA').addEventListener('click', ()=>{
+  if(window.daCollectionsTomSelect) window.daCollectionsTomSelect.clear();
+});
+
+function buildClientUrl(){
+  const collections = window.daCollectionsTomSelect ? window.daCollectionsTomSelect.getValue() : [];
+  const qs = collections.length ? ('?' + collections.map(c=>'collection[]='+encodeURIComponent(c)).join('&')) : '';
+  return URL_CLIENT + qs;
+}
 async function loadLive(){
   el('daloading').hidden=false; el('daloadingText').textContent='Loading live data from SEI Cube…';
   try{
     el('daloadingText').textContent='Loading customer backlog…';
-    const client = await fetch(URL_CLIENT).then(r=>{ if(!r.ok) throw new Error('Backlog client : HTTP '+r.status); return r.json(); });
+    const client = await fetch(buildClientUrl()).then(r=>{ if(!r.ok) throw new Error('Backlog client : HTTP '+r.status); return r.json(); });
     el('daloadingText').textContent='Loading French market reserve…';
     const frres  = await fetch(URL_FRRES).then(r=>{ if(!r.ok) throw new Error('Réserve France : HTTP '+r.status); return r.json(); });
     el('daloadingText').textContent='Loading supplier backlog…';
@@ -1273,7 +1332,7 @@ function distFile(cli){
   const rulesEl=q('#RULES'); if(rulesEl) rulesEl.remove();
 
   // Blocs entièrement internes : retirés du DOM (pas juste masqués)
-  ['.side','.legend','.modetabs','details.howto','#internview','#updview','#genview']
+  ['.side','.legend','.modetabs','details.howto','#internview','#updview','#genview','#daLoadZone']
     .forEach(s=>qa(s).forEach(e=>e.remove()));
 
   // Zones dynamiques reconstruites par le script au chargement : on repart vierge
@@ -1363,6 +1422,7 @@ el('srcImport').addEventListener('click',()=>{
 /* ===================== DÉMARRAGE ===================== */
 if(DIST_BAD){
   document.body.classList.add('dist');
+  el('daLoadZone').hidden=true;
   el('disthead').hidden=false;
   el('view').hidden=true;
   el('placeholder').hidden=false;
@@ -1375,6 +1435,7 @@ if(DIST_BAD){
   TODAY=DB_SEED.gen; P=DB_SEED.P; C=DB_SEED.C; I=DB_SEED.I||{};
   names=Object.keys(C).sort((a,b)=>a.localeCompare(b,'en'));
   document.body.classList.add('dist');
+  el('daLoadZone').hidden=true;
   el('disthead').hidden=false;
   el('distasof').textContent='Backlog as at '+fmtD(TODAY);
   const note=el('distnote');
@@ -1386,12 +1447,10 @@ if(DIST_BAD){
   const howto=document.querySelector('details.howto'); if(howto) howto.remove();
   const rt=el('secRttl'); if(rt) rt.textContent='Ready from the date shown';
   renderClient(DIST);
-} else {
-  /* Page live normale : auto-chargement au DOMContentLoaded (contrairement à
-     Pilotage qui attend un clic) — la volumétrie de ce module (~26 700 lignes
-     / 4 requêtes <1s chacune, 5 distributeurs uniquement) le permet largement. */
-  loadLive();
 }
+/* else : page live normale — on attend que l'utilisateur choisisse ses collections
+   et clique sur "Load data" (#btnLoadDA) ; voir le chargement des collections et le
+   listener du bouton plus haut. Plus d'auto-chargement (retiré à la demande de PM). */
 
 }); // DOMContentLoaded
 </script>

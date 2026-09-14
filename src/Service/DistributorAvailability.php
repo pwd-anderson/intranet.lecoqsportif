@@ -32,10 +32,29 @@ class DistributorAvailability
         $this->mssqlSei = $this->mssqlManagerFactory->create($dbLcsSei);
     }
 
-    public function getBacklogClient(): array
+    /**
+     * @param string[] $collections Filtre collection (multi-select TomSelect côté Twig,
+     *                               même pattern que Sales::getExcessForSales()) — vide = toutes collections
+     */
+    public function getBacklogClient(array $collections = []): array
     {
         try {
             $sql = $this->sqlFileLoader->load('Sei/distributor_availability_backlog_client.sql');
+
+            $conditions = [];
+            if (!empty($collections)) {
+                $escaped = array_map(
+                    fn($c) => "'" . str_replace("'", "''", trim($c)) . "'",
+                    array_filter($collections, fn($c) => is_string($c) && trim($c) !== '')
+                );
+
+                if (!empty($escaped)) {
+                    $conditions[] = 'AND SOQ.YCOLLECT_0 IN (' . implode(', ', $escaped) . ')';
+                }
+            }
+
+            $sql = str_replace('{{WHERE_CLAUSE}}', implode(' ', $conditions), $sql);
+
             return $this->mssqlSei->executeQuery($sql);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ Distributor Availability : getBacklogClient', $e);

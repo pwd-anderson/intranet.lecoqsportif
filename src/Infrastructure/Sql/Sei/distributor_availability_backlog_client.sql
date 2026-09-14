@@ -44,3 +44,4 @@ WHERE
         OR SOH.BPCNAM_0 LIKE '%GETRO%'
         OR SOH.BPCNAM_0 LIKE '%SPORTS LIFE%'
     )
+    {{WHERE_CLAUSE}}
