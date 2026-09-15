@@ -143,7 +143,7 @@
                 </ul>
 
                 {# ===== MODULES ===== #}
-                {% if isSuperUser or is_granted('ROLE_MODETIQEXP') or is_granted('ROLE_LOGISTIC') or is_granted('ROLE_ADV') or is_granted('ROLE_ACCOUNTING') %}
+                {% if isSuperUser or is_granted('ROLE_MODETIQEXP') or is_granted('ROLE_LOGISTIC') or is_granted('ROLE_ADV') or is_granted('ROLE_ACCOUNTING') or is_granted('ROLE_SALES') or is_granted('ROLE_PURCHASING') %}
                 <ul class="sidebar-menu" data-widget="tree">
                     <li class="header">Modules</li>
 
