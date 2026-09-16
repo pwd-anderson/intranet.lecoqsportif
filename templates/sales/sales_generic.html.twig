@@ -245,7 +245,7 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.6"></script>
-    <script src="{{ asset('assets/js/pages/ag-grid-ssrm.js') }}?v=1.8"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-ssrm.js') }}?v=1.9"></script>
     <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/excel-export-with-photo.js') }}"></script>
@@ -301,10 +301,16 @@
                 const m = /^(.*)_(WLOGM|WSFCN|WTAKH|WDTTH)$/.exec(col.field || '');
                 if (!m) return;
                 const site = m[2];
+                // 🆕 LOGTEX (WLOGM) garde ses 5 colonnes visibles avec le libellé plein tel
+                // quel (pas de sous-titre site en petit, redondant vu que tout est déjà
+                // "Logtex") ; les autres sites gardent l'en-tête 2 lignes (code + nom complet).
+                // Le libellé LOGTEX est long (ex: "Stock logtex physique - commande client") :
+                // wrapHeaderText permet qu'il se replie sur 2 lignes au lieu d'être tronqué.
+                if (site === 'WLOGM') { col.wrapHeaderText = true; col.autoHeaderHeight = true; return; }
                 col.headerComponent = SiteHeaderComponent;
                 col.headerComponentParams = {
                     mainLabel: col.headerName.replace(new RegExp('\\s*' + site + '$'), ''),
-                    siteName: SITE_NAMES[site],
+                    siteName: site + ' — ' + SITE_NAMES[site],
                 };
             });
         }

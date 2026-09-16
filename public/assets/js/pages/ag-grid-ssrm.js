@@ -359,9 +359,15 @@ window.AgGridSsrm = (function () {
             _updateExcelLoader(90, `Génération du fichier Excel (${allRows.length.toLocaleString('fr-FR')} lignes)...`);
             await new Promise(r => setTimeout(r, 50));
 
+            // 🆕 Colonnes "stock" à masquer si la case "Inclure le stock" est décochée :
+            // pas seulement STOCK_* (stock réel/interne/à terme), mais aussi EN_TRANSIT_*
+            // et BACKLOG_FOURNISSEUR_* qui sont conceptuellement des données de stock
+            // (Backlog Client X3) mais ne commencent pas par ce préfixe.
+            const STOCK_FIELD_PREFIXES = ['STOCK_', 'EN_TRANSIT_', 'BACKLOG_FOURNISSEUR_'];
+            const isStockField = (field) => !!field && STOCK_FIELD_PREFIXES.some(p => field.startsWith(p));
             const columnDefs = includeStock
                 ? config.columnDefs
-                : config.columnDefs.filter(c => !c.field || !c.field.startsWith('STOCK_'));
+                : config.columnDefs.filter(c => !isStockField(c.field));
 
             await _exportRowsToExcel(allRows, columnDefs, fileName);
 

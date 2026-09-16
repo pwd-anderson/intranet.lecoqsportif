@@ -39,6 +39,10 @@ class AgGridColumnBuilder
                 'cellStyle' => $option->getCellStyle(),
                 'aggFunc' => $option->getAggFunc(),
                 'flex' => $option->getFlex(),
+                // 🆕 'visible' pilote le masquage par défaut (colonne toujours dans les
+                // données/le state, juste cachée à l'affichage — reste accessible via le
+                // sélecteur de colonnes si activé sur la grille)
+                'hide' => $option->isVisible() === false,
             ];
 
             if ($option->getFilter() === 'agDateColumnFilter') {
