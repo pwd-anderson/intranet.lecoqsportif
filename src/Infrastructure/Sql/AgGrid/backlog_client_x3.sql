@@ -187,7 +187,7 @@ VALUES
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,37,'bg-info',0,'integerFormatter','integerComparator'),
 
-('backlog_client_x3_grid','STOCK_REEL_WLOGM','STOCK - ALLOCATION WLOGM','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','STOCK_REEL_WLOGM','STOCK PHYSIQUE - ALLOCATION WLOGM','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,38,'bg-info',0,'integerFormatter','integerComparator'),
 
@@ -208,7 +208,7 @@ VALUES
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,42,'bg-info-light',0,'integerFormatter','integerComparator'),
 
-('backlog_client_x3_grid','STOCK_REEL_WSFCN','STOCK - ALLOCATION WSFCN','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','STOCK_REEL_WSFCN','STOCK PHYSIQUE - ALLOCATION WSFCN','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,43,'bg-info-light',0,'integerFormatter','integerComparator'),
 
@@ -229,7 +229,7 @@ VALUES
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,47,'bg-success-light',0,'integerFormatter','integerComparator'),
 
-('backlog_client_x3_grid','STOCK_REEL_WTAKH','STOCK - ALLOCATION WTAKH','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','STOCK_REEL_WTAKH','STOCK PHYSIQUE - ALLOCATION WTAKH','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,48,'bg-success-light',0,'integerFormatter','integerComparator'),
 
@@ -250,7 +250,7 @@ VALUES
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,52,'bg-primary-light',0,'integerFormatter','integerComparator'),
 
-('backlog_client_x3_grid','STOCK_REEL_WDTTH','STOCK - ALLOCATION WDTTH','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','STOCK_REEL_WDTTH','STOCK PHYSIQUE - ALLOCATION WDTTH','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,53,'bg-primary-light',0,'integerFormatter','integerComparator'),
 
