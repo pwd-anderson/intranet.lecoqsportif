@@ -518,6 +518,60 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/sales/ventes_qte_ca_produit', name: 'app_sales_ventes_qte_ca_produit')]
+    public function ventesQteCaProduit(): Response
+    {
+        return $this->render('sales/ventes_qte_ca_produit.html.twig', [
+            'title'            => 'Ventes par Produits',
+            'dataUrl'          => $this->generateUrl('sales_ventes_qte_ca_produit_json'),
+            'currentYear'      => (int) date('Y'),
+            'produitDetailUrl' => $this->generateUrl('app_sales_ventes_qte_ca_produit_client'),
+        ]);
+    }
+
+    #[Route('/sales/ventes_qte_ca_produit_json', name: 'sales_ventes_qte_ca_produit_json')]
+    public function ventesQteCaProduitJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $year = (int) ($request->query->get('year', (string) date('Y')));
+        if ($year < 2000 || $year > 2100) {
+            $year = (int) date('Y');
+        }
+
+        $data = $sales->getVentesQteCaProduit($year);
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/ventes_qte_ca_produit_client', name: 'app_sales_ventes_qte_ca_produit_client')]
+    public function ventesQteCaProduitClient(Request $request): Response
+    {
+        $codeArticle = $request->query->get('article', '');
+        $year        = (int) ($request->query->get('year', (string) date('Y')));
+        if ($year < 2000 || $year > 2100) {
+            $year = (int) date('Y');
+        }
+
+        return $this->render('sales/ventes_qte_ca_produit_client.html.twig', [
+            'title'       => 'Ventes — ' . $codeArticle,
+            'article'     => $codeArticle,
+            'dataUrl'     => $this->generateUrl('sales_ventes_qte_ca_produit_client_json'),
+            'backUrl'     => $this->generateUrl('app_sales_ventes_qte_ca_produit'),
+            'currentYear' => $year,
+        ]);
+    }
+
+    #[Route('/sales/ventes_qte_ca_produit_client_json', name: 'sales_ventes_qte_ca_produit_client_json')]
+    public function ventesQteCaProduitClientJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $article = $request->query->get('article', '');
+        $year    = (int) ($request->query->get('year', (string) date('Y')));
+        if ($year < 2000 || $year > 2100) {
+            $year = (int) date('Y');
+        }
+
+        $data = $sales->getVentesQteCaProduitClient($year, $article);
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
 ####################### Route généric ####################
 
     #[Route(
