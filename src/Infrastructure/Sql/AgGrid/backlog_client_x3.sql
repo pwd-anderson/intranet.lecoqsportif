@@ -182,42 +182,86 @@ VALUES
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,36,NULL,0,'decimalFormatter','decimalComparator'),
 
--- 18
-('backlog_client_x3_grid','STOCK_INTERNE_WLOGM','STK INT. WLOGM','integer',110,1,'agNumberColumnFilter',
+-- 18 — WLOGM (5 colonnes)
+('backlog_client_x3_grid','STOCK_INTERNE_WLOGM','STOCK PHYSIQUE WLOGM','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,37,'bg-info',0,'integerFormatter','integerComparator'),
 
--- 18
-('backlog_client_x3_grid','STOCK_REEL_WLOGM','STK REEL WLOGM','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','STOCK_REEL_WLOGM','STOCK - ALLOCATION WLOGM','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,38,'bg-info',0,'integerFormatter','integerComparator'),
 
--- 18
-('backlog_client_x3_grid','STOCK_INTERNE_WSFCN','STK INT. WSFCN','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','EN_TRANSIT_WLOGM','EN TRANSIT WLOGM','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,39,'bg-info-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,39,'bg-info',0,'integerFormatter','integerComparator'),
 
--- 18
-('backlog_client_x3_grid','STOCK_REEL_WSFCN','STK REEL WSFCN','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','STOCK_A_TERME_TRANSIT_WLOGM','STOCK A TERME AVEC TRANSIT WLOGM','integer',150,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,40,'bg-info-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,40,'bg-info',0,'integerFormatter','integerComparator'),
 
--- 18
-('backlog_client_x3_grid','STOCK_INTERNE_WTAKH','STK INT. WTAKH','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','STOCK_A_TERME_BACKLOG_FOURNISSEUR_WLOGM','STOCK A TERME AVEC BACKLOG FOURNISSEUR WLOGM','integer',160,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,41,'bg-success-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,41,'bg-info',0,'integerFormatter','integerComparator'),
 
--- 18
-('backlog_client_x3_grid','STOCK_REEL_WTAKH','STK REEL WTAKH','integer',110,1,'agNumberColumnFilter',
+-- 18 — WSFCN (5 colonnes)
+('backlog_client_x3_grid','STOCK_INTERNE_WSFCN','STOCK PHYSIQUE WSFCN','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,42,'bg-success-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,42,'bg-info-light',0,'integerFormatter','integerComparator'),
 
--- 18
-('backlog_client_x3_grid','STOCK_INTERNE_WDTTH','STK INT. WDTTH','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','STOCK_REEL_WSFCN','STOCK - ALLOCATION WSFCN','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,43,'bg-primary-light',0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,43,'bg-info-light',0,'integerFormatter','integerComparator'),
 
--- 18
-('backlog_client_x3_grid','STOCK_REEL_WDTTH','STK REEL WDTTH','integer',110,1,'agNumberColumnFilter',
+('backlog_client_x3_grid','EN_TRANSIT_WSFCN','EN TRANSIT WSFCN','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,44,'bg-primary-light',0,'integerFormatter','integerComparator');
+ NULL,NULL,1,44,'bg-info-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','STOCK_A_TERME_TRANSIT_WSFCN','STOCK A TERME AVEC TRANSIT WSFCN','integer',150,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,45,'bg-info-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','STOCK_A_TERME_BACKLOG_FOURNISSEUR_WSFCN','STOCK A TERME AVEC BACKLOG FOURNISSEUR WSFCN','integer',160,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,46,'bg-info-light',0,'integerFormatter','integerComparator'),
+
+-- 18 — WTAKH (5 colonnes)
+('backlog_client_x3_grid','STOCK_INTERNE_WTAKH','STOCK PHYSIQUE WTAKH','integer',110,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,47,'bg-success-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','STOCK_REEL_WTAKH','STOCK - ALLOCATION WTAKH','integer',110,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,48,'bg-success-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','EN_TRANSIT_WTAKH','EN TRANSIT WTAKH','integer',110,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,49,'bg-success-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','STOCK_A_TERME_TRANSIT_WTAKH','STOCK A TERME AVEC TRANSIT WTAKH','integer',150,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,50,'bg-success-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','STOCK_A_TERME_BACKLOG_FOURNISSEUR_WTAKH','STOCK A TERME AVEC BACKLOG FOURNISSEUR WTAKH','integer',160,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,51,'bg-success-light',0,'integerFormatter','integerComparator'),
+
+-- 18 — WDTTH (5 colonnes)
+('backlog_client_x3_grid','STOCK_INTERNE_WDTTH','STOCK PHYSIQUE WDTTH','integer',110,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,52,'bg-primary-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','STOCK_REEL_WDTTH','STOCK - ALLOCATION WDTTH','integer',110,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,53,'bg-primary-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','EN_TRANSIT_WDTTH','EN TRANSIT WDTTH','integer',110,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,54,'bg-primary-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','STOCK_A_TERME_TRANSIT_WDTTH','STOCK A TERME AVEC TRANSIT WDTTH','integer',150,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,55,'bg-primary-light',0,'integerFormatter','integerComparator'),
+
+('backlog_client_x3_grid','STOCK_A_TERME_BACKLOG_FOURNISSEUR_WDTTH','STOCK A TERME AVEC BACKLOG FOURNISSEUR WDTTH','integer',160,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,56,'bg-primary-light',0,'integerFormatter','integerComparator');

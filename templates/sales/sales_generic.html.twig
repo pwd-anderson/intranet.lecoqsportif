@@ -276,6 +276,39 @@
             }
         });
 
+        // 🆕 En-tête 2 lignes (libellé + nom complet du site en petit) pour les colonnes
+        // stock/transit par site de Backlog Client X3 (demande direction : lisibilité,
+        // le code site WLOGM/WSFCN/WTAKH/WDTTH seul n'est pas assez parlant).
+        const SITE_NAMES = {
+            WLOGM: 'LOGTEX Entrepôt Moussey',
+            WSFCN: 'SF Entrepôt Chine',
+            WTAKH: 'TALENT GLOBAL CO.,LIMITED (WOOLVET)',
+            WDTTH: 'DT Entrepôt Thaïlande',
+        };
+        class SiteHeaderComponent {
+            init(params) {
+                this.eGui = document.createElement('div');
+                this.eGui.style.cssText = 'line-height:1.25;padding:2px 0;white-space:normal;overflow:hidden;';
+                this.eGui.innerHTML =
+                    '<div style="font-weight:700;">' + params.mainLabel + '</div>' +
+                    '<div style="font-size:10px;font-weight:400;opacity:.85;">' + params.siteName + '</div>';
+            }
+            getGui() { return this.eGui; }
+            refresh() { return false; }
+        }
+        if (salesType === 'backlog_clients_x3') {
+            columnDefs.forEach(col => {
+                const m = /^(.*)_(WLOGM|WSFCN|WTAKH|WDTTH)$/.exec(col.field || '');
+                if (!m) return;
+                const site = m[2];
+                col.headerComponent = SiteHeaderComponent;
+                col.headerComponentParams = {
+                    mainLabel: col.headerName.replace(new RegExp('\\s*' + site + '$'), ''),
+                    siteName: SITE_NAMES[site],
+                };
+            });
+        }
+
         // Colonnes avec liste déroulante dynamique (SELECT DISTINCT côté serveur)
         const ssrmSetFilterFields = [
             'SITE', 'MAINNETWORK', 'ZCLASSE_0', 'COLLECTION', 'FAMILLE',
@@ -352,7 +385,9 @@
             transformData: salesType === 'best_demand_per_style'
                 ? (data) => { bestDemandDetailCache = data.details || {}; return data.groups || []; }
                 : null,
-            extraOptions: salesType === 'best_demand_per_style' ? {
+            extraOptions: salesType === 'backlog_clients_x3' ? {
+                headerHeight: 90,
+            } : salesType === 'best_demand_per_style' ? {
                 isFullWidthRow: (params) => !!(params.rowNode.data && params.rowNode.data.__isDetailRow),
                 fullWidthCellRenderer: (params) => {
                     const articles = params.data.__articles || [];

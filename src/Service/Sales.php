@@ -370,45 +370,6 @@ class Sales
         return $variants;
     }
 
-    public function getStockPourBacklogClientsX3(): array
-    {
-        try {
-            $query = "
-            SELECT
-                ARTICLE,
-
-                -- WLOGM
-                SUM(CASE WHEN SITE = 'WLOGM' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WLOGM,
-                SUM(CASE WHEN SITE = 'WLOGM' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WLOGM,
-
-                -- WSFCN
-                SUM(CASE WHEN SITE = 'WSFCN' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WSFCN,
-                SUM(CASE WHEN SITE = 'WSFCN' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WSFCN,
-
-                -- WTAKH
-                SUM(CASE WHEN SITE = 'WTAKH' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WTAKH,
-                SUM(CASE WHEN SITE = 'WTAKH' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WTAKH,
-
-                -- WDTTH
-                SUM(CASE WHEN SITE = 'WDTTH' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WDTTH,
-                SUM(CASE WHEN SITE = 'WDTTH' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WDTTH
-
-            FROM [SEICube].[MASTER_TABLES].[STOCK_ALLOCATION] s
-
-            WHERE
-                s.STATUS_STOCK = 'A1'
-                AND s.SITE IN ('WLOGM','WSFCN','WTAKH','WDTTH')
-
-            GROUP BY ARTICLE;
-            ";
-            $data = $this->mssqlSei()->executeQuery($query);
-            return $data;
-
-        } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Stock à Terme X3 : Récupération de données stock', $e);
-            $this->logger->error('LCS Erreur Stock à Terme X3 : Récupération de données stock', ['exception' => $e]);
-        }
-    }
 
     public function getPoidFamilleParVariant(?string $collection = null, ?string $family = null, ?string $type = null): array
     {
@@ -1002,6 +963,47 @@ class Sales
             'CODE_POSTAL'           => 'BPA.POSCOD_0',
             'VILLE'                 => 'BPA.CTY_0',
             'ZCLASSE_0'             => 'SOH.ZCLASSE_0',
+
+            // 🆕 Stock par site (STOCK_ALLOCATION pivoté, joint via STK dans backlog_client.sql/backlog_client_count.sql)
+            'STOCK_REEL_WLOGM'      => 'ISNULL(STK.STOCK_REEL_WLOGM, 0)',
+            'STOCK_INTERNE_WLOGM'   => 'ISNULL(STK.STOCK_INTERNE_WLOGM, 0)',
+            'STOCK_REEL_WSFCN'      => 'ISNULL(STK.STOCK_REEL_WSFCN, 0)',
+            'STOCK_INTERNE_WSFCN'   => 'ISNULL(STK.STOCK_INTERNE_WSFCN, 0)',
+            'STOCK_REEL_WTAKH'      => 'ISNULL(STK.STOCK_REEL_WTAKH, 0)',
+            'STOCK_INTERNE_WTAKH'   => 'ISNULL(STK.STOCK_INTERNE_WTAKH, 0)',
+            'STOCK_REEL_WDTTH'      => 'ISNULL(STK.STOCK_REEL_WDTTH, 0)',
+            'STOCK_INTERNE_WDTTH'   => 'ISNULL(STK.STOCK_INTERNE_WDTTH, 0)',
+
+            // 🆕 En transit (COMMANDES_INTERSITES, corrélé sur SOQ.ITMREF_0, pas de JOIN supplémentaire requis)
+            'EN_TRANSIT_WLOGM'      => "ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WLOGM' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)",
+            'EN_TRANSIT_WSFCN'      => "ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WSFCN' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)",
+            'EN_TRANSIT_WTAKH'      => "ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WTAKH' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)",
+            'EN_TRANSIT_WDTTH'      => "ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WDTTH' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)",
+
+            // 🆕 Backlog fournisseur (PORDERQ/PORDER, corrélé sur SOQ.ITMREF_0, pas de JOIN supplémentaire requis)
+            'BACKLOG_FOURNISSEUR_WLOGM' => "ISNULL((select sum(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0) from X3_LCS.PORDERQ poq2 inner join X3_LCS.PORDER poh2 on poq2.POHNUM_0 = poh2.POHNUM_0 where poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2 AND poq2.PRHFCY_0 = 'WLOGM' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0)",
+            'BACKLOG_FOURNISSEUR_WSFCN' => "ISNULL((select sum(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0) from X3_LCS.PORDERQ poq2 inner join X3_LCS.PORDER poh2 on poq2.POHNUM_0 = poh2.POHNUM_0 where poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2 AND poq2.PRHFCY_0 = 'WSFCN' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0)",
+            'BACKLOG_FOURNISSEUR_WTAKH' => "ISNULL((select sum(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0) from X3_LCS.PORDERQ poq2 inner join X3_LCS.PORDER poh2 on poq2.POHNUM_0 = poh2.POHNUM_0 where poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2 AND poq2.PRHFCY_0 = 'WTAKH' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0)",
+            'BACKLOG_FOURNISSEUR_WDTTH' => "ISNULL((select sum(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0) from X3_LCS.PORDERQ poq2 inner join X3_LCS.PORDER poh2 on poq2.POHNUM_0 = poh2.POHNUM_0 where poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2 AND poq2.PRHFCY_0 = 'WDTTH' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0)",
+
+            // 🆕 Stock à terme = stock réel + en transit (+ backlog fournisseur), calculé en SQL (voir backlog_client.sql)
+            'STOCK_A_TERME_TRANSIT_WLOGM' => "(ISNULL(STK.STOCK_REEL_WLOGM, 0) + ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WLOGM' AND c.ITMREF_0 = SOQ.ITMREF_0), 0))",
+            'STOCK_A_TERME_TRANSIT_WSFCN' => "(ISNULL(STK.STOCK_REEL_WSFCN, 0) + ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WSFCN' AND c.ITMREF_0 = SOQ.ITMREF_0), 0))",
+            'STOCK_A_TERME_TRANSIT_WTAKH' => "(ISNULL(STK.STOCK_REEL_WTAKH, 0) + ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WTAKH' AND c.ITMREF_0 = SOQ.ITMREF_0), 0))",
+            'STOCK_A_TERME_TRANSIT_WDTTH' => "(ISNULL(STK.STOCK_REEL_WDTTH, 0) + ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WDTTH' AND c.ITMREF_0 = SOQ.ITMREF_0), 0))",
+
+            'STOCK_A_TERME_BACKLOG_FOURNISSEUR_WLOGM' => "(ISNULL(STK.STOCK_REEL_WLOGM, 0)
+                + ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WLOGM' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)
+                + ISNULL((select sum(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0) from X3_LCS.PORDERQ poq2 inner join X3_LCS.PORDER poh2 on poq2.POHNUM_0 = poh2.POHNUM_0 where poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2 AND poq2.PRHFCY_0 = 'WLOGM' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0))",
+            'STOCK_A_TERME_BACKLOG_FOURNISSEUR_WSFCN' => "(ISNULL(STK.STOCK_REEL_WSFCN, 0)
+                + ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WSFCN' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)
+                + ISNULL((select sum(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0) from X3_LCS.PORDERQ poq2 inner join X3_LCS.PORDER poh2 on poq2.POHNUM_0 = poh2.POHNUM_0 where poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2 AND poq2.PRHFCY_0 = 'WSFCN' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0))",
+            'STOCK_A_TERME_BACKLOG_FOURNISSEUR_WTAKH' => "(ISNULL(STK.STOCK_REEL_WTAKH, 0)
+                + ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WTAKH' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)
+                + ISNULL((select sum(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0) from X3_LCS.PORDERQ poq2 inner join X3_LCS.PORDER poh2 on poq2.POHNUM_0 = poh2.POHNUM_0 where poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2 AND poq2.PRHFCY_0 = 'WTAKH' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0))",
+            'STOCK_A_TERME_BACKLOG_FOURNISSEUR_WDTTH' => "(ISNULL(STK.STOCK_REEL_WDTTH, 0)
+                + ISNULL((select sum(c.QTE_RESTANTE) from MASTER_TABLES.COMMANDES_INTERSITES c where c.SITE_RECEPTION = 'WDTTH' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)
+                + ISNULL((select sum(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0) from X3_LCS.PORDERQ poq2 inner join X3_LCS.PORDER poh2 on poq2.POHNUM_0 = poh2.POHNUM_0 where poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2 AND poq2.PRHFCY_0 = 'WDTTH' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0))",
         ];
     }
 
@@ -1172,6 +1174,23 @@ class Sales
         ) PO ON PO.ITMREF_0 = SOQ.ITMREF_0 AND PO.PRHFCY_0 = SOH.STOFCY_0
         " : "") . "
         LEFT  JOIN X3_LCS.SVCRFOOT SVT ON SOH.SOHNUM_0 = SVT.VCRNUM_0 AND SVT.DTA_0 = 1
+        " . (str_contains($whereClause, 'STK.') ? "
+        LEFT  JOIN (
+            SELECT
+                ARTICLE,
+                SUM(CASE WHEN SITE = 'WLOGM' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WLOGM,
+                SUM(CASE WHEN SITE = 'WLOGM' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WLOGM,
+                SUM(CASE WHEN SITE = 'WSFCN' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WSFCN,
+                SUM(CASE WHEN SITE = 'WSFCN' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WSFCN,
+                SUM(CASE WHEN SITE = 'WTAKH' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WTAKH,
+                SUM(CASE WHEN SITE = 'WTAKH' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WTAKH,
+                SUM(CASE WHEN SITE = 'WDTTH' THEN STOCK_REEL ELSE 0 END)     AS STOCK_REEL_WDTTH,
+                SUM(CASE WHEN SITE = 'WDTTH' THEN STOCK_INTERNE ELSE 0 END)  AS STOCK_INTERNE_WDTTH
+            FROM MASTER_TABLES.STOCK_ALLOCATION
+            WHERE STATUS_STOCK = 'A1' AND SITE IN ('WLOGM','WSFCN','WTAKH','WDTTH')
+            GROUP BY ARTICLE
+        ) STK ON STK.ARTICLE = ITM.ITMREF_0
+        " : "") . "
         WHERE
             SOQ.SOQSTA_0 <> 3
             AND SOH.ZSOHVALSTA_0 <> 3
@@ -1182,22 +1201,18 @@ class Sales
     }
 
     /**
-     * Enrichissement : prix + (optionnellement) stocks.
-     * Le stock est coûteux (1 requête lourde sur SEICube) → option pour l'export.
+     * Enrichissement : prix (EUR) + cast des colonnes stock (désormais calculées en SQL
+     * dans backlog_client.sql via le JOIN STK sur MASTER_TABLES.STOCK_ALLOCATION et les
+     * sous-requêtes corrélées EN_TRANSIT_(site) / BACKLOG_FOURNISSEUR_(site), ce qui les rend
+     * filtrables/triables côté SSRM). $includeStock conservé pour compat API/appelants,
+     * n'affecte plus le coût de la requête (le JOIN stock est désormais dans la requête
+     * principale et n'a plus d'exécution séparée).
      */
     private function enrichBacklogClientsX3Rows(array &$rows, bool $includeStock = true): void
     {
         if ($rows === []) return;
 
         $taux = $this->divers->getExchangeRatesValues();
-
-        $stocksByArticle = [];
-        if ($includeStock) {
-            $stocks = $this->getStockPourBacklogClientsX3();
-            foreach ($stocks as $stock) {
-                $stocksByArticle[$stock->ARTICLE] = $stock;
-            }
-        }
 
         foreach ($rows as $row) {
             $quantity = (int) $row->QUANTITE;
@@ -1212,17 +1227,14 @@ class Sales
                 : 0.0;
 
             if ($includeStock) {
-                // 🆕 Lookup sur SKU (123456_L) au lieu d'ARTICLE (qui est maintenant 123456)
-                $stock = $stocksByArticle[$row->SKU] ?? null;
-
-                $row->STOCK_REEL_WLOGM    = $stock ? (float) $stock->STOCK_REEL_WLOGM    : 0.0;
-                $row->STOCK_INTERNE_WLOGM = $stock ? (float) $stock->STOCK_INTERNE_WLOGM : 0.0;
-                $row->STOCK_REEL_WSFCN    = $stock ? (float) $stock->STOCK_REEL_WSFCN    : 0.0;
-                $row->STOCK_INTERNE_WSFCN = $stock ? (float) $stock->STOCK_INTERNE_WSFCN : 0.0;
-                $row->STOCK_REEL_WTAKH    = $stock ? (float) $stock->STOCK_REEL_WTAKH    : 0.0;
-                $row->STOCK_INTERNE_WTAKH = $stock ? (float) $stock->STOCK_INTERNE_WTAKH : 0.0;
-                $row->STOCK_REEL_WDTTH    = $stock ? (float) $stock->STOCK_REEL_WDTTH    : 0.0;
-                $row->STOCK_INTERNE_WDTTH = $stock ? (float) $stock->STOCK_INTERNE_WDTTH : 0.0;
+                foreach (['WLOGM', 'WSFCN', 'WTAKH', 'WDTTH'] as $site) {
+                    $row->{"STOCK_REEL_$site"}    = (float) ($row->{"STOCK_REEL_$site"} ?? 0);
+                    $row->{"STOCK_INTERNE_$site"} = (float) ($row->{"STOCK_INTERNE_$site"} ?? 0);
+                    $row->{"EN_TRANSIT_$site"} = (float) ($row->{"EN_TRANSIT_$site"} ?? 0);
+                    $row->{"BACKLOG_FOURNISSEUR_$site"} = (float) ($row->{"BACKLOG_FOURNISSEUR_$site"} ?? 0);
+                    $row->{"STOCK_A_TERME_TRANSIT_$site"} = (float) ($row->{"STOCK_A_TERME_TRANSIT_$site"} ?? 0);
+                    $row->{"STOCK_A_TERME_BACKLOG_FOURNISSEUR_$site"} = (float) ($row->{"STOCK_A_TERME_BACKLOG_FOURNISSEUR_$site"} ?? 0);
+                }
             }
         }
     }
