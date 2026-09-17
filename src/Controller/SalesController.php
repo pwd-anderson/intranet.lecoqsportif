@@ -251,7 +251,8 @@ final class SalesController extends AbstractController
         $payload     = json_decode($request->getContent(), true) ?? [];
         $field       = (string) ($payload['field'] ?? '');
         $filterModel = $payload['filterModel'] ?? [];
-        return new JsonResponse($sales->getBacklogClientsX3DistinctValues($field, $filterModel));
+        $includeNoos = (bool) ($payload['includeNoos'] ?? false);
+        return new JsonResponse($sales->getBacklogClientsX3DistinctValues($field, $filterModel, $includeNoos));
     }
 
     #[Route('/sales/backlog_clients_x3_ssrm_json', name: 'backlog_clients_x3_ssrm_json', methods: ['POST'])]

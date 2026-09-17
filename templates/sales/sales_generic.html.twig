@@ -169,6 +169,14 @@
                                 {% endif %}
 
                                 <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                                    {% if type == 'backlog_clients_x3' %}
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input" type="checkbox" id="includeNoosChk">
+                                            <label class="form-check-label" for="includeNoosChk">
+                                                Inclure NOOS
+                                            </label>
+                                        </div>
+                                    {% endif %}
                                     {% if type in ['poid_famille_par_variant', 'best_demand_per_style'] %}
                                         <select id="collectionSelect" class="form-select form-select-sm" style="width: 180px;">
                                             <option value="">Toutes les collections</option>
@@ -328,7 +336,7 @@
         // Colonnes avec liste déroulante dynamique (SELECT DISTINCT côté serveur)
         const ssrmSetFilterFields = [
             'SITE', 'MAINNETWORK', 'ZCLASSE_0', 'COLLECTION', 'FAMILLE',
-            'GENRE', 'AGE', 'DROPPE', 'GROUP_CODE', 'CUR_0', 'REP1', 'REP2',
+            'GENRE', 'AGE', 'DROPPE', 'NOOS', 'GROUP_CODE', 'CUR_0', 'REP1', 'REP2',
             'CLIENT_COMMANDE', 'NOM_CLIENT_COMMANDE'
         ];
         const ssrmFilterValuesUrl = {
@@ -356,6 +364,9 @@
                                         const body = { field: field, filterModel: otherFilters };
                                         if (salesType === 'etat_commandes_clients_x3') {
                                             body.collections = (window.etatCommandesSelectedCollections || []);
+                                        }
+                                        if (salesType === 'backlog_clients_x3') {
+                                            body.includeNoos = document.getElementById('includeNoosChk')?.checked || false;
                                         }
                                         fetch(ssrmFilterValuesUrl[salesType], {
                                             method: 'POST',
@@ -411,6 +422,11 @@
             transformData: salesType === 'best_demand_per_style'
                 ? (data) => { bestDemandDetailCache = data.details || {}; return data.groups || []; }
                 : null,
+            getStaticOptions: salesType === 'backlog_clients_x3'
+                ? () => ({ includeNoos: document.getElementById('includeNoosChk')?.checked || false })
+                : salesType === 'etat_commandes_clients_x3'
+                    ? () => ({ collections: window.etatCommandesSelectedCollections })
+                    : undefined,
             extraOptions: salesType === 'backlog_clients_x3' ? {
                 headerHeight: 90,
             } : salesType === 'best_demand_per_style' ? {
@@ -501,6 +517,14 @@
             }
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
             window.AgGridCommon.patchSetFilterCheckboxes();
+
+            // 🆕 Case "Inclure NOOS" : rafraîchit le datasource SSRM (purge) au changement,
+            // getStaticOptions() relit dynamiquement l'état de la case à chaque getRows().
+            if (salesType === 'backlog_clients_x3' && isServerSide) {
+                document.getElementById('includeNoosChk')?.addEventListener('change', () => {
+                    window.gridOptions.api.refreshServerSide({ purge: true });
+                });
+            }
 
             const saveConfigModalEl = document.getElementById('modal-save-config-aggrid');
             const saveConfigModal = new bootstrap.Modal(saveConfigModalEl);
