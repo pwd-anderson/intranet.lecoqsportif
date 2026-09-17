@@ -33,20 +33,24 @@ VALUES
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,7,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
+('reception_fournisseur_grid','NOOS','NOOS','string',100,1,'agMultiColumnFilter',
+ JSON_OBJECT('textAlign','center','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,8,NULL,0,NULL,NULL,NULL,NULL,NULL),
+
 -- ============ QUANTITE ============
 ('reception_fournisseur_grid','QUANTITE','QUANTITE','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,8,NULL,0,'integerFormatter','integerComparator',NULL,NULL,NULL),
+ NULL,'sum',1,9,NULL,0,'integerFormatter','integerComparator',NULL,NULL,NULL),
 
 -- ============ INFOS PRIX (à la fin) ============
 ('reception_fournisseur_grid','PRIX_UNITAIRE','PRIX UNITAIRE','decimal',140,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,9,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
+ NULL,NULL,1,10,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL),
 
 ('reception_fournisseur_grid','DEVISE','DEVISE','string',90,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','center','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,10,NULL,0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,11,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
 ('reception_fournisseur_grid','MONTANT_TOT_LIGNE','MONTANT TOTAL','decimal',160,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,11,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL);
+ NULL,'sum',1,12,NULL,0,'decimalFormatter','decimalComparator',NULL,NULL,NULL);

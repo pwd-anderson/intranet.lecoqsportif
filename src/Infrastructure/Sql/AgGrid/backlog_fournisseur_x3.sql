@@ -51,71 +51,76 @@ VALUES
  NULL,NULL,1,9,NULL,0,NULL,NULL),
 
 -- 10
-('backlog_fournisseur_x3_grid','BPSNUM_0','CODE FOURN.','string',140,1,'agTextColumnFilter',
- JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+('backlog_fournisseur_x3_grid','NOOS','NOOS','string',100,1,'agMultiColumnFilter',
+ JSON_OBJECT('textAlign','center','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,10,NULL,0,NULL,NULL),
 
 -- 11
-('backlog_fournisseur_x3_grid','BPRNAM_0','NOM FOURN.','string',160,1,'agTextColumnFilter',
+('backlog_fournisseur_x3_grid','BPSNUM_0','CODE FOURN.','string',140,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,11,NULL,0,NULL,NULL),
 
 -- 12
-('backlog_fournisseur_x3_grid','POHNUM_0','N° COMMANDE','string',130,1,'agTextColumnFilter',
+('backlog_fournisseur_x3_grid','BPRNAM_0','NOM FOURN.','string',160,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,12,NULL,0,NULL,NULL),
 
 -- 13
-('backlog_fournisseur_x3_grid','ORDDAT_0','DATE DE COMMANDE','date',120,1,'agDateColumnFilter',
+('backlog_fournisseur_x3_grid','POHNUM_0','N° COMMANDE','string',130,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,13,NULL,0,NULL,NULL),
 
 -- 14
-('backlog_fournisseur_x3_grid','XSHIPDAT_0','DATE EXPÉDITION','date',120,1,'agDateColumnFilter',
+('backlog_fournisseur_x3_grid','ORDDAT_0','DATE DE COMMANDE','date',120,1,'agDateColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,14,NULL,0,NULL,NULL),
 
 -- 15
-('backlog_fournisseur_x3_grid','EXTRCPDAT_0','DATE LIVRAISON','date',120,1,'agDateColumnFilter',
+('backlog_fournisseur_x3_grid','XSHIPDAT_0','DATE EXPÉDITION','date',120,1,'agDateColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,15,NULL,0,NULL,NULL),
 
 -- 16
-('backlog_fournisseur_x3_grid','STATUS','STATUS','string',110,1,'agTextColumnFilter',
+('backlog_fournisseur_x3_grid','EXTRCPDAT_0','DATE LIVRAISON','date',120,1,'agDateColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,16,NULL,0,NULL,NULL),
 
 -- 17
-('backlog_fournisseur_x3_grid','ORDREF_0','REF. INTERNE','string',150,1,'agTextColumnFilter',
+('backlog_fournisseur_x3_grid','STATUS','STATUS','string',110,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,17,NULL,0,NULL,NULL),
 
 -- 18
-('backlog_fournisseur_x3_grid','QUANTITE','QTÉ À LIVRER','integer',110,1,'agNumberColumnFilter',
- JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,18,NULL,0,'integerFormatter','integerComparator'),
+('backlog_fournisseur_x3_grid','ORDREF_0','REF. INTERNE','string',150,1,'agTextColumnFilter',
+ JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,18,NULL,0,NULL,NULL),
 
 -- 19
-('backlog_fournisseur_x3_grid','PRIX','MONTANT DEVISE','decimal',130,1,'agNumberColumnFilter',
+('backlog_fournisseur_x3_grid','QUANTITE','QTÉ À LIVRER','integer',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,19,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,'sum',1,19,NULL,0,'integerFormatter','integerComparator'),
 
 -- 20
-('backlog_fournisseur_x3_grid','CUR_0','DEVISE ACHAT','string',110,1,'agTextColumnFilter',
- JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,20,NULL,0,NULL,NULL),
+('backlog_fournisseur_x3_grid','PRIX','MONTANT DEVISE','decimal',130,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,20,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 21
-('backlog_fournisseur_x3_grid','PRIX_EUR','MONTANT EN EUR','decimal',130,1,'agNumberColumnFilter',
- JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,'sum',1,21,NULL,0,'decimalFormatter','decimalComparator'),
+('backlog_fournisseur_x3_grid','CUR_0','DEVISE ACHAT','string',110,1,'agTextColumnFilter',
+ JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,21,NULL,0,NULL,NULL),
 
 -- 22
-('backlog_fournisseur_x3_grid','MDL_0','MODE TRANSP.','string',100,1,'agTextColumnFilter',
- JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,22,NULL,0,NULL,NULL),
+('backlog_fournisseur_x3_grid','PRIX_EUR','MONTANT EN EUR','decimal',130,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,'sum',1,22,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 23
+('backlog_fournisseur_x3_grid','MDL_0','MODE TRANSP.','string',100,1,'agTextColumnFilter',
+ JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,23,NULL,0,NULL,NULL),
+
+-- 24
 ('backlog_fournisseur_x3_grid','VALIDE','VALIDE','string',100,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,23,NULL,0,NULL,NULL);
+ NULL,NULL,1,24,NULL,0,NULL,NULL);

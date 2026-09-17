@@ -1302,6 +1302,7 @@ class Sales
             'ITMDES1_0'                => 'ITM.ITMDES1_0',
             'EAN'                      => 'ITM.EANCOD_0',
             'DROPPE'                   => "CASE WHEN ITC.ZDROPPED_0 = 2 THEN 'OUI' ELSE 'NON' END",
+            'NOOS'                     => "CASE WHEN ITM.ZNOOSFLG_0 = 2 THEN 'Oui' ELSE 'Non' END",
             'DATE_COMMANDE'            => 'CONVERT(varchar(10), SOH.ORDDAT_0, 23)',
             'DATE_LIVRAISON_DEMANDEE'  => 'CONVERT(varchar(10), SOQ.DEMDLVDAT_0, 23)',
             'REP1'                     => 'REP2.REPNAM_0',
