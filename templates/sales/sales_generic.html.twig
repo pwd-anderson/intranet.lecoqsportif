@@ -19,6 +19,16 @@
             color: #000000 !important;
         }
 
+        .statusActive {
+            background-color: #d4edda !important;
+            color: #155724 !important;
+        }
+
+        .statusInactive {
+            background-color: #f8d7da !important;
+            color: #721c24 !important;
+        }
+
         #etatCommandesPicker .ts-wrapper {
             min-width: 460px;
         }
@@ -364,6 +374,16 @@
             });
         }
 
+        if (salesType === 'comptes_clients') {
+            const statutCol = columnDefs.find(c => c.field === 'STATUT_CLIENT');
+            if (statutCol) {
+                statutCol.cellClassRules = {
+                    statusActive: params => params.value === 'Actif',
+                    statusInactive: params => params.value === 'Inactif',
+                };
+            }
+        }
+
         let bestDemandDetailCache = {};
 
         if (salesType === 'best_demand_per_style') {
@@ -462,7 +482,9 @@
             } : {},
             excelStyles: [
                 { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
-                { id: 'excelPercentColumn', interior: { color: '#baedbc', pattern: 'Solid' }, font: { color: '#1B5E20' } }
+                { id: 'excelPercentColumn', interior: { color: '#baedbc', pattern: 'Solid' }, font: { color: '#1B5E20' } },
+                { id: 'statusActive', interior: { color: '#D4EDDA', pattern: 'Solid' }, font: { color: '#155724' } },
+                { id: 'statusInactive', interior: { color: '#F8D7DA', pattern: 'Solid' }, font: { color: '#721C24' } }
             ]
         };
 
