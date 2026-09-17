@@ -788,6 +788,20 @@ class Sales
         }
     }
 
+    public function getComptesClients(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/comptes_clients.sql');
+            return $this->mssqlSei()->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Récupération de données Comptes Clients', $e);
+            $this->logger->error('LCS Erreur Sales : Récupération de données Comptes Clients', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
     public function saveSellInSuiviPs(
         string $customerCode,
         string $city,

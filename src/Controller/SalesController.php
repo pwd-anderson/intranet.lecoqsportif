@@ -77,6 +77,12 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('poid_famille_par_variant');
     }
 
+    #[Route('/sales/comptes_clients', name: 'app_sales_comptes_clients')]
+    public function comptesClientsAlias(): Response
+    {
+        return $this->salesGeneric('comptes_clients');
+    }
+
     // ################## Action customisés #####################
     #[Route('/sales/reassort', name: 'app_sales_reassort')]
     public function reassort(): Response
@@ -144,6 +150,13 @@ final class SalesController extends AbstractController
     }
 
     // ################## ROUTES JSON (inchangées) #####################
+    #[Route('/sales/comptes_clients_json', name: 'comptes_clients_json')]
+    public function comptesClientsJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getComptesClients();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
     #[Route('/sales/livraison_non_facturees_json', name: 'livraison_non_facturees_json')]
     public function livraisonNonFactureesJson(Sales $sales, Helpers $helpers): JsonResponse
     {
@@ -577,7 +590,7 @@ final class SalesController extends AbstractController
     #[Route(
         '/sales/{type}',
         name: 'app_sales_generic',
-        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|etat_commandes_clients_x3|poid_famille_par_variant|best_demand_per_style']
+        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|etat_commandes_clients_x3|poid_famille_par_variant|best_demand_per_style|comptes_clients']
     )]
     public function salesGeneric(string $type): Response
     {
@@ -641,6 +654,13 @@ final class SalesController extends AbstractController
                 'jsonRoute'     => 'best_demand_per_style_json',
                 'template'      => 'sales/sales_generic.html.twig',
                 'gridWidthMode' => 'auto',
+            ],
+            'comptes_clients' => [
+                'gridName'      => 'comptes_clients_grid',
+                'title'         => 'Comptes Clients',
+                'jsonRoute'     => 'comptes_clients_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
             ],
         ];
 
