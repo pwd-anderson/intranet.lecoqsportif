@@ -1025,7 +1025,7 @@ class Sales
         ];
     }
 
-    public function getBacklogClientsX3DistinctValues(string $field, array $filterModel = [], bool $includeNoos = false): array
+    public function getBacklogClientsX3DistinctValues(string $field, array $filterModel = []): array
     {
         $fieldMap = $this->getBacklogClientsX3FieldMap();
 
@@ -1042,11 +1042,6 @@ class Sales
 
             $fromClause = substr($baseSql, $fromPos);
             $fromClause = str_replace(['{{ORDER_BY}}', '{{PAGINATION}}'], '', $fromClause);
-
-            // 🆕 Exclusion par défaut des articles NOOS (ZNOOSFLG_0 = 2), sauf si l'utilisateur
-            // a coché "Inclure NOOS" côté grille — même logique que getBacklogClientsX3Paginated.
-            $noosFilter = $includeNoos ? '' : "AND (ITM.ZNOOSFLG_0 IS NULL OR ITM.ZNOOSFLG_0 <> 2)";
-            $fromClause = str_replace('{{NOOS_FILTER}}', $noosFilter, $fromClause);
 
             // Construire le WHERE à partir des filtres actifs sur les autres colonnes
             $ssrmRequest = SsrmRequest::fromArray(['filterModel' => $filterModel]);
@@ -1076,9 +1071,6 @@ class Sales
             $includeStock = (bool) $request->getOption('includeStock', true);
             // 🆕 Mode export : skip COUNT + totaux
             $isExport     = (bool) $request->getOption('isExport', false);
-            // 🆕 Inclure les articles NOOS (ZNOOSFLG_0 = 2), exclus par défaut
-            $includeNoos  = (bool) $request->getOption('includeNoos', false);
-            $noosFilter   = $includeNoos ? '' : "AND (ITM.ZNOOSFLG_0 IS NULL OR ITM.ZNOOSFLG_0 <> 2)";
 
             $builder = new AgGridSqlBuilder(
                 $request,
@@ -1094,7 +1086,7 @@ class Sales
 
             // 🆕 Agrégats UNIQUEMENT pour la grille (pas pour l'export)
             if ($request->getOffset() === 0 && !$isExport) {
-                $aggregateSql = $this->buildBacklogClientsX3AggregateSql($whereClause, $noosFilter);
+                $aggregateSql = $this->buildBacklogClientsX3AggregateSql($whereClause);
                 $aggregateResult = $this->mssqlSei()->executeQuery($aggregateSql);
 
                 if (!empty($aggregateResult)) {
@@ -1130,7 +1122,6 @@ class Sales
 
             // Requête paginée principale
             $sql = $this->sqlFileLoader->load('Sei/backlog_client.sql');
-            $sql = str_replace('{{NOOS_FILTER}}', $noosFilter, $sql);
             $sql = str_replace('{{WHERE_CLAUSE}}', $whereClause, $sql);
             $sql = str_replace('{{ORDER_BY}}',    $orderBy, $sql);
             $sql = str_replace('{{PAGINATION}}',  $pagination, $sql);
@@ -1158,7 +1149,7 @@ class Sales
      * - TOTAL_PRIX : somme PRIX_HT * QUANTITE dans la devise d'origine
      * - DEVISE : pour appliquer le taux côté PHP
      */
-    private function buildBacklogClientsX3AggregateSql(string $whereClause, string $noosFilter = "AND (ITM.ZNOOSFLG_0 IS NULL OR ITM.ZNOOSFLG_0 <> 2)"): string
+    private function buildBacklogClientsX3AggregateSql(string $whereClause): string
     {
         return "
         SELECT
@@ -1231,7 +1222,6 @@ class Sales
             SOQ.SOQSTA_0 <> 3
             AND SOH.ZSOHVALSTA_0 <> 3
             AND BPC.BCGCOD_0 <> 'INTER'
-            $noosFilter
             $whereClause
         GROUP BY SOH.CUR_0
     ";
