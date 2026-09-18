@@ -57,6 +57,24 @@ class MssqlManager
         }
     }
 
+    /**
+     * Lecture ligne par ligne, pour les gros volumes. Contrairement aux autres méthodes,
+     * les erreurs remontent à l'appelant au lieu de renvoyer un résultat vide.
+     *
+     * @return \Generator<array<string, mixed>>
+     */
+    public function iterateQuery(string $query): \Generator
+    {
+        if ($this->connection === null) {
+            throw new \RuntimeException('Connexion MSSQL indisponible.');
+        }
+
+        $stmt = $this->connection->query($query);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            yield $row;
+        }
+    }
+
     public function executeQueryWithParams(string $query, array $params = []): array
     {
         try {
