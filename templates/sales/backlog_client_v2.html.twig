@@ -1,0 +1,299 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+
+        .ag-text-field-input {
+            color: #000000 !important;
+        }
+
+        #collectionPicker .ts-wrapper {
+            min-width: 460px;
+        }
+
+        .grid-wrapper {
+            position: relative;
+            min-height: 1000px;
+        }
+
+        .grid-custom-loader {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            z-index: 10;
+        }
+
+        .grid-loader-spinner {
+            width: 42px;
+            height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        .grid-loader-text {
+            font-size: 14px;
+            color: #555;
+        }
+
+        @keyframes gridSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .grid-actions-hidden {
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .grid-actions-visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .grid-loader-bar-track {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .grid-loader-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #024185;
+            border-radius: 99px;
+            transition: width 0.3s ease;
+        }
+
+        .grid-loader-percent-text {
+            font-size: 13px;
+            color: #024185;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <h3 class="box-title mb-2">{{ title }}</h3>
+
+                        <div id="collectionPicker" class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                            <select id="collectionSelect" class="form-select form-select-sm" multiple style="min-width: 260px;"></select>
+                            <button id="loadBtn" class="btn btn-primary btn-sm" type="button">Charger</button>
+                        </div>
+
+                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                            <button id="exportFullBtn" class="btn btn-primary btn-sm" type="button" title="Toutes les lignes filtrées, généré par le serveur (CSV compatible Excel)">CSV complet</button>
+                            <form id="exportCsvForm" method="post" action="{{ path('backlog_clients_v2_export_csv') }}" style="display: none;">
+                                <input type="hidden" name="payload">
+                            </form>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                    <div class="box-body" id="mainBoxBody" style="display: none;">
+                        <div class="table-responsive-sm">
+                            <div id="myGridWrapper" class="grid-wrapper">
+                                <div id="gridCustomLoader" class="grid-custom-loader">
+                                    <div class="grid-loader-spinner"></div>
+                                    <div class="grid-loader-text">Chargement de la grille...</div>
+                                    <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                        <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                    </div>
+                                    <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                                </div>
+
+                                <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.6"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-ssrm.js') }}?v=1.9"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
+
+    <script>
+        const columnDefs = {{ columns|json_encode|raw }};
+        const ALL_COLLECTIONS = '__ALL__';
+        // Collections filtrées ([] si "Tout") et options envoyées au serveur
+        let selectedCollections = [];
+        let collectionOptions = { collections: [] };
+
+        // Colonnes avec liste déroulante dynamique (SELECT DISTINCT côté serveur)
+        const setFilterFields = [
+            'SITE', 'MAINNETWORK', 'DISTRIBUTION_CHANNEL', 'ZCLASSE_0', 'COLLECTION', 'FAMILLE',
+            'GENRE', 'AGE', 'DROPPE', 'NOOS', 'GROUP_CODE', 'CUR_0', 'REP1', 'REP2',
+            'CLIENT_COMMANDE', 'NOM_CLIENT_COMMANDE'
+        ];
+
+        columnDefs.forEach(col => {
+            if (!setFilterFields.includes(col.field)) return;
+            const field = col.field;
+            col.filterParams = {
+                filters: [
+                    { filter: 'agTextColumnFilter' },
+                    {
+                        filter: 'agSetColumnFilter',
+                        filterParams: {
+                            values: (params) => {
+                                const filterModel = window.gridOptions && window.gridOptions.api
+                                    ? window.gridOptions.api.getFilterModel()
+                                    : {};
+                                // Exclure le filtre de la colonne en cours pour ne pas se filtrer soi-même
+                                const otherFilters = Object.fromEntries(
+                                    Object.entries(filterModel).filter(([k]) => k !== field)
+                                );
+                                fetch('{{ path('backlog_clients_v2_filter_values') }}', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ field, filterModel: otherFilters, collections: selectedCollections }),
+                                })
+                                    .then(r => r.json())
+                                    .then(values => params.success(values))
+                                    .catch(() => params.success([]));
+                            }
+                        }
+                    }
+                ]
+            };
+        });
+
+        const agGridConfig = {
+            columnDefs: columnDefs,
+            dataUrl: '{{ dataUrl }}',
+            blockSize: {{ blockSize|default(200) }},
+            numericColumns: {{ numericColumns|json_encode|raw }},
+            integerColumns: {{ integerColumns|json_encode|raw }},
+            totalColumns: {{ totalColumns|json_encode|raw }},
+            headerClass: 'excelHeaderBlue',
+            stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
+            getStaticOptions: () => collectionOptions,
+            excelStyles: [
+                { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
+            ],
+        };
+
+        function initializeGridAndUi() {
+            window.gridOptions = window.AgGridSsrm.initGrid('#myGrid', agGridConfig);
+            window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+            window.AgGridCommon.patchSetFilterCheckboxes();
+
+            const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
+
+            document.getElementById('exportBtn').addEventListener('click', () => {
+                window.AgGridSsrm.exportExcel(window.gridOptions, agGridConfig, '{{ title|replace({" ": "_"}) }}.xlsx', { includeStock: true });
+            });
+
+            // CSV généré et envoyé au fil de l'eau par le serveur (filtres, tri et collections de la grille) :
+            // pas de limite de lignes, contrairement à l'Excel construit dans le navigateur
+            document.getElementById('exportFullBtn').addEventListener('click', () => {
+                const sortModel = (window.gridOptions.columnApi.getColumnState() || [])
+                    .filter(s => s.sort)
+                    .sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0))
+                    .map(s => ({ colId: s.colId, sort: s.sort }));
+
+                const form = document.getElementById('exportCsvForm');
+                form.elements.payload.value = JSON.stringify({
+                    filterModel: window.gridOptions.api.getFilterModel() || {},
+                    sortModel,
+                    options: collectionOptions,
+                });
+                form.submit();
+            });
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', () => {
+                window.AgGridCommon.saveGridState(window.gridOptions, agGridConfig.stateKey);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', () => {
+                window.AgGridCommon.clearGridState(agGridConfig.stateKey);
+                location.reload();
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Pas de chargement automatique : on attend la sélection de collections puis le clic "Charger"
+            let collectionTomSelect = null;
+
+            fetch('{{ path("poid_famille_par_variant_collections_json") }}')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('collectionSelect');
+                    select.appendChild(new Option('Tout', ALL_COLLECTIONS));
+                    data.forEach(collection => {
+                        const option = document.createElement('option');
+                        option.value = collection;
+                        option.textContent = collection;
+                        select.appendChild(option);
+                    });
+
+                    collectionTomSelect = window.AgGridCommon.setupMultiSelect('#collectionSelect', {
+                        placeholder: 'Sélectionner une ou plusieurs collections...',
+                    });
+                });
+
+            document.getElementById('loadBtn').addEventListener('click', () => {
+                const collections = collectionTomSelect ? collectionTomSelect.getValue() : [];
+
+                if (!collections.length) {
+                    alert('Veuillez sélectionner au moins une collection (ou "Tout") avant de charger la grille.');
+                    return;
+                }
+
+                // "Tout" l'emporte sur les autres collections cochées : aucun filtre collection
+                if (collections.includes(ALL_COLLECTIONS)) {
+                    selectedCollections = [];
+                    collectionOptions = { allCollections: true };
+                } else {
+                    selectedCollections = collections;
+                    collectionOptions = { collections };
+                }
+
+                document.getElementById('collectionPicker').style.display = 'none';
+                document.getElementById('mainBoxBody').style.display = '';
+
+                initializeGridAndUi();
+            });
+        });
+    </script>
+{% endblock %}

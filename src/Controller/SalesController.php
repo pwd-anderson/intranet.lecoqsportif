@@ -4,13 +4,16 @@ namespace App\Controller;
 
 use App\Repository\AggridOptionRepository;
 use App\Service\AgGrid\AgGridColumnBuilder;
+use App\Service\BacklogClientV2;
 use App\Service\Divers;
 use App\Service\Sales;
+use App\Service\Tools\GraphMailer;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use App\Service\AgGrid\Ssrm\SsrmRequest;
@@ -63,6 +66,12 @@ final class SalesController extends AbstractController
     public function etatCommandesClientsX3Alias(): Response
     {
         return $this->salesGeneric('etat_commandes_clients_x3');
+    }
+
+    #[Route('/sales/backlog_clients_v2', name: 'app_sales_backlog_clients_v2')]
+    public function backlogClientsV2Alias(): Response
+    {
+        return $this->salesGeneric('backlog_clients_v2');
     }
 
     #[Route('/sales/sales_best_demand_per_style', name: 'app_sales_best_demand_per_style')]
@@ -287,6 +296,68 @@ final class SalesController extends AbstractController
         $ssrmRequest = SsrmRequest::fromArray($payload);
 
         $response = $sales->getEtatCommandesClientsX3Paginated($ssrmRequest);
+
+        return new JsonResponse([
+            'rows'    => $helpers->convertArrayToUtf8($response->rows),
+            'lastRow' => $response->lastRow,
+            'totals'  => $response->totals,
+        ]);
+    }
+
+    #[Route('/sales/backlog_clients_v2_filter_values', name: 'backlog_clients_v2_filter_values', methods: ['POST'])]
+    public function backlogClientsV2FilterValues(Request $request, BacklogClientV2 $backlogClientV2): JsonResponse
+    {
+        $payload     = json_decode($request->getContent(), true) ?? [];
+        $field       = (string) ($payload['field'] ?? '');
+        $filterModel = $payload['filterModel'] ?? [];
+        $collections = $payload['collections'] ?? [];
+        $collections = is_array($collections) ? array_values(array_filter($collections, 'is_string')) : [];
+        return new JsonResponse($backlogClientV2->getDistinctValues($field, $filterModel, $collections));
+    }
+
+    #[Route('/sales/backlog_clients_v2_export_csv', name: 'backlog_clients_v2_export_csv', methods: ['POST'])]
+    public function backlogClientsV2ExportCsv(Request $request, BacklogClientV2 $backlogClientV2, GraphMailer $graphMailer): Response
+    {
+        $payload = json_decode((string) $request->request->get('payload', ''), true) ?? [];
+        $ssrmRequest = SsrmRequest::fromArray($payload);
+
+        if (!$ssrmRequest->getOption('allCollections', false) && (array) $ssrmRequest->getOption('collections', []) === []) {
+            return new Response('Aucune collection sélectionnée.', Response::HTTP_BAD_REQUEST);
+        }
+
+        // Colonnes visibles de la grille, dans l'ordre de la config AG Grid
+        $columns = [];
+        foreach ($this->aggridOptionRepository->findBy(['gridName' => 'backlog_client_v2_grid'], ['orderIndex' => 'ASC']) as $option) {
+            if ($option->isVisible() !== false) {
+                $columns[$option->getField()] = ['header' => $option->getHeaderName(), 'type' => (string) $option->getType()];
+            }
+        }
+
+        $response = new StreamedResponse(function () use ($backlogClientV2, $ssrmRequest, $columns, $graphMailer) {
+            set_time_limit(0);
+            $out = fopen('php://output', 'w');
+            try {
+                $backlogClientV2->writeCsv($out, $ssrmRequest, $columns);
+            } catch (\Throwable $e) {
+                $graphMailer->notifyError('❌ LCS Erreur Backlog Client v2 export CSV', $e);
+            } finally {
+                fclose($out);
+            }
+        });
+
+        $filename = 'Backlog_Client_v2_' . (new \DateTimeImmutable())->format('Y-m-d_His') . '.csv';
+        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $response->headers->set('X-Accel-Buffering', 'no');
+
+        return $response;
+    }
+
+    #[Route('/sales/backlog_clients_v2_ssrm_json', name: 'backlog_clients_v2_ssrm_json', methods: ['POST'])]
+    public function backlogClientsV2SsrmJson(Request $request, BacklogClientV2 $backlogClientV2, Helpers $helpers): JsonResponse
+    {
+        $payload  = json_decode($request->getContent(), true) ?? [];
+        $response = $backlogClientV2->getPaginated(SsrmRequest::fromArray($payload));
 
         return new JsonResponse([
             'rows'    => $helpers->convertArrayToUtf8($response->rows),
@@ -637,6 +708,15 @@ final class SalesController extends AbstractController
                 'title'         => 'État des commandes clients',
                 'jsonRoute'     => 'etat_commandes_clients_x3_ssrm_json',
                 'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
+                'serverSide'    => true,
+                'blockSize'     => 200,
+            ],
+            'backlog_clients_v2' => [
+                'gridName'      => 'backlog_client_v2_grid',
+                'title'         => 'Backlog Client v2',
+                'jsonRoute'     => 'backlog_clients_v2_ssrm_json',
+                'template'      => 'sales/backlog_client_v2.html.twig',
                 'gridWidthMode' => 'full',
                 'serverSide'    => true,
                 'blockSize'     => 200,

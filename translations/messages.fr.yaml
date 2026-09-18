@@ -57,6 +57,7 @@ sidebar:
           ventes_qte_ca_produit: "Ventes par Produits"
       adv:
           etat_commandes_clients: "État des commandes clients"
+          backlog_clients_v2: "Backlog Client v2"
           comptes_clients: "Comptes Clients"
       management:
           ca_marges: "CA Marges"
