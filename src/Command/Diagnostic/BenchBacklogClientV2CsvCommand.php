@@ -44,12 +44,53 @@ class BenchBacklogClientV2CsvCommand extends Command
                 'S\'arrêter après N lignes (utile pour un test rapide).', '0')
             ->addOption('out', null, InputOption::VALUE_REQUIRED,
                 'Fichier de sortie. "null" pour ne rien écrire et isoler le coût du disque.',
-                'var/bench_backlog_client_v2.csv');
+                'var/bench_backlog_client_v2.csv')
+            ->addOption('raw', null, InputOption::VALUE_NONE,
+                'Mesure le transport pur depuis le SEI Cube (requête triviale, lignes de taille fixe).')
+            ->addOption('raw-rows', null, InputOption::VALUE_REQUIRED,
+                'Nombre de lignes pour --raw.', '100000')
+            ->addOption('raw-size', null, InputOption::VALUE_REQUIRED,
+                'Taille d\'une ligne en octets pour --raw.', '400');
+    }
+
+    /**
+     * Transport pur : aucune requête métier, uniquement le débit entre PHP et le SEI Cube.
+     */
+    private function benchRaw(SymfonyStyle $io, int $rows, int $rowSize): int
+    {
+        $io->title('Bench transport pur — SEI Cube');
+        $io->writeln(sprintf('Lignes demandées : <info>%s</info> de <info>%d</info> octets', number_format($rows, 0, ',', ' '), $rowSize));
+        $io->newLine();
+
+        $stats = $this->backlogClientV2->benchRaw($rows, $rowSize);
+        $total = max($stats['total'], 0.000001);
+
+        $io->section('Résultats');
+        $io->definitionList(
+            ['Temps total'             => sprintf('%.1f s', $stats['total'])],
+            ['Attente de la 1re ligne' => sprintf('%.2f s', $stats['first_row'])],
+            ['Lignes reçues'           => number_format($stats['rows'], 0, ',', ' ')],
+            ['Volume reçu'             => sprintf('%.1f Mo', $stats['bytes'] / 1048576)],
+            ['Débit lignes'            => sprintf('%s lignes/s', number_format($stats['rows'] / $total, 0, ',', ' '))],
+            ['Débit données'           => sprintf('%.2f Mo/s', ($stats['bytes'] / 1048576) / $total)],
+        );
+
+        $io->note(
+            'Lancer la même commande en local et sur le serveur. Un écart de débit du même '
+            . 'ordre que sur l\'export réel désigne le lien réseau (tunnel, taille des paquets TDS) ; '
+            . 'des débits comparables innocentent le tuyau.'
+        );
+
+        return Command::SUCCESS;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        if ($input->getOption('raw')) {
+            return $this->benchRaw($io, (int) $input->getOption('raw-rows'), (int) $input->getOption('raw-size'));
+        }
 
         $collections = array_values(array_filter(array_map(
             'trim',

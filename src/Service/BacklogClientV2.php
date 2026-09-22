@@ -256,6 +256,47 @@ class BacklogClientV2
     }
 
     /**
+     * DIAGNOSTIC TEMPORAIRE — mesure le transport pur depuis le SEI Cube.
+     *
+     * Requête volontairement triviale (ni jointure, ni tri, ni lecture de table métier) :
+     * des lignes de taille fixe générées par le serveur. Le seul coût mesuré est donc
+     * celui du tuyau entre PHP et MSSQL. À comparer entre deux environnements.
+     *
+     * @return array{total: float, first_row: float, rows: int, bytes: int}
+     */
+    public function benchRaw(int $rows, int $rowSize): array
+    {
+        $start = microtime(true);
+
+        $sql = sprintf(
+            'SELECT TOP (%d) REPLICATE(CAST(\'x\' AS varchar(max)), %d) AS D
+             FROM sys.all_objects a CROSS JOIN sys.all_objects b',
+            $rows,
+            $rowSize
+        );
+
+        $iterator = $this->mssqlSei->iterateQuery($sql);
+        $iterator->rewind();
+        $firstRow = microtime(true) - $start;
+
+        $count = 0;
+        $bytes = 0;
+
+        while ($iterator->valid()) {
+            $bytes += strlen((string) $iterator->current()['D']);
+            ++$count;
+            $iterator->next();
+        }
+
+        return [
+            'total'     => microtime(true) - $start,
+            'first_row' => $firstRow,
+            'rows'      => $count,
+            'bytes'     => $bytes,
+        ];
+    }
+
+    /**
      * DIAGNOSTIC TEMPORAIRE — copie instrumentée de writeCsv(), sans HTTP ni réseau client.
      * Sépare le temps passé à attendre les lignes de MSSQL de celui passé à les formater,
      * pour identifier lequel des deux plafonne sur un environnement donné.
