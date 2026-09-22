@@ -29,6 +29,28 @@
             color: #721c24 !important;
         }
 
+        /* Pastille Oui / Non (colonnes Facture des Comptes Clients) */
+        .cellPill {
+            display: inline-block;
+            min-width: 52px;
+            padding: 1px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            line-height: 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+
+        .cellPillYes {
+            background-color: #5cba6f;
+        }
+
+        .cellPillNo {
+            background-color: #e84a5f;
+        }
+
         #etatCommandesPicker .ts-wrapper {
             min-width: 460px;
         }
@@ -382,6 +404,28 @@
                     statusInactive: params => params.value === 'Inactif',
                 };
             }
+
+            // Colonnes Facture : pastille verte "OUI" / rouge "NON"
+            ['FACTURE_0_12_MOIS', 'FACTURE_12_18_MOIS', 'FACTURE_18_24_MOIS'].forEach(field => {
+                const col = columnDefs.find(c => c.field === field);
+                if (!col) return;
+
+                col.cellStyle = Object.assign({}, col.cellStyle, { textAlign: 'center' });
+
+                // Classes sans CSS navigateur : elles ne servent qu'a cibler les excelStyles
+                col.cellClassRules = {
+                    excelPillYes: params => (params.value ?? '').toString().trim().toLowerCase() === 'oui',
+                    excelPillNo: params => (params.value ?? '').toString().trim().toLowerCase() === 'non',
+                };
+
+                col.cellRenderer = function (params) {
+                    const value = (params.value ?? '').toString().trim();
+                    if (!value) return '';
+
+                    const pillClass = value.toLowerCase() === 'oui' ? 'cellPillYes' : 'cellPillNo';
+                    return `<span class="cellPill ${pillClass}">${value.toUpperCase()}</span>`;
+                };
+            });
         }
 
         let bestDemandDetailCache = {};
@@ -487,7 +531,10 @@
                 { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
                 { id: 'excelPercentColumn', interior: { color: '#baedbc', pattern: 'Solid' }, font: { color: '#1B5E20' } },
                 { id: 'statusActive', interior: { color: '#D4EDDA', pattern: 'Solid' }, font: { color: '#155724' } },
-                { id: 'statusInactive', interior: { color: '#F8D7DA', pattern: 'Solid' }, font: { color: '#721C24' } }
+                { id: 'statusInactive', interior: { color: '#F8D7DA', pattern: 'Solid' }, font: { color: '#721C24' } },
+                // Colonnes Facture : pastille a l'ecran, fond colore dans l'export Excel
+                { id: 'excelPillYes', interior: { color: '#5CBA6F', pattern: 'Solid' }, font: { color: '#FFFFFF', bold: true }, alignment: { horizontal: 'Center' } },
+                { id: 'excelPillNo', interior: { color: '#E84A5F', pattern: 'Solid' }, font: { color: '#FFFFFF', bold: true }, alignment: { horizontal: 'Center' } }
             ]
         };
 
