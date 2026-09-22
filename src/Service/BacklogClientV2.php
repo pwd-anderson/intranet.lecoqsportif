@@ -96,6 +96,8 @@ class BacklogClientV2
             'VILLE'                 => 'BPA.CTY_0',
             'ZCLASSE_0'             => 'SOH.ZCLASSE_0',
             'PRIX_NET_UNITAIRE_HT'  => 'SOP.NETPRINOT_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))',
+            'PO_EN_COURS'           => 'ISNULL(PO.PO_EN_COURS, 0)',
+            'DATE_COMMANDE_FOURNISSEUR' => 'COALESCE(PO.DATE_COMMANDE_FOURNISSEUR, CI.DATE_COMMANDE_FOURNISSEUR)',
         ];
     }
 
@@ -348,10 +350,45 @@ class BacklogClientV2
         LEFT  JOIN X3_LCS.ATEXTRA ATX7 ON ATX7.IDENT2_0 = BPC.TSCCOD_4    AND ATX7.CODFIC_0 = 'ATABDIV' AND ATX7.LANGUE_0 = 'FRA' AND ATX7.ZONE_0 = 'LNGDES' AND ATX7.IDENT1_0 = '34'
         LEFT  JOIN X3_LCS.ZITMCOL ITC ON ITC.ITMREF_0 = SPLIT.ARTICLE_BASE AND ITC.YCOLLECT_0 = SOQ.YCOLLECT_0
         LEFT  JOIN X3_LCS.SVCRFOOT SVT ON SOH.SOHNUM_0 = SVT.VCRNUM_0 AND SVT.DTA_0 = 1
+        " . $this->supplierJoins($whereClause) . "
         WHERE " . self::BASE_WHERE . "
             $whereClause
         GROUP BY SOH.CUR_0
         ";
+    }
+
+    /**
+     * Jointures PO / CI des totaux, ajoutées seulement si le filtre porte sur PO EN COURS ou
+     * Date arrivée prévue (mêmes sous-requêtes que backlog_client_v2.sql) : sinon inutiles et coûteuses.
+     */
+    private function supplierJoins(string $whereClause): string
+    {
+        $joins = '';
+
+        if (str_contains($whereClause, 'PO.PO_EN_COURS') || str_contains($whereClause, 'PO.DATE_COMMANDE_FOURNISSEUR')) {
+            $joins .= "
+        LEFT  JOIN (
+            SELECT POQ.ITMREF_0, POQ.PRHFCY_0,
+                   SUM(POQ.QTYUOM_0 - POQ.RCPQTYSTU_0) AS PO_EN_COURS,
+                   CONVERT(varchar(10), MIN(POQ.EXTRCPDAT_0), 23) AS DATE_COMMANDE_FOURNISSEUR
+            FROM X3_LCS.PORDERQ POQ
+            INNER JOIN X3_LCS.PORDER POH ON POQ.POHNUM_0 = POH.POHNUM_0
+            WHERE POQ.LINCLEFLG_0 = 1 AND POH.BETFCY_0 <> 2
+            GROUP BY POQ.ITMREF_0, POQ.PRHFCY_0
+        ) PO ON PO.ITMREF_0 = SOQ.ITMREF_0 AND PO.PRHFCY_0 = SOH.STOFCY_0";
+        }
+
+        if (str_contains($whereClause, 'CI.DATE_COMMANDE_FOURNISSEUR')) {
+            $joins .= "
+        LEFT  JOIN (
+            SELECT ITMREF_0, SITE_RECEPTION,
+                   CONVERT(varchar(10), MIN(EXTRCPDAT_0), 23) AS DATE_COMMANDE_FOURNISSEUR
+            FROM MASTER_TABLES.COMMANDES_INTERSITES
+            GROUP BY ITMREF_0, SITE_RECEPTION
+        ) CI ON CI.ITMREF_0 = SOQ.ITMREF_0 AND CI.SITE_RECEPTION = SOH.STOFCY_0";
+        }
+
+        return $joins;
     }
 
     /**

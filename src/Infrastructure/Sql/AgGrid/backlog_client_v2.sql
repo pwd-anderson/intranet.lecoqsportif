@@ -199,87 +199,97 @@ VALUES
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,39,NULL,0,'integerFormatter','integerComparator'),
 
+-- PO EN COURS
+('backlog_client_v2_grid','PO_EN_COURS','PO EN COURS','integer',120,1,'agNumberColumnFilter',
+ JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,40,NULL,0,'integerFormatter','integerComparator'),
+
 -- 37 : Montant Reste à Livrer Devise
 ('backlog_client_v2_grid','MONTANT_A_LIVRER_DEVISE','PRIX DEVISE','decimal',180,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,40,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,NULL,1,41,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 38 : Montant Reste à Livrer EUR
 ('backlog_client_v2_grid','MONTANT_A_LIVRER_EUR','PRIX EUR','decimal',180,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,41,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,NULL,1,42,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 39 : Pays
 ('backlog_client_v2_grid','PAYS','PAYS','string',120,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,42,NULL,0,NULL,NULL),
+ NULL,NULL,1,43,NULL,0,NULL,NULL),
 
 -- 40 : Client livré
 ('backlog_client_v2_grid','CLIENT_LIVRE','CLIENT LIVRÉ','string',180,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,43,NULL,0,NULL,NULL),
+ NULL,NULL,1,44,NULL,0,NULL,NULL),
 
 -- 41 : Paiement
 ('backlog_client_v2_grid','PAIEMENT','PAIEMENT','string',130,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,44,NULL,0,NULL,NULL),
+ NULL,NULL,1,45,NULL,0,NULL,NULL),
 
 -- 42 : Ligne
 ('backlog_client_v2_grid','LIGNE','LIGNE','string',100,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,45,NULL,0,NULL,NULL),
+ NULL,NULL,1,46,NULL,0,NULL,NULL),
 
 -- 43 : Statut Article
 ('backlog_client_v2_grid','STATUT_ARTICLE','STATUT ARTICLE','string',140,1,'agTextColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,46,NULL,0,NULL,NULL),
+ NULL,NULL,1,47,NULL,0,NULL,NULL),
 
 -- 44 : Quantité Allouée
 ('backlog_client_v2_grid','QUANTITE_ALLOUEE','QTÉ ALLOUÉE','integer',120,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,47,NULL,0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,48,NULL,0,'integerFormatter','integerComparator'),
 
 -- 45 : Quantité en rupture
 ('backlog_client_v2_grid','QUANTITE_EN_RUPTURE','QTÉ EN RUPTURE','integer',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,48,NULL,0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,49,NULL,0,'integerFormatter','integerComparator'),
 
 -- 46 : Reste à allouer
 ('backlog_client_v2_grid','RESTE_A_ALLOUER','RESTE À ALLOUER','integer',140,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,49,NULL,0,'integerFormatter','integerComparator'),
+ NULL,NULL,1,50,NULL,0,'integerFormatter','integerComparator'),
 
 -- 47 : Devise
 ('backlog_client_v2_grid','CUR_0','DEVISE','string',100,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,50,NULL,0,NULL,NULL),
+ NULL,NULL,1,51,NULL,0,NULL,NULL),
 
 -- 48 : Prix HT
 ('backlog_client_v2_grid','PRICE_HT','PRIX HT','decimal',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,51,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,NULL,1,52,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 49 : Prix Brut HT
 ('backlog_client_v2_grid','GROSS_PRICE_HT','PRIX BRUT UNITAIRE HT','decimal',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,52,NULL,0,'decimalFormatter','decimalComparator'),
+ NULL,NULL,1,53,NULL,0,'decimalFormatter','decimalComparator'),
 
 -- 49 : Remise Auto
 ('backlog_client_v2_grid','REMISE_AUTO','REMISE AUTO','percent',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,53,NULL,0,'percentRawFormatter','decimalComparator'),
+ NULL,NULL,1,54,NULL,0,'percentRawFormatter','decimalComparator'),
 
 -- 50 : Remise Manu
 ('backlog_client_v2_grid','REMISE_MANU','REMISE MANU','percent',110,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,54,NULL,0,'percentRawFormatter','decimalComparator'),
+ NULL,NULL,1,55,NULL,0,'percentRawFormatter','decimalComparator'),
 
 -- 51 : Remise Globale
 ('backlog_client_v2_grid','REMISE_GLOBAL','REMISE GLOBALE','percent',120,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,55,NULL,0,'percentRawFormatter','decimalComparator'),
+ NULL,NULL,1,56,NULL,0,'percentRawFormatter','decimalComparator'),
 
 -- 52 : Prix Net Unitaire HT (remise globale appliquée au Prix HT)
 ('backlog_client_v2_grid','PRIX_NET_UNITAIRE_HT','PRIX NET UNITAIRE HT','decimal',150,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,56,NULL,0,'decimalFormatter','decimalComparator');
+ NULL,NULL,1,57,NULL,0,'decimalFormatter','decimalComparator'),
+
+-- Date arrivée prévue (fournisseur, repli intersite)
+('backlog_client_v2_grid','DATE_COMMANDE_FOURNISSEUR','Date arrivée prévue','date',150,1,'agDateColumnFilter',
+ JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
+ NULL,NULL,1,58,NULL,0,NULL,NULL);
