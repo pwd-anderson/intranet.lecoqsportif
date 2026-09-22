@@ -255,6 +255,90 @@ class BacklogClientV2
         }
     }
 
+    /**
+     * DIAGNOSTIC TEMPORAIRE — copie instrumentée de writeCsv(), sans HTTP ni réseau client.
+     * Sépare le temps passé à attendre les lignes de MSSQL de celui passé à les formater,
+     * pour identifier lequel des deux plafonne sur un environnement donné.
+     *
+     * @param array<string, array{header: string, type: string}> $columns
+     * @return array{total: float, first_row: float, fetch: float, format: float, rows: int, bytes: int}
+     */
+    public function benchCsv(SsrmRequest $request, array $columns, ?string $outPath, int $limit = 0): array
+    {
+        $start = microtime(true);
+
+        $collectionsClause = $this->resolveCollectionsClause($request);
+        if ($collectionsClause === null) {
+            throw new \InvalidArgumentException('Aucune collection sélectionnée.');
+        }
+
+        $builder = new AgGridSqlBuilder($request, $this->getFieldMap());
+        $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+        $sql = str_replace(
+            ['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'],
+            [$builder->buildWhereClause() . $collectionsClause, $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC'), ''],
+            $sql
+        );
+
+        $taux = $this->divers->getExchangeRatesValues();
+        $out  = $outPath === null ? fopen('/dev/null', 'w') : fopen($outPath, 'w');
+
+        fwrite($out, "\xEF\xBB\xBF" . 'sep=;' . PHP_EOL);
+        fputcsv($out, array_column($columns, 'header'), ';', '"', '');
+
+        $fetch = 0.0;
+        $format = 0.0;
+        $rows = 0;
+
+        // rewind() déclenche la requête et attend la première ligne
+        $iterator = $this->mssqlSei->iterateQuery($sql);
+        $t = microtime(true);
+        $iterator->rewind();
+        $fetch += microtime(true) - $t;
+        $firstRow = microtime(true) - $start;
+
+        while ($iterator->valid()) {
+            $row = $iterator->current();
+
+            $t = microtime(true);
+            $row  = $this->helpers->convertArrayToUtf8($row);
+            $rate = $taux[trim((string) $row['CUR_0'])] ?? null;
+            foreach (['COMMANDE', 'LIVREE', 'A_LIVRER'] as $k) {
+                $row["MONTANT_{$k}_EUR"] = $rate !== null && (float) $rate > 0
+                    ? (float) $row["MONTANT_{$k}_DEVISE"] / (float) $rate
+                    : 0.0;
+            }
+
+            $line = [];
+            foreach ($columns as $field => $column) {
+                $line[] = $this->formatCsvValue($row[$field] ?? '', $column['type']);
+            }
+            fputcsv($out, $line, ';', '"', '');
+            $format += microtime(true) - $t;
+
+            ++$rows;
+            if ($limit > 0 && $rows >= $limit) {
+                break;
+            }
+
+            $t = microtime(true);
+            $iterator->next();
+            $fetch += microtime(true) - $t;
+        }
+
+        $bytes = (int) ftell($out);
+        fclose($out);
+
+        return [
+            'total'     => microtime(true) - $start,
+            'first_row' => $firstRow,
+            'fetch'     => $fetch,
+            'format'    => $format,
+            'rows'      => $rows,
+            'bytes'     => $bytes,
+        ];
+    }
+
     // Décimales avec virgule pour qu'Excel en français les reconnaisse comme des nombres
     private function formatCsvValue(mixed $value, string $type): string
     {
