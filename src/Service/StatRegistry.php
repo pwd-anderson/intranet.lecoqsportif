@@ -22,9 +22,9 @@ final class StatRegistry
             'app_sales_best_demand_per_style'             => ['section' => 'Ventes',  'label' => 'Best demand per style',             'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
             'app_sales_sell_in_suivi_ps'                  => ['section' => 'Ventes',  'label' => 'Sell in suivi PS',                  'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
             'app_sales_suivi_perf_wholesale_fr'           => ['section' => 'Ventes',  'label' => 'Suivi perf wholesale FR',           'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
-            'app_sales_ventes_qte_ca_client'              => ['section' => 'Ventes',  'label' => 'Ventes qté CA client',              'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
+            'app_sales_ventes_qte_ca_client'              => ['section' => 'Ventes',  'label' => 'Sell-In : Ventes par Client',       'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
             'app_sales_ventes_qte_ca_produit'             => ['section' => 'Ventes',  'label' => 'Ventes par Produits',               'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
-            'app_sales_sell_out_client'                   => ['section' => 'Ventes',  'label' => 'Sell Out par Client',               'roles' => ['ROLE_SALES']],
+            'app_sales_sell_out_client'                   => ['section' => 'Ventes',  'label' => 'Sell-Out : Ventes par Client',      'roles' => ['ROLE_SALES']],
 
             // ── ADV ───────────────────────────────────────────────────────
             'app_sales_livraison_non_facturees'           => ['section' => 'ADV',     'label' => 'Livraisons non facturées',          'roles' => ['ROLE_ADV']],

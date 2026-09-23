@@ -30,7 +30,7 @@ final class SellOutController extends AbstractController
     public function index(Request $request): Response
     {
         return $this->render('sales/sell_out_client.html.twig', [
-            'title'       => 'Sell Out par Client',
+            'title'       => 'Sell-Out : Ventes par Client',
             'dataUrl'     => $this->generateUrl('sales_sell_out_client_json'),
             'detailUrl'   => $this->generateUrl('app_sales_sell_out_client_detail'),
             'currentYear' => $this->resolveYear($request),

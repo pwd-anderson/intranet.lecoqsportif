@@ -283,11 +283,17 @@ class SellOut
                 ['sourcename', 'customer_id', 'customer_name', 'groupe_name', 'ville']
             );
 
-            usort($resultat['rows'], fn($a, $b) =>
-                ($a['sourcename'] <=> $b['sourcename'])
-                ?: ($a['groupe_name'] <=> $b['groupe_name'])
-                ?: ($a['customer_id'] <=> $b['customer_id'])
-            );
+            // Les clients sans groupement (environ 20 %) sont renvoyés en fin de liste :
+            // un tri alphabétique brut les remonterait tous en tête.
+            usort($resultat['rows'], function (array $a, array $b): int {
+                $groupeA = trim((string) $a['groupe_name']);
+                $groupeB = trim((string) $b['groupe_name']);
+
+                return (($groupeA === '') <=> ($groupeB === ''))
+                    ?: ($a['sourcename'] <=> $b['sourcename'])
+                    ?: ($groupeA <=> $groupeB)
+                    ?: ($a['customer_id'] <=> $b['customer_id']);
+            });
 
             return $resultat;
         } catch (\Throwable $e) {
