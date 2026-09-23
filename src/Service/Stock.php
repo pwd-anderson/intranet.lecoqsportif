@@ -203,7 +203,9 @@ class Stock
         try {
             $query = "
                 SELECT [SITE], [DESCRIPTION_SITE], [FAMILLE], [DERNIERE_COLLECTION],
-                       [ARTICLE], [MODEL], [EAN], [DESCRIPTION_ARTICLE], [STATUT], GENRE, SEG_OFFRE,
+                       [ARTICLE], [MODEL], [EAN], [DESCRIPTION_ARTICLE],
+                       CASE WHEN NOOS = 2 THEN 'Oui' ELSE 'Non' END AS NOOS,
+                       [STATUT], GENRE, SEG_OFFRE,
                        [LARGEUR], [LONGUEUR], [HAUTEUR], [UNITE], [POIDS],
                        [PRIX_MARCHE], [DEVISE_MARCHE], [PDM_MATERIAL_CODE], [PAYS_ORIGINE],
                        [STOCK_INTERNE],

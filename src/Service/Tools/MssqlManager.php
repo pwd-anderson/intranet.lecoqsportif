@@ -10,6 +10,27 @@ class MssqlManager
 {
     private ?PDO $connection = null;
 
+    /**
+     * Désactive MARS (Multiple Active Result Sets) sur les connexions sqlsrv.
+     *
+     * Activé par défaut par le driver Microsoft, MARS impose un protocole de transfert
+     * beaucoup plus bavard : mesuré sur le SEI Cube, 0,71 Mo/s avec, 7,48 Mo/s sans,
+     * soit un facteur 10 sur toutes les requêtes qui ramènent beaucoup de lignes.
+     * L'application n'ouvre jamais plusieurs jeux de résultats sur une même connexion.
+     *
+     * Sans effet sur dblib (FreeTDS), qui ignore ce paramètre et ne connaît pas MARS.
+     * Une valeur déjà présente dans le DSN est respectée.
+     */
+    private function normalizeDsn(string $dsn): string
+    {
+        if (!str_starts_with($dsn, 'sqlsrv:')
+            || stripos($dsn, 'MultipleActiveResultSets') !== false) {
+            return $dsn;
+        }
+
+        return rtrim($dsn, ';') . ';MultipleActiveResultSets=false';
+    }
+
     public function __construct(
         private string $dsn,
         private string $user,
@@ -32,7 +53,7 @@ class MssqlManager
             }
 
             $this->connection = new PDO(
-                $this->dsn,
+                $this->normalizeDsn($this->dsn),
                 $this->user,
                 $this->password,
                 $options

@@ -553,7 +553,7 @@ final class SalesController extends AbstractController
     public function ventesQteCaClient(): Response
     {
         return $this->render('sales/ventes_qte_ca_client.html.twig', [
-            'title'           => 'Ventes par Client',
+            'title'           => 'Sell-In : Ventes par Client',
             'dataUrl'         => $this->generateUrl('sales_ventes_qte_ca_client_json'),
             'currentYear'     => (int) date('Y'),
             'clientDetailUrl' => $this->generateUrl('app_sales_ventes_qte_ca_article'),

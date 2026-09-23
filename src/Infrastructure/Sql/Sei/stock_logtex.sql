@@ -35,6 +35,7 @@ SELECT
     LEFT(i.ITMREF_0, CHARINDEX('_', i.ITMREF_0 + '_') - 1)                         AS ARTICLE_BASE,
     i.ITMREF_0                                                                      AS ARTICLE,
     i.ITMDES1_0                                                                     AS DESCRIPTION_ARTICLE,
+    CASE WHEN i.ZNOOSFLG_0 = 2 THEN 'Oui' ELSE 'Non' END                           AS NOOS,
     SUBSTRING(i.ITMREF_0, CHARINDEX('_', i.ITMREF_0 + '_') + 1, LEN(i.ITMREF_0))  AS VARIANT,
     CASE WHEN i2.ZSHOPIFY_0 = 1 THEN 'NON' ELSE 'OUI' END AS FLAG_SHOPIFY,
     CASE WHEN i2.ZPRICETYPE_0 = 0 THEN '' ELSE
