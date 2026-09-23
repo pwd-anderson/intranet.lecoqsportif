@@ -14,8 +14,11 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Backlog Client v2 (SSRM) : requête d'État des commandes clients avec le filtre du Backlog Client
- * (lignes non soldées, hors brouillons, hors intersites), sans stock, backlog fournisseur ni transit.
+ * Backlog Client v2 (SSRM) — destiné à remplacer le Backlog Client X3.
+ *
+ * Mêmes colonnes, mêmes intitulés et mêmes calculs que backlog_client_x3, mais bâti sur la
+ * requête d'État des commandes clients, bien plus rapide. Le bloc stock / transit / backlog
+ * fournisseur n'est chargé que si l'utilisateur coche "Inclure le stock".
  *
  * Toute jointure ajoutée à backlog_client_v2.sql doit aussi l'être dans buildAggregateSql(),
  * sinon le filtre sur la colonne correspondante fait échouer les totaux.
@@ -23,6 +26,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 class BacklogClientV2
 {
     private const string BASE_WHERE = "SOQ.SOQSTA_0 <> 3 AND SOH.ZSOHVALSTA_0 <> 3 AND BPC.BCGCOD_0 <> 'INTER'";
+
+    /** Sites dont le stock est remonté quand l'option "Inclure le stock" est cochée. */
+    private const array STOCK_SITES = ['WLOGM', 'WSFCN', 'WTAKH', 'WDTTH'];
 
     private MssqlManager $mssqlSei;
 
@@ -42,21 +48,17 @@ class BacklogClientV2
     /**
      * Field Ag-Grid → expression SQL (whitelist pour filtres et tris SSRM).
      * Alias ATEXTRA : ATX = MAINNETWORK (32), ATX4 = INDEPENDANT_GROUPMENT (6021),
-     * ATX5 = AGE (TABLINCFG), ATX6 = GROUP_CODE (6028), ATX7 = DISTRIBUTION_CHANNEL (34).
+     * ATX5 = AGE (TABLINCFG), ATX6 = GROUP_CODE (6028).
      */
-    private function getFieldMap(): array
+    private function getFieldMap(bool $includeStock = false): array
     {
-        return [
-            'PAYS'                  => 'SOH.BPCCRYNAM_0',
-            'LIGNE'                 => 'SOQ.SOPLIN_0',
+        $map = [
             'SITE'                  => 'SOH.STOFCY_0',
             'MAINNETWORK'           => 'ATX.TEXTE_0',
-            'DISTRIBUTION_CHANNEL'  => 'ATX7.TEXTE_0',
             'CLIENT'                => 'SOH.BPCINV_0',
             'NOM_CLIENT'            => 'BPC_INV.BPCNAM_0',
             'CLIENT_COMMANDE'       => 'SOH.BPCORD_0',
             'NOM_CLIENT_COMMANDE'   => 'SOH.BPCNAM_0',
-            'PAIEMENT'              => 'SOH.PTE_0',
             'NUM_COMMANDE'          => 'SOQ.SOHNUM_0',
             'REF_CLIENT'            => "CASE WHEN SOH.CUSORDREF_0 <> '' THEN SOH.CUSORDREF_0 ELSE SOH.ZNORIGIN_0 END",
             'REFERENCE_INTERNE'     => 'SOH.ZNORIGIN_0',
@@ -77,28 +79,98 @@ class BacklogClientV2
             'DATE_LIVRAISON'        => 'CONVERT(varchar(10), SOQ.DEMDLVDAT_0, 23)',
             'REP1'                  => 'REP2.REPNAM_0',
             'REP2'                  => 'REP1.REPNAM_0',
-            'STATUT_ARTICLE'        => 'ITM.ITMSTA_0',
-            'QUANTITE_COMMANDE'     => 'SOQ.QTY_0',
-            'QUANTITE_LIVREE'       => '(SOQ.DLVQTY_0 + SOQ.ODLQTY_0)',
             'QUANTITE'              => '(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0))',
-            'QUANTITE_ALLOUEE'      => 'SOQ.ALLQTY_0',
-            'QUANTITE_EN_RUPTURE'   => 'SOQ.SHTQTY_0',
-            'RESTE_A_ALLOUER'       => '(SOQ.QTY_0 - SOQ.ALLQTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)',
+            'PRIX'                  => 'SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))',
             'CUR_0'                 => 'SOH.CUR_0',
-            'PRICE_HT'              => 'SOP.NETPRINOT_0',
-            'GROSS_PRICE_HT'        => 'SOP.GROPRI_0',
             'REMISE_AUTO'           => 'SOP.DISCRGVAL1_0',
             'REMISE_MANU'           => 'SOP.DISCRGVAL2_0',
-            'REMISE_GLOBAL'         => 'ISNULL(SVT.DTAAMT_0, 0)',
-            'CLIENT_LIVRE'          => 'SOH.BPDNAM_0',
             'INDEPENDANT_GROUPMENT' => 'ATX4.TEXTE_0',
             'CODE_POSTAL'           => 'BPA.POSCOD_0',
             'VILLE'                 => 'BPA.CTY_0',
             'ZCLASSE_0'             => 'SOH.ZCLASSE_0',
-            'PRIX_NET_UNITAIRE_HT'  => 'SOP.NETPRINOT_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))',
             'PO_EN_COURS'           => 'ISNULL(PO.PO_EN_COURS, 0)',
             'DATE_COMMANDE_FOURNISSEUR' => 'COALESCE(PO.DATE_COMMANDE_FOURNISSEUR, CI.DATE_COMMANDE_FOURNISSEUR)',
         ];
+
+        // Les colonnes stock n'existent dans la requête que si l'utilisateur a coché l'option :
+        // hors de ce cas, les whitelister ferait échouer un filtre sur des alias absents.
+        if ($includeStock) {
+            foreach (self::STOCK_SITES as $site) {
+                $map["STOCK_INTERNE_{$site}"] = "ISNULL(STK.STOCK_INTERNE_{$site}, 0)";
+                $map["STOCK_REEL_{$site}"]    = "ISNULL(STK.STOCK_REEL_{$site}, 0)";
+                $map["EN_TRANSIT_{$site}"]    = $this->transitSql($site);
+                $map["STOCK_A_TERME_TRANSIT_{$site}"] =
+                    "(ISNULL(STK.STOCK_REEL_{$site}, 0) + " . $this->transitSql($site) . ')';
+                $map["STOCK_A_TERME_BACKLOG_FOURNISSEUR_{$site}"] =
+                    "(ISNULL(STK.STOCK_REEL_{$site}, 0) + " . $this->transitSql($site)
+                    . ' + ' . $this->supplierBacklogSql($site) . ')';
+            }
+        }
+
+        return $map;
+    }
+
+    /** Quantité encore attendue des transferts intersites vers un site. */
+    private function transitSql(string $site): string
+    {
+        return "ISNULL((SELECT SUM(c.QTE_RESTANTE) FROM MASTER_TABLES.COMMANDES_INTERSITES c"
+            . " WHERE c.SITE_RECEPTION = '{$site}' AND c.ITMREF_0 = SOQ.ITMREF_0), 0)";
+    }
+
+    /** Quantité encore attendue des commandes fournisseur d'un site. */
+    private function supplierBacklogSql(string $site): string
+    {
+        return "ISNULL((SELECT SUM(poq2.QTYUOM_0 - poq2.RCPQTYSTU_0)"
+            . ' FROM X3_LCS.PORDERQ poq2'
+            . ' INNER JOIN X3_LCS.PORDER poh2 ON poq2.POHNUM_0 = poh2.POHNUM_0'
+            . " WHERE poq2.LINCLEFLG_0 = 1 AND poh2.BETFCY_0 <> 2"
+            . " AND poq2.PRHFCY_0 = '{$site}' AND poq2.ITMREF_0 = SOQ.ITMREF_0), 0)";
+    }
+
+    /**
+     * Colonnes stock injectées dans {{STOCK_COLUMNS}} : 5 mesures par site, mêmes expressions
+     * que le Backlog Client X3. Le bloc commence par une virgule, la dernière colonne fixe
+     * de la requête n'en ayant pas.
+     */
+    private function stockColumnsSql(): string
+    {
+        $parts = [];
+
+        foreach (self::STOCK_SITES as $site) {
+            $transit  = $this->transitSql($site);
+            $supplier = $this->supplierBacklogSql($site);
+
+            $parts[] = "ISNULL(STK.STOCK_INTERNE_{$site}, 0) AS STOCK_INTERNE_{$site}";
+            $parts[] = "ISNULL(STK.STOCK_REEL_{$site}, 0) AS STOCK_REEL_{$site}";
+            $parts[] = "{$transit} AS EN_TRANSIT_{$site}";
+            $parts[] = "(ISNULL(STK.STOCK_REEL_{$site}, 0) + {$transit}) AS STOCK_A_TERME_TRANSIT_{$site}";
+            $parts[] = "(ISNULL(STK.STOCK_REEL_{$site}, 0) + {$transit} + {$supplier})"
+                . " AS STOCK_A_TERME_BACKLOG_FOURNISSEUR_{$site}";
+        }
+
+        return ",\n    " . implode(",\n    ", $parts);
+    }
+
+    /** Agrégat de stock par article, injecté dans {{STOCK_JOINS}}. */
+    private function stockJoinSql(): string
+    {
+        $sums = [];
+
+        foreach (self::STOCK_SITES as $site) {
+            $sums[] = "SUM(CASE WHEN SITE = '{$site}' THEN STOCK_REEL ELSE 0 END) AS STOCK_REEL_{$site}";
+            $sums[] = "SUM(CASE WHEN SITE = '{$site}' THEN STOCK_INTERNE ELSE 0 END) AS STOCK_INTERNE_{$site}";
+        }
+
+        $sites = "'" . implode("','", self::STOCK_SITES) . "'";
+
+        return "
+LEFT  JOIN (
+    SELECT ARTICLE,
+           " . implode(",\n           ", $sums) . "
+    FROM MASTER_TABLES.STOCK_ALLOCATION
+    WHERE STATUS_STOCK = 'A1' AND SITE IN ({$sites})
+    GROUP BY ARTICLE
+) STK ON STK.ARTICLE = ITM.ITMREF_0";
     }
 
     private function buildCollectionsClause(array $collections): string
@@ -129,9 +201,19 @@ class BacklogClientV2
         return $collections === [] ? null : $this->buildCollectionsClause($collections);
     }
 
-    public function getDistinctValues(string $field, array $filterModel = [], array $collections = []): array
+    /** Remplace les deux marqueurs stock selon que l'option est cochée ou non. */
+    private function applyStockPlaceholders(string $sql, bool $includeStock): string
     {
-        $fieldMap = $this->getFieldMap();
+        return str_replace(
+            ['{{STOCK_COLUMNS}}', '{{STOCK_JOINS}}'],
+            $includeStock ? [$this->stockColumnsSql(), $this->stockJoinSql()] : ['', ''],
+            $sql
+        );
+    }
+
+    public function getDistinctValues(string $field, array $filterModel = [], array $collections = [], bool $includeStock = false): array
+    {
+        $fieldMap = $this->getFieldMap($includeStock);
 
         if (!isset($fieldMap[$field])) {
             return [];
@@ -146,6 +228,7 @@ class BacklogClientV2
             }
 
             $fromClause = str_replace(['{{ORDER_BY}}', '{{PAGINATION}}'], '', substr($baseSql, $fromPos));
+            $fromClause = $this->applyStockPlaceholders($fromClause, $includeStock);
 
             $builder     = new AgGridSqlBuilder(SsrmRequest::fromArray(['filterModel' => $filterModel]), $fieldMap);
             $whereClause = $builder->buildWhereClause() . $this->buildCollectionsClause($collections);
@@ -170,13 +253,14 @@ class BacklogClientV2
     {
         try {
             $isExport          = (bool) $request->getOption('isExport', false);
+            $includeStock      = (bool) $request->getOption('includeStock', false);
             $collectionsClause = $this->resolveCollectionsClause($request);
 
             if ($collectionsClause === null) {
                 return new SsrmResponse(rows: [], lastRow: 0, totals: []);
             }
 
-            $builder = new AgGridSqlBuilder($request, $this->getFieldMap());
+            $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
 
             $whereClause = $builder->buildWhereClause() . $collectionsClause;
             $orderBy     = $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC');
@@ -195,6 +279,7 @@ class BacklogClientV2
 
             $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
             $sql = str_replace(['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'], [$whereClause, $orderBy, $pagination], $sql);
+            $sql = $this->applyStockPlaceholders($sql, $includeStock);
 
             $rows = $this->mssqlSei->executeQuery($sql);
             $this->addEurAmounts($rows);
@@ -225,13 +310,16 @@ class BacklogClientV2
             throw new \InvalidArgumentException('Aucune collection sélectionnée.');
         }
 
-        $builder = new AgGridSqlBuilder($request, $this->getFieldMap());
+        $includeStock = (bool) $request->getOption('includeStock', false);
+
+        $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
         $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
         $sql = str_replace(
             ['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'],
             [$builder->buildWhereClause() . $collectionsClause, $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC'), ''],
             $sql
         );
+        $sql = $this->applyStockPlaceholders($sql, $includeStock);
 
         $taux = $this->divers->getExchangeRatesValues();
 
@@ -241,11 +329,9 @@ class BacklogClientV2
         foreach ($this->mssqlSei->iterateQuery($sql) as $row) {
             $row  = $this->helpers->convertArrayToUtf8($row);
             $rate = $taux[trim((string) $row['CUR_0'])] ?? null;
-            foreach (['COMMANDE', 'LIVREE', 'A_LIVRER'] as $k) {
-                $row["MONTANT_{$k}_EUR"] = $rate !== null && (float) $rate > 0
-                    ? (float) $row["MONTANT_{$k}_DEVISE"] / (float) $rate
-                    : 0.0;
-            }
+            $row['PRIX_EUR'] = $rate !== null && (float) $rate > 0
+                ? (float) $row['PRIX'] / (float) $rate
+                : 0.0;
 
             $line = [];
             foreach ($columns as $field => $column) {
@@ -313,13 +399,16 @@ class BacklogClientV2
             throw new \InvalidArgumentException('Aucune collection sélectionnée.');
         }
 
-        $builder = new AgGridSqlBuilder($request, $this->getFieldMap());
+        $includeStock = (bool) $request->getOption('includeStock', false);
+
+        $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
         $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
         $sql = str_replace(
             ['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'],
             [$builder->buildWhereClause() . $collectionsClause, $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC'), ''],
             $sql
         );
+        $sql = $this->applyStockPlaceholders($sql, $includeStock);
 
         $taux = $this->divers->getExchangeRatesValues();
         $out  = $outPath === null ? fopen('/dev/null', 'w') : fopen($outPath, 'w');
@@ -344,11 +433,9 @@ class BacklogClientV2
             $t = microtime(true);
             $row  = $this->helpers->convertArrayToUtf8($row);
             $rate = $taux[trim((string) $row['CUR_0'])] ?? null;
-            foreach (['COMMANDE', 'LIVREE', 'A_LIVRER'] as $k) {
-                $row["MONTANT_{$k}_EUR"] = $rate !== null && (float) $rate > 0
-                    ? (float) $row["MONTANT_{$k}_DEVISE"] / (float) $rate
-                    : 0.0;
-            }
+            $row['PRIX_EUR'] = $rate !== null && (float) $rate > 0
+                ? (float) $row['PRIX'] / (float) $rate
+                : 0.0;
 
             $line = [];
             foreach ($columns as $field => $column) {
@@ -404,39 +491,26 @@ class BacklogClientV2
             return [0, []];
         }
 
-        $taux = $this->divers->getExchangeRatesValues();
-        $sum  = [
-            'NB_ROWS' => 0, 'QUANTITE_COMMANDE' => 0.0, 'QUANTITE_LIVREE' => 0.0, 'QUANTITE' => 0.0,
-            'QUANTITE_ALLOUEE' => 0.0, 'QUANTITE_EN_RUPTURE' => 0.0, 'RESTE_A_ALLOUER' => 0.0,
-            'MONTANT_COMMANDE_DEVISE' => 0.0, 'MONTANT_LIVREE_DEVISE' => 0.0, 'MONTANT_A_LIVRER_DEVISE' => 0.0,
-            'MONTANT_COMMANDE_EUR' => 0.0, 'MONTANT_LIVREE_EUR' => 0.0, 'MONTANT_A_LIVRER_EUR' => 0.0,
-        ];
+        $taux     = $this->divers->getExchangeRatesValues();
+        $nbRows   = 0;
+        $quantite = 0.0;
+        $prixEur  = 0.0;
 
         foreach ($result as $row) {
-            $sum['NB_ROWS'] += (int) ($row->NB_ROWS ?? 0);
-            foreach (['QUANTITE_COMMANDE', 'QUANTITE_LIVREE', 'QUANTITE', 'QUANTITE_ALLOUEE', 'QUANTITE_EN_RUPTURE', 'RESTE_A_ALLOUER'] as $k) {
-                $sum[$k] += (float) ($row->$k ?? 0);
-            }
+            $nbRows   += (int) ($row->NB_ROWS ?? 0);
+            $quantite += (float) ($row->QUANTITE ?? 0);
 
             $rate = $taux[$row->DEVISE ?? ''] ?? null;
-            foreach (['COMMANDE', 'LIVREE', 'A_LIVRER'] as $k) {
-                $montant = (float) ($row->{"MONTANT_{$k}_DEVISE"} ?? 0);
-                $sum["MONTANT_{$k}_DEVISE"] += $montant;
-                if ($rate !== null && (float) $rate > 0) {
-                    $sum["MONTANT_{$k}_EUR"] += $montant / (float) $rate;
-                }
+            if ($rate !== null && (float) $rate > 0) {
+                $prixEur += (float) ($row->TOTAL_PRIX ?? 0) / (float) $rate;
             }
         }
 
-        $totals = [];
-        foreach ($sum as $k => $v) {
-            if ($k === 'NB_ROWS') {
-                continue;
-            }
-            $totals[$k] = str_starts_with($k, 'MONTANT_') ? round($v, 2) : (int) round($v);
-        }
-
-        return [$sum['NB_ROWS'], $totals];
+        // Mêmes totaux que le Backlog Client X3 : quantité à livrer et montant EUR.
+        return [$nbRows, [
+            'QUANTITE' => (int) round($quantite),
+            'PRIX_EUR' => round($prixEur, 2),
+        ]];
     }
 
     private function buildAggregateSql(string $whereClause): string
@@ -445,15 +519,8 @@ class BacklogClientV2
         SELECT
             SOH.CUR_0 AS DEVISE,
             COUNT(*) AS NB_ROWS,
-            SUM(SOQ.QTY_0) AS QUANTITE_COMMANDE,
-            SUM(SOQ.DLVQTY_0 + SOQ.ODLQTY_0) AS QUANTITE_LIVREE,
             SUM(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) AS QUANTITE,
-            SUM(SOQ.ALLQTY_0) AS QUANTITE_ALLOUEE,
-            SUM(SOQ.SHTQTY_0) AS QUANTITE_EN_RUPTURE,
-            SUM(SOQ.QTY_0 - SOQ.ALLQTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) AS RESTE_A_ALLOUER,
-            SUM(SOP.NETPRINOT_0 * SOQ.QTY_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_COMMANDE_DEVISE,
-            SUM(SOP.NETPRINOT_0 * (SOQ.DLVQTY_0 + SOQ.ODLQTY_0) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_LIVREE_DEVISE,
-            SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_A_LIVRER_DEVISE
+            SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS TOTAL_PRIX
         FROM X3_LCS.SORDERQ SOQ
         INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
         INNER JOIN X3_LCS.SORDERP SOP ON SOQ.SOHNUM_0 = SOP.SOHNUM_0 AND SOQ.ITMREF_0 = SOP.ITMREF_0 AND SOQ.SOPLIN_0 = SOP.SOPLIN_0
@@ -472,7 +539,6 @@ class BacklogClientV2
         LEFT  JOIN X3_LCS.ATEXTRA ATX4 ON ATX4.IDENT2_0 = BPC.ZGROUPIND_0 AND ATX4.CODFIC_0 = 'ATABDIV' AND ATX4.LANGUE_0 = 'FRA' AND ATX4.ZONE_0 = 'LNGDES' AND ATX4.IDENT1_0 = '6021'
         LEFT  JOIN X3_LCS.ATEXTRA ATX5 ON ATX5.CODFIC_0 = 'TABLINCFG' AND ATX5.LANGUE_0 = 'FRA' AND ATX5.IDENT1_0 = ITM.CFGLIN_0
         LEFT  JOIN X3_LCS.ATEXTRA ATX6 ON ATX6.IDENT2_0 = BPC.ZGRPCOD_0   AND ATX6.CODFIC_0 = 'ATABDIV' AND ATX6.LANGUE_0 = 'FRA' AND ATX6.ZONE_0 = 'LNGDES' AND ATX6.IDENT1_0 = '6028'
-        LEFT  JOIN X3_LCS.ATEXTRA ATX7 ON ATX7.IDENT2_0 = BPC.TSCCOD_4    AND ATX7.CODFIC_0 = 'ATABDIV' AND ATX7.LANGUE_0 = 'FRA' AND ATX7.ZONE_0 = 'LNGDES' AND ATX7.IDENT1_0 = '34'
         LEFT  JOIN X3_LCS.ZITMCOL ITC ON ITC.ITMREF_0 = SPLIT.ARTICLE_BASE AND ITC.YCOLLECT_0 = SOQ.YCOLLECT_0
         LEFT  JOIN X3_LCS.SVCRFOOT SVT ON SOH.SOHNUM_0 = SVT.VCRNUM_0 AND SVT.DTA_0 = 1
         " . $this->supplierJoins($whereClause) . "
@@ -513,6 +579,12 @@ class BacklogClientV2
         ) CI ON CI.ITMREF_0 = SOQ.ITMREF_0 AND CI.SITE_RECEPTION = SOH.STOFCY_0";
         }
 
+        // Un filtre sur une colonne stock référence STK.* : sans la jointure, les totaux échouent
+        // avec "multi-part identifier could not be bound".
+        if (str_contains($whereClause, 'STK.')) {
+            $joins .= $this->stockJoinSql();
+        }
+
         return $joins;
     }
 
@@ -528,14 +600,11 @@ class BacklogClientV2
         $taux = $this->divers->getExchangeRatesValues();
 
         foreach ($rows as $row) {
-            $rate   = $taux[$row->CUR_0] ?? null;
-            $rateOk = $rate !== null && (float) $rate > 0;
+            $rate = $taux[$row->CUR_0] ?? null;
 
-            foreach (['COMMANDE', 'LIVREE', 'A_LIVRER'] as $k) {
-                $row->{"MONTANT_{$k}_EUR"} = $rateOk
-                    ? round((float) $row->{"MONTANT_{$k}_DEVISE"} / (float) $rate, 2)
-                    : 0.0;
-            }
+            $row->PRIX_EUR = $rate !== null && (float) $rate > 0
+                ? round((float) $row->PRIX / (float) $rate, 2)
+                : 0.0;
         }
     }
 }

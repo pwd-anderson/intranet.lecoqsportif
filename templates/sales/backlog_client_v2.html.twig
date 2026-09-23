@@ -17,8 +17,18 @@
             color: #000000 !important;
         }
 
+        /* Largeur fixe : les collections sélectionnées s'empilent en hauteur plutôt que
+           d'étirer le bandeau vers la droite. */
         #collectionPicker .ts-wrapper {
-            min-width: 460px;
+            width: 240px;
+            min-width: 240px;
+            max-width: 240px;
+        }
+
+        #collectionPicker .ts-control {
+            flex-wrap: wrap;
+            max-height: 96px;
+            overflow-y: auto;
         }
 
         .grid-wrapper {
@@ -102,8 +112,12 @@
                     <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
                         <h3 class="box-title mb-2">{{ title }}</h3>
 
-                        <div id="collectionPicker" class="d-flex align-items-center gap-2 mt-2 mt-md-0">
-                            <select id="collectionSelect" class="form-select form-select-sm" multiple style="min-width: 260px;"></select>
+                        <div id="collectionPicker" class="d-flex align-items-start gap-2 mt-2 mt-md-0">
+                            <select id="collectionSelect" class="form-select form-select-sm" multiple></select>
+                            <div class="form-check mb-0" title="Ajoute le stock, le transit et le backlog fournisseur des 4 sites. Chargement plus long.">
+                                <input class="form-check-input" type="checkbox" id="includeStock">
+                                <label class="form-check-label small text-nowrap" for="includeStock">Inclure le stock</label>
+                            </div>
                             <button id="loadBtn" class="btn btn-primary btn-sm" type="button">Charger</button>
                         </div>
 
@@ -152,15 +166,61 @@
     <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
 
     <script>
-        const columnDefs = {{ columns|json_encode|raw }};
+        // Liste complète, jamais modifiée : chaque chargement en dérive les colonnes à afficher
+        const allColumnDefs = {{ columns|json_encode|raw }};
+        let columnDefs = allColumnDefs;
         const ALL_COLLECTIONS = '__ALL__';
+        const STOCK_FIELD_RE = /_(WLOGM|WSFCN|WTAKH|WDTTH)$/;
+        const BASE_STATE_KEY = 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1';
         // Collections filtrées ([] si "Tout") et options envoyées au serveur
         let selectedCollections = [];
         let collectionOptions = { collections: [] };
+        let includeStock = false;
+
+        // En-tête 2 lignes (libellé + nom complet du site) pour les colonnes stock par site,
+        // comme sur le Backlog Client X3.
+        const SITE_NAMES = {
+            WLOGM: 'LOGTEX Entrepôt Moussey',
+            WSFCN: 'SF Entrepôt Chine',
+            WTAKH: 'TALENT GLOBAL CO.,LIMITED (WOOLVET)',
+            WDTTH: 'DT Entrepôt Thaïlande',
+        };
+
+        class SiteHeaderComponent {
+            init(params) {
+                this.eGui = document.createElement('div');
+                this.eGui.style.cssText = 'line-height:1.25;padding:2px 0;white-space:normal;overflow:hidden;';
+                this.eGui.innerHTML =
+                    '<div style="font-weight:700;">' + params.mainLabel + '</div>' +
+                    '<div style="font-size:10px;font-weight:400;opacity:.85;">' + params.siteName + '</div>';
+            }
+            getGui() { return this.eGui; }
+            refresh() { return false; }
+        }
+
+        columnDefs.forEach(col => {
+            const m = STOCK_FIELD_RE.exec(col.field || '');
+            if (!m) return;
+
+            const site = m[1];
+            // Logtex garde son libellé complet sur 2 lignes ; les autres sites affichent
+            // le code site et son nom en sous-titre.
+            if (site === 'WLOGM') {
+                col.wrapHeaderText = true;
+                col.autoHeaderHeight = true;
+                return;
+            }
+
+            col.headerComponent = SiteHeaderComponent;
+            col.headerComponentParams = {
+                mainLabel: col.headerName.replace(new RegExp('\\s*' + site + '$'), ''),
+                siteName: site + ' — ' + SITE_NAMES[site],
+            };
+        });
 
         // Colonnes avec liste déroulante dynamique (SELECT DISTINCT côté serveur)
         const setFilterFields = [
-            'SITE', 'MAINNETWORK', 'DISTRIBUTION_CHANNEL', 'ZCLASSE_0', 'COLLECTION', 'FAMILLE',
+            'SITE', 'MAINNETWORK', 'ZCLASSE_0', 'COLLECTION', 'FAMILLE',
             'GENRE', 'AGE', 'DROPPE', 'NOOS', 'GROUP_CODE', 'CUR_0', 'REP1', 'REP2',
             'CLIENT_COMMANDE', 'NOM_CLIENT_COMMANDE'
         ];
@@ -185,7 +245,7 @@
                                 fetch('{{ path('backlog_clients_v2_filter_values') }}', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ field, filterModel: otherFilters, collections: selectedCollections }),
+                                    body: JSON.stringify({ field, filterModel: otherFilters, collections: selectedCollections, includeStock }),
                                 })
                                     .then(r => r.json())
                                     .then(values => params.success(values))
@@ -205,17 +265,29 @@
             integerColumns: {{ integerColumns|json_encode|raw }},
             totalColumns: {{ totalColumns|json_encode|raw }},
             headerClass: 'excelHeaderBlue',
-            stateKey: 'aggrid-state-{{ type }}-user-{{ app.user.id|default("local") }}-v1',
+            stateKey: BASE_STATE_KEY,
             getStaticOptions: () => collectionOptions,
             excelStyles: [
                 { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
             ],
         };
 
+        let uiBound = false;
+
         function initializeGridAndUi() {
+            // Rechargement : on détruit la grille précédente, ses colonnes ayant changé
+            if (window.gridOptions && window.gridOptions.api) {
+                window.gridOptions.api.destroy();
+                document.getElementById('myGrid').innerHTML = '';
+            }
+
             window.gridOptions = window.AgGridSsrm.initGrid('#myGrid', agGridConfig);
             window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
             window.AgGridCommon.patchSetFilterCheckboxes();
+
+            // Les boutons ne sont câblés qu'une fois, sinon les écouteurs s'empilent
+            if (uiBound) return;
+            uiBound = true;
 
             const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
 
@@ -280,16 +352,27 @@
                     return;
                 }
 
+                includeStock = document.getElementById('includeStock').checked;
+
                 // "Tout" l'emporte sur les autres collections cochées : aucun filtre collection
                 if (collections.includes(ALL_COLLECTIONS)) {
                     selectedCollections = [];
-                    collectionOptions = { allCollections: true };
+                    collectionOptions = { allCollections: true, includeStock };
                 } else {
                     selectedCollections = collections;
-                    collectionOptions = { collections };
+                    collectionOptions = { collections, includeStock };
                 }
 
-                document.getElementById('collectionPicker').style.display = 'none';
+                // Sans l'option, les colonnes stock ne sont pas dans la requête : on les retire
+                // de la grille pour ne pas afficher des colonnes vides ni permettre de les filtrer.
+                columnDefs = includeStock
+                    ? allColumnDefs
+                    : allColumnDefs.filter(col => !STOCK_FIELD_RE.test(col.field || ''));
+
+                agGridConfig.columnDefs = columnDefs;
+                // État sauvegardé séparé : les deux modes n'ont pas les mêmes colonnes
+                agGridConfig.stateKey = BASE_STATE_KEY + (includeStock ? '-stock' : '');
+
                 document.getElementById('mainBoxBody').style.display = '';
 
                 initializeGridAndUi();

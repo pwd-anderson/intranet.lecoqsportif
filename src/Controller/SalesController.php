@@ -312,7 +312,8 @@ final class SalesController extends AbstractController
         $filterModel = $payload['filterModel'] ?? [];
         $collections = $payload['collections'] ?? [];
         $collections = is_array($collections) ? array_values(array_filter($collections, 'is_string')) : [];
-        return new JsonResponse($backlogClientV2->getDistinctValues($field, $filterModel, $collections));
+        $includeStock = (bool) ($payload['includeStock'] ?? false);
+        return new JsonResponse($backlogClientV2->getDistinctValues($field, $filterModel, $collections, $includeStock));
     }
 
     #[Route('/sales/backlog_clients_v2_export_csv', name: 'backlog_clients_v2_export_csv', methods: ['POST'])]
