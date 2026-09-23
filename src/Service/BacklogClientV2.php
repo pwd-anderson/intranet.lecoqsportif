@@ -92,8 +92,10 @@ class BacklogClientV2
             'DATE_COMMANDE_FOURNISSEUR' => 'COALESCE(PO.DATE_COMMANDE_FOURNISSEUR, CI.DATE_COMMANDE_FOURNISSEUR)',
         ];
 
-        // Les colonnes stock n'existent dans la requête que si l'utilisateur a coché l'option :
-        // hors de ce cas, les whitelister ferait échouer un filtre sur des alias absents.
+        // Les colonnes stock sont volontairement absentes de la whitelist : à l'écran elles
+        // sont calculées après coup, article par article (voir enrichWithStock()), donc SQL
+        // Server ne peut ni filtrer ni trier dessus. Elles sont déclarées non filtrables et
+        // non triables dans la config AG Grid.
         if ($includeStock) {
             foreach (self::STOCK_SITES as $site) {
                 $map["STOCK_INTERNE_{$site}"] = "ISNULL(STK.STOCK_INTERNE_{$site}, 0)";
@@ -201,6 +203,103 @@ LEFT  JOIN (
         return $collections === [] ? null : $this->buildCollectionsClause($collections);
     }
 
+    /**
+     * Complète un bloc de lignes avec le stock, le transit et le backlog fournisseur.
+     *
+     * Plutôt qu'une jointure qui agrège tout le stock avant même de savoir quelles lignes
+     * seront affichées, on interroge les trois sources uniquement pour les articles du bloc
+     * (200 au plus). Contrepartie : ces colonnes ne sont ni filtrables ni triables.
+     *
+     * @param array<int, object> $rows
+     */
+    private function enrichWithStock(array $rows): void
+    {
+        $sites = self::STOCK_SITES;
+
+        // Valeurs par défaut : une colonne absente casserait l'affichage de la grille
+        foreach ($rows as $row) {
+            foreach ($sites as $site) {
+                foreach (['STOCK_INTERNE', 'STOCK_REEL', 'EN_TRANSIT',
+                          'STOCK_A_TERME_TRANSIT', 'STOCK_A_TERME_BACKLOG_FOURNISSEUR'] as $mesure) {
+                    $row->{"{$mesure}_{$site}"} = 0;
+                }
+            }
+        }
+
+        $articles = [];
+        foreach ($rows as $row) {
+            $sku = trim((string) ($row->SKU ?? ''));
+            if ($sku !== '') {
+                $articles[$sku] = true;
+            }
+        }
+
+        if ($articles === []) {
+            return;
+        }
+
+        $inArticles = "'" . implode("','", array_map(
+            fn(string $a) => str_replace("'", "''", $a),
+            array_keys($articles)
+        )) . "'";
+        $inSites = "'" . implode("','", $sites) . "'";
+
+        $sums = [];
+        foreach ($sites as $site) {
+            $sums[] = "SUM(CASE WHEN SITE = '{$site}' THEN STOCK_REEL ELSE 0 END) AS STOCK_REEL_{$site}";
+            $sums[] = "SUM(CASE WHEN SITE = '{$site}' THEN STOCK_INTERNE ELSE 0 END) AS STOCK_INTERNE_{$site}";
+        }
+
+        $stock = [];
+        foreach ($this->mssqlSei->executeQuery("
+            SELECT ARTICLE, " . implode(', ', $sums) . "
+            FROM MASTER_TABLES.STOCK_ALLOCATION
+            WHERE STATUS_STOCK = 'A1' AND SITE IN ({$inSites}) AND ARTICLE IN ({$inArticles})
+            GROUP BY ARTICLE
+        ") as $r) {
+            $stock[trim((string) $r->ARTICLE)] = $r;
+        }
+
+        $transit = [];
+        foreach ($this->mssqlSei->executeQuery("
+            SELECT ITMREF_0, SITE_RECEPTION, SUM(QTE_RESTANTE) AS QTE
+            FROM MASTER_TABLES.COMMANDES_INTERSITES
+            WHERE SITE_RECEPTION IN ({$inSites}) AND ITMREF_0 IN ({$inArticles})
+            GROUP BY ITMREF_0, SITE_RECEPTION
+        ") as $r) {
+            $transit[trim((string) $r->ITMREF_0)][trim((string) $r->SITE_RECEPTION)] = (float) $r->QTE;
+        }
+
+        $fournisseur = [];
+        foreach ($this->mssqlSei->executeQuery("
+            SELECT POQ.ITMREF_0, POQ.PRHFCY_0, SUM(POQ.QTYUOM_0 - POQ.RCPQTYSTU_0) AS QTE
+            FROM X3_LCS.PORDERQ POQ
+            INNER JOIN X3_LCS.PORDER POH ON POQ.POHNUM_0 = POH.POHNUM_0
+            WHERE POQ.LINCLEFLG_0 = 1 AND POH.BETFCY_0 <> 2
+              AND POQ.PRHFCY_0 IN ({$inSites}) AND POQ.ITMREF_0 IN ({$inArticles})
+            GROUP BY POQ.ITMREF_0, POQ.PRHFCY_0
+        ") as $r) {
+            $fournisseur[trim((string) $r->ITMREF_0)][trim((string) $r->PRHFCY_0)] = (float) $r->QTE;
+        }
+
+        foreach ($rows as $row) {
+            $sku = trim((string) ($row->SKU ?? ''));
+
+            foreach ($sites as $site) {
+                $interne = (float) ($stock[$sku]->{"STOCK_INTERNE_{$site}"} ?? 0);
+                $reel    = (float) ($stock[$sku]->{"STOCK_REEL_{$site}"} ?? 0);
+                $enRoute = $transit[$sku][$site] ?? 0.0;
+                $enCours = $fournisseur[$sku][$site] ?? 0.0;
+
+                $row->{"STOCK_INTERNE_{$site}"} = $interne;
+                $row->{"STOCK_REEL_{$site}"}    = $reel;
+                $row->{"EN_TRANSIT_{$site}"}    = $enRoute;
+                $row->{"STOCK_A_TERME_TRANSIT_{$site}"} = $reel + $enRoute;
+                $row->{"STOCK_A_TERME_BACKLOG_FOURNISSEUR_{$site}"} = $reel + $enRoute + $enCours;
+            }
+        }
+    }
+
     /** Remplace les deux marqueurs stock selon que l'option est cochée ou non. */
     private function applyStockPlaceholders(string $sql, bool $includeStock): string
     {
@@ -260,7 +359,9 @@ LEFT  JOIN (
                 return new SsrmResponse(rows: [], lastRow: 0, totals: []);
             }
 
-            $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
+            // À l'écran, le stock n'est jamais joint : il est ajouté après coup pour les seuls
+            // articles du bloc. La whitelist reste donc celle des colonnes de commande.
+            $builder = new AgGridSqlBuilder($request, $this->getFieldMap());
 
             $whereClause = $builder->buildWhereClause() . $collectionsClause;
             $orderBy     = $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC');
@@ -279,10 +380,14 @@ LEFT  JOIN (
 
             $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
             $sql = str_replace(['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'], [$whereClause, $orderBy, $pagination], $sql);
-            $sql = $this->applyStockPlaceholders($sql, $includeStock);
+            $sql = $this->applyStockPlaceholders($sql, false);
 
             $rows = $this->mssqlSei->executeQuery($sql);
             $this->addEurAmounts($rows);
+
+            if ($includeStock) {
+                $this->enrichWithStock($rows);
+            }
 
             return new SsrmResponse(
                 rows: $rows,
