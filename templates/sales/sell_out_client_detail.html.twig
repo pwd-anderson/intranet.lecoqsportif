@@ -1,0 +1,269 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input { color: #000000 !important; }
+
+        .grid-wrapper { position: relative; min-height: 600px; }
+
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        .grid-loader-bar-track { height: 8px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
+        .grid-loader-bar-fill { height: 100%; width: 0%; background: #024185; border-radius: 99px; transition: width 0.3s ease; }
+        .grid-loader-percent-text { font-size: 13px; color: #024185; font-weight: 600; margin-top: 6px; }
+
+        .grid-actions-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
+        .grid-actions-visible { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 0.2s ease-in-out; }
+
+        .ag-theme-alpine .ag-header-group-cell.week-grp-t1 { background-color: #a8c8e8 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.week-grp-t2 { background-color: #90c878 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.week-grp-t3 { background-color: #f0c060 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.week-grp-t4 { background-color: #c8a8e4 !important; color: #1a1a1a !important; font-weight: 700; }
+        .ag-theme-alpine .ag-header-group-cell.week-grp-total { background-color: #006064 !important; color: #ffffff !important; font-weight: 700; }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <div class="d-flex align-items-center gap-2">
+                            <a href="{{ backUrl }}" class="btn btn-sm bg-gradient-secondary">
+                                <i class="ti-arrow-left"></i> Retour
+                            </a>
+                            <h3 class="box-title mb-0">{{ title }}</h3>
+                        </div>
+
+                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                            <span class="small text-muted">Année {{ currentYear }}</span>
+                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                    <div class="box-body pt-2">
+                        <div id="myGridWrapper" class="grid-wrapper">
+                            <div id="gridCustomLoader" class="grid-custom-loader">
+                                <div class="grid-loader-spinner"></div>
+                                <div class="grid-loader-text">Chargement...</div>
+                                <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                    <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                </div>
+                                <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                            </div>
+                            <div id="sellOutDetailGrid" class="ag-theme-alpine" style="height: 75vh; width: 100%; visibility: hidden;"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.9"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const GRID_SELECTOR = '#sellOutDetailGrid';
+            const DATA_URL      = '{{ dataUrl }}';
+            const CUSTOMER_ID   = '{{ customerId|e('js') }}';
+            const CURRENT_YEAR  = {{ currentYear }};
+            const STATE_KEY     = 'aggrid-state-sell-out-client-detail-user-{{ app.user.id|default("local") }}-v1';
+
+            let weeks       = [];
+            let gridOptions = null;
+
+            const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
+
+            function cellStyleText() {
+                return { borderRight: '0.2px solid #CECECEFF', borderBottom: '0.2px solid #CECECEFF', textAlign: 'left' };
+            }
+
+            function cellStyleNum() {
+                return { borderRight: '0.2px solid #CECECEFF', borderBottom: '0.2px solid #CECECEFF', textAlign: 'right' };
+            }
+
+            function weekField(week) {
+                return 'QTE_S' + String(week).padStart(2, '0');
+            }
+
+            function trimestre(week) {
+                if (week <= 13) return 't1';
+                if (week <= 26) return 't2';
+                if (week <= 39) return 't3';
+                return 't4';
+            }
+
+            function buildTotalColumns() {
+                return weeks.map(weekField).concat(['QTE_TOTAL']);
+            }
+
+            function buildColumnDefs() {
+                const fixed = [
+                    {
+                        field: 'collection', headerName: 'COLLECTION', pinned: 'left',
+                        minWidth: 130, filter: 'agSetColumnFilter', cellStyle: cellStyleText,
+                    },
+                    {
+                        field: 'itemn', headerName: 'ARTICLE', pinned: 'left',
+                        minWidth: 90, maxWidth: 110, filter: 'agTextColumnFilter', cellStyle: cellStyleText,
+                    },
+                    {
+                        field: 'itemdes', headerName: 'DESIGNATION', pinned: 'left',
+                        minWidth: 220, filter: 'agTextColumnFilter', cellStyle: cellStyleText,
+                    },
+                    {
+                        field: 'genre', headerName: 'GENRE', pinned: 'left',
+                        minWidth: 80, maxWidth: 100, filter: 'agSetColumnFilter', cellStyle: cellStyleText,
+                        wrapHeaderText: true, autoHeaderHeight: true,
+                    },
+                    {
+                        // Intitulé replié sur deux lignes pour tenir dans une colonne étroite
+                        field: 'segment_offre', headerName: 'SEGMENT OFFRE', pinned: 'left',
+                        minWidth: 85, maxWidth: 105, filter: 'agSetColumnFilter', cellStyle: cellStyleText,
+                        wrapHeaderText: true, autoHeaderHeight: true,
+                    },
+                ];
+
+                const weekGroups = weeks.map(function (week) {
+                    return {
+                        headerName: 'S' + String(week).padStart(2, '0'),
+                        headerClass: 'week-grp-' + trimestre(week),
+                        marryChildren: true,
+                        children: [{
+                            field: weekField(week),
+                            headerName: 'QTE',
+                            minWidth: 90,
+                            filter: 'agNumberColumnFilter',
+                            valueFormatter: window.integerFormatter,
+                            comparator: window.integerComparator,
+                            cellStyle: cellStyleNum,
+                            cellDataType: false,
+                        }],
+                    };
+                });
+
+                const totalGroup = {
+                    headerName: 'TOTAL',
+                    headerClass: 'week-grp-total',
+                    marryChildren: true,
+                    children: [{
+                        field: 'QTE_TOTAL',
+                        headerName: 'QTE',
+                        minWidth: 110,
+                        filter: 'agNumberColumnFilter',
+                        valueFormatter: window.integerFormatter,
+                        comparator: window.integerComparator,
+                        cellStyle: cellStyleNum,
+                        cellDataType: false,
+                    }],
+                };
+
+                return [...fixed, ...weekGroups, totalGroup];
+            }
+
+            function initGrid() {
+                gridOptions = window.AgGridCommon.initGrid(GRID_SELECTOR, {
+                    columnDefs: buildColumnDefs(),
+                    dataUrl: null,
+                    numericColumns: [],
+                    integerColumns: [],
+                    totalColumns: [],
+                });
+
+                gridOptions.api.addEventListener('filterChanged', function () {
+                    window.AgGridCommon.updateTotals(gridOptions, buildTotalColumns());
+                });
+                gridOptions.api.addEventListener('sortChanged', function () {
+                    window.AgGridCommon.updateTotals(gridOptions, buildTotalColumns());
+                });
+            }
+
+            function loadGrid() {
+                window.AgGridCommon.hideGridActions();
+                window.AgGridCommon.showGridLoader(GRID_SELECTOR);
+
+                const url = `${DATA_URL}?customer=${encodeURIComponent(CUSTOMER_ID)}&year=${CURRENT_YEAR}`;
+
+                fetch(url)
+                    .then(function (r) { return r.json(); })
+                    .then(function (payload) {
+                        weeks = payload.weeks || [];
+
+                        if (gridOptions === null) {
+                            initGrid();
+                        } else {
+                            gridOptions.api.setColumnDefs(buildColumnDefs());
+                        }
+
+                        gridOptions.api.setRowData(payload.rows || []);
+                        window.AgGridCommon.loadGridState(gridOptions, STATE_KEY);
+                        window.AgGridCommon.updateTotals(gridOptions, buildTotalColumns());
+                        window.AgGridCommon.hideGridLoader(GRID_SELECTOR);
+                        window.AgGridCommon.showGridActions();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        if (gridOptions !== null) {
+                            gridOptions.api.setRowData([]);
+                        }
+                        window.AgGridCommon.hideGridLoader(GRID_SELECTOR);
+                        window.AgGridCommon.showGridActions();
+                    });
+            }
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.saveGridState(gridOptions, STATE_KEY);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.clearGridState(STATE_KEY);
+                location.reload();
+            });
+
+            document.getElementById('exportBtn').addEventListener('click', async function () {
+                await ExcelExportStandard.export(gridOptions, 'sell_out_detail_{{ customerId }}.xlsx');
+            });
+
+            loadGrid();
+        });
+    </script>
+{% endblock %}
