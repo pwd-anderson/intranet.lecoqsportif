@@ -45,6 +45,8 @@ class BenchBacklogClientV2CsvCommand extends Command
             ->addOption('out', null, InputOption::VALUE_REQUIRED,
                 'Fichier de sortie. "null" pour ne rien écrire et isoler le coût du disque.',
                 'var/bench_backlog_client_v2.csv')
+            ->addOption('stock', null, InputOption::VALUE_NONE,
+                'Inclut les colonnes stock / transit / backlog fournisseur, comme la case a cocher.')
             ->addOption('raw', null, InputOption::VALUE_NONE,
                 'Mesure le transport pur depuis le SEI Cube (requête triviale, lignes de taille fixe).')
             ->addOption('raw-rows', null, InputOption::VALUE_REQUIRED,
@@ -97,9 +99,13 @@ class BenchBacklogClientV2CsvCommand extends Command
             explode(',', (string) $input->getOption('collections'))
         )));
 
+        $includeStock = (bool) $input->getOption('stock');
+
         $options = $collections === []
             ? ['allCollections' => true]
             : ['collections' => $collections];
+
+        $options['includeStock'] = $includeStock;
 
         $request = SsrmRequest::fromArray([
             'filterModel' => [],
@@ -115,6 +121,7 @@ class BenchBacklogClientV2CsvCommand extends Command
             ? 'Collections : <info>toutes</info>'
             : 'Collections : <info>' . implode(', ', $collections) . '</info>');
         $io->writeln('Sortie      : <info>' . ($out === 'null' ? 'aucune (mesure pure)' : $out) . '</info>');
+        $io->writeln('Stock       : <info>' . ($includeStock ? 'inclus' : 'exclu') . '</info>');
         $io->newLine();
 
         // Mêmes colonnes que l'export réel : celles visibles dans la config AG Grid
