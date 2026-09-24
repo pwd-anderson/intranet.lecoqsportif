@@ -14,7 +14,6 @@
     <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 
     <style>
         .ag-theme-alpine {
@@ -66,10 +65,12 @@
         <div class="row">
             <div class="col-12">
                 <div class="box">
-                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
-                        <h3 class="box-title mb-2">{{ title }}</h3>
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        {# L'option et le bouton de chargement restent accolés au titre :
+                           isolés à droite, ils semblaient flotter dans l'en-tête. #}
+                        <div id="collectionPicker" class="d-flex align-items-center gap-3">
+                            <h3 class="box-title mb-0">{{ title }}</h3>
 
-                        <div id="collectionPicker" class="d-flex align-items-center gap-2 mt-2 mt-md-0">
                             <div class="form-check mb-0" title="Ajoute le stock, le transit et le backlog fournisseur des 4 sites.">
                                 <input class="form-check-input" type="checkbox" id="includeStock">
                                 <label class="form-check-label small text-nowrap" for="includeStock">Inclure le stock</label>
@@ -77,9 +78,14 @@
                             <button id="loadBtn" class="btn btn-primary btn-sm" type="button">Charger</button>
                         </div>
 
-                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                        <div id="gridActions" class="d-flex align-items-center gap-2 grid-actions-hidden">
+                            <span id="exportEtat" class="small text-muted"></span>
                             {% if app.environment == 'dev' %}<span id="mesure" class="mesure-perf"></span>{% endif %}
-                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                            <button id="exportCsvEcranBtn" class="btn btn-primary btn-sm" type="button" title="Exporte exactement les lignes affichées, filtres et tri compris. À privilégier après avoir filtré.">CSV</button>
+                            <button id="exportCsvBtn" class="btn btn-primary btn-sm" type="button" title="La totalité du backlog, sans tenir compte des filtres de la grille. Généré par le serveur, sans limite de volume.">CSV complet</button>
+                            <form id="exportCsvForm" method="post" action="{{ path('backlog_clients_v2_export_csv') }}" style="display: none;">
+                                <input type="hidden" name="payload">
+                            </form>
                             <span id="rowCount" class="text-muted small"></span>
                         </div>
                     </div>
@@ -103,7 +109,27 @@
                 </div>
             </div>
         </div>
-        {{ include('components/_excel_loader.html.twig') }}
+        <div class="modal fade" id="modal-export-volumineux" tabindex="-1">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Export volumineux</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong id="exportNbLignes"></strong> lignes seraient exportées depuis le navigateur.</p>
+                        <p class="mb-0 text-muted">
+                            L'onglet risque de se figer plusieurs secondes. Filtrez davantage,
+                            ou utilisez « CSV complet », qui passe par le serveur.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="button" class="btn btn-danger" id="exportConfirmerBtn">Exporter quand même</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </section>
 {% endblock %}
 
@@ -111,15 +137,31 @@
     {{ parent() }}
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.6"></script>
-    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
-    <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
 
     <script>
         // Liste complète : les colonnes stock sont retirées si l'option n'est pas cochée
         const allColumnDefs = {{ columns|json_encode|raw }};
         const STOCK_FIELD_RE = /_(WLOGM|WSFCN|WTAKH|WDTTH)$/;
         const ALL_TOTAL_COLUMNS = {{ totalColumns|json_encode|raw }};
+
+        /**
+         * Réactive filtre et tri sur les colonnes stock, pour la v3 uniquement.
+         *
+         * La configuration `backlog_client_v2_grid` les déclare non filtrables parce que
+         * la v2 calcule le stock après la requête, hors de portée de SQL Server. En v3
+         * la contrainte n'existe pas : le filtrage se fait dans le navigateur sur des
+         * données déjà chargées, et l'export CSV dispose des colonnes via la jointure.
+         */
+        function rendreStockFiltrable(col) {
+            if (!STOCK_FIELD_RE.test(col.field || '')) {
+                return col;
+            }
+
+            return Object.assign({}, col, {
+                sortable: true,
+                filter: 'agNumberColumnFilter',
+            });
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             let exportBound = false;
@@ -138,7 +180,7 @@
                 document.getElementById('mainBoxBody').style.display = '';
 
                 const columnDefs = includeStock
-                    ? allColumnDefs
+                    ? allColumnDefs.map(rendreStockFiltrable)
                     : allColumnDefs.filter(col => !STOCK_FIELD_RE.test(col.field || ''));
 
                 // Les totaux suivent les colonnes affichées : inutile de sommer le stock
@@ -259,8 +301,99 @@
                     // grille courante.
                     if (!exportBound) {
                         exportBound = true;
-                        document.getElementById('exportBtn').addEventListener('click', () => {
-                            window.gridOptions.api.exportDataAsExcel({ fileName: 'backlog_client_v3.xlsx' });
+
+                        // Seul l'export serveur est proposé : sur 172 000 lignes, tout
+                        // traitement synchrone dans le navigateur fige l'onglet, et
+                        // ExcelJS casse au-delà d'environ 150 000 lignes.
+                        const optionsExport = { allCollections: true, includeStock };
+
+                        // CSV écran : ce que voit l'utilisateur, filtres et tri compris.
+                        // Généré dans le navigateur, donc instantané sur un volume filtré
+                        // mais bloquant au-delà : on prévient avant de figer l'onglet.
+                        // Spinner dans le bouton pendant l'export. Le libellé d'origine
+                        // est mémorisé pour être restauré, quel que soit le dénouement.
+                        const avecSpinner = (bouton, libelle) => {
+                            bouton.dataset.libelle = bouton.dataset.libelle || bouton.textContent.trim();
+                            bouton.disabled = true;
+                            bouton.innerHTML =
+                                '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>'
+                                + libelle;
+                        };
+
+                        const sansSpinner = (bouton) => {
+                            bouton.disabled = false;
+                            bouton.textContent = bouton.dataset.libelle;
+                        };
+
+                        const exporterEcran = () => {
+                            const bouton = document.getElementById('exportCsvEcranBtn');
+                            avecSpinner(bouton, 'Export…');
+
+                            // Laisse le navigateur peindre le spinner : la génération du
+                            // CSV est synchrone et bloquerait l'affichage sinon.
+                            setTimeout(() => {
+                                try {
+                                    window.gridOptions.api.exportDataAsCsv({
+                                        fileName: 'backlog_client_v3.csv',
+                                        columnSeparator: ';',
+                                    });
+                                } finally {
+                                    sansSpinner(bouton);
+                                }
+                            }, 50);
+                        };
+
+                        const modaleVolume = new bootstrap.Modal(
+                            document.getElementById('modal-export-volumineux')
+                        );
+
+                        document.getElementById('exportConfirmerBtn').addEventListener('click', () => {
+                            modaleVolume.hide();
+                            // Laisse la modale se fermer avant de bloquer le fil principal
+                            setTimeout(exporterEcran, 200);
+                        });
+
+                        document.getElementById('exportCsvEcranBtn').addEventListener('click', () => {
+                            const lignes = window.gridOptions.api.getDisplayedRowCount();
+
+                            if (lignes > 50000) {
+                                document.getElementById('exportNbLignes').textContent =
+                                    lignes.toLocaleString('fr-FR');
+                                modaleVolume.show();
+                                return;
+                            }
+
+                            exporterEcran();
+                        });
+
+                        // CSV complet : la totalité du backlog, sans filtre ni tri. Les
+                        // filtres de la grille sont volontairement ignorés — « complet »
+                        // doit vouloir dire complet, sinon deux exports du même bouton
+                        // donneraient des fichiers différents selon l'écran.
+                        const boutonCsv = document.getElementById('exportCsvBtn');
+                        const zoneEtat = document.getElementById('exportEtat');
+
+                        boutonCsv.addEventListener('click', () => {
+                            const form = document.getElementById('exportCsvForm');
+                            form.elements.payload.value = JSON.stringify({
+                                filterModel: {},
+                                sortModel: [],
+                                options: optionsExport,
+                            });
+
+                            avecSpinner(boutonCsv, 'Préparation…');
+                            zoneEtat.textContent = 'Préparation du fichier sur le serveur…';
+
+                            form.submit();
+
+                            // La réponse étant diffusée au fil de l'eau, le navigateur ne
+                            // nous signale pas la fin de la génération : on rend la main
+                            // au bout d'un délai plutôt que de laisser le bouton bloqué.
+                            setTimeout(() => {
+                                sansSpinner(boutonCsv);
+                                zoneEtat.textContent = 'Le téléchargement démarre automatiquement.';
+                                setTimeout(() => { zoneEtat.textContent = ''; }, 8000);
+                            }, 20000);
                         });
                     }
                 } catch (erreur) {
