@@ -24,8 +24,6 @@
 
         .ag-text-field-input { color: #000000 !important; }
 
-        #collectionPicker .ts-wrapper { width: 240px; min-width: 240px; max-width: 240px; }
-        #collectionPicker .ts-control { flex-wrap: wrap; max-height: 96px; overflow-y: auto; }
 
         .grid-wrapper { position: relative; min-height: 1000px; }
 
@@ -71,8 +69,7 @@
                     <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
                         <h3 class="box-title mb-2">{{ title }}</h3>
 
-                        <div id="collectionPicker" class="d-flex align-items-start gap-2 mt-2 mt-md-0">
-                            <select id="collectionSelect" class="form-select form-select-sm" multiple></select>
+                        <div id="collectionPicker" class="d-flex align-items-center gap-2 mt-2 mt-md-0">
                             <div class="form-check mb-0" title="Ajoute le stock, le transit et le backlog fournisseur des 4 sites.">
                                 <input class="form-check-input" type="checkbox" id="includeStock">
                                 <label class="form-check-label small text-nowrap" for="includeStock">Inclure le stock</label>
@@ -81,7 +78,7 @@
                         </div>
 
                         <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
-                            <span id="mesure" class="mesure-perf"></span>
+                            {% if app.environment == 'dev' %}<span id="mesure" class="mesure-perf"></span>{% endif %}
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
                             <span id="rowCount" class="text-muted small"></span>
                         </div>
@@ -121,58 +118,36 @@
     <script>
         // Liste complète : les colonnes stock sont retirées si l'option n'est pas cochée
         const allColumnDefs = {{ columns|json_encode|raw }};
-        const ALL_COLLECTIONS = '__ALL__';
         const STOCK_FIELD_RE = /_(WLOGM|WSFCN|WTAKH|WDTTH)$/;
+        const ALL_TOTAL_COLUMNS = {{ totalColumns|json_encode|raw }};
 
         document.addEventListener('DOMContentLoaded', () => {
-            let collectionTomSelect = null;
-
-            fetch('{{ path("poid_famille_par_variant_collections_json") }}')
-                .then(res => res.json())
-                .then(data => {
-                    const select = document.getElementById('collectionSelect');
-                    select.appendChild(new Option('Tout', ALL_COLLECTIONS));
-                    data.forEach(collection => {
-                        const option = document.createElement('option');
-                        option.value = collection;
-                        option.textContent = collection;
-                        select.appendChild(option);
-                    });
-
-                    collectionTomSelect = window.AgGridCommon.setupMultiSelect('#collectionSelect', {
-                        placeholder: 'Collection(s)',
-                    });
-                });
+            let exportBound = false;
 
             document.getElementById('loadBtn').addEventListener('click', () => {
-                const collections = collectionTomSelect ? collectionTomSelect.getValue() : [];
-
-                if (!collections.length) {
-                    alert('Veuillez sélectionner au moins une collection (ou "Tout") avant de charger la grille.');
-                    return;
-                }
-
-                // Construction de l'URL : "Tout" l'emporte sur les collections cochées
+                // Toutes les collections : la stat charge l'intégralité du backlog
                 const includeStock = document.getElementById('includeStock').checked;
 
-                const params = new URLSearchParams();
+                const params = new URLSearchParams({ all: '1' });
                 if (includeStock) {
                     params.set('stock', '1');
                 }
-                if (collections.includes(ALL_COLLECTIONS)) {
-                    params.set('all', '1');
-                } else {
-                    collections.forEach(c => params.append('collections[]', c));
-                }
 
-                document.getElementById('collectionPicker').style.display = 'none';
+                // Le bandeau reste visible : on doit pouvoir relancer un chargement pour
+                // comparer avec et sans stock, ce qui est l'objet même de cette page.
                 document.getElementById('mainBoxBody').style.display = '';
 
                 const columnDefs = includeStock
                     ? allColumnDefs
                     : allColumnDefs.filter(col => !STOCK_FIELD_RE.test(col.field || ''));
 
-                chargerEtAfficher('{{ dataUrl }}?' + params.toString(), columnDefs);
+                // Les totaux suivent les colonnes affichées : inutile de sommer le stock
+                // quand il n'est pas chargé.
+                const totalColumns = includeStock
+                    ? ALL_TOTAL_COLUMNS
+                    : ALL_TOTAL_COLUMNS.filter(field => !STOCK_FIELD_RE.test(field));
+
+                chargerEtAfficher('{{ dataUrl }}?' + params.toString(), columnDefs, totalColumns);
             });
 
             /**
@@ -180,7 +155,7 @@
              * grille. Le serveur diffuse le JSON sans connaître sa taille finale : on
              * affiche donc le volume reçu, pas un pourcentage, qui serait inventé.
              */
-            async function chargerEtAfficher(url, columnDefs) {
+            async function chargerEtAfficher(url, columnDefs, totalColumns) {
                 const loader = document.getElementById('gridCustomLoader');
                 const texte = loader.querySelector('.grid-loader-text');
                 const barre = document.getElementById('gridLoaderBarFill');
@@ -230,12 +205,19 @@
                     const lignes = JSON.parse(json);
                     json = '';
 
+                    // Rechargement : on détruit la grille précédente, sinon une seconde
+                    // grille se superpose à la première (double ligne d'en-tête en pied).
+                    if (window.gridOptions && window.gridOptions.api) {
+                        window.gridOptions.api.destroy();
+                        document.getElementById('myGrid').innerHTML = '';
+                    }
+
                     const gridOptions = window.AgGridCommon.initGrid('#myGrid', {
                         columnDefs: columnDefs,
                         dataUrl: null,
                         numericColumns: {{ numericColumns|json_encode|raw }},
                         integerColumns: {{ integerColumns|json_encode|raw }},
-                        totalColumns: {{ totalColumns|json_encode|raw }},
+                        totalColumns: totalColumns,
                         headerClass: 'excelHeaderBlue',
                         excelStyles: [
                             { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
@@ -245,10 +227,23 @@
                     window.gridOptions = gridOptions;
                     gridOptions.api.setRowData(lignes);
 
+                    // Compteur de lignes et ligne de totaux, comme le fait reloadData()
+                    // pour les stats standard : initGrid ne s'en charge pas quand les
+                    // données ne viennent pas d'un dataUrl.
+                    window.AgGridCommon.updateTotals(gridOptions, totalColumns);
+
+                    gridOptions.api.addEventListener('filterChanged', () => {
+                        window.AgGridCommon.updateTotals(gridOptions, totalColumns);
+                    });
+                    gridOptions.api.addEventListener('sortChanged', () => {
+                        window.AgGridCommon.updateTotals(gridOptions, totalColumns);
+                    });
+
                     const fin = performance.now();
                     const secondes = v => (v / 1000).toFixed(1);
 
-                    document.getElementById('mesure').textContent =
+                    const mesure = document.getElementById('mesure');
+                    if (mesure) mesure.textContent =
                         `${lignes.length.toLocaleString('fr-FR')} lignes · ${mo(recu)} Mo · `
                         + `téléchargement ${secondes(finTelechargement - depart)} s · `
                         + `traitement ${secondes(fin - finTelechargement)} s · `
@@ -258,9 +253,16 @@
                     document.querySelector('#myGrid').style.visibility = 'visible';
                     window.AgGridCommon.showGridActions();
 
-                    document.getElementById('exportBtn').addEventListener('click', () => {
-                        gridOptions.api.exportDataAsExcel({ fileName: 'backlog_client_v3.xlsx' });
-                    });
+                    // Câblé une seule fois : sinon les écouteurs s'empilent à chaque
+                    // rechargement et l'export se déclenche autant de fois qu'il y a eu
+                    // de chargements. On passe par window.gridOptions pour viser la
+                    // grille courante.
+                    if (!exportBound) {
+                        exportBound = true;
+                        document.getElementById('exportBtn').addEventListener('click', () => {
+                            window.gridOptions.api.exportDataAsExcel({ fileName: 'backlog_client_v3.xlsx' });
+                        });
+                    }
                 } catch (erreur) {
                     console.error(erreur);
                     texte.textContent = 'Échec du chargement : ' + erreur.message;

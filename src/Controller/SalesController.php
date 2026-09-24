@@ -322,12 +322,23 @@ final class SalesController extends AbstractController
 
         $grid = $this->columnBuilder->build($options);
 
+        // La configuration `backlog_client_v2_grid` ne renseigne aucun `agg_func` : en
+        // SSRM les totaux viennent de la requête d'agrégat, la colonne n'a donc pas à
+        // être marquée. En client-side, c'est le navigateur qui somme : on dérive ici la
+        // liste des colonnes à totaliser depuis leur type (toutes les colonnes
+        // numériques du backlog sont sommables), sans toucher à la config partagée avec
+        // la v2, qui doit rester inchangée.
+        $totalColumns = array_values(array_unique(array_merge(
+            $grid['integerColumns'],
+            $grid['numericColumns']
+        )));
+
         return $this->render('sales/backlog_client_v3.html.twig', [
             'title'          => 'Backlog Client v3 (test client-side)',
             'columns'        => $grid['columns'],
             'numericColumns' => $grid['numericColumns'],
             'integerColumns' => $grid['integerColumns'],
-            'totalColumns'   => $grid['totalColumns'],
+            'totalColumns'   => $totalColumns,
             'dataUrl'        => $this->generateUrl('backlog_clients_v3_json'),
         ]);
     }
