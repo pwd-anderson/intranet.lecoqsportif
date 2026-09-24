@@ -181,6 +181,22 @@
                             return `<a href="${url}" class="client-link" target="_blank" rel="noopener noreferrer">${params.value}</a>`;
                         },
                     },
+                    {
+                        field: 'REPRESENTANT_1',
+                        headerName: 'REPRESENTANT 1',
+                        pinned: 'left',
+                        minWidth: 150,
+                        filter: 'agSetColumnFilter',
+                        cellStyle: cellStyleText,
+                    },
+                    {
+                        field: 'REPRESENTANT_2',
+                        headerName: 'REPRESENTANT 2',
+                        pinned: 'left',
+                        minWidth: 150,
+                        filter: 'agSetColumnFilter',
+                        cellStyle: cellStyleText,
+                    },
                 ];
 
                 const monthGroups = MONTHS.map(function (m) {

@@ -144,11 +144,11 @@
             function buildColumnDefs() {
                 const fixed = [
                     {
-                        field: 'sourcename', headerName: 'SOURCE NAME', pinned: 'left',
+                        field: 'sourcename', headerName: 'SOURCE NAME',
                         minWidth: 105, maxWidth: 125, filter: 'agSetColumnFilter', cellStyle: cellStyleText,
                     },
                     {
-                        field: 'customer_id', headerName: 'CUSTOMER CODE', pinned: 'left',
+                        field: 'customer_id', headerName: 'CUSTOMER CODE',
                         minWidth: 95, maxWidth: 115, filter: 'agTextColumnFilter', cellStyle: cellStyleText,
                         // Le code client ouvre le détail : c'est lui qui filtre la vue détaillée
                         cellRenderer: function (params) {
@@ -160,15 +160,23 @@
                         },
                     },
                     {
-                        field: 'customer_name', headerName: 'MAGASIN', pinned: 'left',
+                        field: 'customer_name', headerName: 'MAGASIN',
                         minWidth: 220, filter: 'agTextColumnFilter', cellStyle: cellStyleText,
                     },
                     {
-                        field: 'groupe_name', headerName: 'GROUPE NAME', pinned: 'left',
+                        field: 'rep1', headerName: 'REPRESENTANT 1',
+                        minWidth: 140, filter: 'agSetColumnFilter', cellStyle: cellStyleText,
+                    },
+                    {
+                        field: 'rep2', headerName: 'REPRESENTANT 2',
+                        minWidth: 140, filter: 'agSetColumnFilter', cellStyle: cellStyleText,
+                    },
+                    {
+                        field: 'groupe_name', headerName: 'GROUPE NAME',
                         minWidth: 180, filter: 'agSetColumnFilter', cellStyle: cellStyleText,
                     },
                     {
-                        field: 'ville', headerName: 'VILLE', pinned: 'left',
+                        field: 'ville', headerName: 'VILLE',
                         minWidth: 160, filter: 'agTextColumnFilter', cellStyle: cellStyleText,
                     },
                 ];

@@ -5,6 +5,11 @@ SELECT
          THEN CUST.CUSTOMER_NAME
          ELSE CUST.BILLTONAME
     END AS CLIENT,
+    -- Meme convention que le Backlog Client : REPRESENTANT 1 est le N+1 (responsable
+    -- de zone), REPRESENTANT 2 le commercial terrain. Un client regroupant plusieurs
+    -- representants (ex. INTERSPORT FRANCE SA) est arbitre cote PHP lors du pivot.
+    CUST.SALESMANNAMENPLUS1 AS REPRESENTANT_1,
+    CUST.SALESMANNAME       AS REPRESENTANT_2,
     SUM(I.QUANTITY)    AS QUANTITE,
     SUM(I.AMOUNTEURTM) AS CA
 
@@ -35,4 +40,6 @@ GROUP BY
          THEN CUST.CUSTOMER_NAME
          ELSE CUST.BILLTONAME
     END,
-    CUST.COUNTRYCODE
+    CUST.COUNTRYCODE,
+    CUST.SALESMANNAMENPLUS1,
+    CUST.SALESMANNAME

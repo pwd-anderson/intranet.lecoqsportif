@@ -541,6 +541,7 @@ class Sales
             $rows  = $this->mssqlSei()->executeQuery($query);
 
             $pivoted = [];
+            $representants = [];
 
             foreach ($rows as $row) {
                 $pays   = (string) ($row->COUNTRYCODE ?? '');
@@ -559,12 +560,28 @@ class Sales
                     }
                 }
 
+
+                // Un client peut regrouper plusieurs magasins aux représentants
+                // différents (INTERSPORT FRANCE SA en compte 12) : on collecte les
+                // valeurs rencontrées et on ne gardera que celles qui sont uniques.
+                foreach (['REPRESENTANT_1', 'REPRESENTANT_2'] as $champ) {
+                    $valeur = trim((string) ($row->$champ ?? ''));
+                    if ($valeur !== '') {
+                        $representants[$key][$champ][$valeur] = true;
+                    }
+                }
                 $pad = str_pad((string) ((int) ($row->MOIS ?? 1)), 2, '0', STR_PAD_LEFT);
                 $pivoted[$key]['CA_'  . $pad] += round((float) ($row->CA       ?? 0), 2);
                 $pivoted[$key]['QTE_' . $pad] += (int)          ($row->QUANTITE ?? 0);
             }
 
-            foreach ($pivoted as &$row) {
+            foreach ($pivoted as $cle => &$row) {
+                // Representant affiche seulement s'il est unique pour ce client
+                foreach (['REPRESENTANT_1', 'REPRESENTANT_2'] as $champ) {
+                    $valeurs = $representants[$cle][$champ] ?? [];
+                    $row[$champ] = count($valeurs) === 1 ? (string) array_key_first($valeurs) : '';
+                }
+
                 $caTotal = 0.0; $qteTotal = 0;
                 for ($m = 1; $m <= 12; $m++) {
                     $pad = str_pad((string) $m, 2, '0', STR_PAD_LEFT);
