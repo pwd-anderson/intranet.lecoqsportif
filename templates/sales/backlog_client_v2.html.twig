@@ -125,10 +125,8 @@
                             <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
                             <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
-                            <button id="exportFullBtn" class="btn btn-primary btn-sm" type="button" title="Toutes les lignes filtrées, généré par le serveur (CSV compatible Excel)">CSV complet</button>
-                            <form id="exportCsvForm" method="post" action="{{ path('backlog_clients_v2_export_csv') }}" style="display: none;">
-                                <input type="hidden" name="payload">
-                            </form>
+                            <button id="exportFullBtn" class="btn btn-primary btn-sm" type="button" title="Toutes les lignes filtrées. Le fichier est préparé par le serveur, vous pouvez continuer à travailler.">CSV complet</button>
+                            <span id="exportEtat" class="small text-muted"></span>
                             <span id="rowCount" class="text-muted small"></span>
                         </div>
                     </div>
@@ -295,21 +293,78 @@
                 window.AgGridSsrm.exportExcel(window.gridOptions, agGridConfig, '{{ title|replace({" ": "_"}) }}.xlsx', { includeStock: true });
             });
 
-            // CSV généré et envoyé au fil de l'eau par le serveur (filtres, tri et collections de la grille) :
-            // pas de limite de lignes, contrairement à l'Excel construit dans le navigateur
-            document.getElementById('exportFullBtn').addEventListener('click', () => {
+            // Le CSV complet est préparé par le serveur hors requête HTTP : la génération
+            // dépasse la limite de temps du serveur web (l'export fait ~68 Mo et 170 000
+            // lignes). On demande l'export, puis on interroge son état jusqu'au fichier.
+            const boutonExport = document.getElementById('exportFullBtn');
+            const zoneEtat = document.getElementById('exportEtat');
+            let sondage = null;
+
+            function majBoutonExport(actif, message) {
+                boutonExport.disabled = !actif;
+                boutonExport.textContent = actif ? 'CSV complet' : 'Préparation…';
+                zoneEtat.textContent = message || '';
+            }
+
+            function suivreExport(id) {
+                clearInterval(sondage);
+
+                sondage = setInterval(() => {
+                    fetch(`{{ path('app_export_etat', {id: 'ID'}) }}`.replace('ID', id))
+                        .then(r => r.json())
+                        .then(etat => {
+                            if (etat.statut === 'termine') {
+                                clearInterval(sondage);
+                                const mo = (etat.taille / 1048576).toFixed(1);
+                                majBoutonExport(true, `Fichier prêt (${mo} Mo)`);
+                                // Déclenche le téléchargement sans quitter la page
+                                window.location.assign(etat.url);
+                            } else if (etat.statut === 'erreur') {
+                                clearInterval(sondage);
+                                majBoutonExport(true, '');
+                                alert(etat.erreur || "L'export a échoué.");
+                            }
+                        })
+                        .catch(() => {
+                            clearInterval(sondage);
+                            majBoutonExport(true, '');
+                        });
+                }, 2000);
+            }
+
+            boutonExport.addEventListener('click', () => {
                 const sortModel = (window.gridOptions.columnApi.getColumnState() || [])
                     .filter(s => s.sort)
                     .sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0))
                     .map(s => ({ colId: s.colId, sort: s.sort }));
 
-                const form = document.getElementById('exportCsvForm');
-                form.elements.payload.value = JSON.stringify({
-                    filterModel: window.gridOptions.api.getFilterModel() || {},
-                    sortModel,
-                    options: collectionOptions,
-                });
-                form.submit();
+                majBoutonExport(false, 'Préparation du fichier…');
+
+                fetch('{{ path('app_export_demander', {statKey: 'backlog_client_v2'}) }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filterModel: window.gridOptions.api.getFilterModel() || {},
+                        sortModel,
+                        options: collectionOptions,
+                    }),
+                })
+                    .then(r => r.json())
+                    .then(reponse => {
+                        if (!reponse.id) {
+                            majBoutonExport(true, '');
+                            alert(reponse.erreur || "Impossible de lancer l'export.");
+                            return;
+                        }
+                        if (reponse.deja_en_cours) {
+                            zoneEtat.textContent = 'Un export est déjà en cours…';
+                        }
+                        suivreExport(reponse.id);
+                    })
+                    .catch(() => {
+                        majBoutonExport(true, '');
+                        alert("Impossible de lancer l'export.");
+                    });
             });
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', () => {
