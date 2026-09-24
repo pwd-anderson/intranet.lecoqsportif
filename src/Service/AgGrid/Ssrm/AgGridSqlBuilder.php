@@ -56,7 +56,10 @@ final class AgGridSqlBuilder
     public function buildOrderByClause(string $defaultOrderBy): string
     {
         if ($this->request->sortModel === []) {
-            return ' ORDER BY ' . $defaultOrderBy;
+            // Un défaut vide signifie "pas de tri du tout" : utile pour les exports, ou
+            // trier obligerait SQL Server à ordonner tout le jeu de résultats avant de
+            // rendre la première ligne, sans que personne ne l'ait demandé.
+            return $defaultOrderBy === '' ? '' : ' ORDER BY ' . $defaultOrderBy;
         }
 
         $orders = [];

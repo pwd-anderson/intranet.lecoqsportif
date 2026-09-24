@@ -1,0 +1,273 @@
+{% extends 'base.html.twig' %}
+
+{#
+   TEST DE PERFORMANCE — Backlog Client v3.
+
+   Memes donnees que la v2, mais chargees integralement dans le navigateur
+   (client-side) au lieu du mode SSRM. Le stock est optionnel et passe ici par la
+   jointure, l'enrichissement par requetes ciblees n'ayant de sens que sur un bloc
+   pagine. Sert uniquement a comparer les deux modes : page absente du menu.
+#}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+
+        .ag-text-field-input { color: #000000 !important; }
+
+        #collectionPicker .ts-wrapper { width: 240px; min-width: 240px; max-width: 240px; }
+        #collectionPicker .ts-control { flex-wrap: wrap; max-height: 96px; overflow-y: auto; }
+
+        .grid-wrapper { position: relative; min-height: 1000px; }
+
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        .grid-loader-bar-track { height: 8px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
+        .grid-loader-bar-fill { height: 100%; width: 0%; background: #024185; border-radius: 99px; transition: width 0.3s ease; }
+        .grid-loader-percent-text { font-size: 13px; color: #024185; font-weight: 600; margin-top: 6px; }
+
+        .grid-actions-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
+        .grid-actions-visible { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 0.2s ease-in-out; }
+
+        .mesure-perf {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            color: #024185;
+            background: #eef3f9;
+            border-radius: 4px;
+            padding: 4px 10px;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <h3 class="box-title mb-2">{{ title }}</h3>
+
+                        <div id="collectionPicker" class="d-flex align-items-start gap-2 mt-2 mt-md-0">
+                            <select id="collectionSelect" class="form-select form-select-sm" multiple></select>
+                            <div class="form-check mb-0" title="Ajoute le stock, le transit et le backlog fournisseur des 4 sites.">
+                                <input class="form-check-input" type="checkbox" id="includeStock">
+                                <label class="form-check-label small text-nowrap" for="includeStock">Inclure le stock</label>
+                            </div>
+                            <button id="loadBtn" class="btn btn-primary btn-sm" type="button">Charger</button>
+                        </div>
+
+                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                            <span id="mesure" class="mesure-perf"></span>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                    <div class="box-body" id="mainBoxBody" style="display: none;">
+                        <div class="table-responsive-sm">
+                            <div id="myGridWrapper" class="grid-wrapper">
+                                <div id="gridCustomLoader" class="grid-custom-loader">
+                                    <div class="grid-loader-spinner"></div>
+                                    <div class="grid-loader-text">Chargement de la grille...</div>
+                                    <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                        <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                    </div>
+                                    <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                                </div>
+
+                                <div id="myGrid" class="ag-theme-alpine" style="height: 1000px; visibility: hidden;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.6"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>
+
+    <script>
+        // Liste complète : les colonnes stock sont retirées si l'option n'est pas cochée
+        const allColumnDefs = {{ columns|json_encode|raw }};
+        const ALL_COLLECTIONS = '__ALL__';
+        const STOCK_FIELD_RE = /_(WLOGM|WSFCN|WTAKH|WDTTH)$/;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            let collectionTomSelect = null;
+
+            fetch('{{ path("poid_famille_par_variant_collections_json") }}')
+                .then(res => res.json())
+                .then(data => {
+                    const select = document.getElementById('collectionSelect');
+                    select.appendChild(new Option('Tout', ALL_COLLECTIONS));
+                    data.forEach(collection => {
+                        const option = document.createElement('option');
+                        option.value = collection;
+                        option.textContent = collection;
+                        select.appendChild(option);
+                    });
+
+                    collectionTomSelect = window.AgGridCommon.setupMultiSelect('#collectionSelect', {
+                        placeholder: 'Collection(s)',
+                    });
+                });
+
+            document.getElementById('loadBtn').addEventListener('click', () => {
+                const collections = collectionTomSelect ? collectionTomSelect.getValue() : [];
+
+                if (!collections.length) {
+                    alert('Veuillez sélectionner au moins une collection (ou "Tout") avant de charger la grille.');
+                    return;
+                }
+
+                // Construction de l'URL : "Tout" l'emporte sur les collections cochées
+                const includeStock = document.getElementById('includeStock').checked;
+
+                const params = new URLSearchParams();
+                if (includeStock) {
+                    params.set('stock', '1');
+                }
+                if (collections.includes(ALL_COLLECTIONS)) {
+                    params.set('all', '1');
+                } else {
+                    collections.forEach(c => params.append('collections[]', c));
+                }
+
+                document.getElementById('collectionPicker').style.display = 'none';
+                document.getElementById('mainBoxBody').style.display = '';
+
+                const columnDefs = includeStock
+                    ? allColumnDefs
+                    : allColumnDefs.filter(col => !STOCK_FIELD_RE.test(col.field || ''));
+
+                chargerEtAfficher('{{ dataUrl }}?' + params.toString(), columnDefs);
+            });
+
+            /**
+             * Charge les données en lisant la réponse au fil de l'eau, puis construit la
+             * grille. Le serveur diffuse le JSON sans connaître sa taille finale : on
+             * affiche donc le volume reçu, pas un pourcentage, qui serait inventé.
+             */
+            async function chargerEtAfficher(url, columnDefs) {
+                const loader = document.getElementById('gridCustomLoader');
+                const texte = loader.querySelector('.grid-loader-text');
+                const barre = document.getElementById('gridLoaderBarFill');
+                const compteur = document.getElementById('gridLoaderPercent');
+
+                loader.style.display = 'flex';
+                document.querySelector('#myGrid').style.visibility = 'hidden';
+
+                const mo = octets => (octets / 1048576).toFixed(1);
+                const depart = performance.now();
+
+                try {
+                    // ─── Étape 1 : téléchargement ───────────────────────────────
+                    const reponse = await fetch(url);
+                    if (!reponse.ok) throw new Error('HTTP ' + reponse.status);
+
+                    const lecteur = reponse.body.getReader();
+                    const decodeur = new TextDecoder('utf-8');
+                    let recu = 0;
+                    let json = '';
+
+                    while (true) {
+                        const { done, value } = await lecteur.read();
+                        if (done) break;
+
+                        recu += value.length;
+                        json += decodeur.decode(value, { stream: true });
+
+                        texte.textContent = `Téléchargement — ${mo(recu)} Mo`;
+                        compteur.textContent = `${((performance.now() - depart) / 1000).toFixed(0)} s`;
+                        // Sans taille totale, la barre progresse de façon asymptotique :
+                        // elle avance vite au début puis ralentit, sans jamais mentir.
+                        barre.style.width = (100 * (1 - Math.exp(-recu / 52428800))).toFixed(1) + '%';
+                    }
+                    json += decodeur.decode();
+
+                    const finTelechargement = performance.now();
+
+                    // ─── Étape 2 : traitement ───────────────────────────────────
+                    texte.textContent = 'Traitement des données…';
+                    compteur.textContent = '';
+                    barre.style.width = '100%';
+
+                    // Laisse le navigateur peindre le message avant de bloquer sur JSON.parse
+                    await new Promise(r => setTimeout(r, 50));
+
+                    const lignes = JSON.parse(json);
+                    json = '';
+
+                    const gridOptions = window.AgGridCommon.initGrid('#myGrid', {
+                        columnDefs: columnDefs,
+                        dataUrl: null,
+                        numericColumns: {{ numericColumns|json_encode|raw }},
+                        integerColumns: {{ integerColumns|json_encode|raw }},
+                        totalColumns: {{ totalColumns|json_encode|raw }},
+                        headerClass: 'excelHeaderBlue',
+                        excelStyles: [
+                            { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
+                        ],
+                    });
+
+                    window.gridOptions = gridOptions;
+                    gridOptions.api.setRowData(lignes);
+
+                    const fin = performance.now();
+                    const secondes = v => (v / 1000).toFixed(1);
+
+                    document.getElementById('mesure').textContent =
+                        `${lignes.length.toLocaleString('fr-FR')} lignes · ${mo(recu)} Mo · `
+                        + `téléchargement ${secondes(finTelechargement - depart)} s · `
+                        + `traitement ${secondes(fin - finTelechargement)} s · `
+                        + `total ${secondes(fin - depart)} s`;
+
+                    loader.style.display = 'none';
+                    document.querySelector('#myGrid').style.visibility = 'visible';
+                    window.AgGridCommon.showGridActions();
+
+                    document.getElementById('exportBtn').addEventListener('click', () => {
+                        gridOptions.api.exportDataAsExcel({ fileName: 'backlog_client_v3.xlsx' });
+                    });
+                } catch (erreur) {
+                    console.error(erreur);
+                    texte.textContent = 'Échec du chargement : ' + erreur.message;
+                    compteur.textContent = '';
+                }
+            }
+
+        });
+    </script>
+{% endblock %}

@@ -408,6 +408,64 @@ LEFT  JOIN (
      * @param resource $out
      * @param array<string, array{header: string, type: string}> $columns field => en-tête et type, dans l'ordre d'export
      */
+    /**
+     * TEST DE PERFORMANCE (stat v3) — écrit toutes les lignes en JSON, sans pagination
+     * ni stock, pour comparer un chargement client-side au mode SSRM.
+     *
+     * Les lignes sont diffusées une par une : un executeQuery() sur l'ensemble du jeu
+     * de résultats demanderait environ 1,4 Go de mémoire PHP.
+     *
+     * @param resource $out
+     */
+    public function writeAllRowsAsJson($out, SsrmRequest $request): void
+    {
+        $collectionsClause = $this->resolveCollectionsClause($request);
+
+        if ($collectionsClause === null) {
+            fwrite($out, '[]');
+
+            return;
+        }
+
+        // Ici le stock passe par la jointure, contrairement a la grille paginee : on veut
+        // toutes les lignes, donc l'agregat STOCK_ALLOCATION est calcule une fois et sert
+        // a l'ensemble. La methode par requetes ciblees supposerait un WHERE ARTICLE IN
+        // de plusieurs milliers de valeurs, et interdirait la diffusion en flux.
+        $includeStock = (bool) $request->getOption('includeStock', false);
+
+        $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
+        $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+
+        // Aucun ORDER BY : la grille est client-side, c'est AG Grid qui trie. Un tri
+        // serveur obligerait SQL Server a trier les 172 000 lignes avant de rendre la
+        // premiere, ce qui fait depasser le delai de connexion sans rien apporter.
+        $sql = str_replace(
+            ['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'],
+            [$builder->buildWhereClause() . $collectionsClause, '', ''],
+            $sql
+        );
+        $sql = $this->applyStockPlaceholders($sql, $includeStock);
+
+        $taux = $this->divers->getExchangeRatesValues();
+
+        fwrite($out, '[');
+        $premiere = true;
+
+        foreach ($this->mssqlSei->iterateQuery($sql) as $row) {
+            $row  = $this->helpers->convertArrayToUtf8($row);
+            $rate = $taux[trim((string) $row['CUR_0'])] ?? null;
+
+            $row['PRIX_EUR'] = $rate !== null && (float) $rate > 0
+                ? round((float) $row['PRIX'] / (float) $rate, 2)
+                : 0.0;
+
+            fwrite($out, ($premiere ? '' : ',') . json_encode($row, JSON_UNESCAPED_UNICODE));
+            $premiere = false;
+        }
+
+        fwrite($out, ']');
+    }
+
     public function writeCsv($out, SsrmRequest $request, array $columns): void
     {
         $collectionsClause = $this->resolveCollectionsClause($request);
@@ -419,9 +477,12 @@ LEFT  JOIN (
 
         $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
         $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+        // Tri uniquement si l'utilisateur en a demandé un : sinon SQL Server devrait
+        // ordonner les 172 000 lignes avant de rendre la première, ce qui retarde tout
+        // l'export sans aucun bénéfice.
         $sql = str_replace(
             ['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'],
-            [$builder->buildWhereClause() . $collectionsClause, $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC'), ''],
+            [$builder->buildWhereClause() . $collectionsClause, $builder->buildOrderByClause(''), ''],
             $sql
         );
         $sql = $this->applyStockPlaceholders($sql, $includeStock);
@@ -508,9 +569,12 @@ LEFT  JOIN (
 
         $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
         $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+        // Tri uniquement si l'utilisateur en a demandé un : sinon SQL Server devrait
+        // ordonner les 172 000 lignes avant de rendre la première, ce qui retarde tout
+        // l'export sans aucun bénéfice.
         $sql = str_replace(
             ['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'],
-            [$builder->buildWhereClause() . $collectionsClause, $builder->buildOrderByClause('SOQ.SOHNUM_0 ASC'), ''],
+            [$builder->buildWhereClause() . $collectionsClause, $builder->buildOrderByClause(''), ''],
             $sql
         );
         $sql = $this->applyStockPlaceholders($sql, $includeStock);

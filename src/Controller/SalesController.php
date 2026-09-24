@@ -304,6 +304,63 @@ final class SalesController extends AbstractController
         ]);
     }
 
+    /**
+     * TEST DE PERFORMANCE — Backlog Client v3 : mêmes données que la v2 mais chargées
+     * intégralement dans le navigateur (client-side), sans SSRM ni stock, pour comparer
+     * les deux modes. Volontairement absente du menu : ce n'est pas une stat destinée
+     * aux utilisateurs.
+     */
+    #[Route('/sales/backlog_clients_v3', name: 'app_sales_backlog_clients_v3')]
+    public function backlogClientsV3(): Response
+    {
+        // Toutes les colonnes sont transmises : le navigateur écarte celles du stock
+        // quand la case n'est pas cochée, comme sur la v2.
+        $options = $this->aggridOptionRepository->findBy(
+            ['gridName' => 'backlog_client_v2_grid'],
+            ['orderIndex' => 'ASC']
+        );
+
+        $grid = $this->columnBuilder->build($options);
+
+        return $this->render('sales/backlog_client_v3.html.twig', [
+            'title'          => 'Backlog Client v3 (test client-side)',
+            'columns'        => $grid['columns'],
+            'numericColumns' => $grid['numericColumns'],
+            'integerColumns' => $grid['integerColumns'],
+            'totalColumns'   => $grid['totalColumns'],
+            'dataUrl'        => $this->generateUrl('backlog_clients_v3_json'),
+        ]);
+    }
+
+    #[Route('/sales/backlog_clients_v3_json', name: 'backlog_clients_v3_json')]
+    public function backlogClientsV3Json(Request $request, BacklogClientV2 $backlogClientV2): Response
+    {
+        $collections = $request->query->all('collections');
+        $collections = is_array($collections) ? array_values(array_filter($collections, 'is_string')) : [];
+
+        $ssrmRequest = SsrmRequest::fromArray([
+            'filterModel' => [],
+            'sortModel'   => [],
+            'options'     => ($request->query->getBoolean('all')
+                ? ['allCollections' => true]
+                : ['collections' => $collections])
+                + ['includeStock' => $request->query->getBoolean('stock')],
+        ]);
+
+        // Diffusion ligne par ligne : tout charger en mémoire demanderait environ 1,4 Go
+        $response = new StreamedResponse(function () use ($backlogClientV2, $ssrmRequest) {
+            set_time_limit(0);
+            $out = fopen('php://output', 'w');
+            $backlogClientV2->writeAllRowsAsJson($out, $ssrmRequest);
+            fclose($out);
+        });
+
+        $response->headers->set('Content-Type', 'application/json');
+        $response->headers->set('X-Accel-Buffering', 'no');
+
+        return $response;
+    }
+
     #[Route('/sales/backlog_clients_v2_filter_values', name: 'backlog_clients_v2_filter_values', methods: ['POST'])]
     public function backlogClientsV2FilterValues(Request $request, BacklogClientV2 $backlogClientV2): JsonResponse
     {
