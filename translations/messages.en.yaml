@@ -40,7 +40,8 @@ sidebar:
     sales:
         sales_by_year: "Annual Sales"
         delivery_without_invoice: "Deliveries Without Invoice"
-        backlog_clients_x3: "Backlog Clients"
+        backlog_clients_x3: "Backlog Clients (previous version)"
+        backlog_clients_v3: "Backlog Clients"
         kpi_deck_retail: "Retail KPI Deck"
         kpi_deck_retail_x3: "Retail KPI X3"
         commandes_a_facturer_x3: "Commandes à Facturer\n(Vue Balance âgée)"
@@ -58,7 +59,6 @@ sidebar:
         ventes_qte_ca_produit: "Sales by Product"
     adv:
         etat_commandes_clients: "Customer Order Status"
-        backlog_clients_v2: "Customer Backlog v2"
         comptes_clients: "Customer Accounts"
     management:
         ca_marges: "Sales Margins"

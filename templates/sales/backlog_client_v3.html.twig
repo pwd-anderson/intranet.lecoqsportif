@@ -1,12 +1,11 @@
 {% extends 'base.html.twig' %}
 
 {#
-   TEST DE PERFORMANCE — Backlog Client v3.
+   Backlog Clients — version principale.
 
-   Memes donnees que la v2, mais chargees integralement dans le navigateur
-   (client-side) au lieu du mode SSRM. Le stock est optionnel et passe ici par la
-   jointure, l'enrichissement par requetes ciblees n'ayant de sens que sur un bloc
-   pagine. Sert uniquement a comparer les deux modes : page absente du menu.
+   Charge l'integralite du backlog dans le navigateur au lieu du mode SSRM. Le stock
+   est optionnel et passe par la jointure : l'enrichissement par requetes ciblees de
+   la v2 n'a de sens que sur un bloc pagine.
 #}
 
 {% block stylesheets %}

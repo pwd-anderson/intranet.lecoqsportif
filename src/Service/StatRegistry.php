@@ -28,10 +28,10 @@ final class StatRegistry
 
             // ── ADV ───────────────────────────────────────────────────────
             'app_sales_livraison_non_facturees'           => ['section' => 'ADV',     'label' => 'Livraisons non facturées',          'roles' => ['ROLE_ADV']],
-            'app_sales_backlog_clients_x3'                => ['section' => 'ADV',     'label' => 'Backlog Clients X3',                'roles' => ['ROLE_ADV']],
+            'app_sales_backlog_clients_x3'                => ['section' => 'ADV',     'label' => 'Backlog Clients (ancienne version)', 'roles' => ['ROLE_ADV']],
+            'app_sales_backlog_clients_v3'                => ['section' => 'ADV',     'label' => 'Backlog Clients',                   'roles' => ['ROLE_ADV']],
             'app_sales_commandes_a_facturer_x3'           => ['section' => 'ADV',     'label' => 'Commandes à facturer X3',           'roles' => ['ROLE_ADV']],
             'app_sales_etat_commandes_clients_x3'         => ['section' => 'ADV',     'label' => 'État des commandes clients',        'roles' => ['ROLE_ADV']],
-            'app_sales_backlog_clients_v2'                => ['section' => 'ADV',     'label' => 'Backlog Client v2',                 'roles' => ['ROLE_ADV']],
 
             // ── Achats ────────────────────────────────────────────────────
             'app_backlog_fournisseur_x3'                  => ['section' => 'Achats',  'label' => 'Backlog fournisseur X3',            'roles' => ['ROLE_PURCHASING']],

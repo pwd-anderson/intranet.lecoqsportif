@@ -305,10 +305,15 @@ final class SalesController extends AbstractController
     }
 
     /**
-     * TEST DE PERFORMANCE — Backlog Client v3 : mêmes données que la v2 mais chargées
-     * intégralement dans le navigateur (client-side), sans SSRM ni stock, pour comparer
-     * les deux modes. Volontairement absente du menu : ce n'est pas une stat destinée
-     * aux utilisateurs.
+     * Backlog Clients — version principale depuis le 2026-09-24.
+     *
+     * Charge l'intégralité du backlog dans le navigateur plutôt que par blocs SSRM :
+     * l'ouverture est plus lente (environ 44 s avec le stock, dont 14 s d'exécution SQL),
+     * mais filtres, tris et exports sont ensuite instantanés. Le nom de route conserve
+     * le suffixe v3, qui sert de clé dans user_stat_exclusion.
+     *
+     * Les versions précédentes restent accessibles par leur URL, hors menu :
+     * app_sales_backlog_clients_x3 (SSRM d'origine) et app_sales_backlog_clients_v2.
      */
     #[Route('/sales/backlog_clients_v3', name: 'app_sales_backlog_clients_v3')]
     public function backlogClientsV3(): Response
@@ -334,7 +339,7 @@ final class SalesController extends AbstractController
         )));
 
         return $this->render('sales/backlog_client_v3.html.twig', [
-            'title'          => 'Backlog Client v3 (test client-side)',
+            'title'          => 'Backlog Clients',
             'columns'        => $grid['columns'],
             'numericColumns' => $grid['numericColumns'],
             'integerColumns' => $grid['integerColumns'],

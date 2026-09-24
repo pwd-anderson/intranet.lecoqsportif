@@ -63,7 +63,7 @@
 
                     {# ----- ADV : ADV, MANAGEMENT, CONTROLLING, ADMIN ----- #}
                     {% if isSuperUser or is_granted('ROLE_ADV') %}
-                    <li class="treeview {% if currentRoute in ['app_sales_livraison_non_facturees', 'app_sales_backlog_clients_x3', 'app_sales_commandes_a_facturer_x3', 'app_sales_etat_commandes_clients_x3', 'app_sales_comptes_clients', 'app_sales_backlog_clients_v2'] %}active{% endif %}">
+                    <li class="treeview {% if currentRoute in ['app_sales_livraison_non_facturees', 'app_sales_backlog_clients_x3', 'app_sales_commandes_a_facturer_x3', 'app_sales_etat_commandes_clients_x3', 'app_sales_comptes_clients', 'app_sales_backlog_clients_v3'] %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/ecommerce.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.adv'|trans }}</span>
@@ -71,10 +71,9 @@
                         </a>
                         <ul class="treeview-menu">
                             {% if not is_stat_excluded('app_sales_livraison_non_facturees') %}<li class="{% if currentRoute == 'app_sales_livraison_non_facturees' %}active{% endif %}"><a href="{{ path('app_sales_livraison_non_facturees') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.delivery_without_invoice'|trans }}</a></li>{% endif %}
-                            {% if not is_stat_excluded('app_sales_backlog_clients_x3') %}<li class="{% if currentRoute == 'app_sales_backlog_clients_x3' %}active{% endif %}"><a href="{{ path('app_sales_backlog_clients_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.backlog_clients_x3'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_sales_backlog_clients_v3') %}<li class="{% if currentRoute == 'app_sales_backlog_clients_v3' %}active{% endif %}"><a href="{{ path('app_sales_backlog_clients_v3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.backlog_clients_v3'|trans }}</a></li>{% endif %}
                             {% if not is_stat_excluded('app_sales_commandes_a_facturer_x3') %}<li class="{% if currentRoute == 'app_sales_commandes_a_facturer_x3' %}active{% endif %}"><a href="{{ path('app_sales_commandes_a_facturer_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.sales.commandes_a_facturer_x3'|trans|nl2br }}</a></li>{% endif %}
                             {% if not is_stat_excluded('app_sales_etat_commandes_clients_x3') %}<li class="{% if currentRoute == 'app_sales_etat_commandes_clients_x3' %}active{% endif %}"><a href="{{ path('app_sales_etat_commandes_clients_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.adv.etat_commandes_clients'|trans }}</a></li>{% endif %}
-                            {% if not is_stat_excluded('app_sales_backlog_clients_v2') %}<li class="{% if currentRoute == 'app_sales_backlog_clients_v2' %}active{% endif %}"><a href="{{ path('app_sales_backlog_clients_v2') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.adv.backlog_clients_v2'|trans }}</a></li>{% endif %}
                             {% if not is_stat_excluded('app_sales_comptes_clients') %}<li class="{% if currentRoute == 'app_sales_comptes_clients' %}active{% endif %}"><a href="{{ path('app_sales_comptes_clients') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.adv.comptes_clients'|trans }}</a></li>{% endif %}
                         </ul>
                     </li>
