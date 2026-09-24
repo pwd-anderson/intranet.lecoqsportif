@@ -20,6 +20,8 @@ CREATE TABLE MASTER_TABLES.INTRANET_SELLOUT_CLIENT_WEEK (
     customer_name  NVARCHAR(100)  NULL,
     groupe_name    NVARCHAR(100)  NULL,
     ville          NVARCHAR(100)  NULL,
+    rep1           NVARCHAR(100)  NULL,
+    rep2           NVARCHAR(100)  NULL,
     annee          INT            NULL,
     semaine        INT            NULL,
     salesqty       DECIMAL(18, 2) NULL
@@ -63,6 +65,8 @@ CREATE TABLE MASTER_TABLES.INTRANET_SELLOUT_CLIENT_WEEK_DEV (
     customer_name  NVARCHAR(100)  NULL,
     groupe_name    NVARCHAR(100)  NULL,
     ville          NVARCHAR(100)  NULL,
+    rep1           NVARCHAR(100)  NULL,
+    rep2           NVARCHAR(100)  NULL,
     annee          INT            NULL,
     semaine        INT            NULL,
     salesqty       DECIMAL(18, 2) NULL

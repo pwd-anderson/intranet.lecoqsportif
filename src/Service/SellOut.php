@@ -69,7 +69,9 @@ class SellOut
         LEFT JOIN X3_LCS.BPADDRESS BPA
                ON BPA.BPATYP_0 = 1
               AND BPA.BPANUM_0 = BPC.BPCNUM_0
-              AND BPA.BPAADD_0 = BPC.BPAADD_0";
+              AND BPA.BPAADD_0 = BPC.BPAADD_0
+        LEFT JOIN X3_LCS.SALESREP REP1 ON BPC.REP_0 = REP1.REPNUM_0
+        LEFT JOIN X3_LCS.SALESREP REP2 ON BPC.REP_1 = REP2.REPNUM_0";
 
     // ─── Rafraîchissement ───────────────────────────────────────────────────
 
@@ -81,13 +83,16 @@ class SellOut
 
             return $this->mssql->insertData("
                 INSERT INTO {$table}
-                    (sourcename, customer_id, customer_name, groupe_name, ville, annee, semaine, salesqty)
+                    (sourcename, customer_id, customer_name, groupe_name, ville, rep1, rep2, annee, semaine, salesqty)
                 SELECT
                     S.SOURCENAME,
                     S.CUSTOMER_ID,
                     MAX(BPC.BPCNAM_0),
                     MAX(NULLIF(LTRIM(RTRIM(ATX4.TEXTE_0)), '')),
                     MAX(BPA.CTY_0),
+                    -- Meme convention que le Backlog Client : REP1 affiche BPC.REP_1
+                    MAX(REP2.REPNAM_0),
+                    MAX(REP1.REPNAM_0),
                     CAST(LEFT(CAST(S.WEEK_CODE AS VARCHAR(6)), 4) AS INT),
                     CAST(RIGHT(CAST(S.WEEK_CODE AS VARCHAR(6)), 2) AS INT),
                     SUM(S.SALESQTY)
@@ -271,16 +276,16 @@ class SellOut
             $annee = (int) $annee;
 
             $rows = $this->mssql->executeQuery("
-                SELECT sourcename, customer_id, customer_name, groupe_name, ville,
+                SELECT sourcename, customer_id, customer_name, rep1, rep2, groupe_name, ville,
                        semaine, SUM(salesqty) AS salesqty
                 FROM {$table}
                 WHERE annee = {$annee}
-                GROUP BY sourcename, customer_id, customer_name, groupe_name, ville, semaine
+                GROUP BY sourcename, customer_id, customer_name, rep1, rep2, groupe_name, ville, semaine
             ");
 
             $resultat = $this->pivoterParSemaine(
                 $rows,
-                ['sourcename', 'customer_id', 'customer_name', 'groupe_name', 'ville']
+                ['sourcename', 'customer_id', 'customer_name', 'rep1', 'rep2', 'groupe_name', 'ville']
             );
 
             // Les clients sans groupement (environ 20 %) sont renvoyés en fin de liste :
