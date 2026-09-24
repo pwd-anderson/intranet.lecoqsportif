@@ -132,6 +132,11 @@ final class ExportJobController extends AbstractController
     /**
      * Demarre la generation sans attendre sa fin.
      *
+     * Le processus doit survivre a la requete HTTP. Un Process::start() ne suffit pas :
+     * le destructeur de l'objet Process appelle stop(), donc l'enfant est tue des que le
+     * controleur rend la main. On passe donc par un shell avec nohup et "&", qui detache
+     * reellement le processus ; la commande shell, elle, rend la main immediatement.
+     *
      * Si le serveur web n'a pas le droit de lancer un processus, la demande reste en
      * attente : un cron `app:export:run --pending` la traitera. Rien n'est perdu.
      */
@@ -146,13 +151,22 @@ final class ExportJobController extends AbstractController
                 ?? (new PhpExecutableFinder())->find()
                 ?: PHP_BINARY;
 
-            $process = new Process(
-                [$binaire, 'bin/console', 'app:export:run', (string) $job->getId(), '--env=' . $this->environment],
-                $this->projectDir
+            // La sortie part dans un journal : sans cela, un echec au demarrage serait
+            // invisible et la demande resterait "en attente" sans explication.
+            $journal = $this->projectDir . '/var/log/export_job.log';
+
+            $commande = sprintf(
+                'nohup %s %s app:export:run %s --env=%s >> %s 2>&1 &',
+                escapeshellarg($binaire),
+                escapeshellarg($this->projectDir . '/bin/console'),
+                escapeshellarg((string) $job->getId()),
+                escapeshellarg($this->environment),
+                escapeshellarg($journal)
             );
-            $process->setTimeout(null);
-            $process->disableOutput();
-            $process->start();
+
+            $process = Process::fromShellCommandline($commande, $this->projectDir);
+            $process->setTimeout(10);
+            $process->run();
         } catch (\Throwable $e) {
             // La demande reste en statut "en_attente" et sera reprise par le cron
             $this->logger->warning("Impossible de lancer l'export en tache de fond", [
