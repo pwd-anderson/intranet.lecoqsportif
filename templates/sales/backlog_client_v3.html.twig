@@ -208,37 +208,82 @@
                 const mo = octets => (octets / 1048576).toFixed(1);
                 const depart = performance.now();
 
+                // Progression continue sur les trois phases réelles du chargement.
+                // Indispensable ici : l'exécution SQL dure une quinzaine de secondes
+                // pendant lesquelles aucun octet n'arrive. Une barre figée à 0 % donne
+                // l'impression que la stat est plantée.
+                //
+                // Chaque phase vise un plafond et s'en approche sans jamais l'atteindre
+                // tant qu'elle dure : le pourcentage avance donc toujours, et ne recule
+                // ni ne stagne, même si la durée réelle s'écarte de l'estimation.
+                const PHASES = {
+                    requete:      { debut: 0,  plafond: 35, duree: 15000, texte: 'Exécution de la requête…' },
+                    telechargement: { debut: 35, plafond: 92, duree: 30000, texte: 'Téléchargement' },
+                    traitement:   { debut: 92, plafond: 99, duree: 2000,  texte: 'Traitement des données…' },
+                };
+
+                let phase = PHASES.requete;
+                let phaseDepuis = performance.now();
+                let octetsRecus = 0;
+                let animation = null;
+
+                const rafraichirProgression = () => {
+                    const ecoule = performance.now() - phaseDepuis;
+                    const avancement = 1 - Math.exp(-3 * ecoule / phase.duree);
+                    const pourcent = phase.debut + (phase.plafond - phase.debut) * avancement;
+
+                    barre.style.width = pourcent.toFixed(1) + '%';
+                    compteur.textContent = Math.round(pourcent) + '%';
+                    texte.textContent = phase === PHASES.telechargement
+                        ? `${phase.texte} — ${mo(octetsRecus)} Mo`
+                        : phase.texte;
+
+                    animation = requestAnimationFrame(rafraichirProgression);
+                };
+
+                const changerPhase = (nouvelle) => {
+                    phase = nouvelle;
+                    phaseDepuis = performance.now();
+                };
+
+                const terminerProgression = () => {
+                    if (animation) cancelAnimationFrame(animation);
+                    barre.style.width = '100%';
+                    compteur.textContent = '100%';
+                };
+
+                rafraichirProgression();
+
                 try {
-                    // ─── Étape 1 : téléchargement ───────────────────────────────
+                    // ─── Étape 1 : exécution de la requête ──────────────────────
                     const reponse = await fetch(url);
                     if (!reponse.ok) throw new Error('HTTP ' + reponse.status);
 
                     const lecteur = reponse.body.getReader();
                     const decodeur = new TextDecoder('utf-8');
-                    let recu = 0;
                     let json = '';
+                    let premierBloc = true;
 
                     while (true) {
                         const { done, value } = await lecteur.read();
                         if (done) break;
 
-                        recu += value.length;
-                        json += decodeur.decode(value, { stream: true });
+                        // Le premier octet reçu marque la fin du travail de la base
+                        if (premierBloc) {
+                            changerPhase(PHASES.telechargement);
+                            premierBloc = false;
+                        }
 
-                        texte.textContent = `Téléchargement — ${mo(recu)} Mo`;
-                        compteur.textContent = `${((performance.now() - depart) / 1000).toFixed(0)} s`;
-                        // Sans taille totale, la barre progresse de façon asymptotique :
-                        // elle avance vite au début puis ralentit, sans jamais mentir.
-                        barre.style.width = (100 * (1 - Math.exp(-recu / 52428800))).toFixed(1) + '%';
+                        octetsRecus += value.length;
+                        json += decodeur.decode(value, { stream: true });
                     }
                     json += decodeur.decode();
 
                     const finTelechargement = performance.now();
 
                     // ─── Étape 2 : traitement ───────────────────────────────────
-                    texte.textContent = 'Traitement des données…';
-                    compteur.textContent = '';
-                    barre.style.width = '100%';
+                    changerPhase(PHASES.traitement);
+                    const recu = octetsRecus;
 
                     // Laisse le navigateur peindre le message avant de bloquer sur JSON.parse
                     await new Promise(r => setTimeout(r, 50));
@@ -290,6 +335,7 @@
                         + `traitement ${secondes(fin - finTelechargement)} s · `
                         + `total ${secondes(fin - depart)} s`;
 
+                    terminerProgression();
                     loader.style.display = 'none';
                     document.querySelector('#myGrid').style.visibility = 'visible';
                     window.AgGridCommon.showGridActions();
@@ -397,6 +443,7 @@
                     }
                 } catch (erreur) {
                     console.error(erreur);
+                    if (animation) cancelAnimationFrame(animation);
                     texte.textContent = 'Échec du chargement : ' + erreur.message;
                     compteur.textContent = '';
                 }
