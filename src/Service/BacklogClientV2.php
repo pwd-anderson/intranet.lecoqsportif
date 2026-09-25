@@ -75,11 +75,13 @@ class BacklogClientV2
             'DROPPE'                => "CASE WHEN ITC.ZDROPPED_0 = 2 THEN 'OUI' ELSE 'NON' END",
             'NOOS'                  => "CASE WHEN ITM.ZNOOSFLG_0 = 2 THEN 'Oui' ELSE 'Non' END",
             'GROUP_CODE'            => 'ATX6.TEXTE_0',
+            'SOUS_GROUP_CODE'       => 'BPC.ZSOUSGROUPE_0',
             'DATE_COMMANDE'         => 'CONVERT(varchar(10), SOH.ORDDAT_0, 23)',
             'DATE_LIVRAISON'        => 'CONVERT(varchar(10), SOQ.DEMDLVDAT_0, 23)',
             'REP1'                  => 'REP2.REPNAM_0',
             'REP2'                  => 'REP1.REPNAM_0',
             'QUANTITE'              => '(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0))',
+            'PRIX_UNITAIRE'         => 'SOP.NETPRINOT_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))',
             'PRIX'                  => 'SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))',
             'CUR_0'                 => 'SOH.CUR_0',
             'REMISE_AUTO'           => 'SOP.DISCRGVAL1_0',
@@ -458,6 +460,9 @@ LEFT  JOIN (
             $row['PRIX_EUR'] = $rate !== null && (float) $rate > 0
                 ? round((float) $row['PRIX'] / (float) $rate, 2)
                 : 0.0;
+            $row['PRIX_UNITAIRE_EUR'] = $rate !== null && (float) $rate > 0
+                ? round((float) $row['PRIX_UNITAIRE'] / (float) $rate, 2)
+                : 0.0;
 
             fwrite($out, ($premiere ? '' : ',') . json_encode($row, JSON_UNESCAPED_UNICODE));
             $premiere = false;
@@ -497,6 +502,9 @@ LEFT  JOIN (
             $rate = $taux[trim((string) $row['CUR_0'])] ?? null;
             $row['PRIX_EUR'] = $rate !== null && (float) $rate > 0
                 ? (float) $row['PRIX'] / (float) $rate
+                : 0.0;
+            $row['PRIX_UNITAIRE_EUR'] = $rate !== null && (float) $rate > 0
+                ? (float) $row['PRIX_UNITAIRE'] / (float) $rate
                 : 0.0;
 
             $line = [];
@@ -604,6 +612,9 @@ LEFT  JOIN (
             $rate = $taux[trim((string) $row['CUR_0'])] ?? null;
             $row['PRIX_EUR'] = $rate !== null && (float) $rate > 0
                 ? (float) $row['PRIX'] / (float) $rate
+                : 0.0;
+            $row['PRIX_UNITAIRE_EUR'] = $rate !== null && (float) $rate > 0
+                ? (float) $row['PRIX_UNITAIRE'] / (float) $rate
                 : 0.0;
 
             $line = [];
@@ -771,6 +782,9 @@ LEFT  JOIN (
         foreach ($rows as $row) {
             $rate = $taux[$row->CUR_0] ?? null;
 
+            $row->PRIX_UNITAIRE_EUR = $rate !== null && (float) $rate > 0
+                ? round((float) $row->PRIX_UNITAIRE / (float) $rate, 2)
+                : 0.0;
             $row->PRIX_EUR = $rate !== null && (float) $rate > 0
                 ? round((float) $row->PRIX / (float) $rate, 2)
                 : 0.0;

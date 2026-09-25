@@ -333,10 +333,12 @@ final class SalesController extends AbstractController
         // liste des colonnes à totaliser depuis leur type (toutes les colonnes
         // numériques du backlog sont sommables), sans toucher à la config partagée avec
         // la v2, qui doit rester inchangée.
-        $totalColumns = array_values(array_unique(array_merge(
-            $grid['integerColumns'],
-            $grid['numericColumns']
-        )));
+        // Les prix unitaires sont numériques mais ne s'additionnent pas : leur somme sur
+        // 176 000 lignes n'aurait aucun sens. On les écarte explicitement.
+        $totalColumns = array_values(array_diff(
+            array_unique(array_merge($grid['integerColumns'], $grid['numericColumns'])),
+            ['PRIX_UNITAIRE', 'PRIX_UNITAIRE_EUR']
+        ));
 
         return $this->render('sales/backlog_client_v3.html.twig', [
             'title'          => 'Backlog Clients',

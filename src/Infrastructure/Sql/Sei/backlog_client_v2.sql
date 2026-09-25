@@ -20,7 +20,8 @@ SELECT
     ITM.EANCOD_0    AS EAN,
     CASE WHEN ITC.ZDROPPED_0 = 2 THEN 'OUI' ELSE 'NON' END AS DROPPE,
     CASE WHEN ITM.ZNOOSFLG_0 = 2 THEN 'Oui' ELSE 'Non' END AS NOOS,
-    ATX6.TEXTE_0    AS GROUP_CODE,
+    ATX6.TEXTE_0      AS GROUP_CODE,
+    BPC.ZSOUSGROUPE_0 AS SOUS_GROUP_CODE,
     CONVERT(varchar(10), SOH.ORDDAT_0, 23)    AS DATE_COMMANDE,
     CONVERT(varchar(10), SOQ.DEMDLVDAT_0, 23) AS DATE_LIVRAISON,
     REP2.REPNAM_0   AS REP1,
@@ -29,6 +30,9 @@ SELECT
     -- Quantité restant à livrer, et son montant net de la remise globale (mêmes formules
     -- que le Backlog Client X3, où PRIX était calculé côté PHP).
     CAST(ROUND(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0), 0) AS INT) AS QUANTITE,
+    -- Prix unitaire net, remise globale du pied de commande deduite : PRIX en est le
+    -- produit par la quantite restant a livrer.
+    SOP.NETPRINOT_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100)) AS PRIX_UNITAIRE,
     SOP.NETPRINOT_0 * CAST(ROUND(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0), 0) AS INT) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100)) AS PRIX,
 
     SOH.CUR_0,
