@@ -34,9 +34,15 @@ class ExportCaMargeX3Command extends Command
         }
 
         $now = new \DateTimeImmutable();
-        $path = sprintf('%s/CA_MARGE_DETAILS_MASTER_%s_%s.csv', $dir, $now->format('Y'), $now->format('dmY'));
+        // La requête remonte les N dernières années : le nom du fichier porte la plage, pas une année
+        $debut = $now->modify('-' . CaMargeX3::ANNEES_HISTORIQUE . ' years');
+        $periode = $debut->format('Y') === $now->format('Y')
+            ? $now->format('Y')
+            : $debut->format('Y') . '-' . $now->format('Y');
 
-        $output->writeln('<comment>Export CA / Marge X3 ' . $now->format('Y') . ' — génération…</comment>');
+        $path = sprintf('%s/CA_MARGE_DETAILS_MASTER_%s_%s.csv', $dir, $periode, $now->format('dmY'));
+
+        $output->writeln('<comment>Export CA / Marge X3 ' . $periode . ' — génération…</comment>');
         $start = microtime(true);
 
         try {

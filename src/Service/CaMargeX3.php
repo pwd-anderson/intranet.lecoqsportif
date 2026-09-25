@@ -11,9 +11,16 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 /**
  * Export CA / Marge X3 — reprise de l'export "marge CA détails MASTER" de l'ancienne société
  * (ExportMargeCA::getSalesRevenueMarginMaster). Mêmes colonnes, dans le même ordre, avec les
- * mêmes noms (CHF remplacé par EUR), plus 6 colonnes propres à LCS (client commande, groupement
- * indépendant, genre, famille, collection, NOOS).
- * Montants convertis dans la devise société (EUR) via le taux de la facture (SINVOICE.RATMLT_0).
+ * mêmes noms (CHF remplacé par EUR), plus les colonnes propres à LCS (client commande, groupement
+ * indépendant, genre, famille, collection, segment d'offre, NOOS, second représentant).
+ *
+ * Les données viennent du cube SEI (SEI_X3_LCS.CONSO_INVOICES) et non plus des tables X3 brutes :
+ * les montants y sont déjà convertis (AMOUNTEURTM en EUR, AMOUNTCURRENCY en devise de facture),
+ * il n'y a donc plus de taux de change à appliquer.
+ *
+ * La requête ne renvoie que des champs bruts ; tout ce qui était calculé en SQL (type master, type
+ * de document, libellés, signe des avoirs, prix unitaires, article complet, NOOS) est dérivé ici.
+ *
  * Seule la partie vente est alimentée pour l'instant ; les colonnes achat/marge/lot/TAR sont vides.
  */
 class CaMargeX3
@@ -21,8 +28,9 @@ class CaMargeX3
     public const array HEADERS = [
         'SOCIETE', 'PAYS', 'DATE FACTURE', 'No FACTURE', 'SDP CLIENT', 'TYPE MASTER', 'TYPE DOCUMENT',
         'MOTIF AVOIR', 'No DOSSIER RMA', 'No DOSSIER INTERNE', 'UTILISATEUR CREATION', 'CODE COMPTABLE',
-        'REPRESENTANT', 'CLIENT COMMANDE', 'TIERS PAYEUR', 'RAISON SOCIALE', 'GROUPEMENT INDEPENDANT', 'MASTER CATEGORIE',
-        'MARQUE', 'GENRE', 'FAMILLE', 'COLLECTION', 'ARTICLE', 'NOOS',
+        'REPRESENTANT 1', 'REPRESENTANT 2', 'CLIENT COMMANDE', 'TIERS PAYEUR', 'RAISON SOCIALE',
+        'GROUPEMENT INDEPENDANT', 'MASTER CATEGORIE',
+        'MARQUE', 'GENRE', 'FAMILLE', 'COLLECTION', 'SEGMENT OFFRE', 'ARTICLE', 'NOOS',
         'DESIGNATION', 'QTE FACTUREE X3', 'QTE PHYSIQUE', 'DEVISE FACTURE', 'PRIX UNITAIRE HT EUR',
         'MONTANT HT EUR', 'MONTANT HT EUR HORS PASS THRU', 'PRIX UNITAIRE HT DEVISE', 'MONTANT HT DEVISE',
         'MONTANT HT DEVISE HORS PASS THRU', 'No DE LOT', 'ORIGINE ACHAT', 'PRIX ACHAT DEVISE',
@@ -38,9 +46,18 @@ class CaMargeX3
     // Types "pass-thru" : quantité physique et montants hors pass-thru à 0.
     private const array TYPES_PASS_THRU = ['AVOPP', 'AVSOA', 'FACPP', 'FASOA'];
 
-    private const array TYPES_FACTURE = [1 => 'Facture', 2 => 'Avoir', 3 => 'Note de débit', 4 => 'Note de crédit', 5 => 'Proforma'];
+    // Type master déduit des trois premiers caractères du numéro de document.
+    private const array PREFIXES_TYPE_MASTER = [
+        'AVB' => 'AVCLI', 'AVY' => 'AVCLI',
+        'FVB' => 'FACLI', 'FVY' => 'FACLI',
+    ];
 
-    private const array ETATS_FACTURE = [1 => 'NON VALIDE', 2 => 'INUTILISE', 3 => 'VALIDE'];
+    // Le cube ne remonte que des documents validés.
+    private const string ETAT_FACTURE = 'VALIDE';
+
+    // Profondeur d'historique de l'export. Doit rester alignée avec le DATEADD(YEAR, -N, GETDATE())
+    // de export_ca_marge_x3.sql ; sert à nommer le fichier produit par la commande.
+    public const int ANNEES_HISTORIQUE = 2;
 
     private MssqlManager $mssqlSei;
 
@@ -55,7 +72,7 @@ class CaMargeX3
     }
 
     /**
-     * Écrit le CSV des factures et avoirs de l'année en cours (hors proformas), au même format
+     * Écrit le CSV des factures et avoirs des deux dernières années, au même format
      * que l'ancien export : UTF-8 avec BOM, ligne "sep=;" puis séparateur ";".
      *
      * @return int nombre de lignes écrites (hors en-tête)
@@ -88,21 +105,35 @@ class CaMargeX3
     {
         $row = array_map(fn($v) => is_string($v) ? trim($v) : $v, $row);
 
-        $invoiceType = (int) $row['INVTYP'];
-        // Avoirs et notes de crédit en négatif (l'ancien code testait GTE_0 = 'AVC', 'AVCLI' chez LCS)
-        $sign = in_array($invoiceType, [2, 4], true) ? -1 : 1;
-        $isPassThru = in_array($row['SIVTYP'], self::TYPES_PASS_THRU, true);
+        // Type master : le préfixe du numéro de document prime sur la colonne du cube
+        $typeMasterCode = self::PREFIXES_TYPE_MASTER[strtoupper(substr((string) $row['NUM_FACTURE'], 0, 3))]
+            ?? (string) $row['TYPE_MASTER'];
+        $libelleType = $typeMasterCode === 'FACLI' ? 'Facture' : 'Avoir';
+
+        // Pas de signe à appliquer : contrairement aux tables X3, le cube renvoie déjà les
+        // quantités et les montants des avoirs en négatif.
+
+        // Type de document : le cube ne le porte pas toujours, on retombe alors sur le type master
+        $sivtyp = ($row['SIVTYP'] ?? '') !== '' ? (string) $row['SIVTYP'] : $typeMasterCode;
+        $isPassThru = in_array($sivtyp, self::TYPES_PASS_THRU, true);
         $isDeviseSociete = $row['DEVISE_FACTURE'] === self::DEVISE_SOCIETE;
 
-        $qte = $this->formatNumber($sign * (float) $row['QTE'], 0);
-        $montant = $this->formatNumber(round($sign * (float) $row['MONTANT_HT'] * (float) $row['TAUX'], 3));
-        // Comme l'ancien export : prix unitaire converti sans le signe de l'avoir
-        $prixUnitaire = $this->formatNumber(round((float) $row['PRIX_NET'] * (float) $row['TAUX'], 3));
-        $montantDevise = $this->formatNumber($sign * (float) $row['MONTANT_HT']);
+        $quantite = (float) $row['QTE'];
+        $montantEur = (float) $row['MONTANT_EUR'];
+        $montantDeviseBrut = (float) $row['MONTANT_DEVISE'];
 
-        $typeMaster = isset(self::TYPES_FACTURE[$invoiceType])
-            ? $row['GTE'] . ' - ' . self::TYPES_FACTURE[$invoiceType]
-            : '';
+        $qte = $this->formatNumber($quantite, 0);
+        $montant = $this->formatNumber(round($montantEur, 3));
+        $montantDevise = $this->formatNumber($montantDeviseBrut);
+        // Les prix unitaires ressortent positifs même sur un avoir : montant et quantité
+        // y sont tous deux négatifs, la division rétablit le signe (comme l'ancien export).
+        $prixUnitaire = $this->formatNumber($quantite != 0.0 ? round($montantEur / $quantite, 3) : 0);
+        $prixUnitaireDevise = $this->formatNumber($quantite != 0.0 ? $montantDeviseBrut / $quantite : 0);
+
+        // Le cube sépare désormais le code article et le code variante ; le CSV garde la forme ARTICLE_VARIANT
+        $article = ($row['CODE_VARIANT'] ?? '') !== ''
+            ? $row['ARTICLE'] . '_' . $row['CODE_VARIANT']
+            : $row['ARTICLE'];
 
         return [
             $row['SOCIETE'],
@@ -110,14 +141,15 @@ class CaMargeX3
             $row['DATE_FACTURE'],
             $row['NUM_FACTURE'],
             $row['SDP_CLIENT'],
-            $typeMaster,
-            $this->codeLibelle($row['SIVTYP'], $row['SIVTYP_LIBELLE']),
+            $typeMasterCode . ' - ' . $libelleType,
+            $this->codeLibelle($sivtyp, $libelleType),
             $this->codeLibelle($row['MOTIF_AVOIR_CODE'], $row['MOTIF_AVOIR_LIBELLE']),
             '',                                 // No DOSSIER RMA : pas d'équivalent chez LCS
             $row['REFERENCE_FACTURE'],
             $row['UTILISATEUR_CREATION'],
             '',                                 // CODE COMPTABLE
-            $row['REPRESENTANT'],
+            $row['REPRESENTANT_1'],
+            $row['REPRESENTANT_2'],
             $row['CLIENT_COMMANDE'],
             $row['TIERS_PAYEUR'],
             $row['RAISON_SOCIALE'],
@@ -127,8 +159,9 @@ class CaMargeX3
             $row['GENRE'],
             $row['FAMILLE'],
             $row['COLLECTION'],
-            $row['ARTICLE'],
-            $row['NOOS'],
+            $row['SEGMENT_OFFRE'],
+            $article,
+            (int) $row['NOOS'] === 2 ? 'Oui' : 'Non',
             $row['DESIGNATION'],
             $qte,
             $isPassThru ? 0 : $qte,
@@ -136,11 +169,11 @@ class CaMargeX3
             $prixUnitaire,
             $montant,
             $isPassThru ? 0 : $montant,
-            $isDeviseSociete ? '' : $this->formatNumber($sign * (float) $row['PRIX_NET_HT']),
+            $isDeviseSociete ? '' : $prixUnitaireDevise,
             $isDeviseSociete ? '' : $montantDevise,
             $isPassThru ? 0 : ($isDeviseSociete ? '' : $montantDevise),
             ...array_fill(0, 14, ''),           // No DE LOT → TOTAL TAR : partie achat à venir
-            self::ETATS_FACTURE[(int) $row['ETAT']] ?? '',
+            self::ETAT_FACTURE,
         ];
     }
 
