@@ -808,7 +808,12 @@ class Sales
     public function getComptesClients(): array
     {
         try {
-            $query = $this->sqlFileLoader->load('Sei/comptes_clients.sql');
+            $query = str_replace(
+                '{{TABLE_FACTURATION}}',
+                $this->table('INTRANET_FACTURATION_CLIENT'),
+                $this->sqlFileLoader->load('Sei/comptes_clients.sql')
+            );
+
             return $this->mssqlSei()->executeQuery($query);
 
         } catch (\Exception $e) {
