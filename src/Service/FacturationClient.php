@@ -83,21 +83,11 @@ class FacturationClient
 
                 FROM SEI_X3_LCS.CONSO_INVOICES I
 
-                    LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
-                        ON  I.ITEMNO   = C.ITEM_ID
-                        AND I.SERIESNO = C.SERIESCODE
-
-                    LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
-                        ON  I.COMPANYCODE = CUST.COMPANY_ID
-                        AND I.CUSTOMERNO  = CUST.CUSTOMER_ID
-
                 WHERE
-                    I.ISBOHPERIMETERPRODUCT = 1
-                    AND (
+                    (
                         I.DOCUMENTTYPE IN ('INVOICE', 'CREDITMEMO')
                         OR (I.DOCUMENTTYPE = 'ORDER' AND I.ORDERSTATUS = 3 AND I.DLVQTY > 0)
                     )
-                    AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
                     AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
                     AND I.DOCUMENTPOSTINGDATE >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))
                     -- AND CUST.MAINNETWORK IS NOT NULL
