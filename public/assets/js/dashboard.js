@@ -912,8 +912,8 @@ function switchTopProduit(family) {
 
 function loadDashboardData() {
     const network    = getSelectedNetwork();
-    const isBoutique = network === 'boutique';
-    const isEcom     = network === 'ecom';
+    const isBoutique = network === 'retail_business';
+    const isEcom     = network === 'e_commerce';
 
     const stdEl = document.getElementById('dashboard-standard');
     const bouEl = document.getElementById('dashboard-boutique');

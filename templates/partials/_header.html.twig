@@ -27,11 +27,11 @@
                         <form id="network-switcher">
                             <select name="network" class="form-select form-select-sm" style="width: auto;">
                                 {% if not is_stat_excluded('dashboard_filter_global') %}<option value="global">Global</option>{% endif %}
-                                {% if not is_stat_excluded('dashboard_filter_boutique') %}<option value="boutique">Boutique</option>{% endif %}
-                                {% if not is_stat_excluded('dashboard_filter_ecom') %}<option value="ecom">E-com</option>{% endif %}
-                                {% if not is_stat_excluded('dashboard_filter_wholesale_fr') %}<option value="wholesale_fr">Wholesale France</option>{% endif %}
-                                {% if not is_stat_excluded('dashboard_filter_wholesale_eu') %}<option value="wholesale_eu">Wholesale Europe</option>{% endif %}
-                                {% if not is_stat_excluded('dashboard_filter_wholesale_int') %}<option value="wholesale_int">Distributeur International</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_boutique') %}<option value="retail_business">RETAIL BUSINESS</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_ecom') %}<option value="e_commerce">E-COMMERCE</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_wholesale_fr') %}<option value="retailer_wholesale_france">RETAILER WHOLESALE FRANCE</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_wholesale_eu') %}<option value="retailer_wholesale_europe">RETAILER WHOLESALE EUROPE</option>{% endif %}
+                                {% if not is_stat_excluded('dashboard_filter_wholesale_int') %}<option value="distribution_internationale">DISTRIBUTION INTERNATIONALE</option>{% endif %}
                             </select>
                         </form>
                     </li>

@@ -39,7 +39,7 @@ class MainDashboard
 
     private function normalizeNetworkFilter(?string $network): string
     {
-        return in_array($network, ['global', 'boutique', 'ecom', 'wholesale_fr', 'wholesale_eu', 'wholesale_int'], true)
+        return in_array($network, ['global', 'retail_business', 'e_commerce', 'retailer_wholesale_france', 'retailer_wholesale_europe', 'distribution_internationale'], true)
             ? $network
             : 'global';
     }
@@ -47,24 +47,16 @@ class MainDashboard
 
     private function buildNetworkWhereClause(
         string  $network,
-        string  $mainNetworkCol      = 'mainnetwork',
-        string  $reportingDimCol     = 'reportingdimension',
-        ?string $distributionChanCol = 'distributionchannel'
+        string  $businessModel1     = 'businessmodel1',
+        ?string $businessModel2 = 'businessmodel2'
     ): string {
-        $excludeWeb = $distributionChanCol !== null
-            ? " AND {$distributionChanCol} <> 'KEY ACCOUNT WEB'"
-            : '';
-
-        $includeWeb = $distributionChanCol !== null
-            ? " OR ({$reportingDimCol} LIKE '%WHOLESALE%' AND {$distributionChanCol} = 'KEY ACCOUNT WEB')"
-            : '';
 
         return match ($this->normalizeNetworkFilter($network)) {
-            'boutique'      => " AND {$mainNetworkCol} IN ('RETAIL FO', 'CLEARANCE', 'RETAIL CS', 'CONCEPT STORE', 'FACTORY OUTLET')",
-            'ecom'          => " AND ({$mainNetworkCol} IN ('RETAIL MARKET PLACE', 'RETAIL ESHOP', 'E BUSINESS DIRECT', 'E BUSINESS MARKET PL'){$includeWeb})",
-            'wholesale_fr'  => " AND {$reportingDimCol} = 'WHOLESALE FRANCE'{$excludeWeb}",
-            'wholesale_eu'  => " AND {$reportingDimCol} = 'WHOLESALE EUROPE'{$excludeWeb}",
-            'wholesale_int' => " AND {$reportingDimCol} = 'WHOLESALE INTERNATIO'{$excludeWeb}",
+            'retail_business'      => " AND {$businessModel1} IN ('RETAIL BUSINESS')",
+            'e_commerce'          => " AND {$businessModel1} IN ('E-COMMERCE')",
+            'retailer_wholesale_france'  => " AND {$businessModel1} = 'RETAILER WHOLESALE FRANCE'",
+            'retailer_wholesale_europe'  => " AND {$businessModel1} = 'RETAILER WHOLESALE EUROPE'",
+            'distribution_internationale' => " AND {$businessModel1} = 'DISTRIBUTION INTERNATIONALE'",
             default         => '',
         };
     }
@@ -188,7 +180,7 @@ class MainDashboard
     public function getSalesComparaisonCurrentMonth(string $network = 'global'): array
     {
         try {
-            $networkWhere = $this->buildNetworkWhereClause($network, 'd.mainnetwork', 'd.reportingdimension', 'd.distributionchannel');
+            $networkWhere = $this->buildNetworkWhereClause($network, 'd.businessmodel1', 'd.businessmodel2');
             $table        = $this->table('INTRANET_SALES_DAILY');
 
             $j_1     = (new \DateTime('yesterday'))->format('Y-m-d');
@@ -244,8 +236,8 @@ class MainDashboard
             $networkWhere = $this->buildNetworkWhereClause($network);
             $table        = $this->table('INTRANET_SALES_AGG_YEAR');
 
-            $nameExpr = $this->normalizeNetworkFilter($network) === 'ecom'
-                ? "CASE WHEN mainnetwork = 'E BUSINESS DIRECT' THEN billtoname ELSE customer_name END"
+            $nameExpr = $this->normalizeNetworkFilter($network) === 'e_commerce'
+                ? "CASE WHEN businessmodel2 = 'ESHOP LCS' THEN billtoname ELSE customer_name END"
                 : 'billtoname';
 
             $query = "
@@ -418,18 +410,20 @@ class MainDashboard
     {
         try {
             $normalized = $this->normalizeNetworkFilter($network);
-            if (in_array($normalized, ['boutique', 'ecom'], true)) {
+            if (in_array($normalized, ['retail_business', 'e_commerce'], true)) {
                 return ['labels' => [], 'values' => [], 'quantities' => []];
             }
 
+            // Sourcee du dictionnaire X3 brut (ATABDIV, IDENT1_0='32', alias ATX plus bas),
+            // qui porte deja les nouveaux libelles business model.
             $table        = $this->table('INTRANET_BACKLOG_CLI');
-            $networkWhere = $normalized === 'wholesale_int'
-                ? " AND reportingdimension = 'WHOLESALE INTERNATIONAL'"
-                : $this->buildNetworkWhereClause($network, 'mainnetwork', 'reportingdimension', null);
+            $networkWhere = $normalized === 'distribution_internationale'
+                ? " AND businessmodel2 = 'DISTRIBUTION INTERNATIONALE'"
+                : $this->buildNetworkWhereClause($network, 'businessmodel2');
 
             // Requête X3 pour COUNT(DISTINCT client) exact par bucket
-            $x3NetworkWhere = $normalized === 'wholesale_int'
-                ? " AND ATX.TEXTE_0 = 'WHOLESALE INTERNATIONAL'"
+            $x3NetworkWhere = $normalized === 'distribution_internationale'
+                ? " AND ATX.TEXTE_0 = 'DISTRIBUTION INTERNATIONALE'"
                 : '';
 
             $retardCase = "
@@ -712,17 +706,13 @@ class MainDashboard
         $p = fn(string $c) => $alias ? "$alias.$c" : $c;
 
         return match ($group) {
-            'lcs_shop'      => " AND {$p('mainnetwork')} IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
-            'amazon_vendor' => " AND {$p('reportingdimension')} LIKE '%WHOLESALE%'"
-                             . " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
+            'lcs_shop'      => " AND {$p('businessmodel2')} IN ('ESHOP LCS')",
+            'amazon_vendor' => " AND {$p('businessmodel2')} = 'AMAZON VENDOR'",
+            'amazon_seller' => " AND {$p('businessmodel2')} IN ('MARKET PLACE')"
                              . " AND UPPER({$p('customer_name')}) LIKE '%AMAZON%'",
-            'amazon_seller' => " AND {$p('mainnetwork')} IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE', 'E BUSINESS MKT')"
-                             . " AND UPPER({$p('customer_name')}) LIKE '%AMAZON%'",
-            'autres_mkp'    => " AND {$p('mainnetwork')} IN ('E BUSINESS MARKET PL','E BUSINESS MKT','RETAIL MARKET PLACE')"
+            'autres_mkp'    => " AND {$p('businessmodel2')} IN ('MARKET PLACE')"
                              . " AND UPPER({$p('customer_name')}) NOT LIKE '%AMAZON%'",
-            'ecom_btb'      => " AND {$p('reportingdimension')} LIKE '%WHOLESALE%'"
-                             . " AND {$p('distributionchannel')} = 'KEY ACCOUNT WEB'"
-                             . " AND UPPER({$p('customer_name')}) NOT LIKE '%AMAZON%'",
+            'ecom_btb'      => " AND {$p('businessmodel2')} = 'PURE PLAYER'",
             default         => '',
         };
     }
@@ -739,7 +729,7 @@ class MainDashboard
     public function getEcomGroupVentesYears(string $group, ?array $customers = null): array
     {
         if ($group === 'global') {
-            return $this->getSalesComparaisonYears('ecom');
+            return $this->getSalesComparaisonYears('e_commerce');
         }
 
         if (!array_key_exists($group, self::ECOM_GROUP_LABELS)) {
@@ -789,7 +779,7 @@ class MainDashboard
     public function getEcomGroupVentesByMonths(string $group, ?array $customers = null): array
     {
         if ($group === 'global') {
-            return $this->getSalesComparaisonByMonths('ecom');
+            return $this->getSalesComparaisonByMonths('e_commerce');
         }
 
         if (!array_key_exists($group, self::ECOM_GROUP_LABELS)) {
@@ -857,12 +847,12 @@ class MainDashboard
             $table    = $this->table('INTRANET_SALES_AGG_YEAR');
 
             $groupWhere = match ($group) {
-                'global'        => $this->buildNetworkWhereClause('ecom'),
-                'lcs_shop'      => " AND mainnetwork IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
-                'amazon_vendor' => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) LIKE '%AMAZON%'",
-                'amazon_seller' => " AND mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE','E BUSINESS MKT') AND UPPER(customer_name) LIKE '%AMAZON%'",
-                'autres_mkp'    => " AND mainnetwork IN ('E BUSINESS MARKET PL','E BUSINESS MKT','RETAIL MARKET PLACE') AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
-                'ecom_btb'      => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
+                'global'        => $this->buildNetworkWhereClause('e_commerce'),
+                'lcs_shop'      => " AND businessmodel2 IN ('ESHOP LCS')",
+                'amazon_vendor' => " AND businessmodel2 = 'AMAZON VENDOR'",
+                'amazon_seller' => " AND businessmodel2 IN ('MARKET PLACE') AND UPPER(customer_name) LIKE '%AMAZON%'",
+                'autres_mkp'    => " AND businessmodel2 IN ('MARKET PLACE') AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
+                'ecom_btb'      => " AND businessmodel2 = 'PURE PLAYER'",
                 default         => ' AND 1=0',
             };
 
@@ -916,12 +906,12 @@ class MainDashboard
             $table = $this->table('INTRANET_SALES_AGG_YEAR');
 
             $groupWhere = match ($group) {
-                'global'        => $this->buildNetworkWhereClause('ecom'),
-                'lcs_shop'      => " AND mainnetwork IN ('E BUSINESS DIRECT','RETAIL ESHOP')",
-                'amazon_vendor' => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) LIKE '%AMAZON%'",
-                'amazon_seller' => " AND mainnetwork IN ('E BUSINESS MARKET PL','RETAIL MARKET PLACE') AND UPPER(customer_name) LIKE '%AMAZON%'",
-                'autres_mkp'    => " AND mainnetwork IN ('E BUSINESS MARKET PL','E BUSINESS MKT') AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
-                'ecom_btb'      => " AND reportingdimension LIKE '%WHOLESALE%' AND distributionchannel = 'KEY ACCOUNT WEB' AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
+                'global'        => $this->buildNetworkWhereClause('e_commerce'),
+                'lcs_shop'      => " AND businessmodel2 IN ('ESHOP LCS')",
+                'amazon_vendor' => " AND businessmodel2 = 'AMAZON VENDOR'",
+                'amazon_seller' => " AND businessmodel2 IN ('MARKET PLACE') AND UPPER(customer_name) LIKE '%AMAZON%'",
+                'autres_mkp'    => " AND businessmodel2 IN ('MARKET PLACE') AND UPPER(customer_name) NOT LIKE '%AMAZON%'",
+                'ecom_btb'      => " AND businessmodel2 = 'PURE PLAYER'",
                 default         => ' AND 1=0',
             };
 
@@ -960,14 +950,13 @@ class MainDashboard
             $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
             $insertQuery = "
-        INSERT INTO {$table} (annee, mois, mainnetwork, reportingdimension, distributionchannel, ca)
+        INSERT INTO {$table} (annee, mois, businessmodel1, businessmodel2, ca)
 
         SELECT
             YEAR(I.DOCUMENTPOSTINGDATE)  AS annee,
             MONTH(I.DOCUMENTPOSTINGDATE) AS mois,
-            CUST.MAINNETWORK             AS mainnetwork,
-            CUST.REPORTINGDIMENSION      AS reportingdimension,
-            CUST.DISTRIBUTIONCHANNEL     AS distributionchannel,
+            CUST.BUSINESS_MODEL_1,
+            CUST.BUSINESS_MODEL_2,
             SUM(I.AMOUNTEURTM)           AS ca
         FROM SEI_X3_LCS.CONSO_INVOICES I
         LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
@@ -982,13 +971,12 @@ class MainDashboard
             AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
             AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
             AND YEAR(I.DOCUMENTPOSTINGDATE) > YEAR(GETDATE()) - 5
-            AND CUST.MAINNETWORK IS NOT NULL
+            AND CUST.BUSINESS_MODEL_1 IS NOT NULL
         GROUP BY
             YEAR(I.DOCUMENTPOSTINGDATE),
             MONTH(I.DOCUMENTPOSTINGDATE),
-            CUST.MAINNETWORK,
-            CUST.REPORTINGDIMENSION,
-            CUST.DISTRIBUTIONCHANNEL;";
+            CUST.BUSINESS_MODEL_1,
+            CUST.BUSINESS_MODEL_2;";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
@@ -1016,9 +1004,8 @@ class MainDashboard
             item_no,
             item_description,
             ca,
-            mainnetwork,
-            reportingdimension,
-            distributionchannel
+            businessmodel1,
+            businessmodel2
         )
 
         SELECT
@@ -1030,9 +1017,8 @@ class MainDashboard
             I.ITEMNO,
             COLL.ITEMDESC,
             SUM(I.AMOUNTEURTM)          AS ca,
-            CUST.MAINNETWORK            AS mainnetwork,
-            CUST.REPORTINGDIMENSION     AS reportingdimension,
-            CUST.DISTRIBUTIONCHANNEL    AS distributionchannel
+            CUST.BUSINESS_MODEL_1,
+            CUST.BUSINESS_MODEL_2
 
         FROM SEI_X3_LCS.CONSO_INVOICES I
 
@@ -1050,7 +1036,7 @@ class MainDashboard
             AND COLL.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
             AND I.COMPANYCODE = 'LCSI'
             AND YEAR(I.DOCUMENTPOSTINGDATE) >= YEAR(GETDATE()) - 1
-            AND CUST.MAINNETWORK IS NOT NULL
+            AND CUST.BUSINESS_MODEL_1 IS NOT NULL
 
         GROUP BY
             YEAR(I.DOCUMENTPOSTINGDATE),
@@ -1060,9 +1046,8 @@ class MainDashboard
             COLL.ITEMFAMILYCODE,
             I.ITEMNO,
             COLL.ITEMDESC,
-            CUST.MAINNETWORK,
-            CUST.REPORTINGDIMENSION,
-            CUST.DISTRIBUTIONCHANNEL;";
+            CUST.BUSINESS_MODEL_1,
+            CUST.BUSINESS_MODEL_2;";
 
             return $this->mssqlMade2design->insertData($insertQuery);
 
@@ -1081,7 +1066,7 @@ class MainDashboard
             $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
             $insertQuery = "
-        INSERT INTO {$table} (date, annee, mois, jour, ca, mainnetwork, reportingdimension, distributionchannel, customer_no, customer_name)
+        INSERT INTO {$table} (date, annee, mois, jour, ca, businessmodel1, businessmodel2, customer_no, customer_name)
 
         SELECT
             CAST(I.DOCUMENTPOSTINGDATE AS DATE) AS [date],
@@ -1089,9 +1074,8 @@ class MainDashboard
             MONTH(I.DOCUMENTPOSTINGDATE)        AS mois,
             DAY(I.DOCUMENTPOSTINGDATE)          AS jour,
             SUM(I.AMOUNTEURTM)                  AS ca,
-            CUST.MAINNETWORK,
-            CUST.REPORTINGDIMENSION,
-            CUST.DISTRIBUTIONCHANNEL,
+            CUST.BUSINESS_MODEL_1,
+            CUST.BUSINESS_MODEL_2,
             I.CUSTOMERNO                        AS customer_no,
             CUST.CUSTOMER_NAME                  AS customer_name
 
@@ -1111,16 +1095,15 @@ class MainDashboard
             AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
             AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
             AND I.DOCUMENTPOSTINGDATE >= DATEADD(YEAR, -2, GETDATE())
-            AND CUST.MAINNETWORK IS NOT NULL
+            AND CUST.BUSINESS_MODEL_1 IS NOT NULL
 
         GROUP BY
             CAST(I.DOCUMENTPOSTINGDATE AS DATE),
             YEAR(I.DOCUMENTPOSTINGDATE),
             MONTH(I.DOCUMENTPOSTINGDATE),
             DAY(I.DOCUMENTPOSTINGDATE),
-            CUST.MAINNETWORK,
-            CUST.REPORTINGDIMENSION,
-            CUST.DISTRIBUTIONCHANNEL,
+            CUST.BUSINESS_MODEL_1,
+            CUST.BUSINESS_MODEL_2,
             I.CUSTOMERNO,
             CUST.CUSTOMER_NAME
 
@@ -1143,7 +1126,7 @@ class MainDashboard
             $this->mssqlMade2design->executeDelete("DELETE FROM {$table}");
 
             $insertQuery = "
-        INSERT INTO {$table} (retard, collection, quantite, montant_ht_eur, nb_clients, reportingdimension, date_refresh)
+        INSERT INTO {$table} (retard, collection, quantite, montant_ht_eur, nb_clients, businessmodel2, date_refresh)
 
         SELECT
             retard,
@@ -1151,7 +1134,7 @@ class MainDashboard
             SUM(quantite)       AS quantite,
             SUM(montant_eur)    AS montant_ht_eur,
             COUNT(DISTINCT bpcord) AS nb_clients,
-            reportingdimension,
+            businessmodel2,
             GETDATE()
         FROM (
             SELECT
@@ -1175,7 +1158,7 @@ class MainDashboard
 
                 SOH.BPCORD_0    AS bpcord,
 
-                ATX.TEXTE_0     AS reportingdimension
+                ATX.TEXTE_0     AS businessmodel2
 
             FROM X3_LCS.SORDERQ SOQ
             INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
@@ -1204,7 +1187,7 @@ class MainDashboard
               AND BPC.BCGCOD_0 <> 'INTER'
               AND SOH.ZSOHVALSTA_0 <> 3
         ) t
-        GROUP BY retard, collection, reportingdimension;";
+        GROUP BY retard, collection, businessmodel2;";
 
             $result = $this->mssqlMade2design->insertData($insertQuery);
 
