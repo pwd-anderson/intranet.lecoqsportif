@@ -100,7 +100,7 @@ class FacturationClient
                     AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
                     AND I.COMPANYCODE IN ('LCSI BV', 'LCSI')
                     AND I.DOCUMENTPOSTINGDATE >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))
-                    AND CUST.MAINNETWORK IS NOT NULL
+                    -- AND CUST.MAINNETWORK IS NOT NULL
                     -- Une ligne a montant nul ne temoigne d'aucune facturation reelle :
                     -- sans ce filtre, un client sans chiffre d'affaires ressortait a 'Oui'
                     -- (demande metier).
