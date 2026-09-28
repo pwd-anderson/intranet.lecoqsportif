@@ -17,60 +17,56 @@ VALUES
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,2,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
-('sell_in_suivi_ps_grid','BUSINESS_MODEL','BUSINESS MODEL','string',150,1,'agMultiColumnFilter',
+('sell_in_suivi_ps_grid','BUSINESS_MODEL_1','BUSINESS MODEL 1','string',150,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,3,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
-('sell_in_suivi_ps_grid','REPORTING_DIMENSION','REPORTING DIM.','string',150,1,'agMultiColumnFilter',
+('sell_in_suivi_ps_grid','BUSINESS_MODEL_2','BUSINESS MODEL 2','string',150,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,4,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
-('sell_in_suivi_ps_grid','DISTRIBUTION_CHANNEL','DISTRIBUTION CHANNEL','string',180,1,'agMultiColumnFilter',
+('sell_in_suivi_ps_grid','GROUP_CODE','GROUP CODE','string',130,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,5,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
-('sell_in_suivi_ps_grid','GROUP_CODE','GROUP CODE','string',130,1,'agMultiColumnFilter',
+('sell_in_suivi_ps_grid','SOUS_GROUP_CODE','SUBGROUP CODE','string',130,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,6,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
-('sell_in_suivi_ps_grid','SOUS_GROUP_CODE','SUBGROUP CODE','string',130,1,'agMultiColumnFilter',
- JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,7,NULL,0,NULL,NULL,NULL,NULL,NULL),
-
 ('sell_in_suivi_ps_grid','INDEPENDANT_GROUPMENT','INDEPENDANT GROUPMENT','string',180,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,8,NULL,0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,7,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
 -- ============ CUSTOMER (CODE -> NAME -> CITY) ============
 ('sell_in_suivi_ps_grid','CUSTOMER_CODE','CUSTOMER CODE','string',130,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,9,NULL,0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,8,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','CUSTOMER_NAME','CUSTOMER NAME','string',200,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,10,NULL,0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,9,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','CITY','CITY','string',130,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,11,NULL,0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,10,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
 -- ============ FAMILY / GENDER / SERIESNO ============
 ('sell_in_suivi_ps_grid','FAMILY','FAMILY','string',100,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,12,NULL,0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,11,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','GENDER','GENDER','string',100,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,13,NULL,0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,12,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
 ('sell_in_suivi_ps_grid','SERIESNO','SERIESNO','string',120,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
- NULL,NULL,1,14,NULL,0,NULL,NULL,NULL,NULL,NULL),
+ NULL,NULL,1,13,NULL,0,NULL,NULL,NULL,NULL,NULL),
 
 -- ============ ÉDITABLES : SIMPLE_STATUS + FORECAST ============
 ('sell_in_suivi_ps_grid','SIMPLE_STATUS','SIMPLE STATUS','string',130,1,'agMultiColumnFilter',
  JSON_OBJECT('borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF','backgroundColor','#fff7e6'),
- NULL,NULL,1,15,NULL,0,NULL,NULL,1,'agSelectCellEditor',JSON_OBJECT('values',JSON_ARRAY('OPEN','COMPLETE'))),
+ NULL,NULL,1,14,NULL,0,NULL,NULL,1,'agSelectCellEditor',JSON_OBJECT('values',JSON_ARRAY('OPEN','COMPLETE'))),
 
 ('sell_in_suivi_ps_grid','FORECAST','FORECAST','integer',130,1,'agNumberColumnFilter',
  JSON_OBJECT('textAlign','right','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF','backgroundColor','#fff7e6'),

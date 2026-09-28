@@ -24,7 +24,7 @@ VALUES
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,3,NULL,0,NULL,NULL),
 
-('backlog_client_v2_grid','MAINNETWORK','MAINNETWORK','string',120,1,'agMultiColumnFilter',
+('backlog_client_v2_grid','BUSINESS_MODEL_1','Business Model 1','string',120,1,'agMultiColumnFilter',
  JSON_OBJECT('textAlign','left','borderRight','0.2px solid #CECECEFF','borderBottom','0.2px solid #CECECEFF'),
  NULL,NULL,1,4,NULL,0,NULL,NULL),
 

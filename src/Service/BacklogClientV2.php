@@ -54,7 +54,7 @@ class BacklogClientV2
     {
         $map = [
             'SITE'                  => 'SOH.STOFCY_0',
-            'MAINNETWORK'           => 'ATX.TEXTE_0',
+            'BUSINESS_MODEL_1'      => 'ATX.TEXTE_0',
             'CLIENT'                => 'SOH.BPCINV_0',
             'NOM_CLIENT'            => 'BPC_INV.BPCNAM_0',
             'CLIENT_COMMANDE'       => 'SOH.BPCORD_0',
