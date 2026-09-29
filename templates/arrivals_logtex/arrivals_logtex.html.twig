@@ -1,0 +1,778 @@
+{% extends 'base.html.twig' %}
+
+{#
+  Module Arrivées Logtex — voir docs/superpowers/plans/2026-09-29-arrivees-logtex-progress.md
+  Port du template de référence public/template/arrivees-logtex_2.html : même mise en page,
+  même logique JS (timeline de semaines, liste, planning, backlog à relancer, export Excel).
+  Deux différences volontaires par rapport à l'original :
+  - palette reteintée sur les couleurs intranet (mêmes hex que Pilotage Livraisons),
+    au lieu de la palette propre du template ;
+  - données et photos chargées en direct (fetch JSON + cascade d'images côté navigateur,
+    pattern du Dashboard principal) au lieu d'un DATA/PHOTOS embarqué en base64.
+#}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+.al-wrap *{box-sizing:border-box}
+.al-wrap{
+  --ink:#151A22; --ink-2:#4A535F; --ink-3:#7C8694;
+  --ground:#F4F2ED; --surface:#FFFFFF; --surface-2:#FAF9F6;
+  --line:#E0DCD3; --line-strong:#C9C3B7;
+  /* Couleurs intranet (identiques au thème du site, mêmes valeurs que Pilotage Livraisons) */
+  --bleu:#2b84d4; --bleu-soft:#eef6fd;
+  --rouge:#c8102e; --rouge-soft:#fceaec;
+  --ambre:#a86a00; --ambre-soft:#fdf2dc;
+  --vert:#0f7b3d; --vert-soft:#e7f4ec;
+  --past:#F0EEE8;
+  --shadow:0 1px 2px rgba(21,26,34,.05), 0 6px 18px rgba(21,26,34,.05);
+  --radius:10px;
+  color-scheme:light;
+  background:var(--ground); color:var(--ink);
+  font-family:"Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased;
+  padding:0 0 40px;
+}
+@media (prefers-color-scheme: dark){
+  .al-wrap:not([data-theme="light"]){
+    --ink:#ECEAE4; --ink-2:#A8AFBA; --ink-3:#79818D;
+    --ground:#12151A; --surface:#191D24; --surface-2:#1F242C;
+    --line:#2C323B; --line-strong:#3C434E;
+    --bleu:#7FA8E8; --bleu-soft:#1B2739;
+    --rouge:#F08099; --rouge-soft:#31191F;
+    --ambre:#E0A75A; --ambre-soft:#2E2415;
+    --vert:#6FC3A0; --vert-soft:#16291F;
+    --past:#15181D;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+.al-wrap .wrap{max-width:1180px; margin:0 auto; padding:0 16px}
+.al-wrap .wide{max-width:1600px; margin:0 auto; padding:0 16px}
+.al-wrap .mono{font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric:tabular-nums}
+
+/* ---------- masthead ---------- */
+.al-wrap header.mast{background:var(--surface); border-bottom:1px solid var(--line)}
+.al-wrap .mast-in{display:flex; align-items:flex-end; justify-content:space-between; gap:18px; flex-wrap:wrap; padding-block:16px 12px; padding-inline:16px}
+.al-wrap h1{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:clamp(26px,3.6vw,36px); line-height:1; margin:0}
+.al-wrap .sub{color:var(--ink-2); font-size:13px; margin-top:5px; max-width:62ch}
+.al-wrap .asof{text-align:right; font-size:12px; color:var(--ink-3)}
+.al-wrap .asof b{display:block; font-family:"IBM Plex Mono",monospace; font-size:15px; color:var(--ink); font-weight:600}
+
+/* ---------- kpis ---------- */
+.al-wrap .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border-block:1px solid var(--line)}
+.al-wrap .kpi{background:var(--surface); padding:11px 16px; display:flex; flex-direction:column; gap:1px; cursor:pointer; border:0; text-align:left; font:inherit; color:inherit}
+.al-wrap .kpi:hover{background:var(--surface-2)}
+.al-wrap .kpi[aria-pressed="true"]{background:var(--bleu-soft)}
+.al-wrap .kpi .n{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:25px; line-height:1.05; font-variant-numeric:tabular-nums}
+.al-wrap .kpi .l{font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600}
+.al-wrap .kpi .h{font-size:12px; color:var(--ink-2)}
+.al-wrap .kpi.now .n{color:var(--bleu)} .al-wrap .kpi.next .n{color:var(--vert)} .al-wrap .kpi.late .n{color:var(--rouge)}
+@media(max-width:700px){.al-wrap .kpis{grid-template-columns:repeat(2,1fr)}}
+
+/* ---------- controls ---------- */
+.al-wrap .bar{position:sticky; top:0; z-index:30; background:var(--surface); border-bottom:1px solid var(--line); box-shadow:var(--shadow)}
+.al-wrap .bar-in{display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding-block:9px}
+.al-wrap .field{position:relative; flex:1 1 200px; min-width:0}
+.al-wrap input[type="search"]{width:100%; padding:8px 10px 8px 30px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-2); color:var(--ink); font:inherit}
+.al-wrap .field svg{position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--ink-3)}
+.al-wrap select{padding:8px 26px 8px 9px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-2); color:var(--ink); font:inherit; font-size:13px; max-width:180px;
+  appearance:none; background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 15px) 52%, calc(100% - 10px) 52%; background-size:5px 5px,5px 5px; background-repeat:no-repeat}
+.al-wrap input:focus-visible, .al-wrap select:focus-visible, .al-wrap button:focus-visible{outline:2px solid var(--bleu); outline-offset:1px}
+.al-wrap .seg{display:flex; border:1px solid var(--line-strong); border-radius:8px; overflow:hidden}
+.al-wrap .seg button{border:0; background:var(--surface-2); color:var(--ink-2); font:inherit; font-size:13px; padding:8px 12px; cursor:pointer; white-space:nowrap}
+.al-wrap .seg button+button{border-left:1px solid var(--line-strong)}
+.al-wrap .seg button[aria-pressed="true"]{background:var(--bleu); color:#fff; font-weight:600}
+.al-wrap .ghost{border:1px solid var(--line-strong); background:transparent; color:var(--ink-2); font:inherit; font-size:13px; padding:8px 11px; border-radius:8px; cursor:pointer; white-space:nowrap}
+.al-wrap .ghost:hover{background:var(--surface-2); color:var(--ink)}
+.al-wrap .ghost.key{border-color:var(--bleu); color:var(--bleu); font-weight:600}
+.al-wrap .ghost.xls{border-color:var(--vert); color:var(--vert); font-weight:600}
+.al-wrap .ghost.xls:hover{background:var(--vert-soft); color:var(--vert)}
+.al-wrap .count{font-size:12.5px; color:var(--ink-3); margin-left:auto; white-space:nowrap}
+.al-wrap .count b{color:var(--ink); font-family:"IBM Plex Mono",monospace}
+
+.al-wrap main{padding-block:16px 50px}
+
+/* ---------- timeline ---------- */
+.al-wrap .tl-hint{font-size:12px; color:var(--ink-3); margin:0 0 8px; display:flex; align-items:center; gap:8px}
+.al-wrap .tl-hint i{flex:none; width:44px; height:1px; background:linear-gradient(90deg,var(--line-strong),var(--bleu)); display:block}
+.al-wrap .tl{display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; padding-bottom:12px; scroll-snap-type:x proximity; scrollbar-width:thin}
+.al-wrap .wk{flex:0 0 154px; display:flex; flex-direction:column; gap:5px; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--radius); scroll-snap-align:center; padding:9px 10px 10px; cursor:pointer; text-align:left; font:inherit; color:inherit}
+.al-wrap .wk:hover{border-color:var(--line-strong)}
+.al-wrap .wk.past{background:var(--past); border-style:dashed}
+.al-wrap .wk.now{border:2px solid var(--bleu)}
+.al-wrap .wk.next{border:2px solid var(--vert)}
+.al-wrap .wk.empty-wk{flex:0 0 62px; opacity:.5}
+.al-wrap .wk[aria-selected="true"]{box-shadow:0 0 0 3px var(--bleu-soft); border-color:var(--bleu); background:var(--surface)}
+.al-wrap .wk .w{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:17px; text-transform:uppercase; line-height:1}
+.al-wrap .wk .dts{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-3); white-space:nowrap}
+.al-wrap .vol{height:5px; border-radius:3px; background:var(--line); overflow:hidden}
+.al-wrap .vol i{display:block; height:100%; background:var(--bleu)}
+.al-wrap .wk.past .vol i{background:var(--rouge)}
+.al-wrap .wk.next .vol i{background:var(--vert)}
+.al-wrap .wk .r{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-2); line-height:1.3}
+.al-wrap .wk .r b{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-size:14px; color:var(--ink)}
+.al-wrap .strip{display:flex; gap:3px; margin-top:2px}
+.al-wrap .strip span{width:30px; height:30px; border-radius:5px; border:1px solid var(--line); background:var(--surface-2); overflow:hidden; flex:none}
+.al-wrap .strip img{width:100%; height:100%; object-fit:contain; display:block}
+.al-wrap .strip .more{display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--ink-3); font-family:"IBM Plex Mono",monospace; border:0; background:none; width:auto; padding-left:2px}
+.al-wrap .badge{display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; padding:1px 5px; border-radius:4px; align-self:flex-start}
+.al-wrap .wk.now .badge{background:var(--bleu); color:#fff}
+.al-wrap .wk.next .badge{background:var(--vert); color:#fff}
+.al-wrap .wk.past .badge{background:var(--rouge-soft); color:var(--rouge)}
+
+/* ---------- semaine dépliée ---------- */
+.al-wrap .wd{margin-top:6px}
+.al-wrap .wdh{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:10px; border-bottom:3px solid var(--bleu); margin-bottom:14px}
+.al-wrap .wdh.is-past{border-bottom-color:var(--rouge)}
+.al-wrap .wdh h2{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:clamp(22px,2.6vw,30px); margin:0; text-transform:uppercase; line-height:1}
+.al-wrap .wdh .when{font-family:"IBM Plex Mono",monospace; font-size:13px; color:var(--ink-2); margin-top:3px}
+.al-wrap .wdh .tot{display:flex; gap:18px; margin-left:auto}
+.al-wrap .wdh .tot span{font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); font-weight:600}
+.al-wrap .wdh .tot b{display:block; font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-size:24px; color:var(--ink); letter-spacing:0; font-variant-numeric:tabular-nums}
+.al-wrap .nav{display:flex; gap:6px}
+.al-wrap .dayh{display:flex; align-items:baseline; gap:9px; margin:16px 0 7px; padding-bottom:5px; border-bottom:1px solid var(--line-strong)}
+.al-wrap .dayh:first-of-type{margin-top:0}
+.al-wrap .dayh h3{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:16px; margin:0; text-transform:uppercase; letter-spacing:.02em}
+.al-wrap .dayh .m{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-3)}
+.al-wrap .sz{display:inline-flex; align-items:baseline; gap:3px; border:1px solid var(--line); border-radius:5px; padding:1px 5px; background:var(--surface-2); font-size:11px; line-height:1.5}
+.al-wrap .sz b{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:12px}
+.al-wrap .sz span{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-3)}
+.al-wrap .sz-more{font-size:11px; color:var(--ink-3); align-self:center}
+
+/* ---------- liste ---------- */
+.al-wrap .group{margin-bottom:24px}
+.al-wrap .ghead{display:flex; align-items:baseline; gap:10px; padding:6px 0 8px; border-bottom:2px solid var(--ink); margin-bottom:10px; flex-wrap:wrap}
+.al-wrap .ghead h2{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:20px; margin:0; text-transform:uppercase}
+.al-wrap .ghead .meta{font-size:12.5px; color:var(--ink-2); font-family:"IBM Plex Mono",monospace}
+.al-wrap .ghead .dot{width:9px; height:9px; border-radius:50%; flex:none; transform:translateY(-1px)}
+.al-wrap .g-late .ghead{border-bottom-color:var(--rouge)} .al-wrap .g-late .dot{background:var(--rouge)}
+.al-wrap .g-soon .ghead{border-bottom-color:var(--ambre)} .al-wrap .g-soon .dot{background:var(--ambre)}
+.al-wrap .g-plan .ghead{border-bottom-color:var(--line-strong)} .al-wrap .g-plan .dot{background:var(--bleu)}
+.al-wrap .rows{display:flex; flex-direction:column; gap:6px}
+.al-wrap .row{display:grid; grid-template-columns:104px minmax(0,1.6fr) minmax(0,1.5fr) 132px; gap:16px; align-items:center;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:10px 14px 10px 10px; cursor:pointer; position:relative}
+.al-wrap .row:hover{border-color:var(--line-strong)}
+.al-wrap .row::before{content:""; position:absolute; left:0; top:10px; bottom:10px; width:3px; border-radius:0 3px 3px 0}
+.al-wrap .row.s-late::before{background:var(--rouge)} .al-wrap .row.s-soon::before{background:var(--ambre)} .al-wrap .row.s-plan::before{background:var(--bleu)}
+.al-wrap .shot{width:104px; height:104px; border-radius:8px; background:var(--surface-2); border:1px solid var(--line); overflow:hidden; display:flex; align-items:center; justify-content:center; flex:none}
+.al-wrap .shot img{width:100%; height:100%; object-fit:contain; display:block}
+.al-wrap .noshot{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-size:11px; font-weight:600; letter-spacing:.08em; color:var(--ink-3); text-align:center; text-transform:uppercase; line-height:1.15}
+.al-wrap .name{font-weight:600; font-size:15.5px; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.al-wrap .subline{display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:3px}
+.al-wrap .code{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--bleu); font-weight:600}
+.al-wrap .tag{font-size:10.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; padding:1px 5px; border-radius:4px; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-2)}
+.al-wrap .vendor{font-size:12px; color:var(--ink-3); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.al-wrap .grid-sizes{display:flex; flex-wrap:wrap; gap:3px; min-width:0}
+.al-wrap .eta{text-align:right}
+.al-wrap .eta .d{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:18px; line-height:1.1; white-space:nowrap}
+.al-wrap .eta .rel{font-size:11.5px; font-weight:600; margin-top:1px}
+.al-wrap .eta .q{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink-2); margin-top:3px}
+.al-wrap .s-late .eta .rel{color:var(--rouge)} .al-wrap .s-soon .eta .rel{color:var(--ambre)} .al-wrap .s-plan .eta .rel{color:var(--ink-3)}
+.al-wrap .detail{grid-column:1/-1; margin-top:8px; padding-top:9px; border-top:1px dashed var(--line); display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px 16px}
+.al-wrap .detail dt{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); font-weight:600}
+.al-wrap .detail dd{margin:1px 0 0; font-family:"IBM Plex Mono",monospace; font-size:12px}
+@media(max-width:1100px){
+  .al-wrap .row{grid-template-columns:88px minmax(0,1fr) 120px}
+  .al-wrap .shot{width:88px;height:88px}
+  .al-wrap .grid-sizes{grid-column:2/-1; margin-top:4px}
+}
+@media(max-width:620px){
+  .al-wrap .row{grid-template-columns:72px minmax(0,1fr); gap:12px}
+  .al-wrap .shot{width:72px;height:72px}
+  .al-wrap .eta{grid-column:2/-1; text-align:left; margin-top:2px}
+}
+
+/* ---------- tableaux ---------- */
+.al-wrap .plan{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; overflow-x:auto}
+.al-wrap .plan table{border-collapse:collapse; width:100%; min-width:640px}
+.al-wrap .plan th{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; text-transform:uppercase; letter-spacing:.07em; font-size:11.5px; color:var(--ink-3); text-align:left; padding:0 8px 8px; font-weight:600}
+.al-wrap .plan td{padding:5px 8px; border-top:1px solid var(--line); vertical-align:middle}
+.al-wrap .plan tbody tr:hover{background:var(--surface-2)}
+.al-wrap .plan .mlab{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:15px; text-transform:uppercase; white-space:nowrap}
+.al-wrap .plan .bb{height:16px; border-radius:3px; background:var(--bleu); min-width:2px}
+.al-wrap .plan .bb.late{background:var(--rouge)} .al-wrap .plan .bb.soon{background:var(--ambre)}
+.al-wrap .plan .num{font-family:"IBM Plex Mono",monospace; font-size:12.5px; text-align:right; white-space:nowrap}
+.al-wrap .plan td.po{font-family:"IBM Plex Mono",monospace; font-size:12.5px; font-weight:600; color:var(--bleu); white-space:nowrap}
+.al-wrap .plan td.late{color:var(--rouge); font-weight:600}
+.al-wrap .todo-head{display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap; margin-bottom:12px; padding-bottom:10px; border-bottom:2px solid var(--rouge)}
+.al-wrap .todo-head h2{font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-weight:700; font-size:21px; margin:0; text-transform:uppercase}
+.al-wrap .todo-head p{margin:4px 0 0; font-size:13px; color:var(--ink-2); max-width:56ch}
+.al-wrap .todo-stats{display:flex; gap:16px; margin-left:auto}
+.al-wrap .todo-stats span{font-size:11.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); font-weight:600}
+.al-wrap .todo-stats b{display:block; font-family:"Barlow Condensed","Oswald","Arial Narrow",system-ui,sans-serif; font-size:22px; letter-spacing:0; color:var(--ink); font-variant-numeric:tabular-nums}
+
+.al-wrap .empty{text-align:center; padding:50px 20px; color:var(--ink-3)}
+.al-wrap .foot{border-top:1px solid var(--line); margin-top:26px; padding-block:16px 30px; font-size:12px; color:var(--ink-3)}
+.al-wrap .foot b{color:var(--ink-2)}
+@media (prefers-reduced-motion: reduce){.al-wrap *{transition:none!important; animation:none!important; scroll-behavior:auto!important}}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="al-wrap">
+  <header class="mast">
+    <div class="wide mast-in">
+      <div>
+        <h1>Arrivées Logtex</h1>
+        <p class="sub">Ce qui arrive en réception <b>WLOGM</b>, semaine par semaine — le passé à gauche, le futur à droite.</p>
+      </div>
+      <div class="asof">au<b id="alToday">—</b>source : backlog fournisseur</div>
+    </div>
+  </header>
+
+  <div class="kpis" id="alKpis"></div>
+
+  <div class="bar">
+    <div class="wide bar-in">
+      <div class="field">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="alQ" placeholder="Modèle, code article, commande, fournisseur…" autocomplete="off">
+      </div>
+      <select id="alFColl"></select>
+      <select id="alFFam"></select>
+      <select id="alFFo"></select>
+      <button class="ghost key" id="alJumpNow">Cette semaine</button>
+      <button class="ghost key" id="alJumpNext">Semaine prochaine</button>
+      <div class="seg" role="group" aria-label="Vue">
+        <button id="alVTime" aria-pressed="true">Timeline</button>
+        <button id="alVList" aria-pressed="false">Liste</button>
+        <button id="alVPlan" aria-pressed="false">Planning</button>
+        <button id="alVTodo" aria-pressed="false">Backlog à updater</button>
+      </div>
+      <button class="ghost" id="alReset">Réinitialiser</button>
+      <span class="count" id="alCount"></span>
+    </div>
+  </div>
+
+  <main>
+    <div class="wide">
+      <p class="tl-hint" id="alTlhint"><i></i>Faites défiler de gauche à droite — passé, semaine en cours, arrivées à venir — et cliquez sur une semaine pour la déplier ci-dessous.</p>
+    </div>
+    <div class="wide"><div id="alTimeline" class="tl"></div></div>
+    <div class="wide"><div id="alWeekdetail" class="wd"></div></div>
+    <div class="wrap"><div id="alList" hidden></div><div id="alPlanning" hidden></div><div id="alTodo" hidden></div></div>
+  </main>
+
+  <div class="wide foot" id="alFoot"></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+const dataUrl = {{ path('api_arrivals_logtex_data')|json_encode|raw }};
+
+const MS = 86400000;
+const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const MOIS_C = ["janv","févr","mars","avr","mai","juin","juil","août","sept","oct","nov","déc"];
+const JOURS = ["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"];
+const FAM = {APL:"Textile", FTW:"Chaussure", HDW:"Accessoire", POP:"PLV"};
+const nf = new Intl.NumberFormat("fr-FR");
+
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const iso = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+const fmtDate = d => String(d.getDate()).padStart(2,"0") + " " + MOIS_C[d.getMonth()] + ". " + d.getFullYear();
+const fmtShort = d => String(d.getDate()).padStart(2,"0") + " " + MOIS_C[d.getMonth()];
+function monday(d){ const x = new Date(d); const k = (x.getDay() + 6) % 7; x.setDate(x.getDate() - k); x.setHours(0,0,0,0); return x; }
+function isoWeek(d){
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t - y0) / MS + 1) / 7);
+}
+const MON0 = monday(TODAY);
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+/* ---------- photos (cascade navigateur, pattern Dashboard principal) ---------- */
+function lookupPhotoFallback(img){
+  const article = img.dataset.article;
+  if (!article){ img.closest(".shot,.strip span")?.classList.add("al-noimg"); img.remove(); return; }
+  const locale = (window.location.pathname.match(/^\/(fr|en)\//) || [null, "fr"])[1];
+  fetch("/" + locale + "/images/lecoqsportif_lookup/" + encodeURIComponent(article))
+    .then(r => r.json())
+    .then(data => {
+      if (data.success && data.url) { img.src = data.url; }
+      else { const box = img.closest(".shot"); if (box) box.innerHTML = '<span class="noshot">visuel<br>à venir</span>'; else img.remove(); }
+    })
+    .catch(() => { const box = img.closest(".shot"); if (box) box.innerHTML = '<span class="noshot">visuel<br>à venir</span>'; else img.remove(); });
+}
+const PHOTO_CASCADE = ["_2.webp", "_new_1.webp", "_1.webp", "_2.jpg", "_new_1.jpg", "_1.jpg"];
+function photoOnError(img){
+  const step = parseInt(img.dataset.fallbackStep || "0", 10);
+  if (step < PHOTO_CASCADE.length - 1){
+    img.dataset.fallbackStep = String(step + 1);
+    img.src = img.src.replace(PHOTO_CASCADE[step], PHOTO_CASCADE[step + 1]);
+  } else {
+    img.onerror = null;
+    lookupPhotoFallback(img);
+  }
+}
+window.__alPhotoOnError = photoOnError;
+function photoUrl(article){
+  return "https://www.lecoqsportif.com/cdn/shop/files/" + encodeURIComponent(article) + PHOTO_CASCADE[0];
+}
+function thumbHTML(r, cls){
+  return '<img src="' + photoUrl(r.article) + '" data-article="' + esc(r.article) + '" data-fallback-step="0" ' +
+    'alt="" loading="lazy" decoding="async" onerror="window.__alPhotoOnError(this)">';
+}
+function railThumbs(rows){
+  const top = rows.slice(0, 4);
+  const rest = rows.length - top.length;
+  return '<div class="strip">' + top.map(r => '<span>' + thumbHTML(r) + '</span>').join("") +
+    (rest > 0 ? '<span class="more">+' + rest + '</span>' : "") + '</div>';
+}
+
+/* ---------- export Excel ---------- */
+const COLS_ARR = ["Date d'arrivée","Jour","Semaine","Code article","Désignation","Collection","Famille",
+  "Fournisseur","N° commande","Réf. interne","Date de commande","Départ usine","Transport","Flux",
+  "Statut ERP","Retard (j)","Qté à livrer","Nb tailles","Grille de tailles","Montant EUR"];
+function arrRow(r){
+  return [ r.date_livraison, JOURS[(r._d.getDay()+6)%7], "S" + isoWeek(r._d), r.article, r.designation, r.collection, FAM[r.famille] || r.famille,
+    r.fournisseur, r.commande, r.reference || "", r.date_commande || "", r.date_expedition || "", r.transport, r.flux,
+    r.statut === "EN RETARD" ? "En retard" : (r.statut === "BIENTOT EN RETARD" ? "Bientôt en retard" : ""),
+    r._delta < 0 ? -r._delta : 0, r.quantite, r.tailles.length,
+    r.tailles.map(([s,q]) => s + ":" + q).join(" · "), r.montant_eur || 0 ];
+}
+const COLS_SKU = ["Date d'arrivée","Semaine","SKU","Code article","Taille","Désignation","Collection",
+  "Famille","Fournisseur","N° commande","Qté à livrer"];
+function skuRows(r){
+  return r.tailles.map(([s,q]) => [ r.date_livraison, "S" + isoWeek(r._d), r.article + "_" + s, r.article, s, r.designation, r.collection,
+    FAM[r.famille] || r.famille, r.fournisseur, r.commande, q ]);
+}
+function fit(aoa){
+  const n = Math.max(...aoa.map(r => r.length));
+  return Array.from({length:n}, (_, c) => ({ wch: Math.min(46, Math.max(10, ...aoa.map(row => String(row[c] ?? "").length + 2))) }));
+}
+function exportXlsx(sheets, filename, btn){
+  if (typeof XLSX === "undefined"){ btn.textContent = "Excel indisponible"; return; }
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(({name, aoa, table}) => {
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = fit(aoa);
+    if (table !== false && aoa.length > 1){
+      ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+      ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:aoa.length-1, c:aoa[0].length-1} }) };
+    }
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  });
+  XLSX.writeFile(wb, filename);
+  const label = btn.textContent;
+  btn.textContent = "Exporté ✓";
+  setTimeout(() => btn.textContent = label, 2200);
+}
+function exportWeek(btn){
+  const rows = window.__alWk || [];
+  if (!rows.length){ btn.textContent = "Rien à exporter"; setTimeout(() => btn.textContent = "Exporter en Excel", 2000); return; }
+  const mon = new Date(MON0); mon.setDate(mon.getDate() + S.sel*7);
+  const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+  const tot = rows.reduce((s,r)=>s+r.quantite,0);
+  const parFour = [...rows.reduce((m,r) => m.set(r.fournisseur, (m.get(r.fournisseur)||0) + r.quantite), new Map())]
+    .sort((a,b) => b[1] - a[1]);
+  const info = [
+    ["Le Coq Sportif — Arrivées Logtex Moussey (WLOGM)"],
+    [],
+    ["Semaine", "S" + isoWeek(mon)],
+    ["Du", iso(mon), "au", iso(sun)],
+    ["Références", rows.length],
+    ["Pièces attendues", tot],
+    ["En retard (ETA dépassée)", rows.filter(r => r._state === "late").length],
+    ["Extrait le", iso(TODAY)],
+    ["Filtres actifs", [S.q && 'recherche "' + S.q + '"', S.coll, S.fam, S.fo].filter(Boolean).join(" · ") || "aucun"],
+    [],
+    ["Pièces par fournisseur"],
+    ...parFour.map(([f,q]) => [f, q])
+  ];
+  exportXlsx([
+    { name: "Arrivages", aoa: [COLS_ARR].concat(rows.map(arrRow)) },
+    { name: "Détail tailles", aoa: [COLS_SKU].concat(rows.flatMap(skuRows)) },
+    { name: "Info", aoa: info, table: false }
+  ], "LCS_arrivees_Logtex_S" + isoWeek(mon) + "_" + iso(mon) + ".xlsx", btn);
+}
+
+/* ---------- état ---------- */
+let DATA = [];
+const S = { q:"", coll:"", fam:"", fo:"", win:"", sort:"eta", view:"time", sel:0 };
+let WEEKS = new Map(), WRANGE = [0,1];
+
+function fillSelect(el, label, values){
+  el.innerHTML = '<option value="">' + label + '</option>' +
+    values.map(v => '<option value="' + v.replace(/"/g,"&quot;") + '">' + v + '</option>').join("");
+}
+const uniq = k => [...new Set(DATA.map(r => r[k]))].filter(Boolean).sort();
+
+const WIN = {
+  w0: r => r._wi === 0,
+  w1: r => r._wi === 1,
+  d30: r => r._delta >= 0 && r._delta <= 30,
+  late: r => r._delta < 0
+};
+function filtered(){
+  const w = WIN[S.win];
+  return DATA.filter(r =>
+    (!S.q || r._key.includes(S.q)) &&
+    (!S.coll || r.collection === S.coll) &&
+    (!S.fam || r.famille === S.fam) &&
+    (!S.fo || r.fournisseur === S.fo) &&
+    (!w || w(r))
+  );
+}
+
+/* ---------- KPI ---------- */
+function renderKpis(){
+  const pcs = a => a.reduce((s,r)=>s+r.quantite,0);
+  const sets = {
+    w0: DATA.filter(WIN.w0), w1: DATA.filter(WIN.w1),
+    d30: DATA.filter(WIN.d30), late: DATA.filter(WIN.late)
+  };
+  const cards = [
+    {k:"w0", cls:"now", n:nf.format(sets.w0.length), l:"Cette semaine", h:nf.format(pcs(sets.w0)) + " pièces attendues"},
+    {k:"w1", cls:"next", n:nf.format(sets.w1.length), l:"Semaine prochaine", h:nf.format(pcs(sets.w1)) + " pièces attendues"},
+    {k:"d30", cls:"", n:nf.format(sets.d30.length), l:"30 prochains jours", h:nf.format(pcs(sets.d30)) + " pièces attendues"},
+    {k:"late", cls:"late", n:nf.format(sets.late.length), l:"ETA dépassée", h:nf.format(pcs(sets.late)) + " pièces · à relancer"}
+  ];
+  alKpis.innerHTML = cards.map(c =>
+    '<button class="kpi ' + c.cls + '" data-win="' + c.k + '" aria-pressed="false">' +
+    '<span class="n">' + c.n + '</span><span class="l">' + c.l + '</span><span class="h">' + c.h + '</span></button>'
+  ).join("");
+  alKpis.querySelectorAll(".kpi").forEach(b => b.onclick = () => {
+    S.win = (S.win === b.dataset.win) ? "" : b.dataset.win;
+    render();
+  });
+}
+
+/* ---------- briques communes ---------- */
+const MAXSZ = 9;
+function sizeChips(sizes, max){
+  const n = max || MAXSZ;
+  let html = sizes.slice(0, n).map(([s,q]) => '<span class="sz"><b>' + s + '</b><span>' + nf.format(q) + '</span></span>').join("");
+  if (sizes.length > n) html += '<span class="sz-more">+' + (sizes.length - n) + '</span>';
+  return html;
+}
+function relLabel(r){
+  if (r._delta === 0) return "aujourd'hui";
+  if (r._delta < 0) return "retard de " + (-r._delta) + " j";
+  if (r._delta === 1) return "demain";
+  return "dans " + r._delta + " j";
+}
+
+/* ---------- vue timeline : rail de semaines + semaine dépliée ---------- */
+function renderTime(list){
+  WEEKS = new Map();
+  list.forEach(r => {
+    if (!WEEKS.has(r._wi)) WEEKS.set(r._wi, []);
+    WEEKS.get(r._wi).push(r);
+  });
+  WEEKS.forEach(rows => rows.sort((a,b) => a._d - b._d || b.quantite - a.quantite));
+
+  const keys = [...WEEKS.keys()];
+  let lo = Math.min(0, ...keys), hi = Math.max(1, ...keys);
+  if (hi - lo > 80) hi = lo + 80;
+  WRANGE = [lo, hi];
+  const maxQ = Math.max(1, ...[...WEEKS.values()].map(rs => rs.reduce((s,r)=>s+r.quantite,0)));
+
+  let html = "";
+  for (let i = lo; i <= hi; i++){
+    const rows = WEEKS.get(i) || [];
+    const mon = new Date(MON0); mon.setDate(mon.getDate() + i*7);
+    const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+    const cls = i === 0 ? "now" : i === 1 ? "next" : i < 0 ? "past" : "";
+    if (!rows.length && i !== 0 && i !== 1){
+      html += '<button class="wk empty-wk ' + cls + '" data-wi="' + i + '" aria-selected="false">' +
+        '<span class="w">S' + isoWeek(mon) + '</span><span class="dts">' + String(mon.getDate()).padStart(2,"0") + '</span></button>';
+      continue;
+    }
+    const pcs = rows.reduce((s,r)=>s+r.quantite,0);
+    const badge = i === 0 ? '<span class="badge">En cours</span>'
+                : i === 1 ? '<span class="badge">Sem. proch.</span>'
+                : i < 0 && rows.length ? '<span class="badge">Dépassée</span>' : "";
+    html += '<button class="wk ' + cls + '" data-wi="' + i + '" aria-selected="' + (i === S.sel) + '">' +
+      '<span class="w">S' + isoWeek(mon) + '</span>' +
+      '<span class="dts">' + fmtShort(mon) + ' – ' + fmtShort(sun) + '</span>' +
+      '<span class="vol"><i style="width:' + (pcs ? Math.max(3, pcs/maxQ*100) : 0) + '%"></i></span>' +
+      '<span class="r"><b>' + nf.format(rows.length) + '</b> réf. · ' + nf.format(pcs) + ' pcs</span>' +
+      badge + railThumbs(rows) + '</button>';
+  }
+  alTimeline.innerHTML = html;
+  renderWeek();
+  centerWeek(S.sel, "auto");
+}
+
+function renderWeek(){
+  const i = S.sel;
+  const rows = WEEKS.get(i) || [];
+  const mon = new Date(MON0); mon.setDate(mon.getDate() + i*7);
+  const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+  const pcs = rows.reduce((s,r)=>s+r.quantite,0);
+  const label = i === 0 ? "Cette semaine" : i === 1 ? "Semaine prochaine" : i === -1 ? "Semaine dernière"
+              : i < 0 ? "Il y a " + (-i) + " semaines" : "Dans " + i + " semaines";
+  const range = String(mon.getDate()).padStart(2,"0") + " " + MOIS[mon.getMonth()] +
+    " – " + String(sun.getDate()).padStart(2,"0") + " " + MOIS[sun.getMonth()] + " " + sun.getFullYear();
+
+  window.__alWk = rows;
+  const byDay = new Map();
+  rows.forEach(r => { const k = iso(r._d); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(r); });
+
+  let body;
+  if (!rows.length){
+    body = '<p class="empty">Aucun arrivage attendu sur cette semaine' + (S.q || S.coll || S.fam || S.fo ? " avec les filtres en cours." : ".") + '</p>';
+  } else {
+    let n = 0;
+    body = [...byDay.entries()].sort().map(([k, rs]) => {
+      const d = parse(k);
+      const dq = rs.reduce((s,r)=>s+r.quantite,0);
+      return '<div class="dayh"><h3>' + JOURS[(d.getDay()+6)%7] + " " + d.getDate() + " " + MOIS[d.getMonth()] + '</h3>' +
+        '<span class="m">' + nf.format(rs.length) + ' réf. · ' + nf.format(dq) + ' pièces</span></div>' +
+        '<div class="rows">' + rs.map(r => rowHTML(r, n++)).join("") + '</div>';
+    }).join("");
+  }
+
+  alWeekdetail.innerHTML =
+    '<div class="wdh' + (i < 0 ? ' is-past' : '') + '">' +
+      '<div><h2>' + label + ' · S' + isoWeek(mon) + '</h2><div class="when">' + range + '</div></div>' +
+      '<div class="tot"><span><b>' + nf.format(rows.length) + '</b> références</span>' +
+      '<span><b>' + nf.format(pcs) + '</b> pièces</span></div>' +
+      '<div class="nav"><button class="ghost" id="alWPrev">← Semaine précédente</button>' +
+      '<button class="ghost" id="alWNext">Semaine suivante →</button>' +
+      '<button class="ghost xls" id="alWXls">Exporter en Excel</button></div></div>' + body;
+
+  document.getElementById("alWPrev").onclick = () => selectWeek(Math.max(WRANGE[0], i - 1));
+  document.getElementById("alWNext").onclick = () => selectWeek(Math.min(WRANGE[1], i + 1));
+  document.getElementById("alWXls").onclick = e => exportWeek(e.currentTarget);
+}
+
+function selectWeek(i){
+  S.sel = i;
+  alTimeline.querySelectorAll(".wk").forEach(b => b.setAttribute("aria-selected", String(+b.dataset.wi === i)));
+  renderWeek();
+  centerWeek(i);
+}
+
+function centerWeek(wi, behavior){
+  const el = alTimeline.querySelector('.wk[data-wi="' + wi + '"]') || alTimeline.querySelector('.wk');
+  if (!el) return;
+  const target = el.offsetLeft - (alTimeline.clientWidth - el.offsetWidth) / 2;
+  alTimeline.scrollTo({ left: Math.max(0, target), behavior: behavior || "smooth" });
+}
+
+/* ---------- vue liste ---------- */
+function rowHTML(r, i){
+  return '<article class="row s-' + r._state + '" data-i="' + i + '" tabindex="0">' +
+    '<div class="shot">' + thumbHTML(r, "noshot") + '</div>' +
+    '<div><div class="name" title="' + esc(r.designation) + '">' + esc(r.designation) + '</div>' +
+      '<div class="subline"><span class="code">' + r.article + '</span>' +
+      '<span class="tag">' + (FAM[r.famille] || r.famille) + '</span><span class="tag">' + r.collection + '</span>' +
+      (r.flux !== "BL Fournisseur" ? '<span class="tag">Intersite</span>' : '') + '</div>' +
+      '<div class="vendor">' + esc(r.fournisseur) + ' · ' + esc(r.commande) + '</div></div>' +
+    '<div class="grid-sizes">' + sizeChips(r.tailles) + '</div>' +
+    '<div class="eta"><div class="d">' + fmtDate(r._d) + '</div><div class="rel">' + relLabel(r) + '</div>' +
+      '<div class="q">' + nf.format(r.quantite) + ' pcs</div></div></article>';
+}
+function detailHTML(r){
+  const rows = [
+    ["Commande", r.commande], ["Référence interne", r.reference || "—"],
+    ["Date de commande", r.date_commande ? fmtDate(parse(r.date_commande)) : "—"],
+    ["Départ usine", r.date_expedition ? fmtDate(parse(r.date_expedition)) : "—"],
+    ["Transport", r.transport], ["Flux", r.flux],
+    ["Statut ERP", r.statut === "EN RETARD" ? "En retard" : (r.statut === "BIENTOT EN RETARD" ? "Bientôt en retard" : "—")],
+    ["Montant", r.montant_eur ? nf.format(Math.round(r.montant_eur)) + " €" : "—"],
+    ["Grille complète", r.tailles.map(([s,q]) => s + " : " + q).join("  ·  ")]
+  ];
+  return '<dl class="detail">' + rows.map(([k,v]) => '<div><dt>' + k + '</dt><dd>' + esc(v) + '</dd></div>').join("") + '</dl>';
+}
+function renderList(list){
+  if (!list.length){ alList.innerHTML = '<p class="empty">Aucune ligne ne correspond à ces filtres.</p>'; return; }
+  window.__alList = list;
+  const g = new Map();
+  list.forEach(r => { if (!g.has(r._mk)) g.set(r._mk, []); g.get(r._mk).push(r); });
+  alList.innerHTML = [...g.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([key, rows]) => {
+    const idx = new Map(list.map((r,i) => [r, i]));
+    const pcs = rows.reduce((s,r)=>s+r.quantite,0);
+    const late = rows.filter(r => r._state === "late").length;
+    const [y,m] = key.split("-");
+    const cls = late === rows.length ? "g-late" : (late ? "g-soon" : "g-plan");
+    const flag = late === rows.length ? ' · <span style="color:var(--rouge)">ETA dépassée</span>'
+               : late ? ' · <span style="color:var(--rouge)">' + late + ' en retard</span>' : "";
+    return '<section class="group ' + cls + '"><div class="ghead"><span class="dot"></span><h2>' + MOIS[+m-1] + ' ' + y + '</h2>' +
+      '<span class="meta">' + nf.format(rows.length) + ' lignes · ' + nf.format(pcs) + ' pièces' + flag + '</span></div>' +
+      '<div class="rows">' + rows.map(r => rowHTML(r, idx.get(r))).join("") + '</div></section>';
+  }).join("");
+}
+
+/* ---------- planning ---------- */
+function renderPlan(list){
+  const byMonth = new Map();
+  list.forEach(r => {
+    if (!byMonth.has(r._mk)) byMonth.set(r._mk, {n:0, q:0, late:0, soon:0});
+    const o = byMonth.get(r._mk); o.n++; o.q += r.quantite;
+    if (r._state === "late") o.late++; else if (r._state === "soon") o.soon++;
+  });
+  const ent = [...byMonth.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+  const max = Math.max(1, ...ent.map(e => e[1].q));
+  alPlanning.innerHTML = '<div class="plan"><table><thead><tr>' +
+    '<th>Mois d\'arrivée</th><th>Volume attendu</th><th style="text-align:right">Pièces</th><th style="text-align:right">Lignes</th></tr></thead><tbody>' +
+    ent.map(([k,o]) => {
+      const [y,m] = k.split("-");
+      const cls = o.late ? "late" : (o.soon ? "soon" : "");
+      return '<tr><td class="mlab">' + MOIS_C[+m-1] + ". " + y + '</td>' +
+        '<td><div class="bb ' + cls + '" style="width:' + Math.max(1.5, o.q/max*100) + '%"></div></td>' +
+        '<td class="num">' + nf.format(o.q) + '</td><td class="num">' + nf.format(o.n) + '</td></tr>';
+    }).join("") + '</tbody></table></div>';
+}
+
+/* ---------- backlog à updater ---------- */
+function poRows(list){
+  const m = new Map();
+  list.filter(r => r._state === "late").forEach(r => {
+    if (!m.has(r.commande)) m.set(r.commande, {po:r.commande, fo:r.fournisseur, c:r.collection, n:0, q:0, mods:new Set(), eta:r._d, ex:r.date_expedition, delta:r._delta});
+    const o = m.get(r.commande);
+    o.n++; o.q += r.quantite; o.mods.add(r.article);
+    if (r._d > o.eta){ o.eta = r._d; o.delta = r._delta; }
+    if (r.date_expedition && (!o.ex || r.date_expedition > o.ex)) o.ex = r.date_expedition;
+  });
+  return [...m.values()].sort((a,b) => a.delta - b.delta || b.q - a.q);
+}
+function renderTodo(list){
+  const pos = poRows(list);
+  if (!pos.length){ alTodo.innerHTML = '<p class="empty">Aucune commande à relancer sur ce périmètre.</p>'; return; }
+  const pcs = pos.reduce((s,o)=>s+o.q,0), lignes = pos.reduce((s,o)=>s+o.n,0);
+  alTodo.innerHTML =
+    '<div class="todo-head"><div><h2>Commandes sans ETA fiable</h2>' +
+      '<p>ETA dépassée au ' + fmtDate(TODAY) + ' : la date annoncée n\'est plus valable, il faut la refaire confirmer par le fournisseur.</p></div>' +
+      '<div class="todo-stats"><span><b>' + nf.format(pos.length) + '</b> commandes</span>' +
+      '<span><b>' + nf.format(lignes) + '</b> lignes</span><span><b>' + nf.format(pcs) + '</b> pièces</span></div>' +
+      '<button class="ghost xls" id="alXlsTodo">Exporter en Excel</button>' +
+      '<button class="ghost" id="alCopyTodo">Copier</button></div>' +
+    '<div class="plan"><table><thead><tr><th>N° commande</th><th>Fournisseur</th><th>Collection</th>' +
+      '<th style="text-align:right">Réf.</th><th style="text-align:right">Pièces</th><th>Dernière ETA</th>' +
+      '<th style="text-align:right">Retard</th><th>Départ usine</th></tr></thead><tbody>' +
+    pos.map(o => '<tr><td class="po">' + esc(o.po) + '</td><td>' + esc(o.fo) + '</td>' +
+      '<td class="num" style="text-align:left">' + o.c + '</td><td class="num">' + o.mods.size + '</td>' +
+      '<td class="num">' + nf.format(o.q) + '</td><td class="num" style="text-align:left">' + fmtDate(o.eta) + '</td>' +
+      '<td class="num late">+' + (-o.delta) + ' j</td>' +
+      '<td class="num" style="text-align:left">' + (o.ex ? fmtDate(parse(o.ex)) : "—") + '</td></tr>').join("") +
+    '</tbody></table></div>';
+  const HEAD = ["N° commande","Fournisseur","Collection","Références","Pièces","Dernière ETA","Retard (j)","Départ usine"];
+  const line = o => [o.po, o.fo, o.c, o.mods.size, o.q, iso(o.eta), -o.delta, o.ex || ""];
+  document.getElementById("alXlsTodo").onclick = e => {
+    const lignes2 = list.filter(r => r._state === "late");
+    exportXlsx([
+      { name: "Commandes à relancer", aoa: [HEAD].concat(pos.map(line)) },
+      { name: "Lignes concernées", aoa: [COLS_ARR].concat(lignes2.map(arrRow)) }
+    ], "LCS_backlog_a_updater_" + iso(TODAY) + ".xlsx", e.currentTarget);
+  };
+  document.getElementById("alCopyTodo").onclick = async e => {
+    const tsv = [HEAD.join("\t")].concat(pos.map(o => line(o).join("\t"))).join("\n");
+    try { await navigator.clipboard.writeText(tsv); e.target.textContent = "Copié ✓";
+          setTimeout(() => e.target.textContent = "Copier", 1800); }
+    catch { e.target.textContent = "Copie refusée"; }
+  };
+}
+
+/* ---------- rendu ---------- */
+function render(){
+  alKpis.querySelectorAll(".kpi").forEach(b => b.setAttribute("aria-pressed", String(S.win !== "" && S.win === b.dataset.win)));
+  const list = filtered();
+  list.sort(S.sort === "qty" ? (a,b) => b.quantite - a.quantite : (a,b) => a._d - b._d || b.quantite - a.quantite);
+  alCount.innerHTML = '<b>' + nf.format(list.length) + '</b> réf. · <b>' + nf.format(list.reduce((s,r)=>s+r.quantite,0)) + '</b> pièces';
+
+  const on = v => S.view === v;
+  alTimeline.hidden = !on("time"); alTlhint.hidden = !on("time"); alWeekdetail.hidden = !on("time");
+  alList.hidden = !on("list"); alPlanning.hidden = !on("plan"); alTodo.hidden = !on("todo");
+  alJumpNow.hidden = !on("time"); alJumpNext.hidden = !on("time");
+
+  if (on("time")) renderTime(list);
+  else if (on("list")) renderList(list);
+  else if (on("plan")) renderPlan(list);
+  else renderTodo(list);
+}
+
+/* ---------- interactions ---------- */
+alTimeline.addEventListener("click", e => {
+  const wk = e.target.closest(".wk"); if (!wk) return;
+  selectWeek(+wk.dataset.wi);
+});
+alWeekdetail.addEventListener("click", e => {
+  const row = e.target.closest(".row"); if (!row) return;
+  const open = row.querySelector(".detail");
+  if (open){ open.remove(); return; }
+  row.insertAdjacentHTML("beforeend", detailHTML(window.__alWk[+row.dataset.i]));
+});
+alWeekdetail.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("row")){ e.preventDefault(); e.target.click(); }
+});
+alList.addEventListener("click", e => {
+  const row = e.target.closest(".row"); if (!row) return;
+  const open = row.querySelector(".detail");
+  if (open){ open.remove(); return; }
+  row.insertAdjacentHTML("beforeend", detailHTML(window.__alList[+row.dataset.i]));
+});
+alList.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("row")){ e.preventDefault(); e.target.click(); }
+});
+
+alQ.addEventListener("input", () => { S.q = alQ.value.trim().toLowerCase(); render(); });
+alFColl.onchange = () => { S.coll = alFColl.value; render(); };
+alFFam.onchange = () => { S.fam = alFFam.value; render(); };
+alFFo.onchange = () => { S.fo = alFFo.value; render(); };
+alJumpNow.onclick = () => selectWeek(0);
+alJumpNext.onclick = () => selectWeek(1);
+function setView(v){
+  S.view = v;
+  alVTime.setAttribute("aria-pressed", String(v === "time"));
+  alVList.setAttribute("aria-pressed", String(v === "list"));
+  alVPlan.setAttribute("aria-pressed", String(v === "plan"));
+  alVTodo.setAttribute("aria-pressed", String(v === "todo"));
+  render();
+}
+alVTime.onclick = () => setView("time");
+alVList.onclick = () => setView("list");
+alVPlan.onclick = () => setView("plan");
+alVTodo.onclick = () => setView("todo");
+alReset.onclick = () => {
+  Object.assign(S, {q:"", coll:"", fam:"", fo:"", win:"", sel:0});
+  alQ.value = ""; alFColl.value = alFFam.value = alFFo.value = "";
+  render();
+};
+
+/* ---------- init ---------- */
+alFoot.innerHTML = '<p class="empty">Chargement des arrivages…</p>';
+
+fetch(dataUrl)
+  .then(r => r.json())
+  .then(rows => {
+    DATA = rows.map(r => {
+      r._d = parse(r.date_livraison);
+      r._delta = Math.round((r._d - TODAY) / MS);
+      r._state = r._delta < 0 ? "late" : (r._delta <= 21 ? "soon" : "plan");
+      r._mon = monday(r._d);
+      r._wi = Math.round((r._mon - MON0) / (7 * MS));
+      r._key = (r.designation + " " + r.article + " " + r.commande + " " + r.fournisseur + " " + r.reference).toLowerCase();
+      r._mk = r.date_livraison.slice(0,7);
+      return r;
+    });
+
+    fillSelect(alFColl, "Toutes collections", uniq("collection"));
+    fillSelect(alFFam, "Toutes familles", uniq("famille"));
+    fillSelect(alFFo, "Tous fournisseurs", uniq("fournisseur"));
+
+    document.getElementById("alToday").textContent = fmtDate(TODAY);
+    alFoot.innerHTML =
+      'Une carte = un modèle sur une commande, avec sa grille de tailles · <b>' + nf.format(DATA.length) + '</b> références ' +
+      'issues du backlog fournisseur, réception WLOGM uniquement.';
+
+    renderKpis();
+    render();
+  })
+  .catch(() => {
+    alFoot.innerHTML = '<p class="empty">Erreur de chargement des données. Rechargez la page.</p>';
+  });
+})();
+</script>
+{% endblock %}
