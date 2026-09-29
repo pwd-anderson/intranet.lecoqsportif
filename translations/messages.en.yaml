@@ -60,6 +60,7 @@ sidebar:
     adv:
         etat_commandes_clients: "Customer Order Status"
         comptes_clients: "Customer Accounts"
+        comptes_fournisseurs: "Supplier Accounts"
     management:
         ca_marges: "Sales Margins"
     stock:

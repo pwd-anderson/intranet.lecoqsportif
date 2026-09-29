@@ -92,6 +92,12 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('comptes_clients');
     }
 
+    #[Route('/sales/comptes_fournisseurs', name: 'app_sales_comptes_fournisseurs')]
+    public function comptesFournisseursAlias(): Response
+    {
+        return $this->salesGeneric('comptes_fournisseurs');
+    }
+
     // ################## Action customisés #####################
     #[Route('/sales/reassort', name: 'app_sales_reassort')]
     public function reassort(): Response
@@ -163,6 +169,13 @@ final class SalesController extends AbstractController
     public function comptesClientsJson(Sales $sales, Helpers $helpers): JsonResponse
     {
         $data = $sales->getComptesClients();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/comptes_fournisseurs_json', name: 'comptes_fournisseurs_json')]
+    public function comptesFournisseursJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $data = $sales->getComptesFournisseurs();
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
@@ -737,7 +750,7 @@ final class SalesController extends AbstractController
     #[Route(
         '/sales/{type}',
         name: 'app_sales_generic',
-        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|etat_commandes_clients_x3|poid_famille_par_variant|best_demand_per_style|comptes_clients']
+        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|etat_commandes_clients_x3|poid_famille_par_variant|best_demand_per_style|comptes_clients|comptes_fournisseurs']
     )]
     public function salesGeneric(string $type): Response
     {
@@ -815,6 +828,13 @@ final class SalesController extends AbstractController
                 'gridName'      => 'comptes_clients_grid',
                 'title'         => 'Comptes Clients',
                 'jsonRoute'     => 'comptes_clients_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
+            ],
+            'comptes_fournisseurs' => [
+                'gridName'      => 'comptes_fournisseurs_grid',
+                'title'         => 'Comptes Fournisseurs',
+                'jsonRoute'     => 'comptes_fournisseurs_json',
                 'template'      => 'sales/sales_generic.html.twig',
                 'gridWidthMode' => 'full',
             ],

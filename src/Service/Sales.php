@@ -824,6 +824,20 @@ class Sales
         }
     }
 
+    public function getComptesFournisseurs(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/comptes_fournisseurs.sql');
+            return $this->mssqlSei()->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Récupération de données Comptes Fournisseurs', $e);
+            $this->logger->error('LCS Erreur Sales : Récupération de données Comptes Fournisseurs', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
     public function saveSellInSuiviPs(
         string $customerCode,
         string $city,
