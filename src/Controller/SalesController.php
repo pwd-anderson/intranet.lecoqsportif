@@ -118,6 +118,17 @@ final class SalesController extends AbstractController
         ]);
     }
 
+    #[Route('/sales/excess_for_stock', name: 'app_sales_excess_for_stock')]
+    public function excessForStock(): Response
+    {
+        return $this->render('sales/excess_for_sales.html.twig', [
+            'title' => 'Excess for Sales (Excess for Stock)',
+            'dataUrl' => $this->generateUrl('sales_excess_for_stock_json'),
+            'tariffGroupsUrl' => $this->generateUrl('sales_excess_for_sales_tariff_groups_json'),
+            'exportFileName' => 'excess_for_stock.xlsx',
+        ]);
+    }
+
     #[Route('/sales/sell_in_suivi_ps', name: 'app_sales_sell_in_suivi_ps')]
     public function sellInSuiviPs(): Response
     {
@@ -242,6 +253,25 @@ final class SalesController extends AbstractController
         $data = $sales->getExcessForSalesTariffGroups();
 
         return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/excess_for_stock_json', name: 'sales_excess_for_stock_json')]
+    public function excessForStockJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $tariffGroup = $request->query->get('tariffGroup');
+
+        $families = $request->query->all('family');
+        $collections = $request->query->all('collection');
+
+        $families = is_array($families) ? array_values(array_filter($families, 'is_string')) : [];
+        $collections = is_array($collections) ? array_values(array_filter($collections, 'is_string')) : [];
+
+        $data = $sales->getExcessForStock($tariffGroup, $families, $collections);
+
+        return new JsonResponse([
+            'variants' => $data['variants'],
+            'rows' => $helpers->convertArrayToUtf8($data['rows']),
+        ]);
     }
 
     #[Route('/sales/poid_famille_par_variant_json', name: 'poid_famille_par_variant_json')]

@@ -1,0 +1,31 @@
+-- Excess for Sales (Excess for Stock) — copie stricte de excess_for_sales.sql,
+-- seule difference : STOCK_TERME_SANS_BF (stock a terme hors backlog fournisseur)
+-- au lieu de STOCK_TERME.
+
+SELECT
+    COLLECTION,
+    ARTICLE,
+    CODE_VARIANT,
+    FAMILLE,
+    GENRE,
+    ITEM_GROUP,
+    DESIGNATION_MODELE,
+    CASE WHEN SUM(STOCK_TERME_SANS_BF) <= 0 THEN 0 ELSE SUM(STOCK_TERME_SANS_BF) END AS STOCK_TERME_SANS_BF,
+    AVG(PRIX) AS PRIX,
+    AVG(MARKET_PRICE) AS MARKET_PRICE,
+    DEVISE,
+    GROUPE_TARIF
+FROM [MASTER_TABLES].[EXCESS_FOR_SALES]
+WHERE 1=1 {{WHERE_CLAUSE}}
+  AND SITE = 'WLOGM'
+  AND STATUT = 'A1'
+GROUP BY
+    COLLECTION,
+    ARTICLE,
+    CODE_VARIANT,
+    FAMILLE,
+    GENRE,
+    ITEM_GROUP,
+    DESIGNATION_MODELE,
+    DEVISE,
+    GROUPE_TARIF

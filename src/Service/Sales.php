@@ -295,6 +295,150 @@ class Sales
         }
     }
 
+    /**
+     * Copie stricte de getExcessForSales() : seule différence, STOCK_TERME_SANS_BF
+     * (stock à terme hors backlog fournisseur) au lieu de STOCK_TERME. Les groupes
+     * tarifaires (getExcessForSalesTariffGroups) sont partagés entre les deux stats,
+     * la liste ne dépend pas de la colonne de stock utilisée.
+     */
+    public function getExcessForStock(
+        ?string $tariffGroup = null,
+        array $families = [],
+        array $collections = []
+    ): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/excess_for_stock.sql');
+
+            $conditions = [];
+
+            if ($tariffGroup) {
+                $conditions[] = "AND GROUPE_TARIF = '" . str_replace("'", "''", $tariffGroup) . "'";
+            }
+
+            if (!empty($families)) {
+                $escaped = array_map(
+                    fn($f) => "'" . str_replace("'", "''", trim($f)) . "'",
+                    array_filter($families, fn($f) => is_string($f) && trim($f) !== '')
+                );
+
+                if (!empty($escaped)) {
+                    $conditions[] = 'AND FAMILLE IN (' . implode(', ', $escaped) . ')';
+                }
+            }
+
+            if (!empty($collections)) {
+                $escaped = array_map(
+                    fn($c) => "'" . str_replace("'", "''", trim($c)) . "'",
+                    array_filter($collections, fn($c) => is_string($c) && trim($c) !== '')
+                );
+
+                if (!empty($escaped)) {
+                    $conditions[] = 'AND COLLECTION IN (' . implode(', ', $escaped) . ')';
+                }
+            }
+
+            $query = str_replace('{{WHERE_CLAUSE}}', implode(' ', $conditions), $query);
+
+            $rows = $this->mssqlSei()->executeQuery($query);
+
+            $locale = $this->requestStack->getCurrentRequest()?->getLocale() ?? 'fr';
+
+            $foundVariants = [];
+            $grouped = [];
+
+            foreach ($rows as $row) {
+                $row = (array) $row;
+
+                $fullArticle = $row['ARTICLE'] ?? '';
+                $articleParts = explode('_', $fullArticle);
+                $articleBase = $articleParts[0] ?? $fullArticle;
+
+                $key = implode('|', [
+                    $fullArticle ?? '',
+                    $row['COLLECTION'] ?? '',
+                    $row['GROUPE_TARIF'] ?? ''
+                ]);
+
+                if (!isset($grouped[$key])) {
+                    // URL directe vers lecoqsportif.com (cascade _2.webp → _new_1.webp → _1.webp → _2.jpg → _new_1.jpg → _1.jpg, gérée côté front via <img onerror>)
+                    $photoUrl = 'https://www.lecoqsportif.com/cdn/shop/files/' . $articleBase . '_2.webp';
+
+                    // URL base64 pour l'export Excel (cascade gérée côté backend)
+                    $photoBase64Url = $this->urlGenerator->generate('lecoqsportif_image_base64', [
+                        '_locale' => $locale,
+                        'article' => $articleBase,
+                    ]);
+
+                    $grouped[$key] = [
+                        'PHOTO_URL' => $photoUrl,
+                        'PHOTO_BASE64_URL' => $photoBase64Url,
+                        'COLLECTION' => $row['COLLECTION'] ?? null,
+                        'ARTICLE' => $fullArticle ?: null,
+                        'FAMILLE' => $row['FAMILLE'] ?? null,
+                        'GENRE' => $row['GENRE'] ?? null,
+                        'AGE_GROUP' => $row['AGE_GROUP'] ?? null,
+                        'ITEM_GROUP' => $row['ITEM_GROUP'] ?? null,
+                        'DESIGNATION_MODELE' => $row['DESIGNATION_MODELE'] ?? null,
+                        'PRIX' => $row['PRIX'] ?? null,
+                        'MARKET_PRICE' => $row['MARKET_PRICE'] ?? null,
+                        'DEVISE' => $row['DEVISE'] ?? null,
+                        'GROUPE_TARIF' => $row['GROUPE_TARIF'] ?? null,
+                        'Total' => 0,
+                    ];
+                }
+
+                $variant = trim((string) ($row['CODE_VARIANT'] ?? ''));
+                $stockTerme = (int) ($row['STOCK_TERME_SANS_BF'] ?? 0);
+
+                if ($variant !== '') {
+                    $foundVariants[$variant] = true;
+
+                    if (!array_key_exists($variant, $grouped[$key])) {
+                        $grouped[$key][$variant] = 0;
+                    }
+
+                    $grouped[$key][$variant] += $stockTerme;
+                }
+
+                $grouped[$key]['Total'] += $stockTerme;
+            }
+
+            $variants = array_keys($foundVariants);
+            $variants = $this->sortExcessVariants($variants);
+
+            foreach ($grouped as &$line) {
+                foreach ($variants as $variant) {
+                    if (!array_key_exists($variant, $line)) {
+                        $line[$variant] = 0;
+                    }
+                }
+            }
+            unset($line);
+
+            return [
+                'variants' => array_merge($variants, ['Total']),
+                'rows' => array_values($grouped),
+            ];
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError(
+                '❌ LCS Erreur Sales : Récupération de données Excess For Stock',
+                $e
+            );
+
+            $this->logger->error(
+                'LCS Erreur Sales : Récupération de données Excess For Stock',
+                ['exception' => $e]
+            );
+
+            return [
+                'variants' => [],
+                'rows' => [],
+            ];
+        }
+    }
+
     public function getExcessForSalesTariffGroups(): array
     {
         try {

@@ -684,7 +684,7 @@
                     gridOptions,
                     gridOptions.columnApi,
                     {
-                        fileName: 'excess_for_sales.xlsx',
+                        fileName: '{{ exportFileName|default('excess_for_sales.xlsx') }}',
                         photoColumn: 'PHOTO_URL',
                         articleColumn: 'ARTICLE',
                         imageBaseUrl: '/fr/images/lecoqsportif_base64',
