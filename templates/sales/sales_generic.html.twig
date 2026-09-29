@@ -29,7 +29,7 @@
             color: #721c24 !important;
         }
 
-        /* Pastille Oui / Non (colonnes Facture des Comptes Clients) */
+        /* Pastille Oui / Non (colonnes Facture des Comptes Clients, Contrat Existant des Comptes Fournisseurs) */
         .cellPill {
             display: inline-block;
             min-width: 52px;
@@ -396,8 +396,9 @@
             });
         }
 
-        if (salesType === 'comptes_clients') {
-            const statutCol = columnDefs.find(c => c.field === 'STATUT_CLIENT');
+        if (salesType === 'comptes_clients' || salesType === 'comptes_fournisseurs') {
+            const statutField = salesType === 'comptes_clients' ? 'STATUT_CLIENT' : 'STATUT_FOURNISSEUR';
+            const statutCol = columnDefs.find(c => c.field === statutField);
             if (statutCol) {
                 statutCol.cellClassRules = {
                     statusActive: params => params.value === 'Actif',
@@ -405,8 +406,12 @@
                 };
             }
 
-            // Colonnes Facture : pastille verte "OUI" / rouge "NON"
-            ['FACTURE_0_12_MOIS', 'FACTURE_12_18_MOIS', 'FACTURE_18_24_MOIS'].forEach(field => {
+            // Colonnes Oui/Non : pastille verte "OUI" / rouge "NON"
+            const pillFields = salesType === 'comptes_clients'
+                ? ['FACTURE_0_12_MOIS', 'FACTURE_12_18_MOIS', 'FACTURE_18_24_MOIS']
+                : ['CONTRAT_EXISTANT'];
+
+            pillFields.forEach(field => {
                 const col = columnDefs.find(c => c.field === field);
                 if (!col) return;
 
@@ -422,7 +427,13 @@
                     const value = (params.value ?? '').toString().trim();
                     if (!value) return '';
 
-                    const pillClass = value.toLowerCase() === 'oui' ? 'cellPillYes' : 'cellPillNo';
+                    // Seules les valeurs exactes oui/non sont pastillees : un troisieme etat
+                    // ("Non défini" sur CONTRAT_EXISTANT) reste du texte simple, comme
+                    // dans l'export Excel qui ne colore que ces deux cas.
+                    const lower = value.toLowerCase();
+                    if (lower !== 'oui' && lower !== 'non') return value;
+
+                    const pillClass = lower === 'oui' ? 'cellPillYes' : 'cellPillNo';
                     return `<span class="cellPill ${pillClass}">${value.toUpperCase()}</span>`;
                 };
             });
