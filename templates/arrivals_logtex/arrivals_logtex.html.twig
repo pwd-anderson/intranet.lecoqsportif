@@ -318,9 +318,24 @@ window.__alPhotoOnError = photoOnError;
 function photoUrl(article){
   return "https://www.lecoqsportif.com/cdn/shop/files/" + encodeURIComponent(article) + PHOTO_CASCADE[0];
 }
+// data-src (pas src) : le chargement natif "loading=lazy" defere mal les images dans un
+// conteneur a defilement horizontal (la timeline), son heuristique de distance au viewport
+// etant pensee pour le defilement vertical de page. Un IntersectionObserver manuel evite
+// que les centaines de vignettes hors champ ne se chargent toutes d'un coup au premier rendu.
 function thumbHTML(r, cls){
-  return '<img src="' + photoUrl(r.article) + '" data-article="' + esc(r.article) + '" data-fallback-step="0" ' +
-    'alt="" loading="lazy" decoding="async" onerror="window.__alPhotoOnError(this)">';
+  return '<img data-src="' + photoUrl(r.article) + '" data-article="' + esc(r.article) + '" data-fallback-step="0" ' +
+    'alt="" decoding="async" onerror="window.__alPhotoOnError(this)">';
+}
+const lazyImgObserver = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const img = entry.target;
+    lazyImgObserver.unobserve(img);
+    if (img.dataset.src){ img.src = img.dataset.src; img.removeAttribute("data-src"); }
+  });
+}, { root: null, rootMargin: "200px" });
+function observeLazyImages(container){
+  container.querySelectorAll("img[data-src]").forEach(img => lazyImgObserver.observe(img));
 }
 function railThumbs(rows){
   const top = rows.slice(0, 4);
@@ -500,6 +515,7 @@ function renderTime(list){
       badge + railThumbs(rows) + '</button>';
   }
   alTimeline.innerHTML = html;
+  observeLazyImages(alTimeline);
   renderWeek();
   centerWeek(S.sel, "auto");
 }
@@ -541,6 +557,7 @@ function renderWeek(){
       '<div class="nav"><button class="ghost" id="alWPrev">← Semaine précédente</button>' +
       '<button class="ghost" id="alWNext">Semaine suivante →</button>' +
       '<button class="ghost xls" id="alWXls">Exporter en Excel</button></div></div>' + body;
+  observeLazyImages(alWeekdetail);
 
   document.getElementById("alWPrev").onclick = () => selectWeek(Math.max(WRANGE[0], i - 1));
   document.getElementById("alWNext").onclick = () => selectWeek(Math.min(WRANGE[1], i + 1));
@@ -603,6 +620,7 @@ function renderList(list){
       '<span class="meta">' + nf.format(rows.length) + ' lignes · ' + nf.format(pcs) + ' pièces' + flag + '</span></div>' +
       '<div class="rows">' + rows.map(r => rowHTML(r, idx.get(r))).join("") + '</div></section>';
   }).join("");
+  observeLazyImages(alList);
 }
 
 /* ---------- planning ---------- */

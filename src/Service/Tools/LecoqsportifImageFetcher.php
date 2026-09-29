@@ -3,10 +3,22 @@
 namespace App\Service\Tools;
 
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class LecoqsportifImageFetcher
 {
+    /**
+     * Duree de mise en cache de la recherche Shopify (lookupImageUrl) : meme cle article
+     * -> meme photo, qui ne change pas d'un jour a l'autre. Sans ce cache, chaque appel
+     * declenche un aller-retour en direct vers Shopify (3 a 7s observes en pratique) —
+     * insoutenable des qu'une page affiche plusieurs dizaines d'images dont la plupart
+     * ratent la cascade de noms devines (cas d'Arrivees Logtex : references d'entrepot,
+     * pas toutes publiees sur l'e-shop). Le resultat "rien trouve" est mis en cache
+     * lui aussi : c'est justement le cas le plus frequent et le plus couteux a repeter.
+     */
+    private const LOOKUP_CACHE_TTL = 86400;
     private const BASE_URL = 'https://www.lecoqsportif.com/cdn/shop/files/';
 
     /**
@@ -30,6 +42,7 @@ class LecoqsportifImageFetcher
     public function __construct(
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
+        private CacheInterface $cache,
     ) {}
 
     /**
@@ -90,31 +103,39 @@ class LecoqsportifImageFetcher
             return null;
         }
 
-        try {
-            $response = $this->httpClient->request('GET', self::SEARCH_URL, [
-                'query' => [
-                    'q' => $article,
-                    'resources[type]' => 'product',
-                    'resources[limit]' => 1,
-                ],
-            ]);
+        // Le resultat (trouve ou non) est mis en cache : voir LOOKUP_CACHE_TTL.
+        return $this->cache->get(
+            'lcs_image_lookup_' . $article,
+            function (ItemInterface $item) use ($article): ?string {
+                $item->expiresAfter(self::LOOKUP_CACHE_TTL);
 
-            if ($response->getStatusCode() !== 200) {
-                return null;
+                try {
+                    $response = $this->httpClient->request('GET', self::SEARCH_URL, [
+                        'query' => [
+                            'q' => $article,
+                            'resources[type]' => 'product',
+                            'resources[limit]' => 1,
+                        ],
+                    ]);
+
+                    if ($response->getStatusCode() !== 200) {
+                        return null;
+                    }
+
+                    $data = $response->toArray(false);
+                    $products = $data['resources']['results']['products'] ?? [];
+
+                    if (empty($products)) {
+                        return null;
+                    }
+
+                    return $products[0]['image'] ?? $products[0]['featured_image']['url'] ?? null;
+
+                } catch (\Throwable $e) {
+                    return null;
+                }
             }
-
-            $data = $response->toArray(false);
-            $products = $data['resources']['results']['products'] ?? [];
-
-            if (empty($products)) {
-                return null;
-            }
-
-            return $products[0]['image'] ?? $products[0]['featured_image']['url'] ?? null;
-
-        } catch (\Throwable $e) {
-            return null;
-        }
+        );
     }
 
     /**
