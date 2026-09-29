@@ -161,7 +161,8 @@
                     {% endif %}
 
                     {# Pilotage Livraisons : ADV, LOGISTIC, SALES, PURCHASING + superusers #}
-                    {% if (isSuperUser or is_granted('ROLE_ADV') or is_granted('ROLE_LOGISTIC') or is_granted('ROLE_SALES') or is_granted('ROLE_PURCHASING')) and not is_stat_excluded('app_pilotage_livraisons') %}
+                    {# Module desactive temporairement (lien masque) : retirer "false and" pour reactiver #}
+                    {% if false and (isSuperUser or is_granted('ROLE_ADV') or is_granted('ROLE_LOGISTIC') or is_granted('ROLE_SALES') or is_granted('ROLE_PURCHASING')) and not is_stat_excluded('app_pilotage_livraisons') %}
                     <li class="{% if currentRoute == 'app_pilotage_livraisons' %}active{% endif %}">
                         <a href="{{ path('app_pilotage_livraisons') }}">
                             <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
