@@ -690,6 +690,28 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    #[Route('/sales/suivi_facturation', name: 'app_sales_suivi_facturation')]
+    public function suiviFacturation(): Response
+    {
+        return $this->render('sales/suivi_facturation.html.twig', [
+            'title'       => 'Suivi Facturation',
+            'dataUrl'     => $this->generateUrl('sales_suivi_facturation_json'),
+            'currentYear' => (int) date('Y'),
+        ]);
+    }
+
+    #[Route('/sales/suivi_facturation_json', name: 'sales_suivi_facturation_json')]
+    public function suiviFacturationJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $year = (int) ($request->query->get('year', (string) date('Y')));
+        if ($year < 2000 || $year > 2100) {
+            $year = (int) date('Y');
+        }
+
+        $data = $sales->getSuiviFacturation($year);
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
     #[Route('/sales/ventes_qte_ca_article', name: 'app_sales_ventes_qte_ca_article')]
     public function ventesQteCaArticle(Request $request): Response
     {

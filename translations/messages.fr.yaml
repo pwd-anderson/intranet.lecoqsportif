@@ -58,6 +58,7 @@ sidebar:
           ventes_qte_ca_client: "Sell-In : Ventes par Client"
           sell_out_client: "Sell-Out : Ventes par Client"
           ventes_qte_ca_produit: "Ventes par Produits"
+          suivi_facturation: "Suivi Facturation"
       adv:
           etat_commandes_clients: "État des commandes clients"
           comptes_clients: "Comptes Clients"

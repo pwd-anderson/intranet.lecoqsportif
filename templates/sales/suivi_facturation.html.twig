@@ -1,0 +1,278 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input { color: #000000 !important; }
+
+        .grid-wrapper { position: relative; min-height: 600px; }
+
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        .grid-loader-bar-track { height: 8px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
+        .grid-loader-bar-fill { height: 100%; width: 0%; background: #024185; border-radius: 99px; transition: width 0.3s ease; }
+        .grid-loader-percent-text { font-size: 13px; color: #024185; font-weight: 600; margin-top: 6px; }
+
+        .grid-actions-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
+        .grid-actions-visible { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 0.2s ease-in-out; }
+
+        /* Mise en forme des lignes de sous-total par niveau de regroupement,
+           cohérente avec le bleu du thème (.ag-theme-alpine) déjà utilisé partout. */
+        .ag-theme-alpine .row-group-level-0 { background-color: #024185 !important; color: #FFFFFF !important; font-weight: 700; }
+        .ag-theme-alpine .row-group-level-1 { background-color: #0f5aa8 !important; color: #FFFFFF !important; font-weight: 700; }
+        .ag-theme-alpine .row-group-level-2 { background-color: #cfe0f2 !important; color: #1a1a1a !important; font-weight: 600; }
+        .ag-theme-alpine .row-group-level-3 { background-color: #f0e6b8 !important; color: #1a1a1a !important; font-weight: 600; }
+
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <h3 class="box-title mb-0">{{ title }}</h3>
+
+                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                            <label class="mb-0 me-1 small text-muted">Année :</label>
+                            <select id="yearSelect" class="form-select form-select-sm" style="width: 100px;"></select>
+                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                    <div class="box-body pt-2">
+                        <div id="myGridWrapper" class="grid-wrapper">
+                            <div id="gridCustomLoader" class="grid-custom-loader">
+                                <div class="grid-loader-spinner"></div>
+                                <div class="grid-loader-text">Chargement...</div>
+                                <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                    <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                </div>
+                                <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                            </div>
+                            <div id="suiviFacturationGrid" class="ag-theme-alpine" style="height: 75vh; width: 100%; visibility: hidden;"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=1.9"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const GRID_SELECTOR = '#suiviFacturationGrid';
+            const DATA_URL      = '{{ dataUrl }}';
+            const CURRENT_YEAR  = {{ currentYear }};
+            const STATE_KEY     = 'aggrid-state-suivi-facturation-user-{{ app.user.id|default("local") }}-v2';
+
+            const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
+
+            function cellStyleText() {
+                return { borderRight: '0.2px solid #CECECEFF', borderBottom: '0.2px solid #CECECEFF', textAlign: 'left' };
+            }
+
+            function cellStyleNum() {
+                return { borderRight: '0.2px solid #CECECEFF', borderBottom: '0.2px solid #CECECEFF', textAlign: 'right' };
+            }
+
+            // Style différencié des lignes de sous-total selon le niveau de regroupement
+            // (0 = Commercial N+1, 1 = Groupement, 2 = Famille, 3 = Année facturation).
+            function getRowStyle(params) {
+                if (params.node.rowPinned) {
+                    return { background: '#024185', fontWeight: 'bold', color: '#FFFFFF' };
+                }
+                if (params.node.group) {
+                    const level = params.node.level;
+                    const styles = [
+                        { background: '#024185', color: '#FFFFFF', fontWeight: '700' },
+                        { background: '#0f5aa8', color: '#FFFFFF', fontWeight: '700' },
+                        { background: '#cfe0f2', color: '#1a1a1a', fontWeight: '600' },
+                        { background: '#f0e6b8', color: '#1a1a1a', fontWeight: '600' },
+                    ];
+                    return styles[level] || styles[styles.length - 1];
+                }
+            }
+
+            const columnDefs = [
+                {
+                    field: 'SALESMANNAMENPLUS1',
+                    headerName: 'Salesman N+1 Name',
+                    rowGroup: true,
+                    enableRowGroup: true,
+                    hide: true,
+                    filter: 'agSetColumnFilter',
+                },
+                {
+                    field: 'INDEPENDANTGROUPMENT',
+                    headerName: 'Independant Groupment',
+                    rowGroup: true,
+                    enableRowGroup: true,
+                    hide: true,
+                    filter: 'agSetColumnFilter',
+                },
+                {
+                    field: 'ITEMFAMILYCODE',
+                    headerName: 'Item Family Code',
+                    rowGroup: true,
+                    enableRowGroup: true,
+                    hide: true,
+                    filter: 'agSetColumnFilter',
+                },
+                {
+                    field: 'INVOICING_POSTING_DATE',
+                    headerName: 'Invoice Posting Year',
+                    rowGroup: true,
+                    enableRowGroup: true,
+                    hide: true,
+                    filter: 'agSetColumnFilter',
+                },
+                {
+                    field: 'SALESORDERTYPE',
+                    headerName: 'Sales Order Type',
+                    minWidth: 160,
+                    filter: 'agSetColumnFilter',
+                    enableRowGroup: true,
+                    cellStyle: cellStyleText,
+                },
+                {
+                    field: 'INV_QUANTITY',
+                    headerName: 'INV Quantity',
+                    minWidth: 160,
+                    filter: 'agNumberColumnFilter',
+                    valueFormatter: window.integerFormatter,
+                    comparator: window.integerComparator,
+                    cellStyle: cellStyleNum,
+                    cellDataType: false,
+                    aggFunc: 'sum',
+                    enableValue: true,
+                },
+                {
+                    field: 'INV_AMOUNTEUR',
+                    headerName: 'INV Amount Eur',
+                    minWidth: 170,
+                    filter: 'agNumberColumnFilter',
+                    valueFormatter: window.decimalFormatter,
+                    comparator: window.decimalComparator,
+                    cellStyle: cellStyleNum,
+                    cellDataType: false,
+                    aggFunc: 'sum',
+                    enableValue: true,
+                },
+                {
+                    // Voir commentaire en tête de suivi_facturation.sql : somme des comptes
+                    // de la maille la plus fine, pas un COUNT DISTINCT réel au niveau agrégé.
+                    field: 'CUSTOMER_COUNT',
+                    headerName: 'Customer Count With BOH',
+                    minWidth: 120,
+                    filter: 'agNumberColumnFilter',
+                    valueFormatter: window.integerFormatter,
+                    comparator: window.integerComparator,
+                    cellStyle: cellStyleNum,
+                    cellDataType: false,
+                    aggFunc: 'sum',
+                    enableValue: true,
+                },
+            ];
+
+            const gridOptions = window.AgGridCommon.initGrid(GRID_SELECTOR, {
+                columnDefs: columnDefs,
+                dataUrl: null,
+                numericColumns: [],
+                integerColumns: [],
+                totalColumns: [],
+                extraOptions: {
+                    groupDisplayType: 'multipleColumns',
+                    groupDefaultExpanded: 0,
+                    suppressAggFuncInHeader: true,
+                    animateRows: true,
+                    autoGroupColumnDef: {
+                        minWidth: 180,
+                        cellStyle: { borderRight: '1px solid #ffffff55' },
+                    },
+                    getRowStyle: getRowStyle,
+                },
+            });
+
+            window.AgGridCommon.patchSidebarCheckboxes(GRID_SELECTOR);
+
+            function loadGrid(year) {
+                window.AgGridCommon.hideGridActions();
+                window.AgGridCommon.showGridLoader(GRID_SELECTOR);
+
+                fetch(`${DATA_URL}?year=${year}`)
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        gridOptions.api.setRowData(data);
+                        window.AgGridCommon.loadGridState(gridOptions, STATE_KEY);
+                        window.AgGridCommon.hideGridLoader(GRID_SELECTOR);
+                        window.AgGridCommon.showGridActions();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        gridOptions.api.setRowData([]);
+                        window.AgGridCommon.hideGridLoader(GRID_SELECTOR);
+                        window.AgGridCommon.showGridActions();
+                    });
+            }
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.saveGridState(gridOptions, STATE_KEY);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.clearGridState(STATE_KEY);
+                location.reload();
+            });
+
+            document.getElementById('exportBtn').addEventListener('click', async function () {
+                await ExcelExportStandard.export(gridOptions, 'suivi_facturation.xlsx');
+            });
+
+            window.dorpDownSelect('#yearSelect', 2020, CURRENT_YEAR, function (year) {
+                loadGrid(parseInt(year, 10));
+            });
+
+            loadGrid(CURRENT_YEAR);
+        });
+    </script>
+{% endblock %}

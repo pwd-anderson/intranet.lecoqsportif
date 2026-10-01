@@ -25,6 +25,7 @@ final class StatRegistry
             'app_sales_ventes_qte_ca_client'              => ['section' => 'Ventes',  'label' => 'Sell-In : Ventes par Client',       'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
             'app_sales_ventes_qte_ca_produit'             => ['section' => 'Ventes',  'label' => 'Ventes par Produits',               'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
             'app_sales_sell_out_client'                   => ['section' => 'Ventes',  'label' => 'Sell-Out : Ventes par Client',      'roles' => ['ROLE_SALES']],
+            'app_sales_suivi_facturation'                 => ['section' => 'Ventes',  'label' => 'Suivi Facturation',                 'roles' => ['ROLE_SALES', 'ROLE_MARKETING']],
 
             // ── ADV ───────────────────────────────────────────────────────
             'app_sales_livraison_non_facturees'           => ['section' => 'ADV',     'label' => 'Livraisons non facturées',          'roles' => ['ROLE_ADV']],

@@ -751,6 +751,21 @@ class Sales
         }
     }
 
+    public function getSuiviFacturation(int $year): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/suivi_facturation.sql');
+            $query = str_replace('{{YEAR}}', (string) $year, $query);
+
+            return $this->mssqlSei()->executeQuery($query);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Suivi Facturation', $e);
+            $this->logger->error('LCS Erreur Sales : Suivi Facturation', ['exception' => $e]);
+            return [];
+        }
+    }
+
     public function getVentesQteCaArticle(int $year, string $client): array
     {
         try {
