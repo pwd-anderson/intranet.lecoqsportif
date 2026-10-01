@@ -37,9 +37,30 @@ if pgrep -f "devtunnel host" > /dev/null; then
 else
     echo "Demarrage de devtunnel host (tunnel: $TUNNEL_ID, port: $PORT)..."
     mkdir -p "$(dirname "$LOG_FILE")"
-    nohup "$DEVTUNNEL" host -t "$TUNNEL_ID" > "$LOG_FILE" 2>&1 &
+    : > "$LOG_FILE"
+    # Pas de "-t $TUNNEL_ID" ici : ce flag explicite renvoie Unauthorized
+    # (bug/quirk devtunnel CLI avec le suffixe de cluster ".euw" dans l'ID),
+    # alors que la commande sans argument fonctionne et utilise deja le
+    # tunnel par defaut (celui defini via "devtunnel create").
+    nohup "$DEVTUNNEL" host > "$LOG_FILE" 2>&1 &
     disown
     sleep 4
+
+    # devtunnel host peut demarrer puis planter immediatement (ex. session
+    # expiree) : verifier qu'il tourne encore avant d'annoncer un succes.
+    if ! pgrep -f "devtunnel host" > /dev/null; then
+        echo ""
+        echo "ECHEC : devtunnel host s'est arrete immediatement. Log :"
+        echo "---"
+        cat "$LOG_FILE"
+        echo "---"
+        if grep -qi "unauthorized" "$LOG_FILE"; then
+            echo ""
+            echo "Session expiree -> reconnecte-toi puis relance ce script :"
+            echo "  devtunnel user login"
+        fi
+        exit 1
+    fi
 fi
 
 # 3. Extraction de l'URL publique (via "devtunnel show", fiable que le tunnel
