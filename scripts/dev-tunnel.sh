@@ -31,41 +31,49 @@ else
     echo "Serveur Symfony deja lance."
 fi
 
-# 2. Tunnel devtunnel (deja idempotent si deja en cours sur ce port)
+# 2. Stoppe tout devtunnel host deja en cours (ex. celui d'un autre projet,
+# comme rma.lecoqsportif, qui tourne sur un autre port) avant de lancer le
+# notre -- evite toute confusion entre tunnels de projets differents.
 if pgrep -f "devtunnel host" > /dev/null; then
-    echo "devtunnel host deja en cours d'execution."
-else
-    echo "Demarrage de devtunnel host (tunnel: $TUNNEL_ID, port: $PORT)..."
-    mkdir -p "$(dirname "$LOG_FILE")"
-    : > "$LOG_FILE"
-    # Pas de "-t $TUNNEL_ID" ici : ce flag explicite renvoie Unauthorized
-    # (bug/quirk devtunnel CLI avec le suffixe de cluster ".euw" dans l'ID),
-    # alors que la commande sans argument fonctionne et utilise deja le
-    # tunnel par defaut (celui defini via "devtunnel create").
-    nohup "$DEVTUNNEL" host > "$LOG_FILE" 2>&1 &
-    disown
-    sleep 4
-
-    # devtunnel host peut demarrer puis planter immediatement (ex. session
-    # expiree) : verifier qu'il tourne encore avant d'annoncer un succes.
-    if ! pgrep -f "devtunnel host" > /dev/null; then
-        echo ""
-        echo "ECHEC : devtunnel host s'est arrete immediatement. Log :"
-        echo "---"
-        cat "$LOG_FILE"
-        echo "---"
-        if grep -qi "unauthorized" "$LOG_FILE"; then
-            echo ""
-            echo "Session expiree -> reconnecte-toi puis relance ce script :"
-            echo "  devtunnel user login"
-        fi
-        exit 1
-    fi
+    echo "Arret du tunnel devtunnel en cours (RMA ou autre)..."
+    pkill -f "devtunnel host"
+    sleep 2
 fi
 
-# 3. Extraction de l'URL publique (via "devtunnel show", fiable que le tunnel
-# vienne d'etre lance par ce script ou qu'il tournait deja avant)
-URL=$("$DEVTUNNEL" show 2>/dev/null | grep -oE 'https://[a-z0-9.-]+\.devtunnels\.ms' | head -1)
+echo "Demarrage de devtunnel host (tunnel: $TUNNEL_ID, port: $PORT)..."
+mkdir -p "$(dirname "$LOG_FILE")"
+: > "$LOG_FILE"
+# L'ID de tunnel est un argument POSITIONNEL, pas la valeur du flag "-t"
+# (qui signifie --access-token, pas "tunnel" : le passer en -t declenche
+# une erreur Unauthorized puisque l'ID n'est pas un jeton d'acces valide).
+# Necessaire ici : le "tunnel par defaut" est un reglage global au compte
+# devtunnel (pas par projet) -- un autre projet (rma.lecoqsportif) peut
+# l'avoir change en faisant son propre "devtunnel create".
+nohup "$DEVTUNNEL" host "$TUNNEL_ID" > "$LOG_FILE" 2>&1 &
+disown
+sleep 4
+
+# devtunnel host peut demarrer puis planter immediatement (ex. session
+# expiree) : verifier qu'il tourne encore avant d'annoncer un succes.
+if ! pgrep -f "devtunnel host" > /dev/null; then
+    echo ""
+    echo "ECHEC : devtunnel host s'est arrete immediatement. Log :"
+    echo "---"
+    cat "$LOG_FILE"
+    echo "---"
+    if grep -qi "unauthorized" "$LOG_FILE"; then
+        echo ""
+        echo "Session expiree -> reconnecte-toi puis relance ce script :"
+        echo "  devtunnel user login"
+    fi
+    exit 1
+fi
+
+# 3. Extraction de l'URL publique. "devtunnel show" cible explicitement
+# $TUNNEL_ID (argument positionnel) : sans ca, il affiche le "dernier tunnel
+# utilise" au niveau du compte (reglage global, pas par projet) -- qui peut
+# etre celui d'un autre projet (rma.lecoqsportif) si lance plus recemment.
+URL=$("$DEVTUNNEL" show "$TUNNEL_ID" 2>/dev/null | grep -oE 'https://[a-z0-9.-]+\.devtunnels\.ms' | head -1)
 
 if [ -z "$URL" ]; then
     echo "URL non trouvee. Verifie l'etat du tunnel :"
@@ -79,3 +87,6 @@ echo "URL publique (a utiliser, a enregistrer dans Azure AD si elle a change) :"
 echo "  $URL/fr/"
 echo ""
 echo "Callback Azure AD attendu : $URL/callback"
+echo ""
+echo "Note : ce script a stoppe le tunnel RMA s'il tournait. Pour le relancer :"
+echo "  cd ../rma.lecoqsportif && bash scripts/dev-tunnel.sh"
