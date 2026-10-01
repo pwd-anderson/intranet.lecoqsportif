@@ -5,6 +5,9 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
 
+    env(DEV_TUNNEL_PUBLIC_HOST): ''
+    dev_tunnel_public_host: '%env(DEV_TUNNEL_PUBLIC_HOST)%'
+
     app.supported_locales: '%env(APP_SUPPORTED_LOCALES)%'
 
     admin.email: '%env(resolve:ADMIN_EMAIL)%'
@@ -72,6 +75,10 @@ services:
         arguments:
             $senderEmail: '%graph.sender_email%'
             $adminEmail: '%admin.email%'
+
+    App\EventSubscriber\DevTunnelHostSubscriber:
+        arguments:
+            $devTunnelPublicHost: '%dev_tunnel_public_host%'
 
     App\Service\Tools\UserManagerAzure:
         arguments:
