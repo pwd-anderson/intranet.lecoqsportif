@@ -198,50 +198,13 @@
                     enableValue: true,
                 },
                 {
-                    // Ces 5 colonnes sont deja un vrai COUNT(DISTINCT) par niveau, pre-calcule
-                    // cote SQL (voir commentaire en tete de suivi_facturation.sql). Chaque valeur
-                    // est constante/repetee sur toutes les lignes de son niveau : aggFunc DOIT
-                    // etre 'max' (jamais 'sum', qui la multiplierait par le nombre de lignes
-                    // du groupe au lieu de la recuperer telle quelle).
+                    // Vrai COUNT(DISTINCT) par Commercial, pre-calcule cote SQL (voir
+                    // commentaire en tete de suivi_facturation.sql). Valeur constante/repetee
+                    // sur toutes les lignes de ce commercial : aggFunc DOIT etre 'max' (jamais
+                    // 'sum', qui la multiplierait par le nombre de lignes du groupe).
                     field: 'CUSTOMER_COUNT_REP',
                     headerName: 'Clients (Commercial)',
                     minWidth: 140,
-                    filter: 'agNumberColumnFilter',
-                    valueFormatter: window.integerFormatter,
-                    comparator: window.integerComparator,
-                    cellStyle: cellStyleNum,
-                    cellDataType: false,
-                    aggFunc: 'max',
-                    enableValue: true,
-                },
-                {
-                    field: 'CUSTOMER_COUNT_REP_GRP',
-                    headerName: 'Clients (Groupement)',
-                    minWidth: 150,
-                    filter: 'agNumberColumnFilter',
-                    valueFormatter: window.integerFormatter,
-                    comparator: window.integerComparator,
-                    cellStyle: cellStyleNum,
-                    cellDataType: false,
-                    aggFunc: 'max',
-                    enableValue: true,
-                },
-                {
-                    field: 'CUSTOMER_COUNT_REP_GRP_FAM',
-                    headerName: 'Clients (Famille)',
-                    minWidth: 140,
-                    filter: 'agNumberColumnFilter',
-                    valueFormatter: window.integerFormatter,
-                    comparator: window.integerComparator,
-                    cellStyle: cellStyleNum,
-                    cellDataType: false,
-                    aggFunc: 'max',
-                    enableValue: true,
-                },
-                {
-                    field: 'CUSTOMER_COUNT_REP_GRP_FAM_ANNEE',
-                    headerName: 'Clients (Année)',
-                    minWidth: 130,
                     filter: 'agNumberColumnFilter',
                     valueFormatter: window.integerFormatter,
                     comparator: window.integerComparator,
