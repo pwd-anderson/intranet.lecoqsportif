@@ -122,7 +122,7 @@ final class SalesController extends AbstractController
     public function excessForStock(): Response
     {
         return $this->render('sales/excess_for_sales.html.twig', [
-            'title' => 'Excess for Sales (Excess for Stock)',
+            'title' => 'EXCESS FOR SALES (excess à dispo immédiate)',
             'dataUrl' => $this->generateUrl('sales_excess_for_stock_json'),
             'tariffGroupsUrl' => $this->generateUrl('sales_excess_for_sales_tariff_groups_json'),
             'exportFileName' => 'excess_for_stock.xlsx',

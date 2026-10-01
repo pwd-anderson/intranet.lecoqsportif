@@ -47,7 +47,7 @@ sidebar:
         commandes_a_facturer_x3: "Commandes à Facturer\n(Vue Balance âgée)"
         reassort_magasin: "Réassort Magasin"
         excess_for_sales: "Excess for Sales"
-        excess_for_stock: "Excess for Sales\n(Excess for Stock)"
+        excess_for_stock: "EXCESS FOR SALES\n(excess à dispo immédiate)"
         poids_tailles: "Weight of sizes"
         best_demand_per_style: "Best Demand per Style"
         commandes_allouees_sans_bp: "Commandes allouées sans BP"
