@@ -233,3 +233,28 @@ Les 3 requêtes utilisent des alias `AS [NOM AVEC ESPACES]` correspondant exacte
 **Commande cron :** `php bin/console app:pilotage:export-livraisons` — sauvegarde dans `var/upload/export/pilotage_livraison/`, envoie par email via `GraphMailer` aux destinataires de la variable d'env `MAIL_PILOTAGE_LIVRAISON` (liste séparée par virgules), lue directement via `#[Autowire(env: 'MAIL_PILOTAGE_LIVRAISON')]` (pas de paramètre dans `services.yaml`). Prévue pour crontab quotidien (ex. 6h du matin).
 
 **Dépendance ajoutée :** `phpoffice/phpspreadsheet` — penser à `composer install` sur chaque environnement après déploiement (préprod, prod).
+
+### Tunnel de dev (callback Azure AD en local)
+
+Pour tester le flux de connexion Azure AD en local, il faut une URL HTTPS publique stable à enregistrer comme Reply URL dans Azure AD. Solution retenue : **Microsoft Dev Tunnels** (`devtunnel`), gratuit, sans limite d'appels (contrairement à ngrok gratuit).
+
+**Lancer le tunnel :**
+```bash
+scripts/dev-tunnel.sh
+```
+Démarre le serveur Symfony local (port 8000) si besoin, démarre `devtunnel host` si besoin, affiche l'URL publique à utiliser.
+
+**Config déjà en place (ne pas refaire) :**
+- Tunnel devtunnel : ID `peaceful-ant-f4ndxfd.euw`, port 8000 en `http` (pas `https` — le serveur Symfony local ne parle que HTTP, un port en `https` casse la connexion locale avec un 502)
+- `config/packages/framework.yaml` : `devtunnels.ms` ajouté à `trusted_hosts`
+- `src/EventSubscriber/DevTunnelHostSubscriber.php` : force `X-Forwarded-Host`/`-Proto` sur chaque requête quand `DEV_TUNNEL_PUBLIC_HOST` (`.env`, local uniquement) est définie — `devtunnel` ne transmet pas ces en-têtes à l'appli, donc sans ce listener Symfony génère ses redirections absolues (callback OAuth inclus) sur `localhost:8000` au lieu du domaine public du tunnel. Désactivé automatiquement (valeur par défaut vide dans `services.yaml`) si la variable n'est pas définie — aucun impact préprod/prod.
+- `.env` local : `AZURE_REDIRECT_URI` et `DEV_TUNNEL_PUBLIC_HOST` pointent vers l'URL actuelle du tunnel
+
+**Si l'URL change** (tunnel expiré après 30 jours, ou recréé) :
+1. `devtunnel create --allow-anonymous` puis `devtunnel port create -p 8000 --protocol http` → nouvel ID de tunnel et nouvelle URL
+2. Mettre à jour `AZURE_REDIRECT_URI` et `DEV_TUNNEL_PUBLIC_HOST` dans `.env`
+3. Mettre à jour le Reply URL dans Azure AD (App registrations → Authentication)
+4. Mettre à jour `TUNNEL_ID` dans `scripts/dev-tunnel.sh`
+5. `php bin/console cache:clear` + relancer `symfony server:start`
+
+**Piège vérifié** : après toute modification de `.env` touchant à Azure/aux hosts, vider le cache (`cache:clear`) **et** redémarrer le serveur Symfony (`symfony server:stop` puis `server:start`) — un simple `cache:clear` ne suffit pas toujours à faire relire la nouvelle valeur par un worker PHP-FPM déjà démarré.
