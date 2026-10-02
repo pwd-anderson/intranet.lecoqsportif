@@ -766,6 +766,45 @@ class Sales
         }
     }
 
+    /**
+     * Suivi complet de commande : recherche exacte sur 1 a 4 champs (ET entre les champs
+     * renseignes). Les noms de colonnes viennent d'une liste blanche, les valeurs saisies
+     * sont toujours liees en parametres nommes (jamais concatenees dans le SQL).
+     *
+     * @param array<string,string> $filters cles : NUM_COMMANDE, NUM_BON_PREPA, NUM_LIVRAISON, NUM_FACTURE
+     */
+    public function getSuiviCompletCommande(array $filters): array
+    {
+        $allowed = ['NUM_COMMANDE', 'NUM_BON_PREPA', 'NUM_LIVRAISON', 'NUM_FACTURE'];
+
+        $conditions = [];
+        $params = [];
+        foreach ($allowed as $column) {
+            $value = trim((string) ($filters[$column] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            $conditions[] = "[{$column}] = :" . strtolower($column);
+            $params[strtolower($column)] = $value;
+        }
+
+        if ($conditions === []) {
+            return [];
+        }
+
+        try {
+            $query = $this->sqlFileLoader->load('Sei/suivi_complet_commande.sql');
+            $query = str_replace('{{WHERE}}', 'WHERE ' . implode(' AND ', $conditions), $query);
+
+            return $this->mssqlSei()->executeQueryWithParams($query, $params);
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Suivi complet de commande', $e);
+            $this->logger->error('LCS Erreur Sales : Suivi complet de commande', ['exception' => $e]);
+            return [];
+        }
+    }
+
     public function getVentesQteCaArticle(int $year, string $client): array
     {
         try {

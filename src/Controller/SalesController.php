@@ -690,6 +690,56 @@ final class SalesController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
+    /**
+     * Sous-dossier SharePoint (sous ERP_PDF_BASE_URL) de chaque type de document cliquable de
+     * « Suivi complet de commande ». Le fichier est {base}/{dossier}/{numero}.pdf (meme schema
+     * que les intranets des autres societes, ex. .../ERP_PDF/ORDERS/SOS0800515.pdf).
+     * null = dossier pas encore communique : le lien reste non cliquable meme si la base est definie.
+     */
+    private const SUIVI_COMPLET_DOC_FOLDERS = [
+        'NUM_COMMANDE'  => 'ORDERS',
+        'NUM_LIVRAISON' => null,
+        'NUM_FACTURE'   => null,
+    ];
+
+    #[Route('/sales/suivi_complet_commande', name: 'app_sales_suivi_complet_commande')]
+    public function suiviCompletCommande(): Response
+    {
+        $base = rtrim((string) $this->getParameter('erp_pdf_base_url'), '/');
+        $docLinks = [];
+        foreach (self::SUIVI_COMPLET_DOC_FOLDERS as $field => $folder) {
+            $docLinks[$field] = ($base !== '' && $folder !== null) ? $base . '/' . $folder . '/' : null;
+        }
+
+        $agridOptions = $this->aggridOptionRepository->findBy(
+            ['gridName' => 'suivi_complet_commande_grid'],
+            ['orderIndex' => 'ASC']
+        );
+
+        $grid = $this->columnBuilder->build($agridOptions);
+
+        return $this->render('sales/suivi_complet_commande.html.twig', [
+            'title'          => 'Suivi complet de commande',
+            'columns'        => $grid['columns'],
+            'numericColumns' => $grid['numericColumns'],
+            'integerColumns' => $grid['integerColumns'],
+            'totalColumns'   => $grid['totalColumns'],
+            'dataUrl'        => $this->generateUrl('sales_suivi_complet_commande_json'),
+            'docLinks'       => $docLinks,
+        ]);
+    }
+
+    #[Route('/sales/suivi_complet_commande_json', name: 'sales_suivi_complet_commande_json', methods: ['GET'])]
+    public function suiviCompletCommandeJson(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $filters = [];
+        foreach (['NUM_COMMANDE', 'NUM_BON_PREPA', 'NUM_LIVRAISON', 'NUM_FACTURE'] as $field) {
+            $filters[$field] = (string) $request->query->get($field, '');
+        }
+
+        return new JsonResponse($helpers->convertArrayToUtf8($sales->getSuiviCompletCommande($filters)));
+    }
+
     #[Route('/sales/suivi_facturation', name: 'app_sales_suivi_facturation')]
     public function suiviFacturation(): Response
     {

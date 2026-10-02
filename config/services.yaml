@@ -8,6 +8,11 @@ parameters:
     env(DEV_TUNNEL_PUBLIC_HOST): ''
     dev_tunnel_public_host: '%env(DEV_TUNNEL_PUBLIC_HOST)%'
 
+    # URL de base SharePoint des PDF ERP (ex. .../Documents%20partages/ERP_PDF). Vide = liens
+    # documents affiches mais non cliquables (voir SalesController::suiviCompletCommande).
+    env(ERP_PDF_BASE_URL): ''
+    erp_pdf_base_url: '%env(ERP_PDF_BASE_URL)%'
+
     app.supported_locales: '%env(APP_SUPPORTED_LOCALES)%'
 
     admin.email: '%env(resolve:ADMIN_EMAIL)%'

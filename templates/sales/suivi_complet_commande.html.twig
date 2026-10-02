@@ -1,0 +1,327 @@
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input { color: #000000 !important; }
+
+        .grid-wrapper { position: relative; min-height: 500px; }
+
+        .grid-custom-loader {
+            position: absolute; inset: 0;
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px;
+            border: 4px solid #d9d9d9;
+            border-top: 4px solid #024185;
+            border-radius: 50%;
+            animation: gridSpin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        .grid-loader-bar-track { height: 8px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
+        .grid-loader-bar-fill { height: 100%; width: 0%; background: #024185; border-radius: 99px; transition: width 0.3s ease; }
+        .grid-loader-percent-text { font-size: 13px; color: #024185; font-weight: 600; margin-top: 6px; }
+
+        .grid-actions-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
+        .grid-actions-visible { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 0.2s ease-in-out; }
+
+        .scc-search-block {
+            margin: 14px 15px 4px;
+            padding: 16px 20px 14px;
+            background: #f5f8fc;
+            border: 1px solid #dbe3ee;
+            border-left: 4px solid #024185;
+            border-radius: 6px;
+        }
+        .scc-search-title {
+            font-size: 12px; font-weight: 700; letter-spacing: .06em;
+            text-transform: uppercase; color: #024185; margin-bottom: 10px;
+        }
+        .scc-search-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
+            gap: 14px 16px;
+            align-items: end;
+        }
+        .scc-field { display: flex; flex-direction: column; min-width: 0; }
+        .scc-field label { font-size: 12.5px; font-weight: 600; color: #3d4753; margin-bottom: 4px; }
+        .scc-field input { width: 100%; background: #fff; }
+        .scc-buttons { display: flex; gap: 8px; }
+        /* Numeros de document : lien PDF (actif) ou meme rendu non cliquable (document pas encore dispo) */
+        .scc-doc-link { color: #024185; text-decoration: underline; font-weight: 600; }
+        a.scc-doc-link:hover { color: #40a2ed; }
+        span.scc-doc-link--off { text-decoration: underline dotted; color: #5b7aa6; cursor: default; }
+        .scc-pdf-icon { width: 13px; height: 16px; vertical-align: -3px; margin-right: 6px; }
+        #sccHint { color: #c8102e; font-size: 12.5px; min-height: 18px; margin-top: 8px; }
+        @media (max-width: 1100px) {
+            .scc-search-grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+            .scc-buttons { grid-column: 1 / -1; }
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+
+                    <div class="box-header with-border d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <h3 class="box-title mb-0">{{ title }}</h3>
+
+                        <div id="gridActions" class="d-flex align-items-center gap-2 grid-actions-hidden">
+                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                    <div class="scc-search-block">
+                        <div class="scc-search-title">Recherche</div>
+                        <form id="sccForm" autocomplete="off" novalidate>
+                            <div class="scc-search-grid">
+                                <div class="scc-field">
+                                    <label for="sccNumCommande">N° Commande</label>
+                                    <input id="sccNumCommande" name="NUM_COMMANDE" type="text" class="form-control form-control-sm" maxlength="40">
+                                </div>
+                                <div class="scc-field">
+                                    <label for="sccNumBonPrepa">N° Bon de prépa</label>
+                                    <input id="sccNumBonPrepa" name="NUM_BON_PREPA" type="text" class="form-control form-control-sm" maxlength="40">
+                                </div>
+                                <div class="scc-field">
+                                    <label for="sccNumLivraison">N° Livraison</label>
+                                    <input id="sccNumLivraison" name="NUM_LIVRAISON" type="text" class="form-control form-control-sm" maxlength="40">
+                                </div>
+                                <div class="scc-field">
+                                    <label for="sccNumFacture">N° Facture</label>
+                                    <input id="sccNumFacture" name="NUM_FACTURE" type="text" class="form-control form-control-sm" maxlength="40">
+                                </div>
+                                <div class="scc-buttons">
+                                    <button id="sccSearchBtn" class="btn btn-primary btn-sm" type="submit">Rechercher</button>
+                                    <button id="sccResetBtn" class="btn btn-secondary btn-sm" type="button">Réinitialiser</button>
+                                </div>
+                            </div>
+                        </form>
+                        <div id="sccHint"></div>
+                    </div>
+
+                    <div class="box-body pt-2">
+                        <div id="myGridWrapper" class="grid-wrapper">
+                            <div id="gridCustomLoader" class="grid-custom-loader">
+                                <div class="grid-loader-spinner"></div>
+                                <div class="grid-loader-text">Recherche en cours...</div>
+                                <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                    <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                </div>
+                                <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                            </div>
+                            <div id="myGrid" class="ag-theme-alpine" style="height: 500px; width: 100%;"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.5"></script>
+    <script src="{{ asset('assets/js/pages/exceljs.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/fileSaver.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}?v=2"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const DATA_URL = '{{ dataUrl }}';
+            const STATE_KEY = 'aggrid-state-suivi-complet-commande-user-{{ app.user.id|default("local") }}-v1';
+            const TOTAL_COLUMNS = {{ totalColumns|json_encode|raw }};
+            const MSG_INVITE = 'Renseignez au moins un numéro puis cliquez sur « Rechercher ».';
+            const MSG_AUCUN = 'Aucun résultat pour cette recherche.';
+
+            const form = document.getElementById('sccForm');
+            const hint = document.getElementById('sccHint');
+            const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
+
+            const DOC_LINKS = {{ docLinks|json_encode|raw }};
+            const columnDefs = {{ columns|json_encode|raw }};
+
+            // N° commande / livraison / facture : lien PDF SharePoint si l'URL est configuree
+            // (DOC_LINKS[champ] = prefixe), sinon meme apparence mais non cliquable.
+            // DOM construit via textContent : la valeur n'est jamais interpretee comme du HTML.
+            function pdfIcon() {
+                const NS = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS(NS, 'svg');
+                svg.setAttribute('viewBox', '0 0 16 20');
+                svg.setAttribute('class', 'scc-pdf-icon');
+                svg.setAttribute('aria-hidden', 'true');
+
+                const page = document.createElementNS(NS, 'path');
+                page.setAttribute('d', 'M2 0h8l6 6v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z');
+                page.setAttribute('fill', '#d93025');
+
+                const fold = document.createElementNS(NS, 'path');
+                fold.setAttribute('d', 'M10 0l6 6h-5a1 1 0 0 1-1-1V0z');
+                fold.setAttribute('fill', '#f4a6a0');
+
+                const label = document.createElementNS(NS, 'text');
+                label.setAttribute('x', '8');
+                label.setAttribute('y', '16');
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('font-size', '6');
+                label.setAttribute('font-weight', '700');
+                label.setAttribute('font-family', 'Arial, sans-serif');
+                label.setAttribute('fill', '#ffffff');
+                label.textContent = 'PDF';
+
+                svg.append(page, fold, label);
+                return svg;
+            }
+
+            function docLinkRenderer(prefix) {
+                return function (params) {
+                    const value = params.value;
+                    if (value === null || value === undefined || String(value).trim() === '') {
+                        return '';
+                    }
+                    const text = String(value).trim();
+
+                    if (prefix) {
+                        const a = document.createElement('a');
+                        a.className = 'scc-doc-link';
+                        a.href = prefix + encodeURIComponent(text) + '.pdf';
+                        a.target = '_blank';
+                        a.rel = 'noopener';
+                        a.append(pdfIcon(), document.createTextNode(text));
+                        return a;
+                    }
+
+                    const span = document.createElement('span');
+                    span.className = 'scc-doc-link scc-doc-link--off';
+                    span.title = 'Document bientôt disponible';
+                    span.append(pdfIcon(), document.createTextNode(text));
+                    return span;
+                };
+            }
+
+            columnDefs.forEach(function (col) {
+                if (Object.prototype.hasOwnProperty.call(DOC_LINKS, col.field)) {
+                    col.cellRenderer = docLinkRenderer(DOC_LINKS[col.field]);
+                }
+            });
+
+            const agGridConfig = {
+                columnDefs:     columnDefs,
+                dataUrl:        null,
+                numericColumns: {{ numericColumns|json_encode|raw }},
+                integerColumns: {{ integerColumns|json_encode|raw }},
+                totalColumns:   TOTAL_COLUMNS,
+                extraOptions: {
+                    overlayNoRowsTemplate: '<span id="sccNoRows" class="ag-overlay-no-rows-center">' + MSG_INVITE + '</span>',
+                },
+            };
+
+            const gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+            window.gridOptions = gridOptions;
+            gridOptions.api.showNoRowsOverlay();
+
+            function setNoRowsMessage(message) {
+                const el = document.getElementById('sccNoRows');
+                if (el) el.textContent = message;
+            }
+
+            function collectFilters() {
+                const params = new URLSearchParams();
+                new FormData(form).forEach(function (value, key) {
+                    const v = String(value).trim();
+                    if (v !== '') params.set(key, v);
+                });
+                return params;
+            }
+
+            function search() {
+                const params = collectFilters();
+
+                if ([...params.keys()].length === 0) {
+                    hint.textContent = 'Renseignez au moins un des 4 champs pour lancer la recherche.';
+                    return;
+                }
+                hint.textContent = '';
+
+                window.AgGridCommon.hideGridActions();
+                window.AgGridCommon.showGridLoader('#myGrid');
+
+                fetch(DATA_URL + '?' + params.toString())
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        gridOptions.api.setRowData(data);
+                        window.AgGridCommon.loadGridState(gridOptions, STATE_KEY);
+                        window.AgGridCommon.updateTotals(gridOptions, TOTAL_COLUMNS);
+                        window.AgGridCommon.hideGridLoader('#myGrid');
+
+                        if (data.length === 0) {
+                            gridOptions.api.showNoRowsOverlay();
+                            setNoRowsMessage(MSG_AUCUN);
+                        } else {
+                            gridOptions.api.hideOverlay();
+                            window.AgGridCommon.showGridActions();
+                        }
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        gridOptions.api.setRowData([]);
+                        window.AgGridCommon.hideGridLoader('#myGrid');
+                        gridOptions.api.showNoRowsOverlay();
+                        setNoRowsMessage('Erreur lors de la recherche.');
+                    });
+            }
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                search();
+            });
+
+            document.getElementById('sccResetBtn').addEventListener('click', function () {
+                form.reset();
+                hint.textContent = '';
+                gridOptions.api.setRowData([]);
+                window.AgGridCommon.hideGridActions();
+                document.getElementById('rowCount').textContent = '';
+                gridOptions.api.showNoRowsOverlay();
+                setNoRowsMessage(MSG_INVITE);
+            });
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.saveGridState(gridOptions, STATE_KEY);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.clearGridState(STATE_KEY);
+                location.reload();
+            });
+
+            document.getElementById('exportBtn').addEventListener('click', async function () {
+                await ExcelExportStandard.export(gridOptions, 'suivi_complet_commande.xlsx');
+            });
+        });
+    </script>
+{% endblock %}
