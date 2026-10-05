@@ -726,6 +726,7 @@ final class SalesController extends AbstractController
             'totalColumns'   => $grid['totalColumns'],
             'dataUrl'        => $this->generateUrl('sales_suivi_complet_commande_json'),
             'docLinks'       => $docLinks,
+            'periodYears'    => range((int) date('Y'), (int) date('Y') - 2),
         ]);
     }
 
@@ -737,7 +738,12 @@ final class SalesController extends AbstractController
             $filters[$field] = (string) $request->query->get($field, '');
         }
 
-        return new JsonResponse($helpers->convertArrayToUtf8($sales->getSuiviCompletCommande($filters)));
+        $period = [
+            'type'  => (string) $request->query->get('period_type', ''),
+            'value' => (string) $request->query->get('period_value', ''),
+        ];
+
+        return new JsonResponse($helpers->convertArrayToUtf8($sales->getSuiviCompletCommande($filters, $period)));
     }
 
     #[Route('/sales/suivi_facturation', name: 'app_sales_suivi_facturation')]

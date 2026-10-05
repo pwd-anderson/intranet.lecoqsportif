@@ -767,13 +767,19 @@ class Sales
     }
 
     /**
-     * Suivi complet de commande : recherche exacte sur 1 a 4 champs (ET entre les champs
-     * renseignes). Les noms de colonnes viennent d'une liste blanche, les valeurs saisies
-     * sont toujours liees en parametres nommes (jamais concatenees dans le SQL).
+     * Suivi complet de commande : recherche exacte sur 1 a 4 champs et/ou filtre de periode
+     * (ET entre tous les criteres renseignes). Les noms de colonnes viennent d'une liste blanche,
+     * les valeurs saisies sont toujours liees en parametres nommes (jamais concatenees dans le SQL).
+     *
+     * Periode (exclusive, portee par DATE_CREATION_BP comme l'ancien filtre de la vue) :
+     *  - ['type' => 'months', 'value' => 3|6|12] : bons de prepa crees depuis N mois (meme calcul
+     *    que la vue : DATEADD(MONTH, -N, maintenant)) ;
+     *  - ['type' => 'year', 'value' => 2026] : bons de prepa crees dans l'annee civile.
      *
      * @param array<string,string> $filters cles : NUM_COMMANDE, NUM_BON_PREPA, NUM_LIVRAISON, NUM_FACTURE
+     * @param array{type?:string,value?:int|string}|null $period
      */
-    public function getSuiviCompletCommande(array $filters): array
+    public function getSuiviCompletCommande(array $filters, ?array $period = null): array
     {
         $allowed = ['NUM_COMMANDE', 'NUM_BON_PREPA', 'NUM_LIVRAISON', 'NUM_FACTURE'];
 
@@ -786,6 +792,18 @@ class Sales
             }
             $conditions[] = "[{$column}] = :" . strtolower($column);
             $params[strtolower($column)] = $value;
+        }
+
+        $periodType = $period['type'] ?? null;
+        $periodValue = (int) ($period['value'] ?? 0);
+
+        if ($periodType === 'months' && in_array($periodValue, [3, 6, 12], true)) {
+            $conditions[] = '[DATE_CREATION_BP] >= :period_from';
+            $params['period_from'] = (new \DateTimeImmutable())->modify("-{$periodValue} months")->format('Y-m-d H:i:s');
+        } elseif ($periodType === 'year' && $periodValue >= 2000 && $periodValue <= 2100) {
+            $conditions[] = '[DATE_CREATION_BP] >= :period_from AND [DATE_CREATION_BP] < :period_to';
+            $params['period_from'] = sprintf('%d-01-01 00:00:00', $periodValue);
+            $params['period_to'] = sprintf('%d-01-01 00:00:00', $periodValue + 1);
         }
 
         if ($conditions === []) {
