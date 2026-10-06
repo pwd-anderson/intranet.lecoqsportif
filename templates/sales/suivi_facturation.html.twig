@@ -243,6 +243,17 @@
                 fetch(`${DATA_URL}?year=${year}`)
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
+                        // Le JSON renvoie les mesures en chaines ("22816.0") : on les convertit en
+                        // nombres pour que l'agregation des groupes repliés ne depende pas de la
+                        // version d'AG Grid chargee.
+                        const numericFields = ['INV_QUANTITY', 'INV_AMOUNTEUR', 'CUSTOMER_COUNT_REP'];
+                        data.forEach(function (row) {
+                            numericFields.forEach(function (f) {
+                                if (row[f] !== null && row[f] !== undefined && row[f] !== '') {
+                                    row[f] = Number(row[f]);
+                                }
+                            });
+                        });
                         gridOptions.api.setRowData(data);
                         window.AgGridCommon.loadGridState(gridOptions, STATE_KEY);
                         window.AgGridCommon.hideGridLoader(GRID_SELECTOR);
