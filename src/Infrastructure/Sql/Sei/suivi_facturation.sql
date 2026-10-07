@@ -3,7 +3,7 @@
 -- facturation / Type de commande. Alimente le Row Grouping AG Grid côté navigateur
 -- (aucun pivot PHP nécessaire).
 --
--- CUSTOMER_COUNT à 5 niveaux : un COUNT(DISTINCT) brut par type de commande ne peut
+-- CUSTOMER_COUNT à 5 niveaux (commercial / groupement / famille / année / type) : un COUNT(DISTINCT) brut par type de commande ne peut
 -- pas être simplement additionné pour obtenir le nombre de clients distincts aux
 -- niveaux supérieurs (un même client achetant sous plusieurs types de commande / familles
 -- serait compté plusieurs fois — vérifié en direct : 7 par simple somme contre 3 en vrai
@@ -16,8 +16,12 @@
 --
 -- Filtre CUST.CUSTOMERGROUPCODE = 'INTERSPORT' volontairement conservé : cette stat
 -- est scopée sur ce groupe client (décision utilisateur).
+--
+-- Les 5 compteurs sont des vrais distincts au grain de chaque niveau ; le dernier
+-- (CUSTOMER_COUNT_REP_GRP_FAM_ANNEE_TYPE) est celui de la ligne elle-même. Vérifié en direct
+-- (2026, 362 lignes) : égal au COUNT(DISTINCT) brut recalculé séparément sur toutes les lignes.
 
-WITH base AS (   -- grain client (CUSTOMERNO reste interne, jamais renvoyé au navigateur)
+WITH base AS (   -- grain client (CUSTOMERNO reste interne, jamais renvoyé)
     SELECT
         CUST.SALESMANNAMENPLUS1,
         CUST.INDEPENDANTGROUPMENT,
@@ -29,15 +33,15 @@ WITH base AS (   -- grain client (CUSTOMERNO reste interne, jamais renvoyé au n
         SUM(S.INV_AMOUNTEUR) AS INV_AMOUNTEUR
     FROM SEI_X3_LCS.LCS_X3SALESX S
     LEFT JOIN SEI_X3_LCS.LCS_COLLECTION C
-        ON  S.ITEMNO   = C.ITEM_ID
-        AND S.SERIESNO = C.SERIESCODE
+           ON S.ITEMNO   = C.ITEM_ID
+          AND S.SERIESNO = C.SERIESCODE
     LEFT JOIN SEI_X3_LCS.LCS_CUSTOMER CUST
-        ON  S.COMPANYCODE = CUST.COMPANY_ID
-        AND S.CUSTOMERNO  = CUST.CUSTOMER_ID
+           ON S.COMPANYCODE = CUST.COMPANY_ID
+          AND S.CUSTOMERNO  = CUST.CUSTOMER_ID
     WHERE YEAR(S.EXPECTEDINVOICINGDATE) = {{YEAR}}
-    --AND CUST.INDEPENDANTGROUPMENT = 'SCHIEVER'
-    AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
-    AND CUST.CUSTOMERGROUPCODE = 'INTERSPORT'
+      --AND CUST.INDEPENDANTGROUPMENT = 'SCHIEVER'
+      AND C.ITEMFAMILYCODE IN ('FTW', 'HDW', 'APL')
+      AND CUST.CUSTOMERGROUPCODE = 'INTERSPORT'
     GROUP BY
         CUST.SALESMANNAMENPLUS1,
         CUST.INDEPENDANTGROUPMENT,
@@ -46,7 +50,7 @@ WITH base AS (   -- grain client (CUSTOMERNO reste interne, jamais renvoyé au n
         S.SALESORDERTYPE,
         S.CUSTOMERNO
 ),
-rn AS (          -- 1ere occurrence de chaque client a chaque niveau
+rn AS (          -- 1ère occurrence de chaque client à chaque niveau
     SELECT b.*,
         ROW_NUMBER() OVER (PARTITION BY SALESMANNAMENPLUS1, CUSTOMERNO
                            ORDER BY (SELECT NULL)) AS rn1,
@@ -56,10 +60,13 @@ rn AS (          -- 1ere occurrence de chaque client a chaque niveau
                            ORDER BY (SELECT NULL)) AS rn3,
         ROW_NUMBER() OVER (PARTITION BY SALESMANNAMENPLUS1, INDEPENDANTGROUPMENT, ITEMFAMILYCODE,
                                         INVOICING_POSTING_DATE, CUSTOMERNO
-                           ORDER BY (SELECT NULL)) AS rn4
+                           ORDER BY (SELECT NULL)) AS rn4,
+        ROW_NUMBER() OVER (PARTITION BY SALESMANNAMENPLUS1, INDEPENDANTGROUPMENT, ITEMFAMILYCODE,
+                                        INVOICING_POSTING_DATE, SALESORDERTYPE, CUSTOMERNO
+                           ORDER BY (SELECT NULL)) AS rn5
     FROM base b
 ),
-cnt AS (         -- customer count des niveaux 1 a 4
+cnt AS (         -- customer count des niveaux 1 à 4
     SELECT r.*,
         SUM(CASE WHEN CUSTOMERNO IS NOT NULL AND rn1 = 1 THEN 1 ELSE 0 END)
             OVER (PARTITION BY SALESMANNAMENPLUS1) AS cc_rep,
@@ -69,7 +76,10 @@ cnt AS (         -- customer count des niveaux 1 a 4
             OVER (PARTITION BY SALESMANNAMENPLUS1, INDEPENDANTGROUPMENT, ITEMFAMILYCODE) AS cc_rep_grp_fam,
         SUM(CASE WHEN CUSTOMERNO IS NOT NULL AND rn4 = 1 THEN 1 ELSE 0 END)
             OVER (PARTITION BY SALESMANNAMENPLUS1, INDEPENDANTGROUPMENT, ITEMFAMILYCODE,
-                               INVOICING_POSTING_DATE) AS cc_rep_grp_fam_annee
+                               INVOICING_POSTING_DATE) AS cc_rep_grp_fam_annee,
+        SUM(CASE WHEN CUSTOMERNO IS NOT NULL AND rn5 = 1 THEN 1 ELSE 0 END)
+            OVER (PARTITION BY SALESMANNAMENPLUS1, INDEPENDANTGROUPMENT, ITEMFAMILYCODE,
+                               INVOICING_POSTING_DATE, SALESORDERTYPE) AS cc_rep_grp_fam_annee_type
     FROM rn r
 )
 SELECT
@@ -84,11 +94,12 @@ SELECT
     MAX(cc_rep_grp)              AS CUSTOMER_COUNT_REP_GRP,
     MAX(cc_rep_grp_fam)          AS CUSTOMER_COUNT_REP_GRP_FAM,
     MAX(cc_rep_grp_fam_annee)    AS CUSTOMER_COUNT_REP_GRP_FAM_ANNEE,
-    COUNT(DISTINCT CUSTOMERNO)   AS CUSTOMER_COUNT_REP_GRP_FAM_ANNEE_TYPE
+    MAX(cc_rep_grp_fam_annee_type) AS CUSTOMER_COUNT_REP_GRP_FAM_ANNEE_TYPE
 FROM cnt
+-- where SALESMANNAMENPLUS1 is null
 GROUP BY
     SALESMANNAMENPLUS1,
     INDEPENDANTGROUPMENT,
     ITEMFAMILYCODE,
     INVOICING_POSTING_DATE,
-    SALESORDERTYPE
+    SALESORDERTYPE;

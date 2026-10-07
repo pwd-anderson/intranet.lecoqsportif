@@ -102,7 +102,7 @@
             const GRID_SELECTOR = '#suiviFacturationGrid';
             const DATA_URL      = '{{ dataUrl }}';
             const CURRENT_YEAR  = {{ currentYear }};
-            const STATE_KEY     = 'aggrid-state-suivi-facturation-user-{{ app.user.id|default("local") }}-v2';
+            const STATE_KEY     = 'aggrid-state-suivi-facturation-user-{{ app.user.id|default("local") }}-v3';
 
             const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
 
@@ -130,6 +130,35 @@
                     ];
                     return styles[level] || styles[styles.length - 1];
                 }
+            }
+
+            // Colonnes de compteur clients, de la plus large (Commercial) a la plus fine, dans l'ordre
+            // des regroupements par defaut. Le niveau N de groupe lit le compteur du meme rang.
+            const GROUP_FIELDS = ['SALESMANNAMENPLUS1', 'INDEPENDANTGROUPMENT', 'ITEMFAMILYCODE', 'INVOICING_POSTING_DATE'];
+            const COUNT_FIELDS = [
+                'CUSTOMER_COUNT_REP',
+                'CUSTOMER_COUNT_REP_GRP',
+                'CUSTOMER_COUNT_REP_GRP_FAM',
+                'CUSTOMER_COUNT_REP_GRP_FAM_ANNEE',
+            ];
+
+            // Agregation d'une ligne de groupe : compteur du niveau de la ligne (valeur identique sur
+            // toutes ses feuilles -> max). Si l'utilisateur a change l'ordre des regroupements, le
+            // compteur pre-calcule ne correspond plus au niveau : on n'affiche rien plutot qu'un faux chiffre.
+            function customerCountAgg(params) {
+                const level = params.rowNode.level;
+                const grouped = params.columnApi.getRowGroupColumns().slice(0, level + 1).map(function (c) { return c.getColDef().field; });
+                const expected = GROUP_FIELDS.slice(0, level + 1);
+                if (level >= COUNT_FIELDS.length || grouped.join('|') !== expected.join('|')) {
+                    return null;
+                }
+                const field = COUNT_FIELDS[level];
+                let max = null;
+                params.rowNode.allLeafChildren.forEach(function (leaf) {
+                    const v = leaf.data ? leaf.data[field] : null;
+                    if (v !== null && v !== undefined && (max === null || v > max)) max = v;
+                });
+                return max;
             }
 
             const columnDefs = [
@@ -198,19 +227,20 @@
                     enableValue: true,
                 },
                 {
-                    // Vrai COUNT(DISTINCT) par Commercial, pre-calcule cote SQL (voir
-                    // commentaire en tete de suivi_facturation.sql). Valeur constante/repetee
-                    // sur toutes les lignes de ce commercial : aggFunc DOIT etre 'max' (jamais
-                    // 'sum', qui la multiplierait par le nombre de lignes du groupe).
-                    field: 'CUSTOMER_COUNT_REP',
-                    headerName: 'Clients (Commercial)',
+                    // Vrai COUNT(DISTINCT) clients, pre-calcule cote SQL a CHAQUE niveau (voir
+                    // commentaire en tete de suivi_facturation.sql). Une ligne feuille (Type de
+                    // commande) affiche son propre compteur ; une ligne de groupe affiche celui de
+                    // son niveau (Commercial / Groupement / Famille / Annee) via customerCountAgg.
+                    // Jamais 'sum' : un meme client serait compte plusieurs fois.
+                    field: 'CUSTOMER_COUNT_REP_GRP_FAM_ANNEE_TYPE',
+                    headerName: 'Clients',
                     minWidth: 140,
                     filter: 'agNumberColumnFilter',
                     valueFormatter: window.integerFormatter,
                     comparator: window.integerComparator,
                     cellStyle: cellStyleNum,
                     cellDataType: false,
-                    aggFunc: 'max',
+                    aggFunc: customerCountAgg,
                     enableValue: true,
                 },
             ];
@@ -246,7 +276,7 @@
                         // Le JSON renvoie les mesures en chaines ("22816.0") : on les convertit en
                         // nombres pour que l'agregation des groupes repliés ne depende pas de la
                         // version d'AG Grid chargee.
-                        const numericFields = ['INV_QUANTITY', 'INV_AMOUNTEUR', 'CUSTOMER_COUNT_REP'];
+                        const numericFields = ['INV_QUANTITY', 'INV_AMOUNTEUR'].concat(COUNT_FIELDS, ['CUSTOMER_COUNT_REP_GRP_FAM_ANNEE_TYPE']);
                         data.forEach(function (row) {
                             numericFields.forEach(function (f) {
                                 if (row[f] !== null && row[f] !== undefined && row[f] !== '') {
