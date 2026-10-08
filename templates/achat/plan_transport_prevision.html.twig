@@ -1,0 +1,183 @@
+{% extends 'base.html.twig' %}
+
+{#
+  Plan transport prévision de dates (Achats) : livraisons SS27 consolidées à l'article, importées chaque
+  jour de l'Excel SharePoint PURCHASING (commande app:import-plan-transport, voir CLAUDE.md).
+  Template dédié (et non achat_generic) pour : la date ETD colorée selon le statut de départ (même code
+  couleur que l'Excel : vert = parti, orange = booking confirmé en attente, sans couleur = à planifier),
+  la légende et la date du dernier import. Les colonnes viennent de aggrid_option (plan_transport_prevision_grid).
+#}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
+    <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+
+    <style>
+        .ag-theme-alpine {
+            --ag-header-background-color: rgb(2, 65, 133) !important;
+            --ag-header-foreground-color: #FFFFFF !important;
+        }
+        .ag-text-field-input { color: #000000 !important; }
+
+        /* Mêmes couleurs que les cellules ETD de l'Excel (vert "bon" / orange "neutre" d'Excel). */
+        .etdParti { background-color: #C6EFCE !important; color: #006100 !important; font-weight: 600; }
+        .etdBooke { background-color: #FFEB9C !important; color: #9C5700 !important; font-weight: 600; }
+
+        .pt-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; font-size: 13px; }
+        .pt-legend .chip { display: inline-flex; align-items: center; gap: 6px; }
+        .pt-legend .swatch { display: inline-block; width: 26px; height: 14px; border-radius: 3px; border: 1px solid #c8cdd3; }
+        .pt-legend .swatch.parti { background: #C6EFCE; border-color: #8fcb9c; }
+        .pt-legend .swatch.booke { background: #FFEB9C; border-color: #dcc56b; }
+        .pt-legend .swatch.plan { background: #ffffff; }
+        .pt-import { font-size: 12.5px; color: #6b7683; }
+
+        .grid-wrapper { position: relative; min-height: 800px; }
+        .grid-custom-loader {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; background: #ffffff; z-index: 10;
+        }
+        .grid-loader-spinner {
+            width: 42px; height: 42px; border: 4px solid #d9d9d9; border-top: 4px solid #024185;
+            border-radius: 50%; animation: gridSpin 0.8s linear infinite; margin-bottom: 12px;
+        }
+        .grid-loader-text { font-size: 14px; color: #555; }
+        @keyframes gridSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .grid-actions-hidden { visibility: hidden; opacity: 0; pointer-events: none; }
+        .grid-actions-visible { visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 0.2s ease-in-out; }
+        .grid-loader-bar-track { height: 8px; background: #e0e0e0; border-radius: 99px; overflow: hidden; }
+        .grid-loader-bar-fill { height: 100%; width: 0%; background: #024185; border-radius: 99px; transition: width 0.3s ease; }
+        .grid-loader-percent-text { font-size: 13px; color: #024185; font-weight: 600; margin-top: 6px; }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+
+                    <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
+                        <div>
+                            <h3 class="box-title mb-1">Plan transport prévision de dates</h3>
+                            <div class="pt-import">
+                                {% if lastImport %}
+                                    Données importées le {{ lastImport.importedAt|date('d/m/Y à H:i', false) }}
+                                    {% if lastImport.sourceFile %}· fichier « {{ lastImport.sourceFile }} »{% endif %}
+                                    {% if lastImport.sourceModified %}(modifié le {{ lastImport.sourceModified|date('d/m/Y à H:i', false) }}){% endif %}
+                                {% else %}
+                                    Aucune donnée importée pour le moment.
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div id="gridActions" class="d-flex align-items-center gap-2 mt-2 mt-md-0 grid-actions-hidden">
+                            <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
+                            <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
+                            <button id="exportBtn" class="btn btn-primary btn-sm" type="button" onclick="onBtExportExcel()">Excel</button>
+                            <span id="rowCount" class="text-muted small"></span>
+                        </div>
+                    </div>
+
+                    <div class="box-body">
+                        <div class="pt-legend mb-2" aria-label="Légende du code couleur de la date ETD">
+                            <strong>Date ETD :</strong>
+                            <span class="chip"><span class="swatch parti"></span> Parti</span>
+                            <span class="chip"><span class="swatch booke"></span> Booking confirmé, en attente</span>
+                            <span class="chip"><span class="swatch plan"></span> À planifier (sans couleur)</span>
+                        </div>
+                        <div class="table-responsive-sm">
+                            <div id="myGridWrapper" class="grid-wrapper">
+                                <div id="gridCustomLoader" class="grid-custom-loader">
+                                    <div class="grid-loader-spinner"></div>
+                                    <div class="grid-loader-text">Chargement de la grille...</div>
+                                    <div class="grid-loader-bar-track" style="width: 220px; margin-top: 12px;">
+                                        <div id="gridLoaderBarFill" class="grid-loader-bar-fill"></div>
+                                    </div>
+                                    <div id="gridLoaderPercent" class="grid-loader-percent-text">0%</div>
+                                </div>
+
+                                <div id="myGrid" class="ag-theme-alpine" style="height: 800px; visibility: hidden;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {{ include('components/_excel_loader.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
+    <script src="{{ asset('assets/js/pages/excel-export-standard.js') }}"></script>
+
+    <script>
+        const columnDefs = {{ columns|json_encode|raw }};
+
+        // Code couleur du PM : la cellule ETD prend la couleur du statut de départ de la ligne
+        // (PARTI = vert ; BOOKÉ — ON HOLD = orange ; vide = à planifier, sans couleur).
+        const statut = (params) => String((params.data && params.data.STATUT_DEPART) || '').toUpperCase();
+        columnDefs.forEach(col => {
+            if (col.field === 'DATE_ETD') {
+                col.cellClassRules = {
+                    etdParti: params => statut(params).startsWith('PARTI'),
+                    etdBooke: params => statut(params).startsWith('BOOK'),
+                };
+            }
+            // Tri par défaut : ETA France croissante (« quel article arrive quand »), sauf état enregistré par l'utilisateur.
+            if (col.field === 'DATE_ETA_FRANCE') {
+                col.sort = 'asc';
+            }
+        });
+
+        const agGridConfig = {
+            columnDefs: columnDefs,
+            dataUrl: '{{ dataUrl }}',
+            numericColumns: {{ numericColumns|json_encode|raw }},
+            integerColumns: {{ integerColumns|json_encode|raw }},
+            totalColumns: {{ totalColumns|json_encode|raw }},
+            headerClass: 'excelHeaderBlue',
+            stateKey: 'aggrid-state-plan-transport-prevision-user-{{ app.user.id|default("local") }}-v1',
+
+            excelStyles: [
+                {
+                    id: 'excelHeaderBlue',
+                    font: { bold: true, color: '#FFFFFF' },
+                    alignment: { horizontal: 'Center' },
+                    interior: { color: '#024185', pattern: 'Solid' }
+                },
+                { id: 'etdParti', interior: { color: '#C6EFCE', pattern: 'Solid' }, font: { color: '#006100', bold: true } },
+                { id: 'etdBooke', interior: { color: '#FFEB9C', pattern: 'Solid' }, font: { color: '#9C5700', bold: true } }
+            ]
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.gridOptions = window.AgGridCommon.initGrid('#myGrid', agGridConfig);
+            window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+            window.AgGridCommon.patchSetFilterCheckboxes();
+
+            const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
+
+            window.onBtExportExcel = async function () {
+                await ExcelExportStandard.export(window.gridOptions, 'Plan_transport_prevision.xlsx');
+            };
+
+            document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.saveGridState(window.gridOptions, agGridConfig.stateKey);
+                saveConfigModal.show();
+            });
+
+            document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
+                window.AgGridCommon.clearGridState(agGridConfig.stateKey);
+                location.reload();
+            });
+
+            window.AgGridCommon.setupAutoWidth(window.gridOptions, { widthMode: 'full' });
+            window.AgGridCommon.setupAutoHeight(window.gridOptions, { gridSelector: '#myGrid', maxHeight: 800 });
+        });
+    </script>
+{% endblock %}

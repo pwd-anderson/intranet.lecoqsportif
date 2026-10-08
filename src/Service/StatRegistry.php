@@ -38,6 +38,7 @@ final class StatRegistry
             // ── Achats ────────────────────────────────────────────────────
             'app_backlog_fournisseur_x3'                  => ['section' => 'Achats',  'label' => 'Backlog fournisseur X3',            'roles' => ['ROLE_PURCHASING']],
             'app_reception_fournisseur'                   => ['section' => 'Achats',  'label' => 'Réception fournisseur',             'roles' => ['ROLE_PURCHASING']],
+            'app_plan_transport_prevision'                => ['section' => 'Achats',  'label' => 'Plan transport prévision de dates', 'roles' => ['ROLE_PURCHASING']],
 
             // ── Stock ─────────────────────────────────────────────────────
             'app_stock_a_terme_x3'                        => ['section' => 'Stock',   'label' => 'Stock à terme',                     'roles' => ['ROLE_LOGISTIC', 'ROLE_PURCHASING']],

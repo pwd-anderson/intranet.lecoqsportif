@@ -7,6 +7,7 @@ use App\Infrastructure\Sql\SqlFileLoader;
 use App\Service\AgGrid\Ssrm\AgGridSqlBuilder;
 use App\Service\AgGrid\Ssrm\SsrmRequest;
 use App\Service\AgGrid\Ssrm\SsrmResponse;
+use App\Service\PlanTransport\PlanTransportImporter;
 use App\Service\Tools\GraphMailer;
 use App\Service\Tools\Helpers;
 use App\Service\Tools\MssqlManager;
@@ -32,6 +33,9 @@ class BacklogClientV2
 
     private MssqlManager $mssqlSei;
 
+    /** Source du plan transport résolue (table ou source vide), voir planTransportSource(). */
+    private ?string $planTransportSource = null;
+
     public function __construct(
         MssqlManagerFactory $mssqlManagerFactory,
         private SqlFileLoader $sqlFileLoader,
@@ -39,6 +43,7 @@ class BacklogClientV2
         private Helpers $helpers,
         private GraphMailer $graphMailer,
         private LoggerInterface $logger,
+        private PlanTransportImporter $planTransport,
         #[Autowire('%db.lcs_sei%')]
         string $dbLcsSei,
     ) {
@@ -91,7 +96,7 @@ class BacklogClientV2
             'VILLE'                 => 'BPA.CTY_0',
             'ZCLASSE_0'             => 'SOH.ZCLASSE_0',
             'PO_EN_COURS'           => 'ISNULL(PO.PO_EN_COURS, 0)',
-            'DATE_COMMANDE_FOURNISSEUR' => 'COALESCE(PO.DATE_COMMANDE_FOURNISSEUR, CI.DATE_COMMANDE_FOURNISSEUR)',
+            'DATE_COMMANDE_FOURNISSEUR' => 'COALESCE(CI.DATE_INTERSITE, PT.DATE_ETA_FRANCE)',
         ];
 
         // Les colonnes stock sont volontairement absentes de la whitelist : à l'écran elles
@@ -302,6 +307,56 @@ LEFT  JOIN (
         }
     }
 
+    /**
+     * Requête de base du backlog, avec le nom de la table du plan transport résolu (suffixe _DEV en local,
+     * même règle que l'import : une seule source de vérité, PlanTransportImporter::table()).
+     */
+    private function loadBaseSql(): string
+    {
+        return str_replace(
+            '{{PLAN_TRANSPORT_TABLE}}',
+            $this->planTransportSource(),
+            $this->sqlFileLoader->load('Sei/backlog_client_v2.sql')
+        );
+    }
+
+    /**
+     * Source du plan transport pour les jointures : la table, ou une source vide de mêmes colonnes si la table
+     * n'existe pas (pas encore créée / importée sur cet environnement) ou si le cube ne répond pas. Le Backlog
+     * Client reste ainsi TOUJOURS disponible : seules les dates du plan transport manquent. Contrôle fait une
+     * fois par requête HTTP.
+     */
+    private function planTransportSource(): string
+    {
+        if ($this->planTransportSource !== null) {
+            return $this->planTransportSource;
+        }
+
+        $table = $this->planTransport->table();
+
+        try {
+            // Table présente ET colonnes attendues présentes (une table créée avec une autre structure ferait
+            // échouer tout le backlog : on préfère alors ignorer le plan).
+            $rows = $this->mssqlSei->executeQuery(
+                "SELECT OBJECT_ID('" . $table . "', 'U') AS OID,
+                        COL_LENGTH('" . $table . "', 'ARTICLE_SKU') AS C_SKU,
+                        COL_LENGTH('" . $table . "', 'DATE_ETA_FRANCE') AS C_ETA"
+            );
+            $r = isset($rows[0]) ? (array) $rows[0] : [];
+            $available = ($r['OID'] ?? null) !== null && ($r['C_SKU'] ?? null) !== null && ($r['C_ETA'] ?? null) !== null;
+        } catch (\Throwable) {
+            $available = false;
+        }
+
+        if (!$available) {
+            $this->logger->warning('BacklogClientV2 : table du plan transport indisponible, dates du plan ignorées', ['table' => $table]);
+        }
+
+        return $this->planTransportSource = $available
+            ? $table
+            : '(SELECT CAST(NULL AS nvarchar(50)) AS ARTICLE_SKU, CAST(NULL AS date) AS DATE_ETA_FRANCE WHERE 1 = 0)';
+    }
+
     /** Remplace les deux marqueurs stock selon que l'option est cochée ou non. */
     private function applyStockPlaceholders(string $sql, bool $includeStock): string
     {
@@ -321,7 +376,7 @@ LEFT  JOIN (
         }
 
         try {
-            $baseSql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+            $baseSql = $this->loadBaseSql();
 
             $fromPos = stripos($baseSql, 'FROM X3_LCS');
             if ($fromPos === false) {
@@ -380,7 +435,7 @@ LEFT  JOIN (
                 }
             }
 
-            $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+            $sql = $this->loadBaseSql();
             $sql = str_replace(['{{WHERE_CLAUSE}}', '{{ORDER_BY}}', '{{PAGINATION}}'], [$whereClause, $orderBy, $pagination], $sql);
             $sql = $this->applyStockPlaceholders($sql, false);
 
@@ -436,7 +491,7 @@ LEFT  JOIN (
         $includeStock = (bool) $request->getOption('includeStock', false);
 
         $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
-        $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+        $sql = $this->loadBaseSql();
 
         // Aucun ORDER BY : la grille est client-side, c'est AG Grid qui trie. Un tri
         // serveur obligerait SQL Server a trier les 172 000 lignes avant de rendre la
@@ -481,7 +536,7 @@ LEFT  JOIN (
         $includeStock = (bool) $request->getOption('includeStock', false);
 
         $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
-        $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+        $sql = $this->loadBaseSql();
         // Tri uniquement si l'utilisateur en a demandé un : sinon SQL Server devrait
         // ordonner les 172 000 lignes avant de rendre la première, ce qui retarde tout
         // l'export sans aucun bénéfice.
@@ -576,7 +631,7 @@ LEFT  JOIN (
         $includeStock = (bool) $request->getOption('includeStock', false);
 
         $builder = new AgGridSqlBuilder($request, $this->getFieldMap($includeStock));
-        $sql = $this->sqlFileLoader->load('Sei/backlog_client_v2.sql');
+        $sql = $this->loadBaseSql();
         // Tri uniquement si l'utilisateur en a demandé un : sinon SQL Server devrait
         // ordonner les 172 000 lignes avant de rendre la première, ce qui retarde tout
         // l'export sans aucun bénéfice.
@@ -729,19 +784,18 @@ LEFT  JOIN (
     }
 
     /**
-     * Jointures PO / CI des totaux, ajoutées seulement si le filtre porte sur PO EN COURS ou
+     * Jointures PO / CI / PT des totaux, ajoutées seulement si le filtre porte sur PO EN COURS ou
      * Date arrivée prévue (mêmes sous-requêtes que backlog_client_v2.sql) : sinon inutiles et coûteuses.
      */
     private function supplierJoins(string $whereClause): string
     {
         $joins = '';
 
-        if (str_contains($whereClause, 'PO.PO_EN_COURS') || str_contains($whereClause, 'PO.DATE_COMMANDE_FOURNISSEUR')) {
+        if (str_contains($whereClause, 'PO.PO_EN_COURS')) {
             $joins .= "
         LEFT  JOIN (
             SELECT POQ.ITMREF_0, POQ.PRHFCY_0,
-                   SUM(POQ.QTYUOM_0 - POQ.RCPQTYSTU_0) AS PO_EN_COURS,
-                   CONVERT(varchar(10), MIN(POQ.EXTRCPDAT_0), 23) AS DATE_COMMANDE_FOURNISSEUR
+                   SUM(POQ.QTYUOM_0 - POQ.RCPQTYSTU_0) AS PO_EN_COURS
             FROM X3_LCS.PORDERQ POQ
             INNER JOIN X3_LCS.PORDER POH ON POQ.POHNUM_0 = POH.POHNUM_0
             WHERE POQ.LINCLEFLG_0 = 1 AND POH.BETFCY_0 <> 2
@@ -749,14 +803,25 @@ LEFT  JOIN (
         ) PO ON PO.ITMREF_0 = SOQ.ITMREF_0 AND PO.PRHFCY_0 = SOH.STOFCY_0";
         }
 
-        if (str_contains($whereClause, 'CI.DATE_COMMANDE_FOURNISSEUR')) {
+        // La date arrivée prévue combine CI et PT : un filtre dessus les référence toutes les deux.
+        if (str_contains($whereClause, 'CI.DATE_INTERSITE')) {
             $joins .= "
         LEFT  JOIN (
             SELECT ITMREF_0, SITE_RECEPTION,
-                   CONVERT(varchar(10), MIN(EXTRCPDAT_0), 23) AS DATE_COMMANDE_FOURNISSEUR
+                   CONVERT(varchar(10), MIN(EXTRCPDAT_0), 23) AS DATE_INTERSITE
             FROM MASTER_TABLES.COMMANDES_INTERSITES
+            WHERE QTE_EN_TRANSIT > 0
             GROUP BY ITMREF_0, SITE_RECEPTION
         ) CI ON CI.ITMREF_0 = SOQ.ITMREF_0 AND CI.SITE_RECEPTION = SOH.STOFCY_0";
+        }
+
+        if (str_contains($whereClause, 'PT.DATE_ETA_FRANCE')) {
+            $joins .= "
+        LEFT  JOIN (
+            SELECT PTS.ARTICLE_SKU, CONVERT(varchar(10), MIN(PTS.DATE_ETA_FRANCE), 23) AS DATE_ETA_FRANCE
+            FROM {$this->planTransportSource()} PTS
+            GROUP BY PTS.ARTICLE_SKU
+        ) PT ON PT.ARTICLE_SKU = SOQ.ITMREF_0 AND SOH.STOFCY_0 = 'WLOGM'";
         }
 
         // Un filtre sur une colonne stock référence STK.* : sans la jointure, les totaux échouent

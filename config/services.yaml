@@ -11,6 +11,11 @@ parameters:
     # URL de base SharePoint des PDF ERP (ex. .../Documents%20partages/ERP_PDF). Vide = liens
     # documents affiches mais non cliquables (voir SalesController::suiviCompletCommande).
     env(ERP_PDF_BASE_URL): ''
+
+    # Fichier SharePoint du plan transport prévision (URL "claire", lue via Microsoft Graph, droit
+    # Sites.Read.All de l'application MailGraph). Nom provisoire en attendant un nom logique côté métier.
+    # '%%' = '%' littéral (sinon Symfony lit %20partages... comme un paramètre).
+    env(PLAN_TRANSPORT_SHAREPOINT_URL): 'https://lecoqsportif.sharepoint.com/Documents%%20partages/PURCHASING/Air%%20Boat%%20Split%%20SS27%%2006-10-26%%20ONE%%20DRIVE.xlsx'
     erp_pdf_base_url: '%env(ERP_PDF_BASE_URL)%'
 
     app.supported_locales: '%env(APP_SUPPORTED_LOCALES)%'

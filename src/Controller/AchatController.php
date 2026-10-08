@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Repository\AggridOptionRepository;
 use App\Service\Achat;
+use App\Service\PlanTransport\PlanTransportImporter;
 use App\Service\AgGrid\AgGridColumnBuilder;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -37,7 +38,37 @@ final class AchatController extends AbstractController
         return $this->achatGeneric('reception_fournisseur');
     }
 
+    /**
+     * Plan transport prévision (Excel SharePoint PURCHASING) : template dédié (ETD colorée selon le statut
+     * de départ, légende, date du dernier import) ; les colonnes restent configurées en base (aggrid_option).
+     */
+    #[Route('/achat/plan_transport_prevision', name: 'app_plan_transport_prevision')]
+    public function planTransportPrevision(PlanTransportImporter $planTransport): Response
+    {
+        $agridOptions = $this->aggridOptionRepository->findBy(
+            ['gridName' => 'plan_transport_prevision_grid'],
+            ['orderIndex' => 'ASC']
+        );
+        $grid = $this->columnBuilder->build($agridOptions);
+
+        return $this->render('achat/plan_transport_prevision.html.twig', [
+            'columns' => $grid['columns'],
+            'numericColumns' => $grid['numericColumns'],
+            'integerColumns' => $grid['integerColumns'],
+            'totalColumns' => $grid['totalColumns'],
+            'dataUrl' => $this->generateUrl('plan_transport_prevision_json'),
+            'lastImport' => $planTransport->getLastImport(),
+        ]);
+    }
+
     // ################## ROUTES JSON (inchangées) #####################
+
+    #[Route('/achat/plan_transport_prevision_json', name: 'plan_transport_prevision_json')]
+    public function planTransportPrevisionJson(PlanTransportImporter $planTransport, Helpers $helpers): JsonResponse
+    {
+        return new JsonResponse($helpers->convertArrayToUtf8($planTransport->fetchAll()));
+    }
+
 
     // Routes JSON
     #[Route('/achat/backlog_fournisseur_json', name: 'backlog_fournisseur_json')]

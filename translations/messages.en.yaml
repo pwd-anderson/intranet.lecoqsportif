@@ -76,6 +76,7 @@ sidebar:
     purchase:
         backlog_fournisseur_x3: "Backlog Supplier"
         reception_fournisseur: "Réception Fournisseur"
+        plan_transport_prevision: "Transport plan\ndelivery forecast"
         comptes_fournisseurs: "Supplier Accounts"
     it:
         tcd_cmd_non_soldees: "TCD Commandes web non Soldées"

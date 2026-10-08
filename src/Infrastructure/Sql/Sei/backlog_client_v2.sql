@@ -44,7 +44,10 @@ SELECT
     SOH.ZCLASSE_0,
 
     ISNULL(PO.PO_EN_COURS, 0) AS PO_EN_COURS,
-    COALESCE(PO.DATE_COMMANDE_FOURNISSEUR, CI.DATE_COMMANDE_FOURNISSEUR) AS DATE_COMMANDE_FOURNISSEUR
+    -- Date d'arrivée prévue (la colonne garde son nom historique) : 1) date de l'INTERSITE en transit (CI),
+    -- 2) sinon ETA France du plan transport (PT, commandes du site WLOGM uniquement).
+    -- La date des commandes fournisseur (PO) n'entre plus ici : PO ne sert qu'à PO_EN_COURS.
+    COALESCE(CI.DATE_INTERSITE, PT.DATE_ETA_FRANCE) AS DATE_COMMANDE_FOURNISSEUR
     {{STOCK_COLUMNS}}
 
 FROM X3_LCS.SORDERQ SOQ
@@ -96,23 +99,33 @@ LEFT  JOIN X3_LCS.ZITMCOL ITC
 
 LEFT JOIN X3_LCS.SVCRFOOT SVT ON SOH.SOHNUM_0 = SVT.VCRNUM_0 AND SVT.DTA_0 = 1
 
+-- Commandes fournisseur : seule la quantité restante (PO_EN_COURS) est remontée.
 LEFT  JOIN (
     SELECT POQ.ITMREF_0, POQ.PRHFCY_0,
-           SUM(POQ.QTYUOM_0 - POQ.RCPQTYSTU_0) AS PO_EN_COURS,
-           CONVERT(varchar(10), MIN(POQ.EXTRCPDAT_0), 23) AS DATE_COMMANDE_FOURNISSEUR
+           SUM(POQ.QTYUOM_0 - POQ.RCPQTYSTU_0) AS PO_EN_COURS
     FROM X3_LCS.PORDERQ POQ
     INNER JOIN X3_LCS.PORDER POH ON POQ.POHNUM_0 = POH.POHNUM_0
     WHERE POQ.LINCLEFLG_0 = 1 AND POH.BETFCY_0 <> 2
     GROUP BY POQ.ITMREF_0, POQ.PRHFCY_0
 ) PO ON PO.ITMREF_0 = SOQ.ITMREF_0 AND PO.PRHFCY_0 = SOH.STOFCY_0
--- Repli intersite : si aucune commande fournisseur directe n'a de date, on cherche
--- dans les transferts intersites en cours vers le site de la commande.
+-- Intersite : transferts en transit (QTE_EN_TRANSIT > 0) vers le site de la commande.
 LEFT  JOIN (
     SELECT ITMREF_0, SITE_RECEPTION,
-           CONVERT(varchar(10), MIN(EXTRCPDAT_0), 23) AS DATE_COMMANDE_FOURNISSEUR
+           CONVERT(varchar(10), MIN(EXTRCPDAT_0), 23) AS DATE_INTERSITE
     FROM MASTER_TABLES.COMMANDES_INTERSITES
+    WHERE QTE_EN_TRANSIT > 0
     GROUP BY ITMREF_0, SITE_RECEPTION
 ) CI ON CI.ITMREF_0 = SOQ.ITMREF_0 AND CI.SITE_RECEPTION = SOH.STOFCY_0
+-- Repli plan transport : ETA France (arrivée chez Logtex) la plus proche de l'article, passée ou non,
+-- toutes lignes du plan quel que soit leur statut de départ. Appliquée aux seules commandes du site
+-- WLOGM (Logtex). {{PLAN_TRANSPORT_TABLE}} est remplacé par le service : la table (suffixe _DEV en local) ou,
+-- si elle est absente / illisible, une source vide de mêmes colonnes (le backlog reste alors disponible,
+-- simplement sans les dates du plan).
+LEFT  JOIN (
+    SELECT PTS.ARTICLE_SKU, CONVERT(varchar(10), MIN(PTS.DATE_ETA_FRANCE), 23) AS DATE_ETA_FRANCE
+    FROM {{PLAN_TRANSPORT_TABLE}} PTS
+    GROUP BY PTS.ARTICLE_SKU
+) PT ON PT.ARTICLE_SKU = SOQ.ITMREF_0 AND SOH.STOFCY_0 = 'WLOGM'
 {{STOCK_JOINS}}
 
 WHERE

@@ -86,7 +86,7 @@
 
                     {# ----- Achats : PURCHASING, MANAGEMENT, CONTROLLING, ADMIN ----- #}
                     {% if isSuperUser or is_granted('ROLE_PURCHASING') %}
-                    <li class="treeview {% if currentRoute in ['app_backlog_fournisseur_x3', 'app_reception_fournisseur', 'app_sales_comptes_fournisseurs'] %}active{% endif %}">
+                    <li class="treeview {% if currentRoute in ['app_backlog_fournisseur_x3', 'app_reception_fournisseur', 'app_sales_comptes_fournisseurs', 'app_plan_transport_prevision'] %}active{% endif %}">
                         <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/purchase.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.menu.purchasing'|trans }}</span>
@@ -95,6 +95,7 @@
                         <ul class="treeview-menu">
                             {% if not is_stat_excluded('app_backlog_fournisseur_x3') %}<li class="{% if currentRoute == 'app_backlog_fournisseur_x3' %}active{% endif %}"><a href="{{ path('app_backlog_fournisseur_x3') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.backlog_fournisseur_x3'|trans }}</a></li>{% endif %}
                             {% if not is_stat_excluded('app_reception_fournisseur') %}<li class="{% if currentRoute == 'app_reception_fournisseur' %}active{% endif %}"><a href="{{ path('app_reception_fournisseur') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.reception_fournisseur'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_plan_transport_prevision') %}<li class="{% if currentRoute == 'app_plan_transport_prevision' %}active{% endif %}"><a href="{{ path('app_plan_transport_prevision') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.plan_transport_prevision'|trans|nl2br }}</a></li>{% endif %}
                             {% if not is_stat_excluded('app_sales_comptes_fournisseurs') %}<li class="{% if currentRoute == 'app_sales_comptes_fournisseurs' %}active{% endif %}"><a href="{{ path('app_sales_comptes_fournisseurs') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.purchase.comptes_fournisseurs'|trans }}</a></li>{% endif %}
                         </ul>
                     </li>
