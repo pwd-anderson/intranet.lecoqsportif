@@ -88,4 +88,5 @@ sidebar:
         livraisons: "Delivery Tracking"
     modules:
         distributor_availability: "Distributor Availability"
+        oc: "Commercial offers"
         arrivals_logtex: "Arrivées Logtex"

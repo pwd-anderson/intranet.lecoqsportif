@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{# Module OC — détail d'une offre (lecture seule), version visuelle v0 : données factices. #}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .oc-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; color: #fff; }
+        .oc-badge.draft { background: #6c757d; }
+        .oc-badge.submitted { background: #e0a100; }
+        .oc-badge.validated { background: #1d8ed6; }
+        .oc-badge.rejected { background: #c8102e; }
+        .oc-badge.sent_to_x3 { background: #0f7b3d; }
+        .oc-dl dt { color: #6b7683; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+        .oc-dl dd { margin-bottom: 12px; }
+    </style>
+{% endblock %}
+
+{% block body %}
+    {% set status = offer.status %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+                    <div class="box-header with-border d-md-flex align-items-center justify-content-between">
+                        <h4 class="box-title">OC {{ offer.number }}
+                            <span class="oc-badge {{ status.value }} ms-2">{{ status.label }}</span>
+                            <span class="badge bg-warning text-dark ms-2" title="Données de démonstration">Version visuelle</span>
+                        </h4>
+                        <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                            <a href="{{ path('app_oc_index') }}" class="btn btn-sm btn-outline-secondary">Retour à la liste</a>
+                            {% if status.value == 'submitted' %}
+                                {# Validation : head commercial (même règle que SOA) — contrôle d'accès réel à brancher #}
+                                <button type="button" class="btn btn-sm btn-danger" disabled>Rejeter</button>
+                                <button type="button" class="btn btn-sm btn-success" disabled>Valider</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="box-body">
+                        <dl class="row oc-dl">
+                            <div class="col-md-3"><dt>Type</dt><dd>{{ offer.type }}</dd></div>
+                            <div class="col-md-3"><dt>Créée par</dt><dd>{{ offer.createdBy }} le {{ offer.createdAt }}</dd></div>
+                            <div class="col-md-3"><dt>Début de validité</dt><dd>{{ offer.startDate }}</dd></div>
+                            <div class="col-md-3"><dt>Fin de validité</dt><dd>{{ offer.endDate }}</dd></div>
+                            <div class="col-12"><dt>Client(s)</dt><dd>{{ offer.customers|join(' · ') }}</dd></div>
+                            <div class="col-12"><dt>Commentaire</dt><dd>{{ offer.comment }}</dd></div>
+                        </dl>
+
+                        <h5 class="mt-3">Historique</h5>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light"><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Motif</th></tr></thead>
+                            <tbody>
+                            {% for h in offer.history %}
+                                <tr><td>{{ h.date }}</td><td>{{ h.user }}</td><td>{{ h.action }}</td><td>{{ h.reason ?? '—' }}</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}

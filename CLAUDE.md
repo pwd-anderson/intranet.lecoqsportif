@@ -273,6 +273,83 @@ La date des commandes fournisseur (`PORDERQ`, ancien premier choix) **n'entre pl
 - **Mesures (dev, 2026-10-08, site WLOGM : 154 505 lignes de backlog)** : ancienne règle 110 329 lignes avec date ; nouvelle règle **116 539** (8 341 via l'intersite, le reste via le plan). Table absente : 154 505 lignes, 8 341 avec date, aucune erreur. Page par défaut inchangée (1,0 s) ; tri + filtre sur la date : 7,3 s → 11,2 s.
 
 **À faire / en attente.** Planifier le cron quotidien (`app:import-plan-transport`) ; charger le script `plan_transport_prevision.sql` (MySQL) et le DDL (SEI) en préprod/prod ; vérifier l'affichage du Backlog Client à l'écran ; nom de fichier logique côté métier.
+### Module OC (Offres Commerciales) — branche `oc`
+
+**Module critique pour la société : toute évolution doit être documentée ici (requêtes, calculs, décisions).** Pour répondre à « quelle requête est lancée, quel est le calcul ? », partir des tableaux ci-dessous.
+
+**But.** Un commercial crée une OC (tarif) pour un client et un ou plusieurs articles ; une seule validation (head commercial, comme SOA) ; après validation, le module génère et envoie des flux XML à X3 : **Création** (aucun tarif spé existant pour même client + article + collection) ou **Modification** (un tarif spé existe déjà). V1 = uniquement « Tarif Spé » ; l'architecture doit permettre d'ajouter Référentiel / Devis / Remise sans refonte. L'ancien module (Screeneo, `/Users/ajacob/Sites/intranet.screeneo.local.v12/src/Controller/Sales/Oc`) n'est qu'une **référence métier**, pas à copier (SQL concaténé, logique dupliquée 4×, utilisateurs codés en dur).
+
+**État (2026-10-08) : v0 visuelle + lectures X3 branchées. Rien n'est encore enregistré en base, aucun flux n'est envoyé.** Branche `oc` (depuis `dev`), non mergée.
+
+#### Fichiers
+
+| Rôle | Fichier |
+|---|---|
+| Contrôleur (pages + API JSON) | `src/Controller/Module/OcController.php` (accès : ROLE_SALES, ROLE_MANAGEMENT, ROLE_CONTROLLING, ROLE_ADMIN) |
+| Lectures X3 (service) | `src/Service/Oc/OcX3Lookup.php` — erreurs : `GraphMailer::notifyError` + log |
+| Statuts | `src/Service/Oc/OcStatus.php` (enum : draft, submitted, validated, rejected, sent_to_x3) |
+| Données factices (à supprimer) | `src/Service/Oc/OcDemoData.php` — sert encore à la liste et au détail |
+| SQL | `src/Infrastructure/Sql/Sei/oc_customer_search.sql`, `oc_article_search.sql`, `oc_customer_discount.sql`, `oc_article_prices.sql` |
+| Pages | `templates/oc/index.html.twig` (liste AG Grid), `new.html.twig` (saisie + tout le JS), `show.html.twig` (détail), `_import_modal.html.twig` (modal d'import, non branché) |
+| Menu / droits | `templates/partials/_sidebar.html.twig` (Modules), clé `app_oc_index` dans `StatRegistry`, traduction `sidebar.stat.modules.oc` |
+
+Toutes les lectures X3 passent par la connexion `lcs_sei` (cube SEI) mais interrogent le schéma **`X3_LCS`** (tables transactionnelles X3).
+
+#### Requêtes lancées (une par action utilisateur)
+
+| Quand | Route (GET) | Méthode du service | SQL | Paramètres | Renvoie |
+|---|---|---|---|---|---|
+| Frappe dans « Client » (≥ 2 car., délai 300 ms) | `/oc/api/customers?q=` | `searchCustomers` | `oc_customer_search.sql` | `:q_code`, `:q_name` = `%saisie%` en majuscules (jokers LIKE neutralisés) | 20 clients max : code, nom, devise, ville, pays. Clients actifs (`BPCSTA_0 > 1`), **une seule adresse par client** (défaut en priorité). Même critères que la recherche client du projet RMA |
+| Choix du client | `/oc/api/customers/{code}/discount` | `getCustomerDiscount` | `oc_customer_discount.sql` | `:code` | Remise client en % (`SPRICLIST`, `PLI_0='REMCLI'`, `DCGVAL_0`) + dates de validité. Aucun filtre de date (toutes les REMCLI sont valables du 2027-01-01 au 2050-12-31) |
+| Frappe dans « Articles » (≥ 2 car.) | `/oc/api/articles?q=` | `searchArticles` | `oc_article_search.sql` | `:q_ref`, `:q_des` | 20 articles max : code + désignation (`ITMMASTER`). **Articles parents uniquement** : le variant est le suffixe de `ITMREF_0` après `_` (`<parent>_<variant>`) → on garde `CHARINDEX('_', ITMREF_0) = 0` |
+| Ajout d'un article (client choisi) ou d'un client (articles déjà là) | `/oc/api/prices?customer=&article=` | `getArticlePrices` | `oc_article_prices.sql` | `:customer`, `:article`, `:article_cr` | Collection, **Code tarif**, devise, **Tarif**, **MSRP** (voir ci-dessous) |
+
+**`oc_article_prices.sql` en détail** (colonnes « Code tarif », « Tarif », « MSRP » du tableau de saisie) :
+- **Collection** = la plus récente de l'article : CTE `CollectionRecente` (`YITMCOLLECT` ⨝ `YCOLLECTION`, tri `YDATDEB_0 DESC`, `ROW_NUMBER() = 1`, lignes `ZITMCOL.ZDROPPED_0 = 2` exclues). **Même règle partout dans l'intranet.**
+- **Code tarif** = groupe tarifaire du client = `BPCUSTOMER.TSCCOD_0` (ex. `WSPEUR`). **Devise** = `BPCUSTOMER.CUR_0`.
+- **Tarif** = `SPRICLIST.PRI_0` où `PLICRI1_0 = TSCCOD_0 du client`, `PLICRI2_0 = collection`, `PLICRI3_0 = ITMMASTER.ZMODELCOD_0` (modèle de l'article).
+- **MSRP** = même lecture avec `PLICRI1_0 = 'CSEU'` (groupe constant).
+- Aucun filtre sur `PLI_0` : T10 et T11 n'ont aucune clé commune (vérifié). 619 clés sur 104 137 (0,6 %) ont plusieurs lignes à prix différents à dates identiques : le `TOP 1` est rendu **déterministe** par `ORDER BY PLIENDDAT_0 DESC, PLISTRDAT_0 DESC, PLILIN_0 DESC` (ajout par rapport à la requête fournie). Si aucune ligne n'existe pour ce groupe/collection/modèle → Tarif `NULL`, affiché « — ».
+- Pour rejouer à la main dans SSMS : remplacer les paramètres par des `DECLARE @customer`, `@article` (le fichier SQL est la requête exacte).
+- Vérifié en direct : client 21451 / article 1511960 → WSPEUR, tarif 37,5, MSRP 75 ; 2210037 → 19,5 / 39 ; 2121416 → tarif NULL, MSRP 40.
+
+**Particularités des données LCS (vérifiées en direct le 2026-10-07/08).** `ITMMASTER` : 131 090 lignes, dont 10 796 parents (sans `_`) et 120 294 variants ; `ITMSTA_0 = 1` partout (aucun filtre de statut utile). `SPRICLIST` : types `T10` (groupe tarifaire × collection × modèle, 85 042 l.), `T11` (20 499 l., contient les `CSEU`), `R11`/`R12` (remises client), `REMCLI` (520 l., une par client). Il n'existe **pas** de type `7TSPEC` chez LCS.
+
+#### Calculs (côté navigateur, `new.html.twig`)
+
+- **Marge** (reprise de la fonction `calcul()` de l'ancien module, **sans markup ni triple net**) :
+  `PV net HT = MSRP × 100 / (100 + TVA)` puis `marge % = (PV net HT − tarif OC) / PV net HT × 100`, arrondie à 2 décimales.
+  Bidirectionnel : si l'utilisateur saisit une marge, `tarif OC = PV net HT − marge × PV net HT / 100`. Vérifié sur la capture de l'ancien écran : PVC 99,99, TVA 20 %, prix 59,25 → 28,89 %.
+  **⚠ La TVA est un placeholder fixé à 20 % (`DEFAULT_TVA`) et le MSRP est traité comme TTC : la marge est INDICATIVE tant que le métier n'a pas confirmé si le MSRP est HT ou TTC (question ouverte).**
+- **MSRP** : proposé dans le champ (modifiable) tant que l'utilisateur ne l'a pas saisi (`pvcTouched`).
+- **Remise client** : affichée en lecture seule (« Aucune » si pas de REMCLI). **Elle n'entre pas dans le calcul de la marge** (question ouverte : le tarif OC est-il avant ou après remise ? piste : tarif = prix net / (1 − remise), comme l'ancien « prix injecté »).
+- **Dates** : début = aujourd'hui, fin = début + 1 an (par défaut, modifiables). Le message « clôturé au… » = date de début − 1 jour.
+- **Numéro d'OC** (aujourd'hui seulement un aperçu aléatoire en JS ; à générer côté serveur) : `OC` + `AAAAMM` + code client + 8 chiffres aléatoires.
+- **Photo** : même règle que les stats (`excess_for_sales`) : `https://www.lecoqsportif.com/cdn/shop/files/<article>_2.webp`, puis `_new_1.webp`, `_1.webp`, `_2.jpg`, `_new_1.jpg`, `_1.jpg`, puis route `lecoqsportif_image_lookup`, puis `no-image.png`.
+
+#### Règles métier décidées
+
+- Un client par OC pour l'instant (la **sélection multi-clients et le raccourci « appliquer le tarif à tous » ont été retirés à la demande de l'utilisateur, qui y reviendra** ; le JS garde `state.customers` en tableau pour les réactiver).
+- Pas de TAR, pas de markup, pas de triple net, pas de mail ni PDF client (circuit interne uniquement). On garde : remise client, quantité min/max (défauts 0 et 999999), commentaire (modal pour l'OC, zone de texte par ligne), dates.
+- Une seule validation : head commercial (même règle que SOA). Création réservée à ROLE_SALES.
+- **Création vs Modification** : si un tarif spé existe déjà pour client + article + collection, on **clôture l'existant avec une date de fin = début de la nouvelle − 1 jour (flux `WSUPD7TSPE`) puis on envoie la création (`WSCRESPL`)** → 2 flux. Sinon seulement `WSCRESPL`. Mêmes noms de webservices que l'ancien module.
+- Blocage de création si une OC **soumise** OU **validée mais pas encore envoyée à X3** existe déjà pour le même client + article, avec **deux messages d'info bien distincts** (déjà maquetté : bleu = tarif existant qui sera clôturé, rouge = OC en attente, orange = OC validée non envoyée).
+- Import Excel/CSV (plusieurs articles pour le client choisi) : bouton disponible **uniquement quand le client est choisi** ; modal prête, **traitement du fichier à faire**.
+- Bouton « × » par ligne : retire l'article pour ce client.
+
+#### Pas encore fait / questions métier ouvertes
+
+- **Type de tarif « Tarif Spé » chez LCS** (aucun `7TSPEC`) → bloque la détection de l'existant (Création/Modification), le blocage doublon, et les flux. Requête de détection de l'ancien module (à adapter) : lignes `SPRICLIST` du client + article, `PLIENDDAT_0 >= aujourd'hui`, avec le filtre `PLI_0` (que l'ancien code oubliait).
+- Le MSRP est-il HT ou TTC ? Source de la TVA ? (calcul de la marge)
+- Tarif OC avant ou après remise client ? Comportement avant le 2027-01-01 (début de toutes les REMCLI) pour une OC qui démarre plus tôt.
+- Persistance (entités OC + lignes + historique avec motif de rejet), workflow (`OcStatus`), génération/envoi XML via `SalesWebService` + `SageX3Client` + `XmlBuilder`, commande d'envoi avec tentatives bornées, mails internes, numérotation côté serveur, remplacement de `OcDemoData`, tests unitaires (décision Création/Modification, XML).
+- Stock affiché dans le tableau : non branché.
+
+#### Pièges déjà rencontrés
+
+- Le champ de recherche (datalist) déclenche un nouvel événement `input` quand on choisit une valeur : ne **jamais** relancer de recherche sur un libellé « code - nom » exact (sinon la liste mémorisée est écrasée par un résultat vide et « Ajouter » échoue). Le code mémorise `customerResults` / `articleResults`.
+- Les anciens codes clients Screeneo (ex. `0033911801`) n'existent pas chez LCS ; clients de test utiles : `21451` (DECATHLON / MP, groupe `WSPEUR`, pas de REMCLI), `10012` (REMCLI 13 %), `20548` (T2 SPORT SAS, `WSPEUR`).
+- `MssqlManager::executeQueryWithParams` avale les erreurs SQL (renvoie `[]`) : en cas de résultat vide inattendu, rejouer la requête en PDO direct pour voir le message. Une requête exploratoire trop lourde peut couper la connexion du cube (« Unexpected EOF ») et faire échouer les suivantes.
 
 ### Backlog Clients — lignes d'articles droppés en rouge clair (2026-10-14, affichage seulement)
 

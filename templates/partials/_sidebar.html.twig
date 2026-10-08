@@ -200,6 +200,16 @@
                     </li>
                     {% endif %}
 
+                    {# Offres commerciales (OC) : SALES + superusers #}
+                    {% if (isSuperUser or is_granted('ROLE_SALES')) and not is_stat_excluded('app_oc_index') %}
+                    <li class="{% if currentRoute in ['app_oc_index', 'app_oc_new', 'app_oc_show'] %}active{% endif %}">
+                        <a href="{{ path('app_oc_index') }}">
+                            <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
+                            <span>{{ 'sidebar.stat.modules.oc'|trans }}</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
                     {# Import OD : ACCOUNTING, CONTROLLING, MANAGEMENT, ADMIN #}
                     {% if (isSuperUser or is_granted('ROLE_ACCOUNTING')) and not is_stat_excluded('module_import_od') %}
                     <li class="{% if currentRoute == 'app_module_import_od' %}active{% endif %}">

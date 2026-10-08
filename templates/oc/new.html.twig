@@ -1,0 +1,557 @@
+{% extends 'base.html.twig' %}
+
+{#
+  Module OC — nouvelle offre (Tarif Spé), version visuelle v0 : données factices (OcDemoData),
+  rien n'est enregistré. Le tarif est saisi par le commercial ; la marge s'affiche à côté et
+  se recalcule en JS (formule reprise de l'ancien module, sans markup ni triple net) :
+    PV net HT = PVC TTC * 100 / (100 + TVA)
+    marge %   = (PV net HT - tarif) / PV net HT * 100
+  Les 3 messages d'avertissement (existant / OC soumise / OC validée non envoyée) sont distincts.
+#}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        /* Champs de recherche client et article : même largeur, boutons de même largeur. */
+        .oc-search { width: 560px; max-width: 100%; flex-wrap: nowrap; }
+        .oc-search .btn { min-width: 140px; }
+        .oc-chip { display: inline-flex; align-items: center; gap: 6px; background: #eef6fd; border: 1px solid #b9d9f5; color: #172b4c; border-radius: 16px; padding: 3px 4px 3px 12px; margin: 0 6px 6px 0; font-size: 13px; }
+        .oc-chip button { border: 0; background: #d3e7f9; border-radius: 50%; width: 20px; height: 20px; line-height: 18px; padding: 0; cursor: pointer; color: #172b4c; }
+        .oc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .oc-table th { background: #34495e; color: #fff; text-align: center; vertical-align: middle; padding: 8px 6px; font-size: 12px; text-transform: uppercase; }
+        .oc-table th.oc-th-green { background: #43a047; }
+        .oc-table td { padding: 8px 6px; border-bottom: 1px solid #e3e6ea; vertical-align: middle; text-align: center; }
+        .oc-table td.oc-td-green { background: #e2f1e3; }
+        .oc-table td.left { text-align: left; }
+        .oc-table input.form-control { min-width: 70px; text-align: right; }
+        .oc-table textarea.oc-comment { min-width: 220px; text-align: left; resize: vertical; }
+        /* Photo article : même règle que les stats (excess for sales...) — image par défaut si aucune photo trouvée. */
+        .oc-photo { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; margin: 0 auto; line-height: 0; overflow: hidden; }
+        .oc-photo img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 4px; }
+        .oc-photo img:not([src]) { width: 64px; height: 64px; background: url('/assets/images/no-image.png') center / contain no-repeat; }
+        .oc-client-title { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+        .oc-warn { display: block; text-align: left; font-size: 12px; padding: 4px 10px; border-radius: 4px; margin: 2px 0; }
+        .oc-warn.existing { background: #e6f2fc; color: #0b5394; }
+        .oc-warn.pending { background: #fdeaec; color: #a50e26; font-weight: 600; }
+        .oc-warn.unsent { background: #fdf2dc; color: #8a5500; font-weight: 600; }
+        tr.oc-blocked td { background: #fff7f7; }
+        .oc-empty { color: #6b7683; padding: 18px; text-align: center; }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <section class="content">
+        <div class="row">
+            <div class="col-12">
+                <div class="box">
+                    <div class="box-header with-border d-md-flex align-items-center justify-content-between">
+                        <h4 class="box-title">Nouvelle offre commerciale — Tarif Spé
+                            <span class="badge bg-warning text-dark ms-2" title="Données de démonstration, rien n'est enregistré">Version visuelle</span>
+                        </h4>
+                        <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                            <a href="{{ path('app_oc_index') }}" class="btn btn-sm btn-outline-secondary">Retour à la liste</a>
+                            <button type="button" id="btnDraft" class="btn btn-sm btn-secondary">Enregistrer le brouillon</button>
+                            <button type="button" id="btnSubmit" class="btn btn-sm btn-primary" disabled>Soumettre pour validation</button>
+                        </div>
+                    </div>
+
+                    <div class="box-body">
+                        <div id="ocToast" class="alert alert-info py-2 d-none"></div>
+
+                        {# 1. Paramètres #}
+                        <div class="row g-3 mb-4 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Type d'offre</label>
+                                <select class="form-select" id="ocType">
+                                    <option value="tarif_spe" selected>Tarif Spé</option>
+                                    <option value="referentiel" disabled>Référentiel (bientôt)</option>
+                                    <option value="devis" disabled>Devis (bientôt)</option>
+                                    <option value="remise" disabled>Remise (bientôt)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-bold" for="ocStart">Début de validité</label>
+                                <input type="date" class="form-control" id="ocStart">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-bold" for="ocEnd">Fin de validité <span class="text-muted fw-normal">(1 an par défaut)</span></label>
+                                <input type="date" class="form-control" id="ocEnd">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold d-block">Commentaire</label>
+                                <button type="button" class="btn btn-primary" id="btnComment" data-bs-toggle="modal" data-bs-target="#ocCommentModal">Commentaire</button>
+                                <span class="text-muted small ms-2 d-none" id="ocCommentFlag">Commentaire renseigné</span>
+                            </div>
+                        </div>
+
+                        {# 2. Clients #}
+                        <div class="mb-4">
+                            <label class="form-label fw-bold" for="ocCustomerInput">Client</label>
+                            <div class="input-group oc-search mb-2">
+                                <input type="text" class="form-control" id="ocCustomerInput" list="ocCustomerList" placeholder="Code ou nom du client…" autocomplete="off">
+                                <button type="button" class="btn btn-primary" id="btnAddCustomer">Sélectionner</button>
+                            </div>
+                            <datalist id="ocCustomerList"></datalist>
+                            <div id="ocCustomerChips"></div>
+                        </div>
+
+                        {# 3. Articles : soit sélection d'un ou plusieurs articles, soit import d'un fichier (client(s) requis) #}
+                        <div class="mb-4">
+                            <label class="form-label fw-bold" for="ocArticleInput">Articles</label>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="input-group oc-search">
+                                    <input type="text" class="form-control" id="ocArticleInput" list="ocArticleList" placeholder="Code ou désignation de l'article…" autocomplete="off">
+                                    <button type="button" class="btn btn-primary" id="btnAddArticle">Ajouter</button>
+                                </div>
+                                <span class="text-muted">ou</span>
+                                <span id="ocImportWrap" title="Sélectionnez d'abord un client">
+                                    <button type="button" class="btn btn-primary" id="btnImport" data-bs-toggle="modal" data-bs-target="#ocImportModal" disabled>Importer un fichier (Excel/CSV)</button>
+                                </span>
+                            </div>
+                            <datalist id="ocArticleList"></datalist>
+                            <div class="form-text" id="ocImportHint">L'import est disponible une fois le client sélectionné.</div>
+                        </div>
+
+                        {# 4. Saisie des tarifs, un tableau par client #}
+                        <div id="ocTables"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# Modal du commentaire de l'OC (visible du valideur) #}
+        <div class="modal fade" id="ocCommentModal" tabindex="-1" aria-labelledby="ocCommentModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="ocCommentModalLabel">Commentaire de l'offre</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                    </div>
+                    <div class="modal-body">
+                        <textarea class="form-control" id="ocComment" rows="6" maxlength="500" placeholder="Contexte de l'offre (visible du valideur)"></textarea>
+                        <div class="form-text text-end"><span id="ocCommentCount">0</span>/500</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="button" class="btn btn-primary" id="btnCommentSave" data-bs-dismiss="modal">Enregistrer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{ include('oc/_import_modal.html.twig') }}
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const CUSTOMER_URL = '{{ path('app_oc_api_customers') }}';
+            const CUSTOMER_MIN_CHARS = 2;
+            const DISCOUNT_URL = '{{ path('app_oc_api_customer_discount', {code: 'CODE_PLACEHOLDER'}) }}';
+            const PRICES_URL = '{{ path('app_oc_api_prices') }}';
+            const ARTICLE_URL = '{{ path('app_oc_api_articles') }}';
+            // TVA : placeholder (20 %) tant que sa source n'est pas branchée (sert au calcul de la marge à partir du MSRP).
+            const DEFAULT_TVA = 20;
+            const PHOTO_BASE = 'https://www.lecoqsportif.com/cdn/shop/files/';
+            // Cascade de noms de fichiers devinés, puis recherche Shopify côté serveur (même règle que les stats).
+            const PHOTO_SUFFIXES = ['_2.webp', '_new_1.webp', '_1.webp', '_2.jpg', '_new_1.jpg', '_1.jpg'];
+            const PHOTO_LOOKUP_URL = '{{ path('lecoqsportif_image_lookup', {article: 'ARTICLE_PLACEHOLDER'}) }}';
+
+            // removed : lignes (client|article) supprimées individuellement ; l'article reste proposé aux autres clients.
+            const state = { customers: [], articles: [], lines: {}, numbers: {}, removed: {}, prices: {} };
+
+            const $ = function (id) { return document.getElementById(id); };
+            const esc = function (s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
+            const round = function (v, d) { return Number(Math.round(v + 'e' + d) + 'e-' + d); };
+            const num = function (s) { const n = parseFloat(String(s).replace(',', '.')); return isNaN(n) ? 0 : n; };
+            const fmt = function (n) { return Number.isFinite(n) ? String(n) : ''; };
+            const isoDate = function (d) { return d.toISOString().slice(0, 10); };
+
+            // Dates par défaut : début = aujourd'hui, fin = +1 an.
+            const today = new Date();
+            const nextYear = new Date(today); nextYear.setFullYear(today.getFullYear() + 1);
+            $('ocStart').value = isoDate(today);
+            $('ocEnd').value = isoDate(nextYear);
+
+            // Clients et articles viennent de X3 (recherche à la frappe, voir searchCustomers / searchArticles).
+
+            function toast(msg) {
+                const t = $('ocToast');
+                t.textContent = msg;
+                t.classList.remove('d-none');
+                setTimeout(function () { t.classList.add('d-none'); }, 4000);
+            }
+
+            // Numéro prévisionnel : OC + AAAAMM + code client + 8 chiffres aléatoires (démo ; généré côté serveur ensuite).
+            function previewNumber(customerCode) {
+                if (!state.numbers[customerCode]) {
+                    const ym = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0');
+                    state.numbers[customerCode] = 'OC' + ym + customerCode + String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
+                }
+                return state.numbers[customerCode];
+            }
+
+            // Photo : tente chaque suffixe, puis la recherche serveur, puis masque l'image (le fond "no-image" apparaît).
+            window.ocPhotoError = function (img) {
+                const step = parseInt(img.dataset.step || '0', 10);
+                const article = img.dataset.article;
+                if (step < PHOTO_SUFFIXES.length - 1) {
+                    img.dataset.step = String(step + 1);
+                    img.src = PHOTO_BASE + encodeURIComponent(article) + PHOTO_SUFFIXES[step + 1];
+                } else if (step === PHOTO_SUFFIXES.length - 1) {
+                    img.dataset.step = String(step + 1);
+                    fetch(PHOTO_LOOKUP_URL.replace('ARTICLE_PLACEHOLDER', encodeURIComponent(article)))
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) { if (d.success && d.url) { img.src = d.url; } else { img.removeAttribute('src'); } })
+                        .catch(function () { img.removeAttribute('src'); });
+                } else {
+                    img.onerror = null;
+                    img.removeAttribute('src');
+                }
+            };
+
+            function photoHtml(ref) {
+                return '<span class="oc-photo"><img alt="photo article" data-step="0" data-article="' + esc(ref) + '" src="'
+                    + PHOTO_BASE + encodeURIComponent(ref) + PHOTO_SUFFIXES[0] + '" onerror="ocPhotoError(this)"></span>';
+            }
+
+            // Code tarif (groupe tarifaire du client), tarif et MSRP : X3, collection la plus récente de l'article.
+            // state.prices[client|article] = { loading } puis { found, tariffCode, currency, tariff, msrp } ou { error }.
+            function loadPrices(c, a) {
+                const k = lineKey(c.code, a.ref);
+                if (state.prices[k]) return;
+                state.prices[k] = { loading: true };
+                fetch(PRICES_URL + '?customer=' + encodeURIComponent(c.code) + '&article=' + encodeURIComponent(a.ref), { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                    .then(function (d) {
+                        state.prices[k] = d;
+                        // MSRP proposé dans le champ (modifiable) tant que l'utilisateur ne l'a pas saisi lui-même.
+                        const line = ensureLine(c, a);
+                        if (d.msrp !== null && !line.pvcTouched) { line.pvc = String(d.msrp); }
+                        render();
+                    })
+                    .catch(function () { state.prices[k] = { error: true }; render(); });
+            }
+
+            function lineKey(c, a) { return c + '|' + a; }
+
+            function ensureLine(customer, article) {
+                const k = lineKey(customer.code, article.ref);
+                if (!state.lines[k]) {
+                    state.lines[k] = { price: '', margin: '', pvc: article.pvc, minQty: 0, maxQty: 999999, comment: '' };
+                }
+                return state.lines[k];
+            }
+
+            // ── Calcul de la marge (reprise de l'ancien calcul(), sans markup) ──
+            function pvNet(pvc, tva) { return (num(pvc) * 100) / (100 + tva); }
+
+            function onInput(customerCode, articleRef, field, value) {
+                const article = state.articles.find(function (a) { return a.ref === articleRef; });
+                const line = state.lines[lineKey(customerCode, articleRef)];
+                const net = pvNet(line.pvc, article.tva);
+                if (field === 'pvc') {
+                    line.pvc = value;
+                    line.pvcTouched = true;
+                    const n = pvNet(value, article.tva);
+                    if (num(line.price) && n) line.margin = fmt(round(((n - num(line.price)) / n) * 100, 2));
+                } else if (field === 'price') {
+                    line.price = value;
+                    line.margin = (value !== '' && net) ? fmt(round(((net - num(value)) / net) * 100, 2)) : '';
+                } else if (field === 'margin') {
+                    line.margin = value;
+                    line.price = (value !== '' && net) ? fmt(round(net - (num(value) * net) / 100, 2)) : '';
+                } else {
+                    line[field] = value;
+                }
+                // Mise à jour ciblée des champs liés (sans reconstruire le tableau : le focus est conservé).
+                const row = document.querySelector('tr[data-key="' + lineKey(customerCode, articleRef) + '"]');
+                if (row) {
+                    if (field !== 'price') row.querySelector('[data-f="price"]').value = line.price;
+                    if (field !== 'margin') row.querySelector('[data-f="margin"]').value = line.margin;
+                }
+            }
+
+            function priceText(p, field) {
+                if (p.loading || (!p.error && p.found === undefined)) return '…';
+                if (p.error) return 'Erreur';
+                const v = p[field];
+                return v === null || v === undefined || v === '' ? '—' : (typeof v === 'number' ? v.toFixed(2) : v);
+            }
+            function discountText(c) {
+                if (c.discount === undefined) return '…';
+                if (c.discountError) return 'Erreur';
+                return c.discount === null ? 'Aucune' : c.discount + ' %';
+            }
+            function discountTitle(c) {
+                if (c.discountError) return 'Remise client indisponible, réessayez';
+                if (c.discount === null || c.discount === undefined) return 'Remise client (REMCLI)';
+                return 'Remise client (REMCLI)' + (c.discountStart ? ', applicable à partir du ' + c.discountStart : '');
+            }
+
+            function warningHtml(article, customerCode) {
+                const w = article.warnings[customerCode];
+                if (!w) return '';
+                if (w.type === 'existing') {
+                    const start = new Date($('ocStart').value);
+                    start.setDate(start.getDate() - 1);
+                    return '<span class="oc-warn existing">Un tarif spé existe déjà (' + esc(w.ref) + ', fin ' + esc(w.endDate) + ') : il sera clôturé au ' + esc(isoDate(start)) + ' puis un nouveau tarif sera créé (2 flux X3).</span>';
+                }
+                if (w.type === 'pending') {
+                    return '<span class="oc-warn pending">OC en attente de validation (' + esc(w.ref) + ') pour ce client et cet article : création impossible tant qu\'elle n\'est pas traitée.</span>';
+                }
+                return '<span class="oc-warn unsent">OC validée mais pas encore envoyée à X3 (' + esc(w.ref) + ') : création impossible tant que le flux n\'est pas parti.</span>';
+            }
+
+            function isBlocked(article, customerCode) {
+                const w = article.warnings[customerCode];
+                return !!w && (w.type === 'pending' || w.type === 'unsent');
+            }
+
+            function render() {
+                // Chips
+                $('ocCustomerChips').innerHTML = state.customers.map(function (c) {
+                    return '<span class="oc-chip">' + esc(c.code + ' - ' + c.name) + (c.city ? ' · ' + esc(c.city) : '') + '<button type="button" data-rm-customer="' + esc(c.code) + '" aria-label="Retirer">×</button></span>';
+                }).join('');
+
+                // Un seul client par OC (la sélection multiple reviendra plus tard) : recherche bloquée une fois choisi.
+                $('ocCustomerInput').disabled = state.customers.length >= 1;
+                $('btnAddCustomer').disabled = state.customers.length >= 1;
+                $('ocCustomerInput').placeholder = state.customers.length ? 'Retirez le client pour en choisir un autre' : 'Code ou nom du client…';
+
+                // Import : disponible uniquement quand au moins un client est sélectionné.
+                const hasCustomer = state.customers.length > 0;
+                $('btnImport').disabled = !hasCustomer;
+                $('ocImportWrap').title = hasCustomer ? '' : 'Sélectionnez d\'abord un client';
+                $('ocImportHint').classList.toggle('d-none', hasCustomer);
+                const importClients = document.getElementById('ocImportClients');
+                if (importClients) {
+                    importClients.textContent = state.customers.map(function (c) { return c.code + ' - ' + c.name; }).join(' · ');
+                }
+
+                // Tableaux
+                if (!state.customers.length || !state.articles.length) {
+                    $('ocTables').innerHTML = '<div class="oc-empty">Sélectionnez un client et ajoutez au moins un article pour saisir les tarifs.</div>';
+                    $('btnSubmit').disabled = true;
+                    return;
+                }
+                let anyBlocked = false;
+                $('ocTables').innerHTML = state.customers.map(function (c) {
+                    const visible = state.articles.filter(function (a) { return !state.removed[lineKey(c.code, a.ref)]; });
+                    const rows = visible.map(function (a) {
+                        const l = ensureLine(c, a);
+                        const p = state.prices[lineKey(c.code, a.ref)] || {};
+                        const blocked = isBlocked(a, c.code);
+                        if (blocked) anyBlocked = true;
+                        return '<tr data-key="' + esc(lineKey(c.code, a.ref)) + '" class="' + (blocked ? 'oc-blocked' : '') + '">'
+                            + '<td>' + photoHtml(a.ref) + '</td>'
+                            + '<td class="left"><strong>' + esc(a.ref) + '</strong><br>' + esc(a.label) + '</td>'
+                            + '<td>' + esc(p.currency || c.currency) + '</td>'
+                            + '<td>' + esc(priceText(p, 'tariffCode')) + '</td>'
+                            + '<td>' + esc(priceText(p, 'tariff')) + '</td>'
+                            + '<td title="' + esc(discountTitle(c)) + '">' + esc(discountText(c)) + '</td>'
+                            + '<td><input class="form-control form-control-sm" data-f="pvc" value="' + esc(l.pvc) + '" inputmode="decimal"></td>'
+                            + '<td class="oc-td-green"><input class="form-control form-control-sm" data-f="price" value="' + esc(l.price) + '" inputmode="decimal" placeholder="Tarif">'+ '</td>'
+                            + '<td class="oc-td-green"><input class="form-control form-control-sm" data-f="margin" value="' + esc(l.margin) + '" inputmode="decimal" placeholder="% marge"></td>'
+                            + '<td><input class="form-control form-control-sm" data-f="minQty" value="' + esc(l.minQty) + '" inputmode="numeric"></td>'
+                            + '<td><input class="form-control form-control-sm" data-f="maxQty" value="' + esc(l.maxQty) + '" inputmode="numeric"></td>'
+                            + '<td><textarea class="form-control form-control-sm oc-comment" data-f="comment" rows="2" maxlength="500">' + esc(l.comment) + '</textarea></td>'
+                            + '<td><button type="button" class="btn btn-sm btn-danger" data-rm-line="' + esc(lineKey(c.code, a.ref)) + '" title="Supprimer cet article pour ce client" aria-label="Supprimer la ligne">×</button></td>'
+                            + '</tr>'
+                            + (a.warnings[c.code] ? '<tr><td colspan="13" style="padding:0 6px 6px">' + warningHtml(a, c.code) + '</td></tr>' : '');
+                    }).join('');
+                    return '<div class="mb-4" data-customer="' + esc(c.code) + '">'
+                        + '<div class="oc-client-title"><h5 class="mb-2">Liste des produits pour le client ' + esc(c.code + ' - ' + c.name) + '</h5>'
+                        + '<span class="text-muted small">N° prévisionnel : ' + esc(previewNumber(c.code)) + '</span></div>'
+                        + '<div class="table-responsive"><table class="oc-table"><thead><tr>'
+                        + '<th>Photo</th><th>Produit</th><th>Devise</th><th>Code tarif</th><th>Tarif</th><th>Remise client</th><th>MSRP</th>'
+                        + '<th class="oc-th-green">Tarif OC</th><th class="oc-th-green">Marge souhaitée (%)</th><th>Qté min</th><th>Qté max</th><th>Commentaire</th><th></th>'
+                        + '</tr></thead><tbody>' + (rows || '<tr><td colspan="13" class="oc-empty">Aucun article pour ce client.</td></tr>') + '</tbody></table></div></div>';
+                }).join('');
+                $('btnSubmit').disabled = anyBlocked;
+                $('btnSubmit').title = anyBlocked ? 'Une ou plusieurs lignes sont bloquées par une OC existante' : '';
+            }
+
+            // ── Clients : recherche X3 (code ou nom), debounce 300 ms ──
+            const customerLabel = function (c) { return c.code + ' - ' + c.name; };
+            let customerResults = [];
+            let customerTimer = null;
+            let customerSeq = 0;
+
+            function searchCustomers(text) {
+                const q = text.trim();
+                if (q.length < CUSTOMER_MIN_CHARS) { return Promise.resolve([]); }
+                const seq = ++customerSeq;
+                return fetch(CUSTOMER_URL + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                    .then(function (rows) {
+                        const list = rows.map(function (r) {
+                            return { code: r.CODE_CLIENT, name: r.NOM_CLIENT, currency: r.DEVISE, city: r.VILLE, country: r.PAYS };
+                        });
+                        if (seq === customerSeq) {
+                            customerResults = list;
+                            $('ocCustomerList').innerHTML = list.map(function (c) { return '<option value="' + esc(customerLabel(c)) + '">'; }).join('');
+                        }
+                        return list;
+                    });
+            }
+
+            $('ocCustomerInput').addEventListener('input', function () {
+                clearTimeout(customerTimer);
+                const v = this.value;
+                // Choix dans la liste : la saisie est un libellé déjà proposé, inutile (et nocif) de relancer une recherche.
+                if (exactCustomer(v, customerResults)) { return; }
+                customerTimer = setTimeout(function () {
+                    searchCustomers(v).catch(function () { toast('Recherche client indisponible, réessayez.'); });
+                }, 300);
+            });
+
+            // Retourne le client correspondant à la saisie : libellé exact de la liste, code exact,
+            // ou résultat unique. Sinon null (ambigu ou introuvable).
+            function exactCustomer(text, list) {
+                const t = text.trim().toLowerCase();
+                return list.find(function (c) { return customerLabel(c).toLowerCase() === t || c.code.toLowerCase() === t; }) || null;
+            }
+
+            // ── Articles parents : recherche X3 (code ou désignation), debounce 300 ms ──
+            const articleLabel = function (a) { return a.ref + ' - ' + a.label; };
+            let articleResults = [];
+            let articleTimer = null;
+            let articleSeq = 0;
+
+            function searchArticles(text) {
+                const q = text.trim();
+                if (q.length < CUSTOMER_MIN_CHARS) { return Promise.resolve([]); }
+                const seq = ++articleSeq;
+                return fetch(ARTICLE_URL + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                    .then(function (rows) {
+                        const list = rows.map(function (r) {
+                            return { ref: r.ARTICLE, label: r.DESIGNATION || '', tva: DEFAULT_TVA, warnings: {} };
+                        });
+                        if (seq === articleSeq) {
+                            articleResults = list;
+                            $('ocArticleList').innerHTML = list.map(function (a) { return '<option value="' + esc(articleLabel(a)) + '">'; }).join('');
+                        }
+                        return list;
+                    });
+            }
+
+            $('ocArticleInput').addEventListener('input', function () {
+                clearTimeout(articleTimer);
+                const v = this.value;
+                if (exactArticle(v, articleResults)) { return; }
+                articleTimer = setTimeout(function () {
+                    searchArticles(v).catch(function () { toast('Recherche article indisponible, réessayez.'); });
+                }, 300);
+            });
+
+            function exactArticle(text, list) {
+                const t = text.trim().toLowerCase();
+                return list.find(function (a) { return articleLabel(a).toLowerCase() === t || a.ref.toLowerCase() === t; }) || null;
+            }
+
+            // Ajout : la valeur choisie dans la liste (libellé "code - nom") est reprise telle quelle depuis
+            // les derniers résultats ; sinon on cherche avec la saisie (code exact ou résultat unique).
+            // "code - libellé" -> "code" (un libellé complet ne correspond à aucun code ni nom en base).
+            function codePart(text) {
+                const i = text.indexOf(' - ');
+                return i > 0 ? text.slice(0, i) : text;
+            }
+
+            // Remise client (REMCLI) : chargée une fois à l'ajout du client. undefined = en cours, null = aucune.
+            function loadDiscount(c) {
+                fetch(DISCOUNT_URL.replace('CODE_PLACEHOLDER', encodeURIComponent(c.code)), { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                    .then(function (d) { c.discount = d.discount; c.discountStart = d.startDate; render(); })
+                    .catch(function () { c.discount = null; c.discountError = true; render(); });
+            }
+
+            function addCustomer(c) {
+                if (!state.customers.some(function (x) { return x.code === c.code; })) {
+                    state.customers.push(c);
+                    loadDiscount(c);
+                    state.articles.forEach(function (a) { loadPrices(c, a); });
+                }
+                $('ocCustomerInput').value = '';
+                render();
+            }
+            function addArticle(a) {
+                state.customers.forEach(function (c) { delete state.removed[lineKey(c.code, a.ref)]; });
+                if (!state.articles.some(function (x) { return x.ref === a.ref; })) state.articles.push(a);
+                state.customers.forEach(function (c) { loadPrices(c, a); });
+                $('ocArticleInput').value = '';
+                render();
+            }
+
+            $('btnAddCustomer').addEventListener('click', function () {
+                const text = $('ocCustomerInput').value;
+                const cached = exactCustomer(text, customerResults);
+                if (cached) { addCustomer(cached); return; }
+                searchCustomers(codePart(text)).then(function (list) {
+                    if (!list.length) { toast('Client introuvable (2 caractères minimum, code ou nom).'); return; }
+                    const c = exactCustomer(text, list) || (list.length === 1 ? list[0] : null);
+                    if (!c) { toast('Plusieurs clients correspondent : choisissez-en un dans la liste.'); return; }
+                    addCustomer(c);
+                }).catch(function () { toast('Recherche client indisponible, réessayez.'); });
+            });
+            $('btnAddArticle').addEventListener('click', function () {
+                const text = $('ocArticleInput').value;
+                const cached = exactArticle(text, articleResults);
+                if (cached) { addArticle(cached); return; }
+                searchArticles(codePart(text)).then(function (list) {
+                    if (!list.length) { toast('Article introuvable (2 caractères minimum, code ou désignation).'); return; }
+                    const a = exactArticle(text, list) || (list.length === 1 ? list[0] : null);
+                    if (!a) { toast('Plusieurs articles correspondent : choisissez-en un dans la liste.'); return; }
+                    addArticle(a);
+                }).catch(function () { toast('Recherche article indisponible, réessayez.'); });
+            });
+            ['ocCustomerInput', 'ocArticleInput'].forEach(function (id) {
+                $(id).addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); $(id === 'ocCustomerInput' ? 'btnAddCustomer' : 'btnAddArticle').click(); }
+                });
+            });
+
+            document.addEventListener('click', function (e) {
+                const rc = e.target.getAttribute && e.target.getAttribute('data-rm-customer');
+                const rl = e.target.getAttribute && e.target.getAttribute('data-rm-line');
+                if (rl) {
+                    state.removed[rl] = true;
+                    const ref = rl.split('|')[1];
+                    // Plus aucun client n'utilise cet article : on le retire aussi de la liste des articles.
+                    if (state.customers.every(function (c) { return state.removed[lineKey(c.code, ref)]; })) {
+                        state.articles = state.articles.filter(function (a) { return a.ref !== ref; });
+                    }
+                    render();
+                }
+                if (rc) { state.customers = state.customers.filter(function (c) { return c.code !== rc; }); render(); }
+            });
+
+            $('ocTables').addEventListener('input', function (e) {
+                const f = e.target.getAttribute('data-f');
+                if (!f) return;
+                const row = e.target.closest('tr');
+                const key = row.getAttribute('data-key').split('|');
+                onInput(key[0], key[1], f, e.target.value);
+            });
+            // Le message "clôturé au …" dépend de la date de début.
+            $('ocStart').addEventListener('change', render);
+
+            // Commentaire de l'OC : saisi dans un modal ; "Annuler" restaure la dernière valeur enregistrée.
+            let savedComment = '';
+            const commentBox = $('ocComment');
+            const refreshCommentUi = function () {
+                $('ocCommentCount').textContent = commentBox.value.length;
+                $('ocCommentFlag').classList.toggle('d-none', savedComment.trim() === '');
+            };
+            commentBox.addEventListener('input', refreshCommentUi);
+            $('ocCommentModal').addEventListener('show.bs.modal', function () { commentBox.value = savedComment; refreshCommentUi(); });
+            $('btnCommentSave').addEventListener('click', function () { savedComment = commentBox.value.trim(); refreshCommentUi(); });
+
+            $('btnDraft').addEventListener('click', function () { toast('Version visuelle : l\'enregistrement n\'est pas encore branché.'); });
+            $('btnSubmit').addEventListener('click', function () { toast('Version visuelle : la soumission n\'est pas encore branchée.'); });
+
+            render();
+        });
+    </script>
+{% endblock %}
