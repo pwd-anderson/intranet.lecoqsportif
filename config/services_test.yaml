@@ -1,0 +1,10 @@
+# Services remplaçables dans les tests fonctionnels (static::getContainer()->set(...)).
+# Un service privé utilisé par un seul autre service est « inliné » à la compilation et ne peut plus être
+# remplacé : sans cette déclaration, un test qui croit simuler X3 interroge en réalité le vrai cube.
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Service\Sales:
+        public: true

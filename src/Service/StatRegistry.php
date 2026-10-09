@@ -33,6 +33,7 @@ final class StatRegistry
             'app_sales_backlog_clients_v3'                => ['section' => 'ADV',     'label' => 'Backlog Clients',                   'roles' => ['ROLE_ADV']],
             'app_sales_commandes_a_facturer_x3'           => ['section' => 'ADV',     'label' => 'Commandes à facturer X3',           'roles' => ['ROLE_ADV']],
             'app_sales_etat_commandes_clients_x3'         => ['section' => 'ADV',     'label' => 'État des commandes clients',        'roles' => ['ROLE_ADV']],
+            'app_sales_contacts_clients'                  => ['section' => 'ADV',     'label' => 'Contacts clients',                  'roles' => ['ROLE_ADV']],
             'app_sales_suivi_complet_commande'            => ['section' => 'ADV',     'label' => 'Suivi complet de commande',         'roles' => ['ROLE_ADV', 'ROLE_SALES']],
 
             // ── Achats ────────────────────────────────────────────────────

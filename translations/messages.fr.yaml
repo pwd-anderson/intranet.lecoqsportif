@@ -62,6 +62,7 @@ sidebar:
       adv:
           etat_commandes_clients: "État des commandes clients"
           comptes_clients: "Comptes Clients"
+          contacts_clients: "Contacts Clients"
           suivi_complet_commande: "Suivi complet de commande"
       management:
           ca_marges: "CA Marges"

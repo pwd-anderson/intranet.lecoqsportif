@@ -1021,6 +1021,22 @@ class Sales
         }
     }
 
+    /**
+     * Contacts clients (ADV) : pour chaque client, ses contacts pour les 5 fonctions suivies (13, 14, 18, 19, 20), avec
+     * une ligne par fonction même sans contact. Voir Sei/contacts_clients.sql (~15 600 lignes, ~1 s).
+     */
+    public function getContactsClients(): array
+    {
+        try {
+            return $this->mssqlSei()->executeQuery($this->sqlFileLoader->load('Sei/contacts_clients.sql'));
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Récupération de données Contacts Clients', $e);
+            $this->logger->error('LCS Erreur Sales : Récupération de données Contacts Clients', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
     public function getComptesClients(): array
     {
         try {

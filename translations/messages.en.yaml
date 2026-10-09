@@ -62,6 +62,7 @@ sidebar:
     adv:
         etat_commandes_clients: "Customer Order Status"
         comptes_clients: "Customer Accounts"
+        contacts_clients: "Customer Contacts"
         suivi_complet_commande: "Complete Order Tracking"
     management:
         ca_marges: "Sales Margins"

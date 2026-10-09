@@ -274,6 +274,25 @@ La date des commandes fournisseur (`PORDERQ`, ancien premier choix) **n'entre pl
 
 **À faire / en attente.** Planifier le cron quotidien (`app:import-plan-transport`) ; charger le script `plan_transport_prevision.sql` (MySQL) et le DDL (SEI) en préprod/prod ; vérifier l'affichage du Backlog Client à l'écran ; nom de fichier logique côté métier.
 
+### Stat Contacts Clients (ADV, sous « Comptes Clients »)
+
+Pour chaque client, ses contacts pour les **5 fonctions suivies** (codes X3 `13` Email Confirmation de Commande, `14` Email Facture Comptabilité / Relance, `18` Directeur des achats, `19` Email confirmation de commande acheteur FTW, `20` idem acheteur APP). Le `CROSS JOIN (VALUES (13),(14),(18),(19),(20))` garantit **une ligne par client et par fonction même sans contact** (libellé de fonction toujours renseigné, colonnes du contact vides ; **le code de fonction n'est pas affiché**, retiré à la demande de l'utilisateur le 2026-10-09) ; un client avec plusieurs contacts pour une fonction ressort sur plusieurs lignes (154 cas). Tous les clients sont renvoyés, **actifs ET inactifs** (`STATUT_CLIENT` : 2 = Actif, 1 = Inactif, sinon « Non défini ») : mesuré le 2026-10-09, **15 620 lignes, 3 084 clients, 1,1 s, 6 Mo de JSON** (45 % de lignes de clients inactifs) → stat **générique** (très en dessous des 50 000 lignes qui justifieraient un autre mode).
+
+| Rôle | Fichier |
+|---|---|
+| SQL (requête fournie par l'utilisateur, inchangée sur le fond) | `src/Infrastructure/Sql/Sei/contacts_clients.sql` |
+| Service | `Sales::getContactsClients()` (erreur → `GraphMailer::notifyError` + log) |
+| Routes | `SalesController` : alias `/sales/contacts_clients` (`app_sales_contacts_clients`), JSON `contacts_clients_json`, entrée `$config['contacts_clients']`, type ajouté à la liste de `app_sales_generic` |
+| Colonnes AG Grid (MySQL) | `src/Infrastructure/Sql/AgGrid/contacts_clients.sql` (`contacts_clients_grid`, 13 colonnes, filtres liste sur représentants / business model / groupement / statut / fonction, **à charger avec `--default-character-set=utf8mb4`** en dev, préprod, prod) |
+| Menu / droits | `_sidebar.html.twig` (ADV, sous Comptes Clients, route ajoutée à `currentRoute in [...]`), `StatRegistry` (`app_sales_contacts_clients`, ROLE_ADV), traductions `sidebar.stat.adv.contacts_clients` (« Contacts Clients » / « Customer Contacts »). Pluriel comme « Comptes Clients » |
+| Test | `tests/Controller/ContactsClientsAccessTest.php` |
+
+**Accès protégé par rôle côté serveur** (`SalesController::denyUnlessContactsAccess()`, sur la page ET sur la route JSON) : ADV, MANAGEMENT, CONTROLLING, ADMIN ; les autres rôles reçoivent **403 même en tapant l'adresse**. Ce n'est pas le cas des autres stats `/sales/*` : leurs routes ne sont protégées que par `ROLE_USER` (`security.yaml`), le rôle ne gouverne que l'affichage du menu — d'où cette garde spécifique ici, les emails et téléphones étant des données personnelles. L'exclusion par utilisateur reste gérée par `StatAccessSubscriber`.
+
+Les tables `CONTACT`, `CONTACTCRM`, `APLSTD` (libellés de fonction : `LANCHP_0 = 233`, `LAN_0 = 'FRA'`) ne sont **pas encore documentées** dans la base de connaissance X3 (`~/messites/x3-lcs-knowledge`). Le libellé de la fonction 20 est écrit « Emain confirmation… » dans X3 (faute de frappe dans la donnée source, à corriger côté X3).
+
+**Piège de test (valable pour tous les tests fonctionnels).** `KernelBrowser` **redémarre l'application entre deux requêtes** : un service simulé via `static::getContainer()->set(...)` est perdu dès la 2e requête et le test interroge alors le vrai X3 sans que rien ne le signale. Toujours appeler `$client->disableReboot()` dans `setUp()` ; les services à simuler sont déclarés `public: true` dans `config/services_test.yaml` (avec `_defaults: autowire: true`, sinon Symfony ne les câble plus).
+
 ### Tunnel de dev (callback Azure AD en local)
 
 Pour tester le flux de connexion Azure AD en local, il faut une URL HTTPS publique stable à enregistrer comme Reply URL dans Azure AD. Solution retenue : **Microsoft Dev Tunnels** (`devtunnel`), gratuit, sans limite d'appels (contrairement à ngrok gratuit).

@@ -92,6 +92,12 @@ final class SalesController extends AbstractController
         return $this->salesGeneric('comptes_clients');
     }
 
+    #[Route('/sales/contacts_clients', name: 'app_sales_contacts_clients')]
+    public function contactsClientsAlias(): Response
+    {
+        return $this->salesGeneric('contacts_clients');
+    }
+
     #[Route('/sales/comptes_fournisseurs', name: 'app_sales_comptes_fournisseurs')]
     public function comptesFournisseursAlias(): Response
     {
@@ -176,10 +182,35 @@ final class SalesController extends AbstractController
     }
 
     // ################## ROUTES JSON (inchangées) #####################
+    /**
+     * Contacts clients (emails, téléphones) : données personnelles, donc protégées par rôle côté serveur — la plupart
+     * des stats ne le sont que par l'affichage du menu (route /sales/* ouverte à tout utilisateur connecté).
+     * Rôles : ADV + super-utilisateurs (MANAGEMENT, CONTROLLING) + ADMIN. L'exclusion par utilisateur reste gérée par
+     * StatAccessSubscriber (clé app_sales_contacts_clients).
+     */
+    private function denyUnlessContactsAccess(): void
+    {
+        foreach (['ROLE_ADV', 'ROLE_MANAGEMENT', 'ROLE_CONTROLLING', 'ROLE_ADMIN'] as $role) {
+            if ($this->isGranted($role)) {
+                return;
+            }
+        }
+
+        throw $this->createAccessDeniedException();
+    }
+
     #[Route('/sales/comptes_clients_json', name: 'comptes_clients_json')]
     public function comptesClientsJson(Sales $sales, Helpers $helpers): JsonResponse
     {
         $data = $sales->getComptesClients();
+        return new JsonResponse($helpers->convertArrayToUtf8($data));
+    }
+
+    #[Route('/sales/contacts_clients_json', name: 'contacts_clients_json')]
+    public function contactsClientsJson(Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $this->denyUnlessContactsAccess();
+        $data = $sales->getContactsClients();
         return new JsonResponse($helpers->convertArrayToUtf8($data));
     }
 
@@ -858,7 +889,7 @@ final class SalesController extends AbstractController
     #[Route(
         '/sales/{type}',
         name: 'app_sales_generic',
-        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|etat_commandes_clients_x3|poid_famille_par_variant|best_demand_per_style|comptes_clients|comptes_fournisseurs']
+        requirements: ['type' => 'livraison_non_facturees|backlog_clients|commandes_a_facturer|commandes_a_facturer_x3|backlog_clients_x3|etat_commandes_clients_x3|poid_famille_par_variant|best_demand_per_style|comptes_clients|contacts_clients|comptes_fournisseurs']
     )]
     public function salesGeneric(string $type): Response
     {
@@ -939,6 +970,13 @@ final class SalesController extends AbstractController
                 'template'      => 'sales/sales_generic.html.twig',
                 'gridWidthMode' => 'full',
             ],
+            'contacts_clients' => [
+                'gridName'      => 'contacts_clients_grid',
+                'title'         => 'Contacts Clients',
+                'jsonRoute'     => 'contacts_clients_json',
+                'template'      => 'sales/sales_generic.html.twig',
+                'gridWidthMode' => 'full',
+            ],
             'comptes_fournisseurs' => [
                 'gridName'      => 'comptes_fournisseurs_grid',
                 'title'         => 'Comptes Fournisseurs',
@@ -947,6 +985,10 @@ final class SalesController extends AbstractController
                 'gridWidthMode' => 'full',
             ],
         ];
+
+        if ($type === 'contacts_clients') {
+            $this->denyUnlessContactsAccess();
+        }
 
         if (!isset($config[$type])) {
             throw $this->createNotFoundException(sprintf('Unknown sales type "%s"', $type));
