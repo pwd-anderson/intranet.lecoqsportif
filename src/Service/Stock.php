@@ -245,7 +245,7 @@ class Stock
             // Construction des clauses WHERE
             $collectionWhere = '';
             if ($collection) {
-                $collectionWhere = " AND CR.YCOLLECT_0 = '{$collection}'";
+                $collectionWhere = " AND YIL.YCOLLECT_0 = '{$collection}'";
             }
 
             $familleWhere = '';
