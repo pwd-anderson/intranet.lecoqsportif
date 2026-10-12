@@ -1,0 +1,122 @@
+{#
+  PDF de l'offre commerciale (Tarif Spé), envoyé au commercial créateur à la validation. Repris de l'offre commerciale
+  de Screeneo : en-tête (n° et validité), représentant, client et adresse, conditions générales, tableau des produits.
+  Ce document peut être transmis au client : il ne montre JAMAIS le prix envoyé à X3, ni les valeurs X3 internes (tarif,
+  remise client...), seulement le prix net facturé, le prix public indicatif et la marge. Rendu par Dompdf (CSS 2.1 : pas
+  de flex ni de grid, des tableaux). Toutes les images sont intégrées en base64 (aucun accès réseau pendant le rendu).
+#}
+{% set currency = offer.customerCurrency ?: 'EUR' %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Offre commerciale {{ offer.number }}</title>
+    <style>
+        @page { margin: 28px 30px 48px 30px; }
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 9px; color: #222; }
+        table { border-collapse: collapse; }
+        .head { width: 100%; margin-bottom: 14px; }
+        .head td { vertical-align: middle; }
+        .logo { width: 62px; }
+        .title { font-size: 19px; font-weight: bold; color: #024185; letter-spacing: 1px; }
+        .num { font-size: 12px; font-weight: bold; margin-top: 3px; }
+        .muted { color: #6b7683; }
+        .boxes { width: 100%; margin-bottom: 12px; }
+        .boxes td { vertical-align: top; width: 50%; }
+        .box-title { background: #024185; color: #fff; font-weight: bold; font-size: 9px; padding: 5px 8px; letter-spacing: .5px; }
+        .box-body { background: #f3f5f8; padding: 8px; min-height: 66px; line-height: 1.5; }
+        .gap { width: 12px; }
+        .conditions { margin: 4px 0 12px 0; font-size: 8px; color: #444; }
+        .products { width: 100%; }
+        .products th { background: #024185; color: #fff; font-size: 8px; padding: 6px 4px; text-align: center; }
+        .products td { border-bottom: 1px solid #dfe3e8; padding: 5px 4px; vertical-align: middle; }
+        .products thead { display: table-header-group; }
+        .products tr { page-break-inside: avoid; }
+        .photo { width: 54px; text-align: center; }
+        .photo img { max-width: 50px; max-height: 50px; }
+        .nophoto { width: 50px; height: 50px; background: #eef0f3; color: #9aa3ad; font-size: 7px; text-align: center; line-height: 50px; }
+        .num-cell { text-align: right; white-space: nowrap; }
+        .ref { font-weight: bold; font-size: 10px; }
+        .net { font-weight: bold; }
+        .comment { font-size: 8px; color: #555; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<table class="head">
+    <tr>
+        <td class="logo">{% if logo %}<img src="{{ logo }}" style="width:56px;" alt="Le Coq Sportif">{% endif %}</td>
+        <td>
+            <div class="title">OFFRE COMMERCIALE</div>
+            <div class="num">N° {{ offer.number }}</div>
+            <div class="muted" style="margin-top:3px;">
+                Date de début de validité : <strong>{{ offer.startDate|date('d/m/Y') }}</strong>
+                &nbsp;·&nbsp; Date de fin de validité : <strong>{{ offer.endDate|date('d/m/Y') }}</strong>
+            </div>
+        </td>
+    </tr>
+</table>
+
+<table class="boxes">
+    <tr>
+        <td>
+            <div class="box-title">REPRÉSENTANT</div>
+            <div class="box-body">
+                <strong>{{ offer.createdByName|upper }}</strong><br>
+                {% if creatorEmail %}E-mail : {{ creatorEmail }}{% endif %}
+            </div>
+        </td>
+        <td class="gap"></td>
+        <td>
+            <div class="box-title">INFORMATIONS CLIENT : {{ offer.customerCode }}</div>
+            <div class="box-body">
+                <strong>{{ offer.customerName|upper }}</strong><br>
+                {% if address %}
+                    {% for l in [address.LIGNE_1, address.LIGNE_2, address.LIGNE_3] %}{% if l and l|trim != '' %}{{ l|trim }}<br>{% endif %}{% endfor %}
+                    {{ address.CODE_POSTAL|default('')|trim }} {{ address.VILLE|default('')|trim }}{% if address.PAYS %}<br>{{ address.PAYS|trim }}{% endif %}
+                {% endif %}
+            </div>
+        </td>
+    </tr>
+</table>
+
+<div class="conditions">
+    * Tous les prix sont indiqués en {{ currency }} dans la limite des stocks disponibles et sous réserve de modifications sans préavis.
+    {% if offer.comment %}<br><strong>Commentaire :</strong> {{ offer.comment|nl2br }}{% endif %}
+</div>
+
+<table class="products">
+    <thead>
+        <tr>
+            <th>PHOTO</th>
+            <th style="text-align:left;">INFORMATIONS PRODUIT</th>
+            <th>QUANTITÉ MIN</th>
+            <th>QUANTITÉ MAX</th>
+            <th>PX. PUB. INDICATIF</th>
+            <th>PA HT FACTURÉ</th>
+            <th>MARGE</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+        {% set l = row.line %}
+        <tr>
+            <td class="photo">{% if row.photo %}<img src="{{ row.photo }}" alt="">{% else %}<div class="nophoto">photo</div>{% endif %}</td>
+            <td>
+                <div class="ref">{{ l.articleCode }}</div>
+                {% if l.articleLabel %}{{ l.articleLabel }}<br>{% endif %}
+                {% if l.collection %}<span class="muted">Collection : {{ l.collection }}</span>{% endif %}
+                {% if l.comment %}<div class="comment">{{ l.comment }}</div>{% endif %}
+            </td>
+            <td class="num-cell">{{ l.minQty|number_format(0, ',', ' ') }}</td>
+            <td class="num-cell">{{ l.maxQty|number_format(0, ',', ' ') }}</td>
+            <td class="num-cell">{{ l.msrp is not null ? (l.msrp|number_format(2, ',', ' ')) ~ ' ' ~ currency : '—' }}</td>
+            <td class="num-cell net">{{ l.tariff|number_format(2, ',', ' ') }} {{ currency }}</td>
+            <td class="num-cell">{{ l.margin is not null ? (l.margin|number_format(2, ',', ' ')) ~ ' %' : '—' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+</body>
+</html>

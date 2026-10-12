@@ -273,83 +273,143 @@ La date des commandes fournisseur (`PORDERQ`, ancien premier choix) **n'entre pl
 - **Mesures (dev, 2026-10-08, site WLOGM : 154 505 lignes de backlog)** : ancienne règle 110 329 lignes avec date ; nouvelle règle **116 539** (8 341 via l'intersite, le reste via le plan). Table absente : 154 505 lignes, 8 341 avec date, aucune erreur. Page par défaut inchangée (1,0 s) ; tri + filtre sur la date : 7,3 s → 11,2 s.
 
 **À faire / en attente.** Planifier le cron quotidien (`app:import-plan-transport`) ; charger le script `plan_transport_prevision.sql` (MySQL) et le DDL (SEI) en préprod/prod ; vérifier l'affichage du Backlog Client à l'écran ; nom de fichier logique côté métier.
+
 ### Module OC (Offres Commerciales) — branche `oc`
 
-**Module critique pour la société : toute évolution doit être documentée ici (requêtes, calculs, décisions).** Pour répondre à « quelle requête est lancée, quel est le calcul ? », partir des tableaux ci-dessous.
+**Module critique pour la société : toute évolution doit être documentée ici (requêtes, calculs, décisions).** Pour répondre à « quelle requête est lancée, quel est le calcul, où est stockée telle valeur ? », partir des tableaux ci-dessous.
 
-**But.** Un commercial crée une OC (tarif) pour un client et un ou plusieurs articles ; une seule validation (head commercial, comme SOA) ; après validation, le module génère et envoie des flux XML à X3 : **Création** (aucun tarif spé existant pour même client + article + collection) ou **Modification** (un tarif spé existe déjà). V1 = uniquement « Tarif Spé » ; l'architecture doit permettre d'ajouter Référentiel / Devis / Remise sans refonte. L'ancien module (Screeneo, `/Users/ajacob/Sites/intranet.screeneo.local.v12/src/Controller/Sales/Oc`) n'est qu'une **référence métier**, pas à copier (SQL concaténé, logique dupliquée 4×, utilisateurs codés en dur).
+**But.** Un commercial crée une OC (tarif) pour un client et un ou plusieurs articles ; une seule validation (valideur = `ROLE_ADMIN` / `ROLE_MANAGEMENT`, comme SOA) ; après validation, le module génère et envoie des flux XML à X3 : **Création** (aucun tarif spé existant pour même client + article + collection) ou **Modification** (un tarif spé existe déjà). V1 = uniquement « Tarif Spé » ; l'architecture doit permettre d'ajouter Référentiel / Devis / Remise sans refonte. L'ancien module (Screeneo, `/Users/ajacob/Sites/intranet.screeneo.local.v12/src/Controller/Sales/Oc`) n'est qu'une **référence métier**, pas à copier.
 
-**État (2026-10-08) : v0 visuelle + lectures X3 branchées. Rien n'est encore enregistré en base, aucun flux n'est envoyé.** Branche `oc` (depuis `dev`), non mergée.
+**État (2026-10-08).** Fait : saisie, **enregistrement en base** (brouillon, modification, soumission, annulation, nouvelle OC à partir d'une OC rejetée), historique, lectures X3, droits. **Prix envoyé à X3 calculé et enregistré** (voir plus bas). **Validation et rejet par la Direction faits (étape 1, 2026-10-09)** : page de détail = vue de validation, mail au head commercial à la soumission, mail au commercial au rejet. **Pas encore fait** : étape 2 (PDF + mail au commercial à la validation), étape 3 (flux XML de création `WSCRESPL`, type `7TSPEC`, prêt mais désactivé), détection de l'existant (Création/Modification), blocage doublon, traitement du fichier d'import, multi-clients. Branche `oc` (rebasée sur `dev`), non mergée dans `dev`, jamais poussée.
+
+#### Données (MySQL de l'application — migration `Version20261008154551`)
+
+Le client et toutes les valeurs X3 sont **figés à l'enregistrement** (pour pouvoir expliquer plus tard pourquoi un tarif ou une remise a changé). Une OC n'est **jamais supprimée** (statut « Annulée »).
+
+| Table / entité | Contenu |
+|---|---|
+| `oc_offer` — `App\Entity\Oc\Offer` | En-tête (une OC = un client) : `number` unique, `type` (`tarif_spe`), `status`, client **figé depuis X3** (`customer_code/name/currency`, `customer_tariff_code` = groupe tarifaire `TSCCOD_0`, `customer_discount` = remise REMCLI en % + `customer_discount_start/end`, `x3_read_at`), `start_date`, `end_date`, `comment`, `created_by` (+ `created_by_name` figé), `created_at`, `updated_at`, `submitted_at`, `decided_at`, `source_offer_id` (OC rejetée d'origine) |
+| `oc_offer_line` — `OfferLine` | Une ligne par article parent. **Valeurs X3 à l'enregistrement** : `article_label`, `collection` (la plus récente), `model_code`, `x3_tariff`, `x3_msrp`, `x3_read_at`. **Décision du commercial** : `tariff` (tarif OC = prix **net** voulu), `msrp` (utilisé, modifiable), `vat_rate`, `margin` (recalculée côté serveur), `min_qty`, `max_qty`, `comment`. **Prix envoyé à X3** : `injected_price` (calculé, voir ci-dessous) et `injected_discount` (remise utilisée) |
+| `oc_offer_history` — `OfferHistory` | Historique **en ajout seulement** : `action` (`OcAction`), `from_status`, `to_status`, `user` (+ `user_name` figé), `reason` (obligatoire pour un rejet à venir), `context` JSON (nb de lignes, date de lecture X3, OC d'origine, erreurs…), `created_at` |
+
+⚠ **Migration : ne jamais utiliser `doctrine:migrations:diff` tel quel.** La base locale contient les tables des modules SOA / MDF / Price Protection (branches non fusionnées) : le diff généré contenait des `DROP TABLE` de ces tables et des colonnes de `sales_web_service`. La migration a été réduite à la création des trois tables OC ; `Version20261009090000` (ajout de `injected_price` / `injected_discount`) est écrite à la main. En préprod/prod : `php bin/console doctrine:migrations:migrate` (n'exécute que les migrations du module).
+
+#### Statuts et règles
+
+`OcStatus` : `draft` → `submitted` → `validated` → `sent_to_x3` ; `rejected` et `cancelled` sont **définitifs**. Transitions dans `OfferWorkflow` (aucune dépendance) : soumettre (brouillon), valider / rejeter (soumise), annuler (brouillon, soumise, validée), envoyer à X3 (validée). **Rejet → nouvelle OC** (route `/oc/{id}/duplicate`, liée à l'OC d'origine via `source_offer_id`) : on ne ré-édite pas une OC rejetée.
+
+Droits (`src/Security/OfferVoter.php`, testés) : un commercial (`ROLE_SALES`) ne voit et ne modifie **que ses OC** ; modification / soumission = propriétaire + brouillon ; annulation = propriétaire (brouillon ou soumise) ou valideur (brouillon, soumise, validée) ; valider / rejeter = `ROLE_ADMIN` / `ROLE_MANAGEMENT` sur une OC soumise ; `ROLE_CONTROLLING` consulte seulement. Accès au module : SALES, MANAGEMENT, CONTROLLING, ADMIN (+ exclusion par utilisateur `app_oc_index`).
+
+Numéro : `OC` + `AAAAMM` + code client + 8 chiffres aléatoires (`OfferNumberGenerator`, unicité vérifiée en base + contrainte UNIQUE ; ≤ 30 caractères pour un code client ≤ 14, limite du champ référence X3). **Le client d'une OC ne peut plus changer après création** (le numéro le contient). Une OC en brouillon est relue et ses valeurs X3 re-figées à chaque enregistrement.
 
 #### Fichiers
 
 | Rôle | Fichier |
 |---|---|
-| Contrôleur (pages + API JSON) | `src/Controller/Module/OcController.php` (accès : ROLE_SALES, ROLE_MANAGEMENT, ROLE_CONTROLLING, ROLE_ADMIN) |
-| Lectures X3 (service) | `src/Service/Oc/OcX3Lookup.php` — erreurs : `GraphMailer::notifyError` + log |
-| Statuts | `src/Service/Oc/OcStatus.php` (enum : draft, submitted, validated, rejected, sent_to_x3) |
-| Données factices (à supprimer) | `src/Service/Oc/OcDemoData.php` — sert encore à la liste et au détail |
-| SQL | `src/Infrastructure/Sql/Sei/oc_customer_search.sql`, `oc_article_search.sql`, `oc_customer_discount.sql`, `oc_article_prices.sql` |
-| Pages | `templates/oc/index.html.twig` (liste AG Grid), `new.html.twig` (saisie + tout le JS), `show.html.twig` (détail), `_import_modal.html.twig` (modal d'import, non branché) |
+| Contrôleur (pages + écritures JSON + API de lecture X3) | `src/Controller/Module/OcController.php` |
+| Enregistrement / soumission / annulation | `src/Service/Oc/OfferService.php` |
+| Validation des données reçues (typées, toutes les erreurs d'un coup) | `src/Service/Oc/Input/OfferInput.php`, `OfferLineInput.php`, `OfferValidationException.php` |
+| Calcul de la marge (serveur) | `src/Service/Oc/OfferCalculator.php` |
+| Transitions de statut | `src/Service/Oc/OfferWorkflow.php`, enums `OcStatus.php`, `OcAction.php` |
+| Numérotation | `src/Service/Oc/OfferNumberGenerator.php` |
+| Mails | `src/Service/Oc/OfferMailer.php` (voir « Mails ») |
+| Droits | `src/Security/OfferVoter.php` |
+| Lectures X3 (connexion UTF-8 paresseuse) | `src/Service/Oc/OcX3Lookup.php` |
+| SQL X3 | `src/Infrastructure/Sql/Sei/oc_customer_search.sql`, `oc_customer_get.sql`, `oc_customer_discount.sql`, `oc_article_search.sql`, `oc_article_prices.sql` |
+| Entités / dépôts | `src/Entity/Oc/{Offer,OfferLine,OfferHistory}.php`, `src/Repository/Oc/` |
+| Pages | `templates/oc/index.html.twig` (liste AG Grid), `new.html.twig` (saisie, modification, nouvelle OC issue d'un rejet + tout le JS), `show.html.twig` (détail : valeurs X3 / décision, historique, actions), `_import_modal.html.twig` (modal d'import, non branché) |
 | Menu / droits | `templates/partials/_sidebar.html.twig` (Modules), clé `app_oc_index` dans `StatRegistry`, traduction `sidebar.stat.modules.oc` |
+| Tests | `tests/Service/Oc/*`, `tests/Security/OfferVoterTest.php`, `tests/Controller/Module/OcControllerTest.php` (voir ci-dessous) |
 
-Toutes les lectures X3 passent par la connexion `lcs_sei` (cube SEI) mais interrogent le schéma **`X3_LCS`** (tables transactionnelles X3).
+Les lectures X3 passent par la connexion `lcs_sei` (cube SEI) mais interrogent le schéma **`X3_LCS`**.
 
-#### Requêtes lancées (une par action utilisateur)
+#### Routes (`/{_locale}/oc/...`)
 
-| Quand | Route (GET) | Méthode du service | SQL | Paramètres | Renvoie |
-|---|---|---|---|---|---|
-| Frappe dans « Client » (≥ 2 car., délai 300 ms) | `/oc/api/customers?q=` | `searchCustomers` | `oc_customer_search.sql` | `:q_code`, `:q_name` = `%saisie%` en majuscules (jokers LIKE neutralisés) | 20 clients max : code, nom, devise, ville, pays. Clients actifs (`BPCSTA_0 > 1`), **une seule adresse par client** (défaut en priorité). Même critères que la recherche client du projet RMA |
-| Choix du client | `/oc/api/customers/{code}/discount` | `getCustomerDiscount` | `oc_customer_discount.sql` | `:code` | Remise client en % (`SPRICLIST`, `PLI_0='REMCLI'`, `DCGVAL_0`) + dates de validité. Aucun filtre de date (toutes les REMCLI sont valables du 2027-01-01 au 2050-12-31) |
-| Frappe dans « Articles » (≥ 2 car.) | `/oc/api/articles?q=` | `searchArticles` | `oc_article_search.sql` | `:q_ref`, `:q_des` | 20 articles max : code + désignation (`ITMMASTER`). **Articles parents uniquement** : le variant est le suffixe de `ITMREF_0` après `_` (`<parent>_<variant>`) → on garde `CHARINDEX('_', ITMREF_0) = 0` |
-| Ajout d'un article (client choisi) ou d'un client (articles déjà là) | `/oc/api/prices?customer=&article=` | `getArticlePrices` | `oc_article_prices.sql` | `:customer`, `:article`, `:article_cr` | Collection, **Code tarif**, devise, **Tarif**, **MSRP** (voir ci-dessous) |
+Pages : `GET ''` liste (un commercial ne voit que ses OC), `GET /new`, `GET /{id}/edit` (brouillon, propriétaire), `GET /{id}/duplicate` (OC rejetée), `GET /{id}` détail. Écritures (JSON, **jeton CSRF `X-CSRF-Token`** obligatoire, sinon 419) : `POST /save` (crée ou met à jour un brouillon ; `id` pour une mise à jour, `sourceOfferId` pour une OC issue d'un rejet ; 422 + liste d'erreurs si invalide), `POST /{id}/submit`, `POST /{id}/cancel` (`reason` facultatif), **`POST /{id}/validate`** et **`POST /{id}/reject`** (`reason` obligatoire, ≥ 3 caractères) réservés à la Direction (`OfferVoter::DECIDE` : ADMIN / MANAGEMENT, OC « soumise » seulement ; le propriétaire ne valide pas sa propre OC). API de lecture X3 (pendant la saisie) : voir le tableau suivant.
 
-**`oc_article_prices.sql` en détail** (colonnes « Code tarif », « Tarif », « MSRP » du tableau de saisie) :
-- **Collection** = la plus récente de l'article : CTE `CollectionRecente` (`YITMCOLLECT` ⨝ `YCOLLECTION`, tri `YDATDEB_0 DESC`, `ROW_NUMBER() = 1`, lignes `ZITMCOL.ZDROPPED_0 = 2` exclues). **Même règle partout dans l'intranet.**
-- **Code tarif** = groupe tarifaire du client = `BPCUSTOMER.TSCCOD_0` (ex. `WSPEUR`). **Devise** = `BPCUSTOMER.CUR_0`.
-- **Tarif** = `SPRICLIST.PRI_0` où `PLICRI1_0 = TSCCOD_0 du client`, `PLICRI2_0 = collection`, `PLICRI3_0 = ITMMASTER.ZMODELCOD_0` (modèle de l'article).
-- **MSRP** = même lecture avec `PLICRI1_0 = 'CSEU'` (groupe constant).
-- Aucun filtre sur `PLI_0` : T10 et T11 n'ont aucune clé commune (vérifié). 619 clés sur 104 137 (0,6 %) ont plusieurs lignes à prix différents à dates identiques : le `TOP 1` est rendu **déterministe** par `ORDER BY PLIENDDAT_0 DESC, PLISTRDAT_0 DESC, PLILIN_0 DESC` (ajout par rapport à la requête fournie). Si aucune ligne n'existe pour ce groupe/collection/modèle → Tarif `NULL`, affiché « — ».
-- Pour rejouer à la main dans SSMS : remplacer les paramètres par des `DECLARE @customer`, `@article` (le fichier SQL est la requête exacte).
-- Vérifié en direct : client 21451 / article 1511960 → WSPEUR, tarif 37,5, MSRP 75 ; 2210037 → 19,5 / 39 ; 2121416 → tarif NULL, MSRP 40.
+#### Requêtes X3 (une par action)
 
-**Particularités des données LCS (vérifiées en direct le 2026-10-07/08).** `ITMMASTER` : 131 090 lignes, dont 10 796 parents (sans `_`) et 120 294 variants ; `ITMSTA_0 = 1` partout (aucun filtre de statut utile). `SPRICLIST` : types `T10` (groupe tarifaire × collection × modèle, 85 042 l.), `T11` (20 499 l., contient les `CSEU`), `R11`/`R12` (remises client), `REMCLI` (520 l., une par client). Il n'existe **pas** de type `7TSPEC` chez LCS.
+| Quand | Route (GET) | Méthode (`OcX3Lookup`) | SQL | Renvoie |
+|---|---|---|---|---|
+| Frappe dans « Client » (≥ 2 car., 300 ms) | `/oc/api/customers?q=` | `searchCustomers` | `oc_customer_search.sql` (`:q_code`, `:q_name`) | 20 clients max (code, nom, devise, ville, pays), actifs (`BPCSTA_0 > 1`), **une adresse par client**. Mêmes critères que la recherche client du projet RMA |
+| Choix du client | `/oc/api/customers/{code}/discount` | `getCustomerDiscount` | `oc_customer_discount.sql` | Remise REMCLI en % (`SPRICLIST`, `PLI_0='REMCLI'`, `DCGVAL_0`) + dates. Aucun filtre de date (toutes valables du 2027-01-01 au 2050-12-31) |
+| Frappe dans « Articles » (≥ 2 car.) | `/oc/api/articles?q=` | `searchArticles` | `oc_article_search.sql` | 20 articles **parents** (sans `_variant` : `CHARINDEX('_', ITMREF_0) = 0`), code + désignation |
+| Ajout d'un article ou d'un client | `/oc/api/prices?customer=&article=` | `getArticlePrices` | `oc_article_prices.sql` | Collection, code tarif, devise, tarif, MSRP (affichage pendant la saisie) |
+| **Enregistrement (serveur)** | — | `getCustomer`, `getCustomerDiscount`, `getArticlesPrices` (UNE requête pour tous les articles) | `oc_customer_get.sql`, `oc_customer_discount.sql`, `oc_article_prices.sql` | Valeurs **figées** dans `oc_offer` / `oc_offer_line`. Le serveur ne fait jamais confiance aux valeurs X3 ni à la marge envoyées par le navigateur ; client ou article introuvable (ou X3 indisponible) → **rien n'est enregistré** |
 
-#### Calculs (côté navigateur, `new.html.twig`)
+**`oc_article_prices.sql`** : collection = la plus récente de l'article (CTE `CollectionRecente`, règle de tout l'intranet) ; **Code tarif** = groupe tarifaire du client (`BPCUSTOMER.TSCCOD_0`) ; **Tarif** = `SPRICLIST.PRI_0` pour (`PLICRI1_0` = code tarif du client, `PLICRI2_0` = collection, `PLICRI3_0` = `ITMMASTER.ZMODELCOD_0`) ; **MSRP** = même lecture avec `PLICRI1_0 = 'CSEU'` ; aucun filtre sur `PLI_0` (T10 et T11 n'ont aucune clé commune) ; `TOP 1` rendu déterministe par `ORDER BY PLIENDDAT_0 DESC, PLISTRDAT_0 DESC, PLILIN_0 DESC` (0,6 % des clés ont plusieurs prix à dates identiques). Rejouable dans SSMS en remplaçant les paramètres par des `DECLARE`.
 
-- **Marge** (reprise de la fonction `calcul()` de l'ancien module, **sans markup ni triple net**) :
-  `PV net HT = MSRP × 100 / (100 + TVA)` puis `marge % = (PV net HT − tarif OC) / PV net HT × 100`, arrondie à 2 décimales.
-  Bidirectionnel : si l'utilisateur saisit une marge, `tarif OC = PV net HT − marge × PV net HT / 100`. Vérifié sur la capture de l'ancien écran : PVC 99,99, TVA 20 %, prix 59,25 → 28,89 %.
-  **⚠ La TVA est un placeholder fixé à 20 % (`DEFAULT_TVA`) et le MSRP est traité comme TTC : la marge est INDICATIVE tant que le métier n'a pas confirmé si le MSRP est HT ou TTC (question ouverte).**
-- **MSRP** : proposé dans le champ (modifiable) tant que l'utilisateur ne l'a pas saisi (`pvcTouched`).
-- **Remise client** : affichée en lecture seule (« Aucune » si pas de REMCLI). **Elle n'entre pas dans le calcul de la marge** (question ouverte : le tarif OC est-il avant ou après remise ? piste : tarif = prix net / (1 − remise), comme l'ancien « prix injecté »).
-- **Dates** : début = aujourd'hui, fin = début + 1 an (par défaut, modifiables). Le message « clôturé au… » = date de début − 1 jour.
-- **Numéro d'OC** (aujourd'hui seulement un aperçu aléatoire en JS ; à générer côté serveur) : `OC` + `AAAAMM` + code client + 8 chiffres aléatoires.
-- **Photo** : même règle que les stats (`excess_for_sales`) : `https://www.lecoqsportif.com/cdn/shop/files/<article>_2.webp`, puis `_new_1.webp`, `_1.webp`, `_2.jpg`, `_new_1.jpg`, `_1.jpg`, puis route `lecoqsportif_image_lookup`, puis `no-image.png`.
+**Données LCS (vérifiées en direct).** `ITMMASTER` : 131 090 lignes dont 10 796 parents (sans `_`) ; `ITMSTA_0 = 1` partout. `SPRICLIST` : types `T10`, `T11` (contient les `CSEU`), `R11`/`R12`, `REMCLI` (520 lignes, une par client). Pas de type `7TSPEC` chez LCS.
 
-#### Règles métier décidées
+#### Validation, rejet et mails (étape 1)
 
-- Un client par OC pour l'instant (la **sélection multi-clients et le raccourci « appliquer le tarif à tous » ont été retirés à la demande de l'utilisateur, qui y reviendra** ; le JS garde `state.customers` en tableau pour les réactiver).
-- Pas de TAR, pas de markup, pas de triple net, pas de mail ni PDF client (circuit interne uniquement). On garde : remise client, quantité min/max (défauts 0 et 999999), commentaire (modal pour l'OC, zone de texte par ligne), dates.
-- Une seule validation : head commercial (même règle que SOA). Création réservée à ROLE_SALES.
-- **Création vs Modification** : si un tarif spé existe déjà pour client + article + collection, on **clôture l'existant avec une date de fin = début de la nouvelle − 1 jour (flux `WSUPD7TSPE`) puis on envoie la création (`WSCRESPL`)** → 2 flux. Sinon seulement `WSCRESPL`. Mêmes noms de webservices que l'ancien module.
-- Blocage de création si une OC **soumise** OU **validée mais pas encore envoyée à X3** existe déjà pour le même client + article, avec **deux messages d'info bien distincts** (déjà maquetté : bleu = tarif existant qui sera clôturé, rouge = OC en attente, orange = OC validée non envoyée).
-- Import Excel/CSV (plusieurs articles pour le client choisi) : bouton disponible **uniquement quand le client est choisi** ; modal prête, **traitement du fichier à faire**.
-- Bouton « × » par ligne : retire l'article pour ce client.
+- **Soumission** (`OfferService::submit`) : l'OC passe « Soumise », puis **mail au head commercial** (variable d'env `MAIL_HEAD_SALE`, une ou plusieurs adresses séparées par `,` ou `;`) avec un lien vers l'OC.
+- **Validation** (`OfferService::validate`, bouton « Valider » de la page de détail) : **refusée (422) si la remise client REMCLI a changé dans X3 depuis l'enregistrement** (`discountDrift()` relit X3 : le prix envoyé a été calculé avec l'ancienne remise ; le message précise « ou X3 ne répond pas » car une erreur X3 est indiscernable d'une remise supprimée). Sinon l'OC passe « Validée », `decided_at` et l'historique sont renseignés. **Aucun mail ni PDF ni flux X3 à ce stade** (étapes 2 et 3).
+- **Rejet** (`OfferService::reject`, fenêtre de saisie du motif) : **motif obligatoire** (≥ 3 caractères, 1 000 max), rejet **définitif** ; le commercial reçoit le motif par mail et peut créer une nouvelle OC à partir de celle-ci.
+- **Vue de validation = page de détail** (`show.html.twig`) : bandeau « Cette OC attend votre décision » pour la Direction, photo, article, désignation, collection, valeurs X3 (tarif, MSRP), tarif OC (net), **prix envoyé à X3**, MSRP utilisé, TVA, marge client, quantités, commentaire, remise client et code tarif en en-tête, avertissements, historique. Retiré par rapport à Screeneo (non pertinent LCS) : prix d'achat, remise marque, markup, TAR, triple net, marges Powerdata/SCR, stock.
+- **Mails** (`OfferMailer`, via `GraphMailer`) : **prod** = vrais destinataires ; **dev = TOUS les mails redirigés vers `ADMIN_EMAIL`** (même règle que SOA), le destinataire prévu est rappelé dans l'objet (`[DEV → prévu : …]`) ; **test = aucun envoi**, jamais (un test ne doit pas pouvoir écrire à une vraie personne). Un échec d'envoi ne défait jamais l'action métier : journalisé + `GraphMailer::notifyError`. Pour vérifier réellement l'envoi Graph depuis le poste de dev, il faut le déclencher à la main (jamais depuis un test).
+- Prérequis de déploiement : la variable `MAIL_HEAD_SALE` doit exister dans chaque environnement.
 
-#### Pas encore fait / questions métier ouvertes
+#### PDF de l'offre et mail au créateur (étape 2, 2026-10-09)
 
-- **Type de tarif « Tarif Spé » chez LCS** (aucun `7TSPEC`) → bloque la détection de l'existant (Création/Modification), le blocage doublon, et les flux. Requête de détection de l'ancien module (à adapter) : lignes `SPRICLIST` du client + article, `PLIENDDAT_0 >= aujourd'hui`, avec le filtre `PLI_0` (que l'ancien code oubliait).
-- Le MSRP est-il HT ou TTC ? Source de la TVA ? (calcul de la marge)
-- Tarif OC avant ou après remise client ? Comportement avant le 2027-01-01 (début de toutes les REMCLI) pour une OC qui démarre plus tôt.
-- Persistance (entités OC + lignes + historique avec motif de rejet), workflow (`OcStatus`), génération/envoi XML via `SalesWebService` + `SageX3Client` + `XmlBuilder`, commande d'envoi avec tentatives bornées, mails internes, numérotation côté serveur, remplacement de `OcDemoData`, tests unitaires (décision Création/Modification, XML).
-- Stock affiché dans le tableau : non branché.
+À la **validation**, l'OC génère un PDF (comme Screeneo) et l'envoie **au commercial créateur uniquement** (pièce jointe). La validation est enregistrée AVANT : un échec du PDF ou du mail ne l'annule jamais, il est tracé dans l'historique (`OcAction::PDF_FAILED` + motif, et `GraphMailer::notifyError`) ; un succès ajoute `PDF_SENT`. Statut inchangé dans les deux cas.
+
+| Rôle | Fichier |
+|---|---|
+| Génération (Dompdf, A4 portrait, FR) | `src/Service/Oc/OfferPdfGenerator.php` (`renderHtml`, `generate`, `filename` = `OC_<numéro>.pdf`) |
+| Gabarit | `templates/oc/pdf/offer.html.twig` (tableaux HTML/CSS compatibles Dompdf) |
+| Adresse du client | `OcX3Lookup::getCustomerAddress` + `oc_customer_address.sql` (adresse par défaut `BPAADDFLG_0`) |
+| Mail avec PDF | `OfferMailer::notifyValidated` ; `isEnabled()` faux en `test` |
+| Envoi + historique + renvoi | `OfferService::validate()` puis `sendValidationPdf()` |
+| Routes | `GET /oc/{id}/pdf` (`app_oc_pdf`, voter `OC_PDF` : OC validée/envoyée, qui peut voir l'OC) ; `POST /oc/{id}/resend-pdf` (`app_oc_resend_pdf`, voter `OC_RESEND_PDF` : Direction, CSRF) |
+
+- **Contenu** : n° et dates de validité, représentant = créateur, client + adresse, conditions générales (« Tous les prix sont indiqués en EUR dans la limite des stocks disponibles et sous réserve de modifications sans préavis »), tableau PHOTO / INFORMATIONS PRODUIT / QTÉ MIN / QTÉ MAX / PX PUB. INDICATIF (MSRP) / PA HT FACTURÉ (tarif OC net) / MARGE. **Ne montre jamais** le prix injecté dans X3, le tarif X3 interne, le stock (testé).
+- **Photos** : même source que les stats (`LecoqsportifImageFetcher`), réduites à 180 px, **cache** 7 jours (trouvée) / 1 h (absente), **budget de 25 s** par PDF (au-delà, pas de nouvelle recherche : cellule vide). Dompdf : `isRemoteEnabled=false`, `isPhpEnabled=false`, cache dans `var/cache/dompdf`.
+- **Dev** : le mail part à `ADMIN_EMAIL` (objet `[DEV → prévu : …]`) comme tous les mails OC. **Test** : aucun envoi.
+- **Déploiement** : `dompdf/dompdf` est désormais dans `composer.json` → `composer install` dans chaque environnement.
+- Mesure (dev, 3 articles) : 5,4 s sans photo en cache, 0,2 s ensuite.
+
+#### Prix envoyé à X3 (WDISPRI) — remise client appliquée à toutes les lignes
+
+**Règle métier (décidée le 2026-10-09, modifiable) :** la remise client REMCLI s'applique dans X3 à **toutes** les lignes du client. Le commercial saisit donc le prix **net** voulu (« Tarif OC ») et le serveur calcule le prix « précompensé » à envoyer : **`prix envoyé = tarif OC / (1 − remise client / 100)`**. X3 réapplique la remise, le client paie le tarif OC. Cette règle vit à **un seul endroit** : `OfferCalculator::injectedPrice()` (pour la changer, ne toucher que là). Même principe que l'ancien module (`SaleOffer::updateProductsTarifSpe`, `OcController::updateProducts` : `net / ((1 + markup/100) × (1 − remise marque/100))`, remise marque et markup propres à Screeneo) ; chez LCS il n'y a plus de markup. Le **Tarif Spé est un prix** (pas un pourcentage de remise).
+
+- **Arrondi** : 2 décimales (comme l'ancien module ; `PRI_0` est en `numeric(19,5)`, 4-5 décimales seraient possibles, à valider avec X3). Parmi les valeurs voisines (±2 centimes) on retient celle dont le net recalculé par X3 (`prix envoyé × (1 − remise)`, arrondi au centime) est **exactement** le prix saisi ; l'ancien module arrondissait sans contrôle (écarts d'un centime possibles). Test exhaustif : 10 remises × 810 prix, 0 écart ; JS (affichage en direct) et PHP identiques sur 9 048 cas.
+- **Garde-fous** : remise < 0 ou ≥ 100 % ou prix ≤ 0 → l'enregistrement est refusé (l'ancien module divisait par zéro à 100 %). Sans remise REMCLI, le prix envoyé = le tarif OC.
+- **Traçabilité** : `oc_offer_line.injected_price` + `injected_discount` (la remise utilisée) ; l'historique garde `customerDiscount` et les éventuels `injectionGaps` dans son contexte ; la page de détail affiche « Tarif OC (net) » et « Prix envoyé à X3 ».
+- **Remise changée entre la création et l'envoi** (défaut de l'ancien module : remise figée, X3 appliquerait la nouvelle) : `OfferService::discountDrift()` relit REMCLI dans X3 et compare à la valeur figée. **À appeler juste avant la validation et l'envoi à X3 (étape à construire)** : en cas d'écart (ou X3 injoignable), on n'envoie pas, l'OC doit être refaite.
+- **Avertissement de date** (`OfferService::warnings()`, affiché à l'enregistrement et au détail) : toutes les REMCLI actuelles débutent le **2027-01-01** ; pour une OC qui débute avant, le client paierait le prix envoyé **sans remise** (donc plus cher que le tarif OC) jusqu'à cette date. Règle à trancher avec le métier (non bloquant pour l'instant).
+
+**Colonnes `DCGVAL_n` de `SPRICLIST` : leur sens dépend du type de tarif.** Screeneo (code de l'ancien module, `Divers.php`) : `CTREM` / `BTREMM` → `DCGVAL_1` = remise marque (client / regroupement) ; `MUETA` / `MUMM` → `DCGVAL_0` = **markup** ; `DTARCH` → `DCGVAL_2` = **TAR**. LCS : `REMCLI` → `DCGVAL_0` = remise client en % (valeurs observées 12,5 / 13 / 15, `DCGVAL_1..3` = 0). Ne jamais présumer du sens d'une colonne `DCGVAL` sans connaître le type de tarif.
+
+#### Calculs
+
+- **« Marge souhaitée » = marge du CLIENT sur le prix public, pas la marge de LCS** (comme l'ancien écran « marge net facturé souhaitée ») : elle ne dépend ni du prix d'achat ni de la remise (le tarif OC est déjà net). Constat sur les données LCS (2026-10-09) : pour **93 % des articles (6 478 couples collection/modèle sur ~6 900), MSRP (`CSEU`) = exactement 2 × tarif de gros (`WSPEUR`)**, le reste 2,2 à 2,6. Au tarif standard la marge vaut donc **40 %** (MSRP TTC, TVA 20 %, **confirmé**). Une marge calculée sur le coût d'achat de LCS (cf. « marge Powerdata » de l'ancien module) demanderait de trouver le prix d'achat dans X3 (non fait).
+- **Marge**, **recalculée côté serveur** (`OfferCalculator`) et affichée en JS pendant la saisie (reprise de l'ancien `calcul()`, sans markup ni triple net) : `PV net HT = MSRP × 100 / (100 + TVA)` puis `marge % = (PV net HT − tarif OC) / PV net HT × 100`. Bidirectionnelle à l'écran. Vérifié sur l'ancien écran (PVC 99,99, TVA 20 %, prix 59,25 → 28,89 %). **MSRP = prix public TTC (confirmé par l'utilisateur le 2026-10-09 ; dans l'ancien module « PVC / MSRP » = `XPVTTC_0` de la ligne 1TSTD, `Divers.php:2150`, `nouvelle_offre_commerciale.html.twig:613`).** ⚠ La **TVA reste un placeholder à 20 %** (l'ancien module la lisait dans `XTVA_0`, colonne propre à Screeneo) : la marge n'est exacte que pour un client dont le MSRP est à 20 % de TVA. Source / règle de la TVA par client (pays) à définir.
+- La **remise client** n'entre pas dans la marge (le tarif OC est le prix net) ; elle sert à calculer le **prix envoyé à X3** (voir plus haut).
+- Dates par défaut : début = aujourd'hui, fin = +1 an. Photo : même règle que les stats (`excess_for_sales`, cascade `_2.webp`…, puis `lecoqsportif_image_lookup`).
+- Un client par OC (sélection multi-clients et raccourci « appliquer à tous » retirés à la demande de l'utilisateur, il y reviendra) ; pas de TAR, markup, triple net, ni mail/PDF client.
+
+#### Tests
+
+`bin/phpunit` (116 tests dont 9 pour la stat Contacts Clients) : validation des données, calcul de la marge et du prix envoyé à X3, transitions, droits (matrice complète), `OfferService` (X3 et base simulés : valeurs figées, historique, rien d'enregistré si X3 ne répond pas, brouillon seul modifiable, remise appliquée…), et `OcControllerTest` (flux complet sur de vrais contrôleurs et une base MySQL locale `intranet_lcs_test` : CSRF, droits, validation, soumission, annulation, nouvelle OC issue d'un rejet). **Créer la base de test une fois** : `mysql -uroot -e "CREATE DATABASE intranet_lcs_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"` puis `APP_ENV=test php bin/console doctrine:schema:create --env=test` (et `doctrine:schema:update --force --env=test` après une nouvelle colonne).
+
+**Les tests fonctionnels ne touchent PAS à X3** (corrigé le 2026-10-09) : `OcX3Lookup` y est simulé avec des valeurs volontairement différentes des vraies (« CLIENT SIMULE », remise 10 %, tarif 11,1…) pour qu'un accès au vrai X3 fasse échouer le test. Deux règles : `$client->disableReboot()` dans `setUp()` (sinon `KernelBrowser` redémarre l'application entre deux requêtes, le service simulé est perdu et les requêtes suivantes interrogent le vrai X3 — c'était le cas des anciens tests OC, qui passaient parce que valeurs réelles et simulées coïncidaient) et le service à simuler déclaré `public: true` dans `config/services_test.yaml`. Toute évolution de lecture X3 reste à vérifier aussi avec les vraies données (un défaut d'encodage n'est visible qu'avec elles).
 
 #### Pièges déjà rencontrés
 
-- Le champ de recherche (datalist) déclenche un nouvel événement `input` quand on choisit une valeur : ne **jamais** relancer de recherche sur un libellé « code - nom » exact (sinon la liste mémorisée est écrasée par un résultat vide et « Ajouter » échoue). Le code mémorise `customerResults` / `articleResults`.
-- Les anciens codes clients Screeneo (ex. `0033911801`) n'existent pas chez LCS ; clients de test utiles : `21451` (DECATHLON / MP, groupe `WSPEUR`, pas de REMCLI), `10012` (REMCLI 13 %), `20548` (T2 SPORT SAS, `WSPEUR`).
-- `MssqlManager::executeQueryWithParams` avale les erreurs SQL (renvoie `[]`) : en cas de résultat vide inattendu, rejouer la requête en PDO direct pour voir le message. Une requête exploratoire trop lourde peut couper la connexion du cube (« Unexpected EOF ») et faire échouer les suivantes.
+- **Encodage X3 (corrigé).** Le pilote `dblib` travaille en ISO-8859-1 par défaut : une désignation avec « ° » (ex. « REOUVERTURE Tee SS N°1 ») arrivait en octet invalide et MySQL refusait l'enregistrement (erreur 1366) ; tout caractère hors Latin-1 devenait « ? ». `OcX3Lookup` ouvre donc sa connexion avec `;charset=UTF-8`, **à la première requête seulement** (ouvrir une connexion coûte jusqu'à ~15 s : une connexion ouverte dès le constructeur ralentirait toutes les pages OC). Ce défaut n'apparaissait pas avec X3 simulé.
+- `doctrine.yaml` a `controller_resolver: auto_mapping: false` : les actions doivent déclarer `#[MapEntity] Offer $offer`.
+- Le champ de recherche (datalist) déclenche un nouvel événement `input` quand on choisit une valeur : ne jamais relancer de recherche sur un libellé « code - nom » exact (sinon la liste mémorisée est écrasée et « Ajouter » échoue).
+- Les anciens codes clients Screeneo (ex. `0033911801`) n'existent pas chez LCS ; clients de test utiles : `21451` (DECATHLON / MP, `WSPEUR`, pas de REMCLI), `10012` (REMCLI 13 %), `20548` (T2 SPORT SAS, `WSPEUR`, REMCLI 13 %).
+- `MssqlManager::executeQueryWithParams` avale les erreurs SQL (renvoie `[]`) : en cas de résultat vide inattendu, rejouer la requête en PDO direct. Une requête exploratoire lourde peut couper la connexion du cube (« Unexpected EOF »).
+
+#### À faire / questions métier ouvertes
+
+- **Étape 2** : PDF « comme Screeneo » (Dompdf ; **à déclarer dans `composer.json` de `dev`** : installé localement via la branche Price Protection mais absent des dépendances) + mail au **commercial créateur uniquement** avec le PDF en pièce jointe, au moment de la validation. Contenu retenu : titre (n° et dates), représentant, client et contacts, conditions générales (« prix en EUR dans la limite des stocks, sous réserve de modification »), tableau produits (photo, infos, qté min/max, MSRP, **prix net** — jamais le prix envoyé à X3 —, marge), en français pour l'instant.
+- **Étape 3** : flux XML de **création** seul (`WSCRESPL`, type `7TSPEC` : la fiche tarif n'existe pas encore dans X3, l'équipe X3 la crée), généré à la validation et stocké dans `sales_web_service`, **prêt mais désactivé** jusqu'à confirmation du format par l'équipe X3 (critères de la fiche, article parent ou variant, collection).
+- **Type de tarif « Tarif Spé » chez LCS** (aucun `7TSPEC`) → bloque la détection de l'existant (Création/Modification), le blocage doublon (OC soumises **et** validées non envoyées, deux messages distincts) et les flux `WSCRESPL` / `WSUPD7TSPE` (à relier à `sales_web_service`, envoi par commande à tentatives bornées + `notifyError`).
+- Source de la TVA (par pays du client ?) — le MSRP est TTC (confirmé). Marge souhaitée = marge du client sur le MSRP (comme l'ancien module : confirmé en lecture du code, à valider avec le métier). Comportement avant le 2027-01-01 (début des REMCLI) pour une OC qui démarre plus tôt. Précision du prix envoyé (2 ou 4-5 décimales) à valider avec X3.
+- Import Excel/CSV (traitement du fichier), stock affiché, multi-clients.
 
 ### Backlog Clients — lignes d'articles droppés en rouge clair (2026-10-14, affichage seulement)
 

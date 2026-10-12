@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{# Module OC — détail d'une offre (lecture seule), version visuelle v0 : données factices. #}
+{# Module OC — détail d'une offre : en-tête et valeurs X3 figées à l'enregistrement, lignes (X3 / décision du commercial), historique. #}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -10,9 +10,20 @@
         .oc-badge.submitted { background: #e0a100; }
         .oc-badge.validated { background: #1d8ed6; }
         .oc-badge.rejected { background: #c8102e; }
+        .oc-badge.cancelled { background: #343a40; }
         .oc-badge.sent_to_x3 { background: #0f7b3d; }
         .oc-dl dt { color: #6b7683; font-weight: 600; font-size: 12px; text-transform: uppercase; }
         .oc-dl dd { margin-bottom: 12px; }
+        .oc-lines th { background: #34495e; color: #fff; text-align: center; font-size: 12px; text-transform: uppercase; vertical-align: middle; }
+        .oc-lines th.x3 { background: #6b7683; }
+        .oc-lines th.oc { background: #43a047; }
+        .oc-lines td { vertical-align: middle; }
+        .oc-lines td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .oc-lines td.x3 { background: #f3f4f6; }
+        .oc-lines td.oc { background: #e8f4e9; }
+        .oc-photo { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; margin: 0 auto; line-height: 0; overflow: hidden; }
+        .oc-photo img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 4px; }
+        .oc-photo img:not([src]) { width: 64px; height: 64px; background: url('/assets/images/no-image.png') center / contain no-repeat; }
     </style>
 {% endblock %}
 
@@ -25,33 +36,106 @@
                     <div class="box-header with-border d-md-flex align-items-center justify-content-between">
                         <h4 class="box-title">OC {{ offer.number }}
                             <span class="oc-badge {{ status.value }} ms-2">{{ status.label }}</span>
-                            <span class="badge bg-warning text-dark ms-2" title="Données de démonstration">Version visuelle</span>
                         </h4>
                         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
                             <a href="{{ path('app_oc_index') }}" class="btn btn-sm btn-outline-secondary">Retour à la liste</a>
-                            {% if status.value == 'submitted' %}
-                                {# Validation : head commercial (même règle que SOA) — contrôle d'accès réel à brancher #}
-                                <button type="button" class="btn btn-sm btn-danger" disabled>Rejeter</button>
-                                <button type="button" class="btn btn-sm btn-success" disabled>Valider</button>
+                            {% if is_granted('OC_EDIT', offer) %}
+                                <a href="{{ path('app_oc_edit', {id: offer.id}) }}" class="btn btn-sm btn-primary">Modifier</a>
+                            {% endif %}
+                            {% if is_granted('OC_SUBMIT', offer) %}
+                                <button type="button" class="btn btn-sm btn-success" id="btnSubmitOffer">Soumettre pour validation</button>
+                            {% endif %}
+                            {% if is_granted('OC_CANCEL', offer) %}
+                                <button type="button" class="btn btn-sm btn-danger" id="btnCancelOffer">Annuler l'OC</button>
+                            {% endif %}
+                            {% if status.value == 'rejected' and is_granted('OC_VIEW', offer) %}
+                                <a href="{{ path('app_oc_duplicate', {id: offer.id}) }}" class="btn btn-sm btn-primary">Créer une nouvelle OC à partir de celle-ci</a>
+                            {% endif %}
+                            {% if is_granted('OC_PDF', offer) %}
+                                <a href="{{ path('app_oc_pdf', {id: offer.id}) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Télécharger le PDF</a>
+                            {% endif %}
+                            {% if is_granted('OC_RESEND_PDF', offer) %}
+                                <button type="button" class="btn btn-sm btn-primary" id="btnResendPdf">Renvoyer le PDF au commercial</button>
+                            {% endif %}
+                            {% if is_granted('OC_DECIDE', offer) %}
+                                <button type="button" class="btn btn-sm btn-danger" id="btnRejectOffer" data-bs-toggle="modal" data-bs-target="#ocRejectModal">Rejeter</button>
+                                <button type="button" class="btn btn-sm btn-success" id="btnValidateOffer">Valider</button>
                             {% endif %}
                         </div>
                     </div>
                     <div class="box-body">
+                        {% if is_granted('OC_DECIDE', offer) %}
+                            <div class="alert alert-info py-2"><strong>Cette OC attend votre décision.</strong> Vérifiez le tarif OC (net), le prix envoyé à X3 et la marge client avant de valider ; un rejet est définitif et le motif est transmis au commercial.</div>
+                        {% endif %}
+                        <div id="ocMessage" class="alert alert-danger d-none"></div>
+                        {% for w in warnings %}<div class="alert alert-warning py-2">{{ w }}</div>{% endfor %}
+
                         <dl class="row oc-dl">
-                            <div class="col-md-3"><dt>Type</dt><dd>{{ offer.type }}</dd></div>
-                            <div class="col-md-3"><dt>Créée par</dt><dd>{{ offer.createdBy }} le {{ offer.createdAt }}</dd></div>
-                            <div class="col-md-3"><dt>Début de validité</dt><dd>{{ offer.startDate }}</dd></div>
-                            <div class="col-md-3"><dt>Fin de validité</dt><dd>{{ offer.endDate }}</dd></div>
-                            <div class="col-12"><dt>Client(s)</dt><dd>{{ offer.customers|join(' · ') }}</dd></div>
-                            <div class="col-12"><dt>Commentaire</dt><dd>{{ offer.comment }}</dd></div>
+                            <div class="col-md-3"><dt>Type</dt><dd>Tarif Spé</dd></div>
+                            <div class="col-md-3"><dt>Créée par</dt><dd>{{ offer.createdByName }} le {{ offer.createdAt|date('d/m/Y H:i') }}</dd></div>
+                            <div class="col-md-3"><dt>Début de validité</dt><dd>{{ offer.startDate|date('d/m/Y') }}</dd></div>
+                            <div class="col-md-3"><dt>Fin de validité</dt><dd>{{ offer.endDate|date('d/m/Y') }}</dd></div>
+                            <div class="col-md-6"><dt>Client</dt><dd>{{ offer.customerCode }} - {{ offer.customerName }} ({{ offer.customerCurrency ?? '—' }})</dd></div>
+                            <div class="col-md-3"><dt>Code tarif du client (X3)</dt><dd>{{ offer.customerTariffCode ?? '—' }}</dd></div>
+                            <div class="col-md-3"><dt>Remise client REMCLI (X3)</dt>
+                                <dd>{% if offer.customerDiscount is not null %}{{ offer.customerDiscount|number_format(2, ',', ' ') }} %{% if offer.customerDiscountStart %}, à partir du {{ offer.customerDiscountStart|date('d/m/Y') }}{% endif %}{% else %}Aucune{% endif %}</dd></div>
+                            {% if offer.sourceOffer %}
+                                <div class="col-12"><dt>Issue de l'OC rejetée</dt><dd><a href="{{ path('app_oc_show', {id: offer.sourceOffer.id}) }}">{{ offer.sourceOffer.number }}</a></dd></div>
+                            {% endif %}
+                            {% if offer.comment %}<div class="col-12"><dt>Commentaire</dt><dd>{{ offer.comment|nl2br }}</dd></div>{% endif %}
+                            <div class="col-12 text-muted small">Valeurs X3 lues le {{ offer.x3ReadAt|date('d/m/Y à H:i') }} et conservées telles quelles.</div>
                         </dl>
 
-                        <h5 class="mt-3">Historique</h5>
+                        <h5 class="mt-3">Articles ({{ offer.lines|length }})</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered oc-lines">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">Photo</th><th rowspan="2">Article</th><th rowspan="2">Désignation</th><th rowspan="2">Collection</th>
+                                        <th colspan="2" class="x3">Valeurs X3 (à l'enregistrement)</th>
+                                        <th colspan="5" class="oc">Décision du commercial</th>
+                                        <th rowspan="2">Qté min</th><th rowspan="2">Qté max</th><th rowspan="2">Commentaire</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="x3">Tarif X3</th><th class="x3">MSRP X3</th>
+                                        <th class="oc">Tarif OC (net)</th><th class="oc" title="Prix envoyé à X3 : tarif OC / (1 − remise client). X3 applique ensuite la remise client, le client paie donc le tarif OC.">Prix envoyé à X3</th><th class="oc">MSRP utilisé</th><th class="oc">TVA %</th><th class="oc">Marge %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for l in offer.lines %}
+                                    <tr>
+                                        <td><span class="oc-photo"><img alt="photo article" data-step="0" data-article="{{ l.articleCode }}" src="https://www.lecoqsportif.com/cdn/shop/files/{{ l.articleCode|url_encode }}_2.webp" onerror="ocPhotoError(this)"></span></td>
+                                        <td><strong>{{ l.articleCode }}</strong></td>
+                                        <td>{{ l.articleLabel ?? '—' }}</td>
+                                        <td>{{ l.collection ?? '—' }}</td>
+                                        <td class="num x3">{{ l.x3Tariff is not null ? l.x3Tariff|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td class="num x3">{{ l.x3Msrp is not null ? l.x3Msrp|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td class="num oc"><strong>{{ l.tariff|number_format(2, ',', ' ') }}</strong></td>
+                                        <td class="num oc" title="{% if l.injectedDiscount is not null %}Remise client appliquée au calcul : {{ l.injectedDiscount|number_format(2, ',', ' ') }} %{% else %}Aucune remise client{% endif %}">{{ l.injectedPrice is not null ? l.injectedPrice|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td class="num oc">{{ l.msrp is not null ? l.msrp|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td class="num oc">{{ l.vatRate is not null ? l.vatRate|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td class="num oc">{{ l.margin is not null ? l.margin|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td class="num">{{ l.minQty|number_format(0, ',', ' ') }}</td>
+                                        <td class="num">{{ l.maxQty|number_format(0, ',', ' ') }}</td>
+                                        <td>{{ l.comment ?? '' }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h5 class="mt-4">Historique</h5>
                         <table class="table table-sm table-bordered">
-                            <thead class="table-light"><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Motif</th></tr></thead>
+                            <thead class="table-light"><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Statut</th><th>Motif / commentaire</th></tr></thead>
                             <tbody>
                             {% for h in offer.history %}
-                                <tr><td>{{ h.date }}</td><td>{{ h.user }}</td><td>{{ h.action }}</td><td>{{ h.reason ?? '—' }}</td></tr>
+                                <tr>
+                                    <td>{{ h.createdAt|date('d/m/Y H:i') }}</td>
+                                    <td>{{ h.userName }}</td>
+                                    <td>{{ h.action.label }}</td>
+                                    <td>{% if h.fromStatus %}{{ h.fromStatus.label }} → {% endif %}<strong>{{ h.toStatus.label }}</strong></td>
+                                    <td>{{ h.reason ?? '—' }}</td>
+                                </tr>
                             {% endfor %}
                             </tbody>
                         </table>
@@ -59,5 +143,147 @@
                 </div>
             </div>
         </div>
+        {% if is_granted('OC_DECIDE', offer) %}
+        <div class="modal fade" id="ocRejectModal" tabindex="-1" aria-labelledby="ocRejectModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="ocRejectModalLabel">Rejeter l'OC {{ offer.number }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small">Le rejet est définitif : le commercial devra créer une nouvelle OC. Il reçoit ce motif par mail.</p>
+                        <label class="form-label fw-bold" for="ocRejectReason">Motif du rejet (obligatoire)</label>
+                        <textarea class="form-control" id="ocRejectReason" rows="4" maxlength="1000" required></textarea>
+                        <div class="text-danger small mt-1 d-none" id="ocRejectError">Le motif du rejet est obligatoire.</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="button" class="btn btn-danger" id="btnConfirmReject">Rejeter l'OC</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if is_granted('OC_CANCEL', offer) %}
+        <div class="modal fade" id="ocCancelModal" tabindex="-1" aria-labelledby="ocCancelModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="ocCancelModalLabel">Annuler l'OC {{ offer.number }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small">L'annulation est définitive et tracée dans l'historique.</p>
+                        <label class="form-label fw-bold" for="ocCancelReason">Motif de l'annulation (facultatif)</label>
+                        <textarea class="form-control" id="ocCancelReason" rows="3" maxlength="1000"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Retour</button>
+                        <button type="button" class="btn btn-danger" id="btnConfirmCancel">Annuler l'OC</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const CSRF = '{{ csrf }}';
+            const SUBMIT_URL = '{{ path('app_oc_submit', {id: offer.id}) }}';
+            const CANCEL_URL = '{{ path('app_oc_cancel', {id: offer.id}) }}';
+            const box = document.getElementById('ocMessage');
+            const VALIDATE_URL = '{{ path('app_oc_validate', {id: offer.id}) }}';
+            const REJECT_URL = '{{ path('app_oc_reject', {id: offer.id}) }}';
+            const RESEND_PDF_URL = '{{ path('app_oc_resend_pdf', {id: offer.id}) }}';
+
+            // Photo article : même règle que les stats (cascade de noms de fichiers, puis recherche Shopify, puis image par défaut).
+            const PHOTO_BASE = 'https://www.lecoqsportif.com/cdn/shop/files/';
+            const PHOTO_SUFFIXES = ['_2.webp', '_new_1.webp', '_1.webp', '_2.jpg', '_new_1.jpg', '_1.jpg'];
+            const PHOTO_LOOKUP_URL = '{{ path('lecoqsportif_image_lookup', {article: 'ARTICLE_PLACEHOLDER'}) }}';
+            window.ocPhotoError = function (img) {
+                const step = parseInt(img.dataset.step || '0', 10);
+                const article = img.dataset.article;
+                if (step < PHOTO_SUFFIXES.length - 1) {
+                    img.dataset.step = String(step + 1);
+                    img.src = PHOTO_BASE + encodeURIComponent(article) + PHOTO_SUFFIXES[step + 1];
+                } else if (step === PHOTO_SUFFIXES.length - 1) {
+                    img.dataset.step = String(step + 1);
+                    fetch(PHOTO_LOOKUP_URL.replace('ARTICLE_PLACEHOLDER', encodeURIComponent(article)))
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) { if (d.success && d.url) { img.src = d.url; } else { img.removeAttribute('src'); } })
+                        .catch(function () { img.removeAttribute('src'); });
+                } else {
+                    img.onerror = null;
+                    img.removeAttribute('src');
+                }
+            };
+
+            function post(url, body) {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': CSRF },
+                    body: JSON.stringify(body),
+                }).then(function (r) {
+                    return r.json().catch(function () { return { ok: false, errors: ['Réponse inattendue du serveur (' + r.status + ').'] }; });
+                });
+            }
+
+            function run(url, body) {
+                box.classList.add('d-none');
+                post(url, body).then(function (res) {
+                    if (res.ok) { location.reload(); return; }
+                    box.textContent = (res.errors || ['Erreur inconnue.']).join(' ');
+                    box.classList.remove('d-none');
+                }).catch(function () {
+                    box.textContent = 'Le serveur ne répond pas, réessayez.';
+                    box.classList.remove('d-none');
+                });
+            }
+
+            const submitBtn = document.getElementById('btnSubmitOffer');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', function () {
+                    confirmModal('Soumettre cette OC pour validation ? Elle ne sera plus modifiable.', function () { run(SUBMIT_URL, {}); }, 'Soumettre l\'OC');
+                });
+            }
+            const validateBtn = document.getElementById('btnValidateOffer');
+            if (validateBtn) {
+                validateBtn.addEventListener('click', function () {
+                    confirmModal('Valider cette OC ? Cette décision sera tracée dans l\'historique.', function () { run(VALIDATE_URL, {}); }, 'Valider l\'OC');
+                });
+            }
+            const resendBtn = document.getElementById('btnResendPdf');
+            if (resendBtn) {
+                resendBtn.addEventListener('click', function () {
+                    confirmModal('Renvoyer le PDF de l\'offre au commercial créateur ?', function () { resendBtn.disabled = true; run(RESEND_PDF_URL, {}); }, 'Renvoyer le PDF');
+                });
+            }
+            const confirmReject = document.getElementById('btnConfirmReject');
+            if (confirmReject) {
+                confirmReject.addEventListener('click', function () {
+                    const reason = document.getElementById('ocRejectReason').value.trim();
+                    document.getElementById('ocRejectError').classList.toggle('d-none', reason.length >= 3);
+                    if (reason.length < 3) { return; }
+                    run(REJECT_URL, { reason: reason });
+                });
+            }
+            const cancelBtn = document.getElementById('btnCancelOffer');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function () {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('ocCancelModal')).show();
+                });
+            }
+            const confirmCancel = document.getElementById('btnConfirmCancel');
+            if (confirmCancel) {
+                confirmCancel.addEventListener('click', function () {
+                    run(CANCEL_URL, { reason: document.getElementById('ocCancelReason').value.trim() });
+                });
+            }
+        });
+    </script>
 {% endblock %}

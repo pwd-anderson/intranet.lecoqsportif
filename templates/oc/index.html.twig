@@ -14,6 +14,7 @@
         .oc-badge.submitted { background: #e0a100; }
         .oc-badge.validated { background: #1d8ed6; }
         .oc-badge.rejected { background: #c8102e; }
+        .oc-badge.cancelled { background: #343a40; }
         .oc-badge.sent_to_x3 { background: #0f7b3d; }
     </style>
 {% endblock %}
@@ -24,9 +25,7 @@
             <div class="col-12">
                 <div class="box">
                     <div class="box-header with-border d-md-flex align-items-center justify-content-between">
-                        <h4 class="box-title">Offres commerciales
-                            <span class="badge bg-warning text-dark ms-2" title="Données de démonstration">Version visuelle</span>
-                        </h4>
+                        <h4 class="box-title">Offres commerciales</h4>
                         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
                             <select id="statusFilter" class="form-select form-select-sm" style="width: 170px;">
                                 <option value="">Tous les statuts</option>
@@ -34,6 +33,7 @@
                                 <option value="submitted">Soumise</option>
                                 <option value="validated">Validée</option>
                                 <option value="rejected">Rejetée</option>
+                                <option value="cancelled">Annulée</option>
                                 <option value="sent_to_x3">Envoyée à X3</option>
                             </select>
                             <a href="{{ path('app_oc_new') }}" class="btn btn-sm btn-primary">Nouvelle OC</a>

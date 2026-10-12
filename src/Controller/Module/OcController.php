@@ -2,19 +2,30 @@
 
 namespace App\Controller\Module;
 
-use App\Service\Oc\OcDemoData;
+use App\Entity\Oc\Offer;
+use App\Entity\User;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use App\Repository\Oc\OfferRepository;
+use App\Security\OfferVoter;
+use App\Service\Oc\OcStatus;
 use App\Service\Oc\OcX3Lookup;
+use App\Service\Oc\OfferPdfGenerator;
+use App\Service\Oc\OfferService;
+use App\Service\Oc\OfferValidationException;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Module Offres Commerciales (OC) — version visuelle (v0) : aucune donnée réelle, aucune écriture.
- * Accès : ROLE_SALES, ROLE_MANAGEMENT, ROLE_CONTROLLING (super-users) et ROLE_ADMIN.
+ * Module Offres Commerciales (OC). Accès : ROLE_SALES, ROLE_MANAGEMENT, ROLE_CONTROLLING et ROLE_ADMIN ; les
+ * droits fins sur chaque OC (propriétaire, statut, valideur) sont portés par OfferVoter. Les écritures (POST)
+ * exigent un jeton CSRF (en-tête X-CSRF-Token) et passent par OfferService.
  */
 #[Route('/oc')]
 #[IsGranted(new \Symfony\Component\ExpressionLanguage\Expression(
@@ -22,26 +33,41 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 ))]
 final class OcController extends AbstractController
 {
-    public function __construct(private readonly OcDemoData $demo)
-    {
+    private const CSRF_ID = 'oc_action';
+
+    public function __construct(
+        private readonly OfferRepository $offers,
+        private readonly OfferService $service,
+        private readonly CsrfTokenManagerInterface $csrf,
+    ) {
     }
+
+    // ── Pages ────────────────────────────────────────────────────────────────
 
     #[Route('', name: 'app_oc_index', methods: ['GET'])]
     public function index(): Response
     {
-        $rows = array_map(static fn (array $o): array => [
-            'id' => $o['id'],
-            'number' => $o['number'],
-            'type' => $o['type'],
-            'customers' => implode(', ', $o['customers']),
-            'lines' => $o['lines'],
-            'status' => $o['status']->value,
-            'statusLabel' => $o['status']->label(),
-            'createdBy' => $o['createdBy'],
-            'createdAt' => $o['createdAt'],
-            'startDate' => $o['startDate'],
-            'endDate' => $o['endDate'],
-        ], $this->demo->offers());
+        // Un commercial ne voit que ses OC ; le valideur (ADMIN / MANAGEMENT) et le contrôle de gestion voient tout.
+        $seeAll = $this->isGranted('ROLE_ADMIN') || $this->isGranted('ROLE_MANAGEMENT') || $this->isGranted('ROLE_CONTROLLING');
+
+        $rows = [];
+        foreach ($this->offers->findListing($seeAll ? null : $this->currentUser()) as $row) {
+            /** @var Offer $o */
+            $o = $row[0];
+            $rows[] = [
+                'id' => $o->getId(),
+                'number' => $o->getNumber(),
+                'type' => 'Tarif Spé',
+                'customers' => $o->getCustomerCode() . ' - ' . $o->getCustomerName(),
+                'lines' => (int) $row['lineCount'],
+                'status' => $o->getStatus()->value,
+                'statusLabel' => $o->getStatus()->label(),
+                'createdBy' => $o->getCreatedByName(),
+                'createdAt' => $o->getCreatedAt()->format('Y-m-d'),
+                'startDate' => $o->getStartDate()->format('Y-m-d'),
+                'endDate' => $o->getEndDate()->format('Y-m-d'),
+            ];
+        }
 
         return $this->render('oc/index.html.twig', ['rows' => $rows]);
     }
@@ -49,9 +75,195 @@ final class OcController extends AbstractController
     #[Route('/new', name: 'app_oc_new', methods: ['GET'])]
     public function new(): Response
     {
-        return $this->render('oc/new.html.twig', [
+        return $this->render('oc/new.html.twig', $this->formContext(null));
+    }
+
+    #[Route('/{id}/edit', name: 'app_oc_edit', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function edit(#[MapEntity] Offer $offer): Response
+    {
+        $this->denyAccessUnlessGranted(OfferVoter::EDIT, $offer);
+
+        return $this->render('oc/new.html.twig', $this->formContext($offer));
+    }
+
+    /** Nouvelle OC pré-remplie à partir d'une OC REJETÉE (un rejet est définitif : on repart d'une nouvelle OC). */
+    #[Route('/{id}/duplicate', name: 'app_oc_duplicate', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function duplicate(#[MapEntity] Offer $offer): Response
+    {
+        $this->denyAccessUnlessGranted(OfferVoter::VIEW, $offer);
+        if ($offer->getStatus() !== OcStatus::REJECTED) {
+            throw $this->createNotFoundException('Seule une OC rejetée peut servir de base à une nouvelle OC.');
+        }
+
+        return $this->render('oc/new.html.twig', $this->formContext($offer, true));
+    }
+
+    #[Route('/{id}', name: 'app_oc_show', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function show(#[MapEntity] Offer $offer): Response
+    {
+        $this->denyAccessUnlessGranted(OfferVoter::VIEW, $offer);
+
+        return $this->render('oc/show.html.twig', [
+            'offer' => $offer,
+            'warnings' => $this->service->warnings($offer),
+            'csrf' => $this->csrf->getToken(self::CSRF_ID)->getValue(),
         ]);
     }
+
+    // ── Écritures (JSON) ─────────────────────────────────────────────────────
+
+    /** Crée ou met à jour un brouillon. Corps JSON : voir OfferInput ; "id" pour une mise à jour, "sourceOfferId" pour une OC issue d'un rejet. */
+    #[Route('/save', name: 'app_oc_save', methods: ['POST'])]
+    public function save(Request $request): JsonResponse
+    {
+        if ($error = $this->guardWrite($request)) {
+            return $error;
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!is_array($data)) {
+            return $this->fail(['Requête illisible.'], 400);
+        }
+
+        $existing = null;
+        if (!empty($data['id'])) {
+            $existing = $this->offers->find((int) $data['id']);
+            if ($existing === null) {
+                return $this->fail(['OC introuvable.'], 404);
+            }
+            $this->denyAccessUnlessGranted(OfferVoter::EDIT, $existing);
+        }
+
+        $source = null;
+        if ($existing === null && !empty($data['sourceOfferId'])) {
+            $source = $this->offers->find((int) $data['sourceOfferId']);
+            if ($source === null || $source->getStatus() !== OcStatus::REJECTED) {
+                return $this->fail(['L\'OC d\'origine doit être une OC rejetée.'], 422);
+            }
+            $this->denyAccessUnlessGranted(OfferVoter::VIEW, $source);
+        }
+
+        try {
+            $offer = $this->service->save($data, $this->currentUser(), $existing, $source);
+        } catch (OfferValidationException $e) {
+            return $this->fail($e->getErrors(), 422);
+        }
+
+        return $this->ok($offer);
+    }
+
+    #[Route('/{id}/submit', name: 'app_oc_submit', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function submit(#[MapEntity] Offer $offer, Request $request): JsonResponse
+    {
+        if ($error = $this->guardWrite($request)) {
+            return $error;
+        }
+        $this->denyAccessUnlessGranted(OfferVoter::SUBMIT, $offer);
+
+        try {
+            $this->service->submit($offer, $this->currentUser());
+        } catch (OfferValidationException $e) {
+            return $this->fail($e->getErrors(), 422);
+        } catch (\LogicException $e) {
+            return $this->fail([$e->getMessage()], 409);
+        }
+
+        return $this->ok($offer);
+    }
+
+    #[Route('/{id}/cancel', name: 'app_oc_cancel', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function cancel(#[MapEntity] Offer $offer, Request $request): JsonResponse
+    {
+        if ($error = $this->guardWrite($request)) {
+            return $error;
+        }
+        $this->denyAccessUnlessGranted(OfferVoter::CANCEL, $offer);
+
+        $data = json_decode($request->getContent(), true);
+        $reason = is_array($data) && isset($data['reason']) ? mb_substr((string) $data['reason'], 0, 500) : null;
+
+        try {
+            $this->service->cancel($offer, $this->currentUser(), $reason);
+        } catch (\LogicException $e) {
+            return $this->fail([$e->getMessage()], 409);
+        }
+
+        return $this->ok($offer);
+    }
+
+    /** Validation par la Direction (ADMIN / MANAGEMENT). Refusée (422) si la remise client a changé dans X3 depuis l'enregistrement. */
+    #[Route('/{id}/validate', name: 'app_oc_validate', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function validate(#[MapEntity] Offer $offer, Request $request): JsonResponse
+    {
+        if ($error = $this->guardWrite($request)) {
+            return $error;
+        }
+        $this->denyAccessUnlessGranted(OfferVoter::DECIDE, $offer);
+
+        try {
+            $this->service->validate($offer, $this->currentUser());
+        } catch (OfferValidationException $e) {
+            return $this->fail($e->getErrors(), 422);
+        } catch (\LogicException $e) {
+            return $this->fail([$e->getMessage()], 409);
+        }
+
+        return $this->ok($offer);
+    }
+
+    /** Rejet par la Direction : corps JSON {"reason": "..."} obligatoire ; le commercial en est prévenu par mail. */
+    #[Route('/{id}/reject', name: 'app_oc_reject', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function reject(#[MapEntity] Offer $offer, Request $request): JsonResponse
+    {
+        if ($error = $this->guardWrite($request)) {
+            return $error;
+        }
+        $this->denyAccessUnlessGranted(OfferVoter::DECIDE, $offer);
+
+        $data = json_decode($request->getContent(), true);
+        $reason = is_array($data) && isset($data['reason']) ? (string) $data['reason'] : null;
+
+        try {
+            $this->service->reject($offer, $this->currentUser(), $reason);
+        } catch (OfferValidationException $e) {
+            return $this->fail($e->getErrors(), 422);
+        } catch (\LogicException $e) {
+            return $this->fail([$e->getMessage()], 409);
+        }
+
+        return $this->ok($offer);
+    }
+
+    /** PDF de l'offre (OC validée) : téléchargement. Même contenu que le PDF envoyé au commercial à la validation. */
+    #[Route('/{id}/pdf', name: 'app_oc_pdf', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function pdf(#[MapEntity] Offer $offer, OfferPdfGenerator $generator): Response
+    {
+        $this->denyAccessUnlessGranted(OfferVoter::PDF, $offer);
+
+        return new Response($generator->generate($offer), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_INLINE, $generator->filename($offer)),
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
+    /** Renvoie le PDF au commercial créateur (échec d'envoi à la validation, ou mail perdu). Direction seulement. */
+    #[Route('/{id}/resend-pdf', name: 'app_oc_resend_pdf', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function resendPdf(#[MapEntity] Offer $offer, Request $request): JsonResponse
+    {
+        if ($error = $this->guardWrite($request)) {
+            return $error;
+        }
+        $this->denyAccessUnlessGranted(OfferVoter::RESEND_PDF, $offer);
+
+        if (!$this->service->sendValidationPdf($offer, $this->currentUser())) {
+            return $this->fail(['Le PDF n\'a pas pu être envoyé : le détail est dans l\'historique de l\'OC.'], 502);
+        }
+
+        return $this->ok($offer);
+    }
+
+    // ── API de lecture X3 (autocomplétions et prix affichés pendant la saisie) ─
 
     /** Autocomplétion client (X3_LCS) : GET /oc/api/customers?q=... */
     #[Route('/api/customers', name: 'app_oc_api_customers', methods: ['GET'])]
@@ -103,11 +315,86 @@ final class OcController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($rows));
     }
 
-    #[Route('/{id}', name: 'app_oc_show', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function show(int $id): Response
-    {
-        $offer = $this->demo->offer($id) ?? throw $this->createNotFoundException();
+    // ── Utilitaires ──────────────────────────────────────────────────────────
 
-        return $this->render('oc/show.html.twig', ['offer' => $offer]);
+    private function currentUser(): User
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+
+        return $user;
+    }
+
+    private function guardWrite(Request $request): ?JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(self::CSRF_ID, (string) $request->headers->get('X-CSRF-Token'))) {
+            return $this->fail(['Session expirée : rechargez la page.'], 419);
+        }
+
+        return null;
+    }
+
+    /** @param list<string> $errors */
+    private function fail(array $errors, int $status): JsonResponse
+    {
+        return new JsonResponse(['ok' => false, 'errors' => $errors], $status);
+    }
+
+    private function ok(Offer $offer): JsonResponse
+    {
+        return new JsonResponse([
+            'ok' => true,
+            'id' => $offer->getId(),
+            'number' => $offer->getNumber(),
+            'status' => $offer->getStatus()->value,
+            'statusLabel' => $offer->getStatus()->label(),
+            'editUrl' => $this->generateUrl('app_oc_edit', ['id' => $offer->getId()]),
+            'showUrl' => $this->generateUrl('app_oc_show', ['id' => $offer->getId()]),
+            'warnings' => $this->service->warnings($offer),
+        ]);
+    }
+
+    /**
+     * Contexte de la page de saisie : $offer = brouillon à modifier ; avec $fromRejected = nouvelle OC pré-remplie
+     * à partir d'une OC rejetée (mêmes client, dates, articles et tarifs ; X3 sera relu à l'enregistrement).
+     *
+     * @return array<string,mixed>
+     */
+    private function formContext(?Offer $offer, bool $fromRejected = false): array
+    {
+        $initial = null;
+        if ($offer !== null) {
+            $initial = [
+                'offerId' => $fromRejected ? null : $offer->getId(),
+                'number' => $fromRejected ? null : $offer->getNumber(),
+                'sourceOfferId' => $fromRejected ? $offer->getId() : null,
+                'sourceNumber' => $fromRejected ? $offer->getNumber() : null,
+                'customer' => [
+                    'code' => $offer->getCustomerCode(),
+                    'name' => $offer->getCustomerName(),
+                    'currency' => $offer->getCustomerCurrency(),
+                ],
+                'startDate' => $offer->getStartDate()->format('Y-m-d'),
+                'endDate' => $offer->getEndDate()->format('Y-m-d'),
+                'comment' => $offer->getComment(),
+                'lines' => array_map(static fn ($l) => [
+                    'articleCode' => $l->getArticleCode(),
+                    'articleLabel' => $l->getArticleLabel(),
+                    'tariff' => $l->getTariff(),
+                    'msrp' => $l->getMsrp(),
+                    'vatRate' => $l->getVatRate(),
+                    'minQty' => $l->getMinQty(),
+                    'maxQty' => $l->getMaxQty(),
+                    'comment' => $l->getComment(),
+                ], $offer->getLines()->toArray()),
+            ];
+        }
+
+        return [
+            'initial' => $initial,
+            'csrf' => $this->csrf->getToken(self::CSRF_ID)->getValue(),
+        ];
     }
 }

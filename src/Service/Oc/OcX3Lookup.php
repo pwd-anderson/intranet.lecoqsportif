@@ -2,7 +2,6 @@
 
 namespace App\Service\Oc;
 
-use App\Factory\MssqlManagerFactory;
 use App\Infrastructure\Sql\SqlFileLoader;
 use App\Service\Tools\GraphMailer;
 use App\Service\Tools\MssqlManager;
@@ -14,21 +13,47 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * Les SQL vivent dans src/Infrastructure/Sql/Sei/oc_*.sql ; les valeurs saisies sont toujours liées
  * en paramètres.
  */
-final class OcX3Lookup
+class OcX3Lookup
 {
     public const MIN_CHARS = 2;
 
-    private MssqlManager $mssqlSei;
+    private ?MssqlManager $mssql = null;
 
+    /** @var array{dsn:string,user:string,password:string} */
+    private array $connection;
+
+    /**
+     * @param array<string,array{dsn:string,user:string,password:string}> $connections paramètre mssql.connections
+     */
     public function __construct(
-        MssqlManagerFactory $mssqlManagerFactory,
         private readonly LoggerInterface $logger,
         private readonly GraphMailer $graphMailer,
         private readonly SqlFileLoader $sqlFileLoader,
+        #[Autowire('%mssql.connections%')]
+        array $connections,
         #[Autowire('%db.lcs_sei%')]
         string $dbLcsSei,
     ) {
-        $this->mssqlSei = $mssqlManagerFactory->create($dbLcsSei);
+        $this->connection = $connections[$dbLcsSei] ?? throw new \InvalidArgumentException("Connexion MSSQL inconnue : '$dbLcsSei'");
+    }
+
+    /**
+     * Connexion au SEI Cube en UTF-8, ouverte à la PREMIÈRE requête seulement (ouvrir une connexion coûte
+     * jusqu'à ~15 s : les pages qui n'interrogent pas X3 ne doivent pas la payer). Le pilote dblib travaille par
+     * défaut en ISO-8859-1 : sans charset=UTF-8, un « ° » dans une désignation arrivait en octet invalide pour
+     * MySQL (enregistrement refusé) et tout caractère hors Latin-1 était remplacé par « ? ».
+     */
+    private function db(): MssqlManager
+    {
+        if ($this->mssql === null) {
+            $dsn = $this->connection['dsn'];
+            if (str_starts_with($dsn, 'dblib:') && stripos($dsn, 'charset=') === false) {
+                $dsn = rtrim($dsn, ';') . ';charset=UTF-8';
+            }
+            $this->mssql = new MssqlManager($dsn, $this->connection['user'], $this->connection['password'], $this->logger);
+        }
+
+        return $this->mssql;
     }
 
     /**
@@ -66,7 +91,7 @@ final class OcX3Lookup
 
         try {
             $query = $this->sqlFileLoader->load('Sei/oc_customer_discount.sql');
-            $rows = $this->mssqlSei->executeQueryWithParams($query, ['code' => $customerCode]);
+            $rows = $this->db()->executeQueryWithParams($query, ['code' => $customerCode]);
 
             return $rows[0] ?? null;
         } catch (\Throwable $e) {
@@ -78,33 +103,110 @@ final class OcX3Lookup
     }
 
     /**
-     * Code tarif (groupe tarifaire du client), tarif et MSRP d'un article parent pour un client, sur la
-     * collection la plus récente de l'article. Null si l'article ou le client est introuvable.
+     * Un client actif par son code exact (relecture serveur à l'enregistrement), ou null s'il est introuvable.
+     * Un résultat null peut aussi signifier « X3 indisponible » (MssqlManager avale les erreurs SQL).
      *
-     * @return array{ARTICLE:string,MODELE:?string,COLLECTION:?string,CODE_TARIF:?string,DEVISE:?string,TARIF:float|int|string|null,MSRP:float|int|string|null}|null
+     * @return array{CODE_CLIENT:string,NOM_CLIENT:string,DEVISE:?string,CODE_TARIF:?string}|null
      */
-    public function getArticlePrices(string $customerCode, string $articleCode): ?array
+    public function getCustomer(string $customerCode): ?array
     {
         $customerCode = trim($customerCode);
-        $articleCode = trim($articleCode);
-        if ($customerCode === '' || $articleCode === '') {
+        if ($customerCode === '') {
             return null;
         }
 
         try {
-            $query = $this->sqlFileLoader->load('Sei/oc_article_prices.sql');
-            $rows = $this->mssqlSei->executeQueryWithParams($query, [
-                'customer' => $customerCode,
-                'article' => $articleCode,
-                'article_cr' => $articleCode,
-            ]);
+            $rows = $this->db()->executeQueryWithParams($this->sqlFileLoader->load('Sei/oc_customer_get.sql'), ['code' => $customerCode]);
 
-            return $rows[0] ?? null;
+            return isset($rows[0]) ? (array) $rows[0] : null;
         } catch (\Throwable $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur OC : tarifs article', $e);
-            $this->logger->error('LCS Erreur OC : tarifs article', ['exception' => $e]);
+            $this->graphMailer->notifyError('❌ LCS Erreur OC : lecture client', $e);
+            $this->logger->error('LCS Erreur OC : lecture client', ['exception' => $e]);
 
             return null;
+        }
+    }
+
+    /**
+     * Adresse par défaut du client (PDF de l'offre), ou null si introuvable / X3 indisponible : le PDF s'en passe.
+     *
+     * @return array{LIGNE_1:?string,LIGNE_2:?string,LIGNE_3:?string,CODE_POSTAL:?string,VILLE:?string,PAYS:?string}|null
+     */
+    public function getCustomerAddress(string $customerCode): ?array
+    {
+        $customerCode = trim($customerCode);
+        if ($customerCode === '') {
+            return null;
+        }
+
+        try {
+            $rows = $this->db()->executeQueryWithParams($this->sqlFileLoader->load('Sei/oc_customer_address.sql'), ['code' => $customerCode]);
+
+            return isset($rows[0]) ? (array) $rows[0] : null;
+        } catch (\Throwable $e) {
+            $this->logger->warning('LCS OC : adresse client indisponible pour le PDF', ['customer' => $customerCode, 'exception' => $e]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Code tarif (groupe tarifaire du client), tarif et MSRP d'un article parent pour un client, sur la
+     * collection la plus récente de l'article. Null si l'article ou le client est introuvable.
+     *
+     * @return array{ARTICLE:string,DESIGNATION:?string,MODELE:?string,COLLECTION:?string,CODE_TARIF:?string,DEVISE:?string,TARIF:float|int|string|null,MSRP:float|int|string|null}|null
+     */
+    public function getArticlePrices(string $customerCode, string $articleCode): ?array
+    {
+        return $this->getArticlesPrices($customerCode, [$articleCode])[trim($articleCode)] ?? null;
+    }
+
+    /**
+     * Même lecture pour plusieurs articles en UNE requête (relecture serveur à l'enregistrement d'une OC).
+     * Les articles introuvables sont absents du résultat.
+     *
+     * @param list<string> $articleCodes
+     *
+     * @return array<string, array<string,mixed>> lignes indexées par code article
+     */
+    public function getArticlesPrices(string $customerCode, array $articleCodes): array
+    {
+        $customerCode = trim($customerCode);
+        $articleCodes = array_values(array_unique(array_filter(array_map('trim', $articleCodes), static fn (string $a): bool => $a !== '')));
+        if ($customerCode === '' || $articleCodes === []) {
+            return [];
+        }
+
+        // Deux jeux de paramètres nommés distincts (CTE et requête principale) pour la même liste d'articles.
+        $params = ['customer' => $customerCode];
+        $inCr = [];
+        $inMain = [];
+        foreach ($articleCodes as $i => $code) {
+            $params['a' . $i] = $code;
+            $params['b' . $i] = $code;
+            $inCr[] = ':a' . $i;
+            $inMain[] = ':b' . $i;
+        }
+
+        try {
+            $query = str_replace(
+                ['{{ARTICLES_CR}}', '{{ARTICLES}}'],
+                [implode(', ', $inCr), implode(', ', $inMain)],
+                $this->sqlFileLoader->load('Sei/oc_article_prices.sql')
+            );
+
+            $result = [];
+            foreach ($this->db()->executeQueryWithParams($query, $params) as $row) {
+                $row = (array) $row;
+                $result[trim((string) $row['ARTICLE'])] = $row;
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur OC : tarifs articles', $e);
+            $this->logger->error('LCS Erreur OC : tarifs articles', ['exception' => $e]);
+
+            return [];
         }
     }
 
@@ -126,7 +228,7 @@ final class OcX3Lookup
         try {
             $query = $this->sqlFileLoader->load($sqlFile);
 
-            return $this->mssqlSei->executeQueryWithParams($query, array_fill_keys($paramNames, $like));
+            return $this->db()->executeQueryWithParams($query, array_fill_keys($paramNames, $like));
         } catch (\Throwable $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur OC : ' . $label, $e);
             $this->logger->error('LCS Erreur OC : ' . $label, ['exception' => $e]);

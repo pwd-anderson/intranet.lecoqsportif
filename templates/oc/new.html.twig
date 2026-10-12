@@ -1,12 +1,12 @@
 {% extends 'base.html.twig' %}
 
 {#
-  Module OC — nouvelle offre (Tarif Spé), version visuelle v0 : données factices (OcDemoData),
-  rien n'est enregistré. Le tarif est saisi par le commercial ; la marge s'affiche à côté et
-  se recalcule en JS (formule reprise de l'ancien module, sans markup ni triple net) :
-    PV net HT = PVC TTC * 100 / (100 + TVA)
+  Module OC — saisie d'une offre (Tarif Spé) : création, modification d'un brouillon, ou nouvelle OC issue d'une OC
+  rejetée (variable "initial"). Le tarif est saisi par le commercial ; la marge s'affiche à côté et se recalcule en JS
+  (le serveur la recalcule à l'enregistrement) :
+    PV net HT = MSRP * 100 / (100 + TVA)
     marge %   = (PV net HT - tarif) / PV net HT * 100
-  Les 3 messages d'avertissement (existant / OC soumise / OC validée non envoyée) sont distincts.
+  À l'enregistrement le serveur relit X3 (client, remise, code tarif, tarif, MSRP) et fige ces valeurs (OfferService).
 #}
 
 {% block stylesheets %}
@@ -45,8 +45,10 @@
             <div class="col-12">
                 <div class="box">
                     <div class="box-header with-border d-md-flex align-items-center justify-content-between">
-                        <h4 class="box-title">Nouvelle offre commerciale — Tarif Spé
-                            <span class="badge bg-warning text-dark ms-2" title="Données de démonstration, rien n'est enregistré">Version visuelle</span>
+                        <h4 class="box-title" id="ocTitle">
+                            {% if initial and initial.offerId %}Modifier l'OC {{ initial.number }} <span class="badge bg-secondary ms-2">Brouillon</span>
+                            {% elseif initial and initial.sourceOfferId %}Nouvelle OC à partir de l'OC rejetée {{ initial.sourceNumber }}
+                            {% else %}Nouvelle offre commerciale — Tarif Spé{% endif %}
                         </h4>
                         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
                             <a href="{{ path('app_oc_index') }}" class="btn btn-sm btn-outline-secondary">Retour à la liste</a>
@@ -57,6 +59,8 @@
 
                     <div class="box-body">
                         <div id="ocToast" class="alert alert-info py-2 d-none"></div>
+                        <div id="ocErrors" class="alert alert-danger d-none" role="alert"></div>
+                        <div id="ocWarnings" class="alert alert-warning d-none" role="alert"></div>
 
                         {# 1. Paramètres #}
                         <div class="row g-3 mb-4 align-items-end">
@@ -145,6 +149,10 @@
     {{ parent() }}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            const CSRF = '{{ csrf }}';
+            const INITIAL = {{ initial|json_encode|raw }};
+            const SAVE_URL = '{{ path('app_oc_save') }}';
+            const SUBMIT_URL_TPL = '{{ path('app_oc_submit', {id: 0}) }}';
             const CUSTOMER_URL = '{{ path('app_oc_api_customers') }}';
             const CUSTOMER_MIN_CHARS = 2;
             const DISCOUNT_URL = '{{ path('app_oc_api_customer_discount', {code: 'CODE_PLACEHOLDER'}) }}';
@@ -158,7 +166,7 @@
             const PHOTO_LOOKUP_URL = '{{ path('lecoqsportif_image_lookup', {article: 'ARTICLE_PLACEHOLDER'}) }}';
 
             // removed : lignes (client|article) supprimées individuellement ; l'article reste proposé aux autres clients.
-            const state = { customers: [], articles: [], lines: {}, numbers: {}, removed: {}, prices: {} };
+            const state = { customers: [], articles: [], lines: {}, numbers: {}, removed: {}, prices: {}, offerId: null, sourceOfferId: null };
 
             const $ = function (id) { return document.getElementById(id); };
             const esc = function (s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
@@ -269,6 +277,9 @@
                 if (row) {
                     if (field !== 'price') row.querySelector('[data-f="price"]').value = line.price;
                     if (field !== 'margin') row.querySelector('[data-f="margin"]').value = line.margin;
+                    const cell = row.querySelector('[data-injected]');
+                    const cust = state.customers.find(function (x) { return x.code === customerCode; });
+                    if (cell && cust) { cell.textContent = injectedText(cust, line); }
                 }
             }
 
@@ -278,6 +289,29 @@
                 const v = p[field];
                 return v === null || v === undefined || v === '' ? '—' : (typeof v === 'number' ? v.toFixed(2) : v);
             }
+            // Prix à envoyer à X3 = tarif OC / (1 - remise client) ; même algorithme que OfferCalculator::injectedPrice (le
+            // serveur recalcule à l'enregistrement) : parmi les valeurs voisines, celle dont le net recalculé par X3 redonne
+            // exactement le tarif saisi.
+            function injected(net, discount) {
+                net = num(net);
+                const d = discount || 0;
+                if (!(net > 0) || d < 0 || d >= 100) { return null; }
+                const f = 1 - d / 100, target = round(net, 2), exact = net / f, base = round(exact, 2);
+                let best = null;
+                [0, -1, 1, -2, 2].forEach(function (k) {
+                    const cand = round(base + k * 0.01, 2);
+                    if (cand <= 0) { return; }
+                    const gap = Math.abs(round(cand * f, 2) - target), dist = Math.abs(cand - exact);
+                    if (best === null || gap < best.gap - 1e-9 || (Math.abs(gap - best.gap) < 1e-9 && dist < best.dist)) { best = { cand: cand, gap: gap, dist: dist }; }
+                });
+                return best.cand;
+            }
+            function injectedText(c, l) {
+                if (c.discount === undefined) { return '…'; }
+                const v = injected(l.price, c.discount);
+                return v === null ? '—' : v.toFixed(2);
+            }
+
             function discountText(c) {
                 if (c.discount === undefined) return '…';
                 if (c.discountError) return 'Erreur';
@@ -311,7 +345,7 @@
             function render() {
                 // Chips
                 $('ocCustomerChips').innerHTML = state.customers.map(function (c) {
-                    return '<span class="oc-chip">' + esc(c.code + ' - ' + c.name) + (c.city ? ' · ' + esc(c.city) : '') + '<button type="button" data-rm-customer="' + esc(c.code) + '" aria-label="Retirer">×</button></span>';
+                    return '<span class="oc-chip">' + esc(c.code + ' - ' + c.name) + (c.city ? ' · ' + esc(c.city) : '') + (state.offerId ? '' : '<button type="button" data-rm-customer="' + esc(c.code) + '" aria-label="Retirer">×</button>') + '</span>';
                 }).join('');
 
                 // Un seul client par OC (la sélection multiple reviendra plus tard) : recherche bloquée une fois choisi.
@@ -353,20 +387,22 @@
                             + '<td><input class="form-control form-control-sm" data-f="pvc" value="' + esc(l.pvc) + '" inputmode="decimal"></td>'
                             + '<td class="oc-td-green"><input class="form-control form-control-sm" data-f="price" value="' + esc(l.price) + '" inputmode="decimal" placeholder="Tarif">'+ '</td>'
                             + '<td class="oc-td-green"><input class="form-control form-control-sm" data-f="margin" value="' + esc(l.margin) + '" inputmode="decimal" placeholder="% marge"></td>'
+ 
+                            + '<td class="oc-injected" data-injected>' + esc(injectedText(c, l)) + '</td>'
                             + '<td><input class="form-control form-control-sm" data-f="minQty" value="' + esc(l.minQty) + '" inputmode="numeric"></td>'
                             + '<td><input class="form-control form-control-sm" data-f="maxQty" value="' + esc(l.maxQty) + '" inputmode="numeric"></td>'
                             + '<td><textarea class="form-control form-control-sm oc-comment" data-f="comment" rows="2" maxlength="500">' + esc(l.comment) + '</textarea></td>'
                             + '<td><button type="button" class="btn btn-sm btn-danger" data-rm-line="' + esc(lineKey(c.code, a.ref)) + '" title="Supprimer cet article pour ce client" aria-label="Supprimer la ligne">×</button></td>'
                             + '</tr>'
-                            + (a.warnings[c.code] ? '<tr><td colspan="13" style="padding:0 6px 6px">' + warningHtml(a, c.code) + '</td></tr>' : '');
+                            + (a.warnings[c.code] ? '<tr><td colspan="14" style="padding:0 6px 6px">' + warningHtml(a, c.code) + '</td></tr>' : '');
                     }).join('');
                     return '<div class="mb-4" data-customer="' + esc(c.code) + '">'
                         + '<div class="oc-client-title"><h5 class="mb-2">Liste des produits pour le client ' + esc(c.code + ' - ' + c.name) + '</h5>'
                         + '<span class="text-muted small">N° prévisionnel : ' + esc(previewNumber(c.code)) + '</span></div>'
                         + '<div class="table-responsive"><table class="oc-table"><thead><tr>'
                         + '<th>Photo</th><th>Produit</th><th>Devise</th><th>Code tarif</th><th>Tarif</th><th>Remise client</th><th>MSRP</th>'
-                        + '<th class="oc-th-green">Tarif OC</th><th class="oc-th-green">Marge souhaitée (%)</th><th>Qté min</th><th>Qté max</th><th>Commentaire</th><th></th>'
-                        + '</tr></thead><tbody>' + (rows || '<tr><td colspan="13" class="oc-empty">Aucun article pour ce client.</td></tr>') + '</tbody></table></div></div>';
+                        + '<th class="oc-th-green">Tarif OC (net)</th><th class="oc-th-green">Marge souhaitée (%)</th><th title="Prix envoyé à X3 : tarif OC / (1 − remise client). X3 applique ensuite la remise client à toutes les lignes, le client paie donc le tarif OC.">Envoyé à X3</th><th>Qté min</th><th>Qté max</th><th>Commentaire</th><th></th>'
+                        + '</tr></thead><tbody>' + (rows || '<tr><td colspan="14" class="oc-empty">Aucun article pour ce client.</td></tr>') + '</tbody></table></div></div>';
                 }).join('');
                 $('btnSubmit').disabled = anyBlocked;
                 $('btnSubmit').title = anyBlocked ? 'Une ou plusieurs lignes sont bloquées par une OC existante' : '';
@@ -548,8 +584,115 @@
             $('ocCommentModal').addEventListener('show.bs.modal', function () { commentBox.value = savedComment; refreshCommentUi(); });
             $('btnCommentSave').addEventListener('click', function () { savedComment = commentBox.value.trim(); refreshCommentUi(); });
 
-            $('btnDraft').addEventListener('click', function () { toast('Version visuelle : l\'enregistrement n\'est pas encore branché.'); });
-            $('btnSubmit').addEventListener('click', function () { toast('Version visuelle : la soumission n\'est pas encore branchée.'); });
+            // ── Enregistrement (le serveur relit X3 et fige les valeurs ; voir OfferService) ──
+            function showErrors(list) {
+                $('ocErrors').innerHTML = '<ul class="mb-0">' + list.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>';
+                $('ocErrors').classList.remove('d-none');
+                $('ocErrors').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            function clearErrors() { $('ocErrors').classList.add('d-none'); $('ocErrors').innerHTML = ''; }
+            function showWarnings(list) {
+                const box = $('ocWarnings');
+                box.innerHTML = (list || []).map(function (w) { return '<div>' + esc(w) + '</div>'; }).join('');
+                box.classList.toggle('d-none', !list || list.length === 0);
+            }
+            function setBusy(busy) { ['btnDraft', 'btnSubmit'].forEach(function (id) { $(id).disabled = busy || (id === 'btnSubmit' && !canSubmit()); }); }
+            function canSubmit() { return state.customers.length > 0 && state.articles.length > 0; }
+
+            function post(url, body) {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': CSRF },
+                    body: JSON.stringify(body),
+                }).then(function (r) {
+                    return r.json().catch(function () { return { ok: false, errors: ['Réponse inattendue du serveur (' + r.status + ').'] }; });
+                });
+            }
+
+            function buildPayload() {
+                const c = state.customers[0];
+                const lines = state.articles
+                    .filter(function (a) { return !state.removed[lineKey(c.code, a.ref)]; })
+                    .map(function (a) {
+                        const l = ensureLine(c, a);
+                        return { articleCode: a.ref, tariff: l.price, msrp: l.pvc, vatRate: a.tva, minQty: l.minQty, maxQty: l.maxQty, comment: l.comment };
+                    });
+                return {
+                    id: state.offerId, sourceOfferId: state.sourceOfferId, customerCode: c.code,
+                    startDate: $('ocStart').value, endDate: $('ocEnd').value, comment: savedComment, lines: lines,
+                };
+            }
+
+            // Enregistre le brouillon ; renvoie la réponse du serveur ou null (erreurs affichées).
+            function saveDraft() {
+                clearErrors();
+                if (!canSubmit()) { showErrors(['Sélectionnez un client et ajoutez au moins un article.']); return Promise.resolve(null); }
+                setBusy(true);
+                return post(SAVE_URL, buildPayload()).then(function (res) {
+                    setBusy(false);
+                    if (!res.ok) { showErrors(res.errors || ['Erreur inconnue.']); return null; }
+                    showWarnings(res.warnings);
+                    const firstSave = state.offerId === null;
+                    state.offerId = res.id;
+                    history.replaceState(null, '', res.editUrl);   // un rechargement rouvre ce brouillon
+                    $('ocTitle').innerHTML = 'Modifier l\'OC ' + esc(res.number) + ' <span class="badge bg-secondary ms-2">Brouillon</span>';
+                    if (firstSave) { render(); }                   // le client n'est plus retirable
+                    return res;
+                }).catch(function () {
+                    setBusy(false);
+                    showErrors(['Le serveur ne répond pas : rien n\'a été enregistré, réessayez.']);
+                    return null;
+                });
+            }
+
+            $('btnDraft').addEventListener('click', function () {
+                saveDraft().then(function (res) { if (res) { toast('Brouillon enregistré : ' + res.number); } });
+            });
+
+            function submitOffer() {
+                saveDraft().then(function (res) {
+                    if (!res) { return null; }
+                    setBusy(true);
+                    return post(SUBMIT_URL_TPL.replace('/0/', '/' + res.id + '/'), {}).then(function (r) {
+                        if (r.ok) { window.location.href = r.showUrl; return; }
+                        setBusy(false);
+                        showErrors(r.errors || ['Erreur inconnue.']);
+                    });
+                }).catch(function () { setBusy(false); showErrors(['Le serveur ne répond pas, réessayez.']); });
+            }
+
+            $('btnSubmit').addEventListener('click', function () {
+                confirmModal('Soumettre cette OC pour validation ? Elle ne sera plus modifiable.', submitOffer, 'Soumettre l\'OC');
+            });
+
+            // ── Chargement d'une OC existante (modification d'un brouillon) ou d'une OC rejetée (nouvelle OC) ──
+            if (INITIAL) {
+                const ic = INITIAL.customer;
+                const customer = { code: ic.code, name: ic.name, currency: ic.currency };
+                state.customers.push(customer);
+                state.offerId = INITIAL.offerId;
+                state.sourceOfferId = INITIAL.sourceOfferId;
+                $('ocStart').value = INITIAL.startDate;
+                $('ocEnd').value = INITIAL.endDate;
+                savedComment = INITIAL.comment || '';
+                refreshCommentUi();
+                INITIAL.lines.forEach(function (l) {
+                    const tva = l.vatRate !== null ? parseFloat(l.vatRate) : DEFAULT_TVA;
+                    const article = { ref: l.articleCode, label: l.articleLabel || '', tva: tva, warnings: {} };
+                    state.articles.push(article);
+                    const line = ensureLine(customer, article);
+                    line.price = String(parseFloat(l.tariff));
+                    line.pvc = l.msrp !== null ? String(parseFloat(l.msrp)) : '';
+                    line.pvcTouched = l.msrp !== null;   // le MSRP enregistré est conservé (pas écrasé par la valeur X3 actuelle)
+                    line.minQty = l.minQty;
+                    line.maxQty = l.maxQty;
+                    line.comment = l.comment || '';
+                    const net = pvNet(line.pvc, tva);
+                    line.margin = net ? fmt(round(((net - num(line.price)) / net) * 100, 2)) : '';
+                });
+                loadDiscount(customer);
+                state.articles.forEach(function (a) { loadPrices(customer, a); });   // valeurs X3 actuelles, affichées pour information
+            }
 
             render();
         });
