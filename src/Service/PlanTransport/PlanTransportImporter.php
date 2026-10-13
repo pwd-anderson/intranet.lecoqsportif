@@ -28,13 +28,17 @@ class PlanTransportImporter
     private const HEADER_ROW = 3;
     private const FIRST_DATA_ROW = 4;
 
-    /** En-têtes attendus des colonnes B à J (la cellule A3 contient la légende des couleurs, pas un titre). */
+    /**
+     * En-têtes attendus des colonnes B à J (la cellule A3 contient la légende des couleurs, pas un titre). Un tableau =
+     * plusieurs libellés acceptés pour la même colonne (le métier a renommé « Moyen de transport » en
+     * « Transportation Mode » le 2026-10-13 ; l'ancien libellé reste accepté).
+     */
     private const EXPECTED_HEADERS = [
         'B' => 'N° PO',
         'C' => 'Article (SKU)',
         'D' => 'Désignation',
         'E' => 'Qté (pcs)',
-        'F' => 'Moyen de transport',
+        'F' => ['Moyen de transport', 'Transportation Mode'],
         'G' => 'Départ usine (XF)',
         'H' => 'ETD',
         'I' => 'ETA France (Logtex)',
@@ -179,12 +183,13 @@ class PlanTransportImporter
 
         // Une colonne renommée ou déplacée doit faire échouer l'import (et alerter), jamais décaler les données.
         foreach (self::EXPECTED_HEADERS as $col => $expected) {
+            $accepted = array_map('mb_strtolower', (array) $expected);
             $actual = trim((string) $sheet->getCell($col . self::HEADER_ROW)->getValue());
-            if (mb_strtolower($actual) !== mb_strtolower($expected)) {
+            if (!in_array(mb_strtolower($actual), $accepted, true)) {
                 throw new \RuntimeException(sprintf(
                     'Structure de l\'onglet modifiée : colonne %s, en-tête attendu « %s », trouvé « %s ».',
                     $col,
-                    $expected,
+                    implode(' » ou « ', (array) $expected),
                     $actual
                 ));
             }

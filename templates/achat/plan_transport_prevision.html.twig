@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 
 {#
-  Plan transport prévision de dates (Achats) : livraisons SS27 consolidées à l'article, importées chaque
+  SS27 Plan transport prévision de dates (Achats) : livraisons SS27 consolidées à l'article, importées chaque
   jour de l'Excel SharePoint PURCHASING (commande app:import-plan-transport, voir CLAUDE.md).
   Template dédié (et non achat_generic) pour : la date ETD colorée selon le statut de départ (même code
   couleur que l'Excel : vert = parti, orange = booking confirmé en attente, sans couleur = à planifier),
@@ -59,7 +59,7 @@
 
                     <div class="box-header with-border d-flex justify-content-between align-items-center flex-wrap">
                         <div>
-                            <h3 class="box-title mb-1">Plan transport prévision de dates</h3>
+                            <h3 class="box-title mb-1">SS27 Plan transport prévision de dates</h3>
                             <div class="pt-import">
                                 {% if lastImport %}
                                     Données importées le {{ lastImport.importedAt|date('d/m/Y à H:i', false) }}
@@ -163,7 +163,7 @@
             const saveConfigModal = new bootstrap.Modal(document.getElementById('modal-save-config-aggrid'));
 
             window.onBtExportExcel = async function () {
-                await ExcelExportStandard.export(window.gridOptions, 'Plan_transport_prevision.xlsx');
+                await ExcelExportStandard.export(window.gridOptions, 'SS27_Plan_transport_prevision_de_dates.xlsx');
             };
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
