@@ -15,12 +15,10 @@
         .oc-dl dt { color: #6b7683; font-weight: 600; font-size: 12px; text-transform: uppercase; }
         .oc-dl dd { margin-bottom: 12px; }
         .oc-lines th { background: #34495e; color: #fff; text-align: center; font-size: 12px; text-transform: uppercase; vertical-align: middle; }
-        .oc-lines th.x3 { background: #6b7683; }
         .oc-lines th.oc { background: #43a047; }
-        .oc-lines td { vertical-align: middle; }
-        .oc-lines td.num { text-align: right; font-variant-numeric: tabular-nums; }
-        .oc-lines td.x3 { background: #f3f4f6; }
-        .oc-lines td.oc { background: #e8f4e9; }
+        .oc-lines td { vertical-align: middle; text-align: center; font-variant-numeric: tabular-nums; }
+        .oc-lines td.left { text-align: left; }
+        .oc-lines td.oc { background: #e2f1e3; }
         .oc-photo { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; margin: 0 auto; line-height: 0; overflow: hidden; }
         .oc-photo img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 4px; }
         .oc-photo img:not([src]) { width: 64px; height: 64px; background: url('/assets/images/no-image.png') center / contain no-repeat; }
@@ -57,14 +55,14 @@
                             {% if is_granted('OC_RESEND_PDF', offer) %}
                                 <button type="button" class="btn btn-sm btn-primary" id="btnResendPdf">Renvoyer le PDF au commercial</button>
                             {% endif %}
-                            {% if is_granted('OC_DECIDE', offer) %}
+                            {% if decisionMode %}
                                 <button type="button" class="btn btn-sm btn-danger" id="btnRejectOffer" data-bs-toggle="modal" data-bs-target="#ocRejectModal">Rejeter</button>
                                 <button type="button" class="btn btn-sm btn-success" id="btnValidateOffer">Valider</button>
                             {% endif %}
                         </div>
                     </div>
                     <div class="box-body">
-                        {% if is_granted('OC_DECIDE', offer) %}
+                        {% if decisionMode %}
                             <div class="alert alert-info py-2"><strong>Cette OC attend votre décision.</strong> Vérifiez le tarif OC (net), le prix envoyé à X3 et la marge client avant de valider ; un rejet est définitif et le motif est transmis au commercial.</div>
                         {% endif %}
                         <div id="ocMessage" class="alert alert-danger d-none"></div>
@@ -91,38 +89,46 @@
                             <table class="table table-sm table-bordered oc-lines">
                                 <thead>
                                     <tr>
-                                        <th rowspan="2">Photo</th><th rowspan="2">Article</th><th rowspan="2">Désignation</th><th rowspan="2">Collection</th>
-                                        <th colspan="2" class="x3">Valeurs X3 (à l'enregistrement)</th>
-                                        <th colspan="5" class="oc">Décision du commercial</th>
-                                        <th rowspan="2">Qté min</th><th rowspan="2">Qté max</th><th rowspan="2">Commentaire</th>
-                                    </tr>
-                                    <tr>
-                                        <th class="x3">Tarif X3</th><th class="x3">MSRP X3</th>
-                                        <th class="oc">Tarif OC (net)</th><th class="oc" title="Prix envoyé à X3 : tarif OC / (1 − remise client). X3 applique ensuite la remise client, le client paie donc le tarif OC.">Prix envoyé à X3</th><th class="oc">MSRP utilisé</th><th class="oc">TVA %</th><th class="oc">Marge %</th>
+                                        <th>Photo</th><th>Produit</th><th>Devise</th><th>Code tarif</th><th>Tarif</th><th>Remise client</th><th>MSRP</th>
+                                        <th class="oc">Tarif OC (net)</th><th class="oc">Marge souhaitée (%)</th>
+                                        <th>Qté min</th><th>Qté max</th><th>Commentaire</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                 {% for l in offer.lines %}
                                     <tr>
                                         <td><span class="oc-photo"><img alt="photo article" data-step="0" data-article="{{ l.articleCode }}" src="https://www.lecoqsportif.com/cdn/shop/files/{{ l.articleCode|url_encode }}_2.webp" onerror="ocPhotoError(this)"></span></td>
-                                        <td><strong>{{ l.articleCode }}</strong></td>
-                                        <td>{{ l.articleLabel ?? '—' }}</td>
-                                        <td>{{ l.collection ?? '—' }}</td>
-                                        <td class="num x3">{{ l.x3Tariff is not null ? l.x3Tariff|number_format(2, ',', ' ') : '—' }}</td>
-                                        <td class="num x3">{{ l.x3Msrp is not null ? l.x3Msrp|number_format(2, ',', ' ') : '—' }}</td>
-                                        <td class="num oc"><strong>{{ l.tariff|number_format(2, ',', ' ') }}</strong></td>
-                                        <td class="num oc" title="{% if l.injectedDiscount is not null %}Remise client appliquée au calcul : {{ l.injectedDiscount|number_format(2, ',', ' ') }} %{% else %}Aucune remise client{% endif %}">{{ l.injectedPrice is not null ? l.injectedPrice|number_format(2, ',', ' ') : '—' }}</td>
-                                        <td class="num oc">{{ l.msrp is not null ? l.msrp|number_format(2, ',', ' ') : '—' }}</td>
-                                        <td class="num oc">{{ l.vatRate is not null ? l.vatRate|number_format(2, ',', ' ') : '—' }}</td>
-                                        <td class="num oc">{{ l.margin is not null ? l.margin|number_format(2, ',', ' ') : '—' }}</td>
-                                        <td class="num">{{ l.minQty|number_format(0, ',', ' ') }}</td>
-                                        <td class="num">{{ l.maxQty|number_format(0, ',', ' ') }}</td>
-                                        <td>{{ l.comment ?? '' }}</td>
+                                        <td class="left"><strong>{{ l.articleCode }}</strong><br>{{ l.articleLabel ?? '—' }}</td>
+                                        <td>{{ offer.customerCurrency ?? '—' }}</td>
+                                        <td>{{ offer.customerTariffCode ?? '—' }}</td>
+                                        <td>{{ l.x3Tariff is not null ? l.x3Tariff|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td{% if offer.customerDiscountStart %} title="Remise client (REMCLI), applicable à partir du {{ offer.customerDiscountStart|date('d/m/Y') }}"{% endif %}>{{ offer.customerDiscount is not null ? offer.customerDiscount|number_format(2, ',', ' ') ~ ' %' : 'Aucune' }}</td>
+                                        <td>{{ l.msrp is not null ? l.msrp|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td class="oc"><strong>{{ l.tariff|number_format(2, ',', ' ') }}</strong></td>
+                                        <td class="oc">{{ l.margin is not null ? l.margin|number_format(2, ',', ' ') : '—' }}</td>
+                                        <td>{{ l.minQty|number_format(0, ',', ' ') }}</td>
+                                        <td>{{ l.maxQty|number_format(0, ',', ' ') }}</td>
+                                        <td class="left">{{ l.comment ?? '' }}</td>
                                     </tr>
                                 {% endfor %}
                                 </tbody>
                             </table>
                         </div>
+
+                        {% if is_granted('OC_X3_FLOW', offer) %}
+                            <h5 class="mt-4">Flux X3 ({{ offer.flows|length }})</h5>
+                            {% if offer.flows is empty %}
+                                <p class="text-muted small">Aucun flux généré pour cette OC.</p>
+                            {% else %}
+                                <p class="text-muted small">{% if offer.flows|first.status == 'queued' %}Flux placés en file d'envoi vers X3.{% else %}<strong>Envoi à X3 désactivé</strong> : les flux ci-dessous sont préparés et conservés, rien n'a été envoyé à X3.{% endif %}</p>
+                                {% for f in offer.flows %}
+                                    <details class="mb-1">
+                                        <summary>{{ f.webservice }} — article {{ f.articleCode }} <span class="badge bg-secondary">{{ f.status == 'queued' ? 'en file' : 'préparé' }}</span></summary>
+                                        <pre class="small bg-light p-2 mb-2" style="white-space: pre-wrap">{{ f.xml }}</pre>
+                                    </details>
+                                {% endfor %}
+                            {% endif %}
+                        {% endif %}
 
                         <h5 class="mt-4">Historique</h5>
                         <table class="table table-sm table-bordered">
@@ -143,7 +149,7 @@
                 </div>
             </div>
         </div>
-        {% if is_granted('OC_DECIDE', offer) %}
+        {% if decisionMode %}
         <div class="modal fade" id="ocRejectModal" tabindex="-1" aria-labelledby="ocRejectModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -236,7 +242,7 @@
             function run(url, body) {
                 box.classList.add('d-none');
                 post(url, body).then(function (res) {
-                    if (res.ok) { location.reload(); return; }
+                    if (res.ok) { {% if decisionMode %}location.href = '{{ path('app_oc_validation') }}'{% else %}location.reload(){% endif %}; return; }
                     box.textContent = (res.errors || ['Erreur inconnue.']).join(' ');
                     box.classList.remove('d-none');
                 }).catch(function () {

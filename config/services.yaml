@@ -5,6 +5,11 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
 
+    # Module OC : envoi des flux XML (WSCRESPL) à X3 à la validation. Désactivé tant que le format n'est pas confirmé
+    # par l'équipe X3 : les XML sont alors seulement préparés dans oc_offer_flow. « 1 » pour activer.
+    env(OC_X3_FLOW_ENABLED): '0'
+    oc.x3_flow_enabled: '%env(bool:OC_X3_FLOW_ENABLED)%'
+
     env(DEV_TUNNEL_PUBLIC_HOST): ''
     dev_tunnel_public_host: '%env(DEV_TUNNEL_PUBLIC_HOST)%'
 

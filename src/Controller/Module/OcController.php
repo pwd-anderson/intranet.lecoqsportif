@@ -47,13 +47,37 @@ final class OcController extends AbstractController
     #[Route('', name: 'app_oc_index', methods: ['GET'])]
     public function index(): Response
     {
-        // Un commercial ne voit que ses OC ; le valideur (ADMIN / MANAGEMENT) et le contrôle de gestion voient tout.
+        return $this->render('oc/index.html.twig', ['rows' => $this->listingRows(null), 'validationMode' => false]);
+    }
+
+    /** « Validation OC » : les OC soumises qui attendent la décision de la Direction (ADMIN / MANAGEMENT). */
+    #[Route('/validation', name: 'app_oc_validation', methods: ['GET'])]
+    public function validation(): Response
+    {
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_MANAGEMENT')) {
+            throw $this->createAccessDeniedException('Réservé à la Direction.');
+        }
+
+        return $this->render('oc/index.html.twig', ['rows' => $this->listingRows(OcStatus::SUBMITTED), 'validationMode' => true]);
+    }
+
+    /**
+     * Lignes de la liste. Un commercial ne voit que ses OC ; le valideur (ADMIN / MANAGEMENT) et le contrôle de gestion
+     * voient tout.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function listingRows(?OcStatus $onlyStatus): array
+    {
         $seeAll = $this->isGranted('ROLE_ADMIN') || $this->isGranted('ROLE_MANAGEMENT') || $this->isGranted('ROLE_CONTROLLING');
 
         $rows = [];
         foreach ($this->offers->findListing($seeAll ? null : $this->currentUser()) as $row) {
             /** @var Offer $o */
             $o = $row[0];
+            if ($onlyStatus !== null && $o->getStatus() !== $onlyStatus) {
+                continue;
+            }
             $rows[] = [
                 'id' => $o->getId(),
                 'number' => $o->getNumber(),
@@ -66,10 +90,12 @@ final class OcController extends AbstractController
                 'createdAt' => $o->getCreatedAt()->format('Y-m-d'),
                 'startDate' => $o->getStartDate()->format('Y-m-d'),
                 'endDate' => $o->getEndDate()->format('Y-m-d'),
+                // « Modifier » seulement pour un brouillon (et son propriétaire) ; sinon consultation seule.
+                'editUrl' => $this->isGranted(OfferVoter::EDIT, $o) ? $this->generateUrl('app_oc_edit', ['id' => $o->getId()]) : null,
             ];
         }
 
-        return $this->render('oc/index.html.twig', ['rows' => $rows]);
+        return $rows;
     }
 
     #[Route('/new', name: 'app_oc_new', methods: ['GET'])]
@@ -99,12 +125,14 @@ final class OcController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_oc_show', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function show(#[MapEntity] Offer $offer): Response
+    public function show(#[MapEntity] Offer $offer, Request $request): Response
     {
         $this->denyAccessUnlessGranted(OfferVoter::VIEW, $offer);
 
         return $this->render('oc/show.html.twig', [
             'offer' => $offer,
+            // Valider / Rejeter ne sont proposés que lorsqu'on arrive depuis le menu « Validation OC » (?from=validation).
+            'decisionMode' => $request->query->get('from') === 'validation' && $this->isGranted(OfferVoter::DECIDE, $offer),
             'warnings' => $this->service->warnings($offer),
             'csrf' => $this->csrf->getToken(self::CSRF_ID)->getValue(),
         ]);

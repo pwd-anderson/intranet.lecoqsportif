@@ -18,7 +18,6 @@ final class OfferWorkflowTest extends TestCase
         yield 'rejeter' => [OcStatus::SUBMITTED, OcAction::REJECTED, OcStatus::REJECTED];
         yield 'annuler un brouillon' => [OcStatus::DRAFT, OcAction::CANCELLED, OcStatus::CANCELLED];
         yield 'annuler une soumise' => [OcStatus::SUBMITTED, OcAction::CANCELLED, OcStatus::CANCELLED];
-        yield 'annuler une validée' => [OcStatus::VALIDATED, OcAction::CANCELLED, OcStatus::CANCELLED];
         yield 'envoyer à X3' => [OcStatus::VALIDATED, OcAction::SENT_TO_X3, OcStatus::SENT_TO_X3];
     }
 
@@ -37,6 +36,7 @@ final class OfferWorkflowTest extends TestCase
         yield 'soumettre deux fois' => [OcStatus::SUBMITTED, OcAction::SUBMITTED];
         yield 'rejeter un brouillon' => [OcStatus::DRAFT, OcAction::REJECTED];
         yield 'rouvrir une rejetée' => [OcStatus::REJECTED, OcAction::SUBMITTED];
+        yield 'annuler une validée' => [OcStatus::VALIDATED, OcAction::CANCELLED];
         yield 'annuler une rejetée' => [OcStatus::REJECTED, OcAction::CANCELLED];
         yield 'annuler une envoyée à X3' => [OcStatus::SENT_TO_X3, OcAction::CANCELLED];
         yield 'envoyer une soumise' => [OcStatus::SUBMITTED, OcAction::SENT_TO_X3];

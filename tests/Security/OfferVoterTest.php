@@ -61,7 +61,7 @@ final class OfferVoterTest extends TestCase
         yield 'admin valide une soumise' => [OfferVoter::DECIDE, OcStatus::SUBMITTED, ['ROLE_ADMIN'], false, true];
         yield 'management ne valide pas un brouillon' => [OfferVoter::DECIDE, OcStatus::DRAFT, ['ROLE_MANAGEMENT'], false, false];
         yield 'management ne modifie pas le brouillon d\'un autre' => [OfferVoter::EDIT, OcStatus::DRAFT, ['ROLE_MANAGEMENT'], false, false];
-        yield 'management annule une validée' => [OfferVoter::CANCEL, OcStatus::VALIDATED, ['ROLE_MANAGEMENT'], false, true];
+        yield 'management n\'annule pas une validée' => [OfferVoter::CANCEL, OcStatus::VALIDATED, ['ROLE_MANAGEMENT'], false, false];
         yield 'management n\'annule pas une envoyée à X3' => [OfferVoter::CANCEL, OcStatus::SENT_TO_X3, ['ROLE_MANAGEMENT'], false, false];
         // Contrôle de gestion : consultation seule
         yield 'controlling voit' => [OfferVoter::VIEW, OcStatus::SUBMITTED, ['ROLE_CONTROLLING'], false, true];
@@ -74,6 +74,9 @@ final class OfferVoterTest extends TestCase
         yield 'management renvoie le PDF' => [OfferVoter::RESEND_PDF, OcStatus::VALIDATED, ['ROLE_MANAGEMENT'], false, true];
         yield 'proprio ne renvoie pas le PDF' => [OfferVoter::RESEND_PDF, OcStatus::VALIDATED, ['ROLE_SALES'], true, false];
         yield 'pas de renvoi avant validation' => [OfferVoter::RESEND_PDF, OcStatus::SUBMITTED, ['ROLE_MANAGEMENT'], false, false];
+        yield 'management voit les flux X3 d\'une validée' => [OfferVoter::X3_FLOW, OcStatus::VALIDATED, ['ROLE_MANAGEMENT'], false, true];
+        yield 'proprio ne voit pas les flux X3' => [OfferVoter::X3_FLOW, OcStatus::VALIDATED, ['ROLE_SALES'], true, false];
+        yield 'pas de flux X3 avant validation' => [OfferVoter::X3_FLOW, OcStatus::SUBMITTED, ['ROLE_MANAGEMENT'], false, false];
         yield 'controlling ne valide pas' => [OfferVoter::DECIDE, OcStatus::SUBMITTED, ['ROLE_CONTROLLING'], false, false];
     }
 

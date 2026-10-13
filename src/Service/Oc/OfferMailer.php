@@ -36,6 +36,19 @@ class OfferMailer
     ) {
     }
 
+    /** Journalise et notifie à l'admin une erreur survenue après une action métier déjà enregistrée. Ne lève jamais. */
+    public function reportError(string $title, \Throwable $e): void
+    {
+        $this->logger->error($title, ['exception' => $e]);
+        if (!$this->isEnabled()) {
+            return;
+        }
+        try {
+            $this->graphMailer->notifyError('❌ LCS Erreur OC : ' . $title, $e);
+        } catch (\Throwable) {
+        }
+    }
+
     /** Faux en environnement de test : aucun mail n'y part (voir la règle en tête de classe). */
     public function isEnabled(): bool
     {

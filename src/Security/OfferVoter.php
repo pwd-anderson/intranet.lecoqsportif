@@ -21,11 +21,12 @@ final class OfferVoter extends Voter
     public const DECIDE = 'OC_DECIDE';
     public const PDF = 'OC_PDF';
     public const RESEND_PDF = 'OC_RESEND_PDF';
+    public const X3_FLOW = 'OC_X3_FLOW';
 
     protected function supports(string $attribute, mixed $subject): bool
     {
         return $subject instanceof Offer
-            && in_array($attribute, [self::VIEW, self::EDIT, self::SUBMIT, self::CANCEL, self::DECIDE, self::PDF, self::RESEND_PDF], true);
+            && in_array($attribute, [self::VIEW, self::EDIT, self::SUBMIT, self::CANCEL, self::DECIDE, self::PDF, self::RESEND_PDF, self::X3_FLOW], true);
     }
 
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
@@ -47,11 +48,13 @@ final class OfferVoter extends Voter
             self::VIEW => $isOwner || $isViewer,
             self::EDIT, self::SUBMIT => $isOwner && $status === OcStatus::DRAFT,
             self::CANCEL => ($isOwner && in_array($status, [OcStatus::DRAFT, OcStatus::SUBMITTED], true))
-                || ($isValidator && in_array($status, [OcStatus::DRAFT, OcStatus::SUBMITTED, OcStatus::VALIDATED], true)),
+                || ($isValidator && in_array($status, [OcStatus::DRAFT, OcStatus::SUBMITTED], true)),
             self::DECIDE => $isValidator && $status === OcStatus::SUBMITTED,
             // Le PDF n'existe qu'une fois l'OC validée ; qui peut voir l'OC peut le télécharger, la Direction peut le renvoyer.
             self::PDF => ($isOwner || $isViewer) && in_array($status, [OcStatus::VALIDATED, OcStatus::SENT_TO_X3], true),
             self::RESEND_PDF => $isValidator && in_array($status, [OcStatus::VALIDATED, OcStatus::SENT_TO_X3], true),
+            // Flux XML préparés pour X3 : Direction seulement (contenu technique), une fois l'OC validée.
+            self::X3_FLOW => $isValidator && in_array($status, [OcStatus::VALIDATED, OcStatus::SENT_TO_X3], true),
             default => false,
         };
     }

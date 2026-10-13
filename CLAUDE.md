@@ -280,7 +280,7 @@ La date des commandes fournisseur (`PORDERQ`, ancien premier choix) **n'entre pl
 
 **But.** Un commercial crée une OC (tarif) pour un client et un ou plusieurs articles ; une seule validation (valideur = `ROLE_ADMIN` / `ROLE_MANAGEMENT`, comme SOA) ; après validation, le module génère et envoie des flux XML à X3 : **Création** (aucun tarif spé existant pour même client + article + collection) ou **Modification** (un tarif spé existe déjà). V1 = uniquement « Tarif Spé » ; l'architecture doit permettre d'ajouter Référentiel / Devis / Remise sans refonte. L'ancien module (Screeneo, `/Users/ajacob/Sites/intranet.screeneo.local.v12/src/Controller/Sales/Oc`) n'est qu'une **référence métier**, pas à copier.
 
-**État (2026-10-08).** Fait : saisie, **enregistrement en base** (brouillon, modification, soumission, annulation, nouvelle OC à partir d'une OC rejetée), historique, lectures X3, droits. **Prix envoyé à X3 calculé et enregistré** (voir plus bas). **Validation et rejet par la Direction faits (étape 1, 2026-10-09)** : page de détail = vue de validation, mail au head commercial à la soumission, mail au commercial au rejet. **Pas encore fait** : étape 2 (PDF + mail au commercial à la validation), étape 3 (flux XML de création `WSCRESPL`, type `7TSPEC`, prêt mais désactivé), détection de l'existant (Création/Modification), blocage doublon, traitement du fichier d'import, multi-clients. Branche `oc` (rebasée sur `dev`), non mergée dans `dev`, jamais poussée.
+**État (2026-10-08).** Fait : saisie, **enregistrement en base** (brouillon, modification, soumission, annulation, nouvelle OC à partir d'une OC rejetée), historique, lectures X3, droits. **Prix envoyé à X3 calculé et enregistré** (voir plus bas). **Validation et rejet par la Direction faits (étape 1, 2026-10-09)** : page de détail = vue de validation, mail au head commercial à la soumission, mail au commercial au rejet. **PDF + mail au commercial à la validation faits (étape 2, 2026-10-09)** ; **flux XML de création `WSCRESPL` préparé mais désactivé (étape 3, 2026-10-12)**. **Pas encore fait** : activation de l'envoi (format à confirmer avec X3), retour du résultat X3 par ligne d'OC, détection de l'existant (Création/Modification), blocage doublon, traitement du fichier d'import, multi-clients. Branche `oc` (rebasée sur `dev`), non mergée dans `dev`, jamais poussée.
 
 #### Données (MySQL de l'application — migration `Version20261008154551`)
 
@@ -296,9 +296,9 @@ Le client et toutes les valeurs X3 sont **figés à l'enregistrement** (pour pou
 
 #### Statuts et règles
 
-`OcStatus` : `draft` → `submitted` → `validated` → `sent_to_x3` ; `rejected` et `cancelled` sont **définitifs**. Transitions dans `OfferWorkflow` (aucune dépendance) : soumettre (brouillon), valider / rejeter (soumise), annuler (brouillon, soumise, validée), envoyer à X3 (validée). **Rejet → nouvelle OC** (route `/oc/{id}/duplicate`, liée à l'OC d'origine via `source_offer_id`) : on ne ré-édite pas une OC rejetée.
+`OcStatus` : `draft` → `submitted` → `validated` → `sent_to_x3` ; `rejected` et `cancelled` sont **définitifs**. Transitions dans `OfferWorkflow` (aucune dépendance) : soumettre (brouillon), valider / rejeter (soumise), annuler (brouillon, soumise), envoyer à X3 (validée). **Rejet → nouvelle OC** (route `/oc/{id}/duplicate`, liée à l'OC d'origine via `source_offer_id`) : on ne ré-édite pas une OC rejetée.
 
-Droits (`src/Security/OfferVoter.php`, testés) : un commercial (`ROLE_SALES`) ne voit et ne modifie **que ses OC** ; modification / soumission = propriétaire + brouillon ; annulation = propriétaire (brouillon ou soumise) ou valideur (brouillon, soumise, validée) ; valider / rejeter = `ROLE_ADMIN` / `ROLE_MANAGEMENT` sur une OC soumise ; `ROLE_CONTROLLING` consulte seulement. Accès au module : SALES, MANAGEMENT, CONTROLLING, ADMIN (+ exclusion par utilisateur `app_oc_index`).
+Droits (`src/Security/OfferVoter.php`, testés) : un commercial (`ROLE_SALES`) ne voit et ne modifie **que ses OC** ; modification / soumission = propriétaire + brouillon ; annulation = propriétaire ou valideur, **brouillon ou soumise seulement (une OC validée ne peut plus être annulée, décision du 2026-10-12)** ; valider / rejeter = `ROLE_ADMIN` / `ROLE_MANAGEMENT` sur une OC soumise ; `ROLE_CONTROLLING` consulte seulement. Accès au module : SALES, MANAGEMENT, CONTROLLING, ADMIN (+ exclusion par utilisateur `app_oc_index`).
 
 Numéro : `OC` + `AAAAMM` + code client + 8 chiffres aléatoires (`OfferNumberGenerator`, unicité vérifiée en base + contrainte UNIQUE ; ≤ 30 caractères pour un code client ≤ 14, limite du champ référence X3). **Le client d'une OC ne peut plus changer après création** (le numéro le contient). Une OC en brouillon est relue et ses valeurs X3 re-figées à chaque enregistrement.
 
@@ -318,7 +318,7 @@ Numéro : `OC` + `AAAAMM` + code client + 8 chiffres aléatoires (`OfferNumberGe
 | SQL X3 | `src/Infrastructure/Sql/Sei/oc_customer_search.sql`, `oc_customer_get.sql`, `oc_customer_discount.sql`, `oc_article_search.sql`, `oc_article_prices.sql` |
 | Entités / dépôts | `src/Entity/Oc/{Offer,OfferLine,OfferHistory}.php`, `src/Repository/Oc/` |
 | Pages | `templates/oc/index.html.twig` (liste AG Grid), `new.html.twig` (saisie, modification, nouvelle OC issue d'un rejet + tout le JS), `show.html.twig` (détail : valeurs X3 / décision, historique, actions), `_import_modal.html.twig` (modal d'import, non branché) |
-| Menu / droits | `templates/partials/_sidebar.html.twig` (Modules), clé `app_oc_index` dans `StatRegistry`, traduction `sidebar.stat.modules.oc` |
+| Menu / droits | `templates/partials/_sidebar.html.twig` : menu **repliable « Offres commerciales »** (Modules) à 3 entrées — **Nouvelle OC** (`app_oc_new`), **Liste OC** (`app_oc_index`), **Validation OC** (`app_oc_validation`, ADMIN / MANAGEMENT seulement : OC « soumises » en attente) ; clés d'exclusion `app_oc_new` / `app_oc_index` / `app_oc_validation` dans `StatRegistry` ; traductions `sidebar.stat.modules.oc*` |
 | Tests | `tests/Service/Oc/*`, `tests/Security/OfferVoterTest.php`, `tests/Controller/Module/OcControllerTest.php` (voir ci-dessous) |
 
 Les lectures X3 passent par la connexion `lcs_sei` (cube SEI) mais interrogent le schéma **`X3_LCS`**.
@@ -369,6 +369,27 @@ Pages : `GET ''` liste (un commercial ne voit que ses OC), `GET /new`, `GET /{id
 - **Déploiement** : `dompdf/dompdf` est désormais dans `composer.json` → `composer install` dans chaque environnement.
 - Mesure (dev, 3 articles) : 5,4 s sans photo en cache, 0,2 s ensuite.
 
+#### Flux XML vers X3 (étape 3, 2026-10-12) — PRÉPARÉ MAIS DÉSACTIVÉ
+
+À la validation, `OfferService::validate()` appelle `prepareX3Flow()` : un flux **WSCRESPL** (création d'une ligne de tarif, type `7TSPEC`) par ligne d'OC, généré par `OfferXmlBuilder::creation()` (même structure que l'ancien `WebservicesToX3::getSplXml` : groupe `INH` de champs `FLD NAME=…` : `WPLI`=7TSPEC, `WPLISTRDAT`/`WPLIENDDAT` (Ymd), `WPLICRDIDX`=n° d'OC tronqué à 30, `WITMREF`=article parent, `WBPCNUM`=client, `WMINQTY`, `WMAXQTY`, `WCUR`=devise du client, `WDISPRI`=**prix envoyé** `injected_price`, jamais le tarif net). Création seule : pas de `WSUPD7TSPE` (modification), pas de détection de l'existant.
+
+| Rôle | Fichier |
+|---|---|
+| Construction du XML | `src/Service/Oc/OfferXmlBuilder.php` |
+| Génération / mise en file | `src/Service/Oc/OfferFlowService.php` (`prepare`, `queue`, `isEnabled`) |
+| Stockage des flux | table `oc_offer_flow` — `App\Entity\Oc\OfferFlow` (statut `prepared` / `queued`), migration `Version20261012100000` |
+| Interrupteur | variable d'env **`OC_X3_FLOW_ENABLED`** (`0` par défaut, paramètre `oc.x3_flow_enabled` dans `services.yaml`) |
+| Affichage | page de détail, bloc « Flux X3 » réservé à la Direction (`OfferVoter::X3_FLOW`) : XML de chaque ligne + statut |
+| Historique | `OcAction::X3_FLOW_PREPARED` (« Flux X3 préparé »), `X3_ERROR` en cas d'échec |
+
+- **Désactivé (défaut)** : les XML sont seulement conservés dans `oc_offer_flow` (« préparés »), **rien n'est écrit dans `sales_web_service`**, l'OC reste « Validée ». ⚠ La commande `app:sales:webservices:execute` exécute TOUTES les lignes non exécutées de `sales_web_service` (tous modules) : c'est pourquoi les flux préparés n'y sont jamais déposés tant que l'interrupteur est à `0`.
+- **Activé (`OC_X3_FLOW_ENABLED=1`)** : les XML sont déposés dans `sales_web_service` (via `WebServiceDispatcher`), flux « en file », l'OC passe « Envoyée à X3 » ; l'envoi effectif et la lecture du résultat sont ceux de la commande d'exécution existante (le suivi du résultat retour par ligne d'OC n'est pas encore relié à `oc_offer_flow`).
+- **Lien vers l'OC** : `sales_web_service.oc_offer_id` (colonne facultative, nulle pour les autres modules ; migration `Version20261012110000`) est renseignée à chaque dépôt ; `oc_offer_flow.sales_web_service_id` donne le lien inverse.
+- **Ne défait jamais la validation** : un échec de génération est tracé (« Erreur d'envoi à X3 », motif) et notifié à l'admin (`OfferMailer::reportError`, qui sert aussi à l'échec du PDF). Les flux ne sont générés qu'une fois par OC.
+- **Format à confirmer avec l'équipe X3 avant d'activer** : fiche tarif `7TSPEC` (inexistante chez LCS, en cours de création), article parent ou variant, critère collection, devise, précision du prix (`WDISPRI` à 2 décimales actuellement, `PRI_0` accepte 5), `WMAXQTY` = 999999 si non renseigné.
+- Vérifié avec les vraies données X3 (client 20548) : XML conformes, `WDISPRI` = 21,26 / 45,98.
+- Déploiement : migrations `Version20261012100000` et `Version20261012110000` ; ne PAS mettre `OC_X3_FLOW_ENABLED=1` avant validation du format.
+
 #### Prix envoyé à X3 (WDISPRI) — remise client appliquée à toutes les lignes
 
 **Règle métier (décidée le 2026-10-09, modifiable) :** la remise client REMCLI s'applique dans X3 à **toutes** les lignes du client. Le commercial saisit donc le prix **net** voulu (« Tarif OC ») et le serveur calcule le prix « précompensé » à envoyer : **`prix envoyé = tarif OC / (1 − remise client / 100)`**. X3 réapplique la remise, le client paie le tarif OC. Cette règle vit à **un seul endroit** : `OfferCalculator::injectedPrice()` (pour la changer, ne toucher que là). Même principe que l'ancien module (`SaleOffer::updateProductsTarifSpe`, `OcController::updateProducts` : `net / ((1 + markup/100) × (1 − remise marque/100))`, remise marque et markup propres à Screeneo) ; chez LCS il n'y a plus de markup. Le **Tarif Spé est un prix** (pas un pourcentage de remise).
@@ -391,7 +412,7 @@ Pages : `GET ''` liste (un commercial ne voit que ses OC), `GET /new`, `GET /{id
 
 #### Tests
 
-`bin/phpunit` (116 tests dont 9 pour la stat Contacts Clients) : validation des données, calcul de la marge et du prix envoyé à X3, transitions, droits (matrice complète), `OfferService` (X3 et base simulés : valeurs figées, historique, rien d'enregistré si X3 ne répond pas, brouillon seul modifiable, remise appliquée…), et `OcControllerTest` (flux complet sur de vrais contrôleurs et une base MySQL locale `intranet_lcs_test` : CSRF, droits, validation, soumission, annulation, nouvelle OC issue d'un rejet). **Créer la base de test une fois** : `mysql -uroot -e "CREATE DATABASE intranet_lcs_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"` puis `APP_ENV=test php bin/console doctrine:schema:create --env=test` (et `doctrine:schema:update --force --env=test` après une nouvelle colonne).
+`bin/phpunit` (151 tests dont 9 pour la stat Contacts Clients) : validation des données, calcul de la marge et du prix envoyé à X3, transitions, droits (matrice complète), `OfferService` (X3 et base simulés : valeurs figées, historique, rien d'enregistré si X3 ne répond pas, brouillon seul modifiable, remise appliquée…), et `OcControllerTest` (flux complet sur de vrais contrôleurs et une base MySQL locale `intranet_lcs_test` : CSRF, droits, validation, soumission, annulation, nouvelle OC issue d'un rejet). **Créer la base de test une fois** : `mysql -uroot -e "CREATE DATABASE intranet_lcs_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"` puis `APP_ENV=test php bin/console doctrine:schema:create --env=test` (et `doctrine:schema:update --force --env=test` après une nouvelle colonne).
 
 **Les tests fonctionnels ne touchent PAS à X3** (corrigé le 2026-10-09) : `OcX3Lookup` y est simulé avec des valeurs volontairement différentes des vraies (« CLIENT SIMULE », remise 10 %, tarif 11,1…) pour qu'un accès au vrai X3 fasse échouer le test. Deux règles : `$client->disableReboot()` dans `setUp()` (sinon `KernelBrowser` redémarre l'application entre deux requêtes, le service simulé est perdu et les requêtes suivantes interrogent le vrai X3 — c'était le cas des anciens tests OC, qui passaient parce que valeurs réelles et simulées coïncidaient) et le service à simuler déclaré `public: true` dans `config/services_test.yaml`. Toute évolution de lecture X3 reste à vérifier aussi avec les vraies données (un défaut d'encodage n'est visible qu'avec elles).
 
@@ -405,8 +426,7 @@ Pages : `GET ''` liste (un commercial ne voit que ses OC), `GET /new`, `GET /{id
 
 #### À faire / questions métier ouvertes
 
-- **Étape 2** : PDF « comme Screeneo » (Dompdf ; **à déclarer dans `composer.json` de `dev`** : installé localement via la branche Price Protection mais absent des dépendances) + mail au **commercial créateur uniquement** avec le PDF en pièce jointe, au moment de la validation. Contenu retenu : titre (n° et dates), représentant, client et contacts, conditions générales (« prix en EUR dans la limite des stocks, sous réserve de modification »), tableau produits (photo, infos, qté min/max, MSRP, **prix net** — jamais le prix envoyé à X3 —, marge), en français pour l'instant.
-- **Étape 3** : flux XML de **création** seul (`WSCRESPL`, type `7TSPEC` : la fiche tarif n'existe pas encore dans X3, l'équipe X3 la crée), généré à la validation et stocké dans `sales_web_service`, **prêt mais désactivé** jusqu'à confirmation du format par l'équipe X3 (critères de la fiche, article parent ou variant, collection).
+- **Étapes 2 et 3 faites** (voir leurs sections) : reste à confirmer le format avec l'équipe X3 puis activer `OC_X3_FLOW_ENABLED`.
 - **Type de tarif « Tarif Spé » chez LCS** (aucun `7TSPEC`) → bloque la détection de l'existant (Création/Modification), le blocage doublon (OC soumises **et** validées non envoyées, deux messages distincts) et les flux `WSCRESPL` / `WSUPD7TSPE` (à relier à `sales_web_service`, envoi par commande à tentatives bornées + `notifyError`).
 - Source de la TVA (par pays du client ?) — le MSRP est TTC (confirmé). Marge souhaitée = marge du client sur le MSRP (comme l'ancien module : confirmé en lecture du code, à valider avec le métier). Comportement avant le 2027-01-01 (début des REMCLI) pour une OC qui démarre plus tôt. Précision du prix envoyé (2 ou 4-5 décimales) à valider avec X3.
 - Import Excel/CSV (traitement du fichier), stock affiché, multi-clients.

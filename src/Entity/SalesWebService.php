@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: SalesWebServiceRepository::class)]
 #[ORM\Table(name: 'sales_web_service')]
+#[ORM\Index(name: 'idx_sales_web_service_oc_offer', columns: ['oc_offer_id'])]
 class SalesWebService
 {
     #[ORM\Id]
@@ -33,6 +34,10 @@ class SalesWebService
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $erpDocumentId = null;
 
+    /** Module OC : identifiant de l'OC (oc_offer.id) d'où vient ce flux ; null pour les autres modules. */
+    #[ORM\Column(nullable: true)]
+    private ?int $ocOfferId = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private \DateTimeInterface $createdAt;
 
@@ -57,6 +62,8 @@ class SalesWebService
     public function setMessage(?string $message): static { $this->message = $message; return $this; }
     public function getErpDocumentId(): ?string { return $this->erpDocumentId; }
     public function setErpDocumentId(?string $id): static { $this->erpDocumentId = $id; return $this; }
+    public function getOcOfferId(): ?int { return $this->ocOfferId; }
+    public function setOcOfferId(?int $id): static { $this->ocOfferId = $id; return $this; }
     public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeInterface $dt): static { $this->updatedAt = $dt; return $this; }

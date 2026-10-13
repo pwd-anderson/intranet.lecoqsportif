@@ -15,6 +15,7 @@ enum OcAction: string
     case X3_ERROR = 'x3_error';
     case PDF_SENT = 'pdf_sent';
     case PDF_FAILED = 'pdf_failed';
+    case X3_FLOW_PREPARED = 'x3_flow_prepared';
 
     public function label(): string
     {
@@ -29,6 +30,7 @@ enum OcAction: string
             self::X3_ERROR => 'Erreur d\'envoi à X3',
             self::PDF_SENT => 'PDF envoyé au commercial',
             self::PDF_FAILED => 'Échec de l\'envoi du PDF',
+            self::X3_FLOW_PREPARED => 'Flux X3 préparé',
         };
     }
 }

@@ -201,12 +201,19 @@
                     {% endif %}
 
                     {# Offres commerciales (OC) : SALES + superusers #}
-                    {% if (isSuperUser or is_granted('ROLE_SALES')) and not is_stat_excluded('app_oc_index') %}
-                    <li class="{% if currentRoute in ['app_oc_index', 'app_oc_new', 'app_oc_show'] %}active{% endif %}">
-                        <a href="{{ path('app_oc_index') }}">
+                    {% set canDecideOc = is_granted('ROLE_ADMIN') or is_granted('ROLE_MANAGEMENT') %}
+                    {% if isSuperUser or is_granted('ROLE_SALES') %}
+                    <li class="treeview {% if currentRoute in ['app_oc_index', 'app_oc_new', 'app_oc_edit', 'app_oc_duplicate', 'app_oc_show', 'app_oc_validation'] %}active{% endif %}">
+                        <a href="#">
                             <img src="{{ asset('assets/images/svg-icon/apps.svg') }}" class="svg-icon" alt="">
                             <span>{{ 'sidebar.stat.modules.oc'|trans }}</span>
+                            <span class="pull-right-container"><i class="fa fa-angle-right pull-right"></i></span>
                         </a>
+                        <ul class="treeview-menu">
+                            {% if not is_stat_excluded('app_oc_new') %}<li class="{% if currentRoute in ['app_oc_new', 'app_oc_edit', 'app_oc_duplicate'] %}active{% endif %}"><a href="{{ path('app_oc_new') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.modules.oc_new'|trans }}</a></li>{% endif %}
+                            {% if not is_stat_excluded('app_oc_index') %}<li class="{% if currentRoute in ['app_oc_index', 'app_oc_show'] %}active{% endif %}"><a href="{{ path('app_oc_index') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.modules.oc_list'|trans }}</a></li>{% endif %}
+                            {% if canDecideOc and not is_stat_excluded('app_oc_validation') %}<li class="{% if currentRoute == 'app_oc_validation' %}active{% endif %}"><a href="{{ path('app_oc_validation') }}"><i class="icon-Commit"></i>{{ 'sidebar.stat.modules.oc_validation'|trans }}</a></li>{% endif %}
+                        </ul>
                     </li>
                     {% endif %}
 

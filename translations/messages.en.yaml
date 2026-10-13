@@ -89,4 +89,7 @@ sidebar:
     modules:
         distributor_availability: "Distributor Availability"
         oc: "Commercial offers"
+        oc_new: "New OC"
+        oc_list: "OC list"
+        oc_validation: "OC validation"
         arrivals_logtex: "Arrivées Logtex"

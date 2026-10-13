@@ -277,9 +277,6 @@
                 if (row) {
                     if (field !== 'price') row.querySelector('[data-f="price"]').value = line.price;
                     if (field !== 'margin') row.querySelector('[data-f="margin"]').value = line.margin;
-                    const cell = row.querySelector('[data-injected]');
-                    const cust = state.customers.find(function (x) { return x.code === customerCode; });
-                    if (cell && cust) { cell.textContent = injectedText(cust, line); }
                 }
             }
 
@@ -289,29 +286,6 @@
                 const v = p[field];
                 return v === null || v === undefined || v === '' ? '—' : (typeof v === 'number' ? v.toFixed(2) : v);
             }
-            // Prix à envoyer à X3 = tarif OC / (1 - remise client) ; même algorithme que OfferCalculator::injectedPrice (le
-            // serveur recalcule à l'enregistrement) : parmi les valeurs voisines, celle dont le net recalculé par X3 redonne
-            // exactement le tarif saisi.
-            function injected(net, discount) {
-                net = num(net);
-                const d = discount || 0;
-                if (!(net > 0) || d < 0 || d >= 100) { return null; }
-                const f = 1 - d / 100, target = round(net, 2), exact = net / f, base = round(exact, 2);
-                let best = null;
-                [0, -1, 1, -2, 2].forEach(function (k) {
-                    const cand = round(base + k * 0.01, 2);
-                    if (cand <= 0) { return; }
-                    const gap = Math.abs(round(cand * f, 2) - target), dist = Math.abs(cand - exact);
-                    if (best === null || gap < best.gap - 1e-9 || (Math.abs(gap - best.gap) < 1e-9 && dist < best.dist)) { best = { cand: cand, gap: gap, dist: dist }; }
-                });
-                return best.cand;
-            }
-            function injectedText(c, l) {
-                if (c.discount === undefined) { return '…'; }
-                const v = injected(l.price, c.discount);
-                return v === null ? '—' : v.toFixed(2);
-            }
-
             function discountText(c) {
                 if (c.discount === undefined) return '…';
                 if (c.discountError) return 'Erreur';
@@ -388,21 +362,20 @@
                             + '<td class="oc-td-green"><input class="form-control form-control-sm" data-f="price" value="' + esc(l.price) + '" inputmode="decimal" placeholder="Tarif">'+ '</td>'
                             + '<td class="oc-td-green"><input class="form-control form-control-sm" data-f="margin" value="' + esc(l.margin) + '" inputmode="decimal" placeholder="% marge"></td>'
  
-                            + '<td class="oc-injected" data-injected>' + esc(injectedText(c, l)) + '</td>'
                             + '<td><input class="form-control form-control-sm" data-f="minQty" value="' + esc(l.minQty) + '" inputmode="numeric"></td>'
                             + '<td><input class="form-control form-control-sm" data-f="maxQty" value="' + esc(l.maxQty) + '" inputmode="numeric"></td>'
                             + '<td><textarea class="form-control form-control-sm oc-comment" data-f="comment" rows="2" maxlength="500">' + esc(l.comment) + '</textarea></td>'
                             + '<td><button type="button" class="btn btn-sm btn-danger" data-rm-line="' + esc(lineKey(c.code, a.ref)) + '" title="Supprimer cet article pour ce client" aria-label="Supprimer la ligne">×</button></td>'
                             + '</tr>'
-                            + (a.warnings[c.code] ? '<tr><td colspan="14" style="padding:0 6px 6px">' + warningHtml(a, c.code) + '</td></tr>' : '');
+                            + (a.warnings[c.code] ? '<tr><td colspan="13" style="padding:0 6px 6px">' + warningHtml(a, c.code) + '</td></tr>' : '');
                     }).join('');
                     return '<div class="mb-4" data-customer="' + esc(c.code) + '">'
                         + '<div class="oc-client-title"><h5 class="mb-2">Liste des produits pour le client ' + esc(c.code + ' - ' + c.name) + '</h5>'
                         + '<span class="text-muted small">N° prévisionnel : ' + esc(previewNumber(c.code)) + '</span></div>'
                         + '<div class="table-responsive"><table class="oc-table"><thead><tr>'
                         + '<th>Photo</th><th>Produit</th><th>Devise</th><th>Code tarif</th><th>Tarif</th><th>Remise client</th><th>MSRP</th>'
-                        + '<th class="oc-th-green">Tarif OC (net)</th><th class="oc-th-green">Marge souhaitée (%)</th><th title="Prix envoyé à X3 : tarif OC / (1 − remise client). X3 applique ensuite la remise client à toutes les lignes, le client paie donc le tarif OC.">Envoyé à X3</th><th>Qté min</th><th>Qté max</th><th>Commentaire</th><th></th>'
-                        + '</tr></thead><tbody>' + (rows || '<tr><td colspan="14" class="oc-empty">Aucun article pour ce client.</td></tr>') + '</tbody></table></div></div>';
+                        + '<th class="oc-th-green">Tarif OC (net)</th><th class="oc-th-green">Marge souhaitée (%)</th><th>Qté min</th><th>Qté max</th><th>Commentaire</th><th></th>'
+                        + '</tr></thead><tbody>' + (rows || '<tr><td colspan="13" class="oc-empty">Aucun article pour ce client.</td></tr>') + '</tbody></table></div></div>';
                 }).join('');
                 $('btnSubmit').disabled = anyBlocked;
                 $('btnSubmit').title = anyBlocked ? 'Une ou plusieurs lignes sont bloquées par une OC existante' : '';

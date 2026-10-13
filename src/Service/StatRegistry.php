@@ -75,7 +75,9 @@ final class StatRegistry
             'module_import_od'                            => ['section' => 'Modules', 'label' => 'Import OD',                        'roles' => []],
             'app_pilotage_livraisons'                     => ['section' => 'Modules', 'label' => 'Pilotage Livraisons',               'roles' => ['ROLE_ADV', 'ROLE_LOGISTIC', 'ROLE_SALES', 'ROLE_PURCHASING']],
             'app_distributor_availability'                => ['section' => 'Modules', 'label' => 'Distributor Availability',          'roles' => ['ROLE_ADV', 'ROLE_LOGISTIC', 'ROLE_SALES', 'ROLE_PURCHASING']],
-            'app_oc_index'                                => ['section' => 'Modules', 'label' => 'Offres commerciales (OC)',          'roles' => ['ROLE_SALES']],
+            'app_oc_new'                                  => ['section' => 'Modules', 'label' => 'OC – Nouvelle OC',                  'roles' => ['ROLE_SALES']],
+            'app_oc_index'                                => ['section' => 'Modules', 'label' => 'OC – Liste OC',                     'roles' => ['ROLE_SALES']],
+            'app_oc_validation'                           => ['section' => 'Modules', 'label' => 'OC – Validation OC',                'roles' => ['ROLE_MANAGEMENT']],
         ];
     }
 

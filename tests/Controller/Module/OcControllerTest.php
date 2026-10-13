@@ -174,7 +174,7 @@ final class OcControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString($res['number'], $html);
-        self::assertStringContainsString('Prix envoyé à X3', $html);
+        self::assertStringNotContainsString('Envoyé à X3', $html, 'le prix envoyé à X3 n\'est plus affiché (calculé et enregistré côté serveur)');
         self::assertStringContainsString("ne s'applique dans X3", html_entity_decode($html, ENT_QUOTES), 'avertissement de date affiché au détail');
     }
 
@@ -251,6 +251,91 @@ final class OcControllerTest extends WebTestCase
         self::assertNotSame($offer->getNumber(), $created->getNumber());
     }
 
+    public function testAValidatedOfferCannotBeCancelledNotEvenByTheDirection(): void
+    {
+        [$id] = $this->submittedOfferByAlice();
+        $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
+        $csrf = $this->csrf();
+        self::assertTrue($this->post("/fr/oc/$id/validate", [], $csrf)['ok']);
+
+        $this->client->request('GET', "/fr/oc/$id");
+        self::assertStringNotContainsString('id="btnCancelOffer"', (string) $this->client->getResponse()->getContent());
+        $this->post("/fr/oc/$id/cancel", ['reason' => 'x'], $csrf);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(OcStatus::VALIDATED, $this->statusOf($id));
+    }
+
+    public function testValidationPreparesTheX3FlowWithoutSendingAnything(): void
+    {
+        [$id] = $this->submittedOfferByAlice();
+        $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
+        $before = $this->em->getRepository(\App\Entity\SalesWebService::class)->count([]);
+
+        self::assertTrue($this->post("/fr/oc/$id/validate", [], $this->csrf())['ok']);
+
+        $this->em->clear();
+        $offer = $this->em->getRepository(Offer::class)->find($id);
+        self::assertCount(1, $offer->getFlows());
+        self::assertSame('prepared', $offer->getFlows()->first()->getStatus());
+        self::assertStringContainsString('WITMREF', $offer->getFlows()->first()->getXml());
+        self::assertSame(OcStatus::VALIDATED, $offer->getStatus(), 'envoi désactivé : l\'OC reste « validée »');
+        self::assertSame($before, $this->em->getRepository(\App\Entity\SalesWebService::class)->count([]), 'rien dans sales_web_service');
+
+        $this->client->request('GET', "/fr/oc/$id");
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Envoi à X3 désactivé', $html);
+        self::assertStringContainsString('WSCRESPL', $html);
+
+        // Le commercial ne voit pas les flux techniques.
+        $this->client->loginUser($this->em->getRepository(User::class)->findOneBy(['email' => 'alice@example.test']), 'main');
+        $this->client->request('GET', "/fr/oc/$id");
+        self::assertStringNotContainsString('WSCRESPL', (string) $this->client->getResponse()->getContent());
+    }
+
+    public function testValidationMenuListsOnlySubmittedOffersAndIsReservedToTheDirection(): void
+    {
+        [$submittedId, $csrf] = $this->submittedOfferByAlice();
+        $draftId = $this->post('/fr/oc/save', $this->payload(), $csrf)['id'];
+
+        $this->client->request('GET', '/fr/oc/validation');
+        self::assertResponseStatusCodeSame(403, 'un commercial n\'accède pas à la validation');
+
+        $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
+        $this->client->request('GET', '/fr/oc/validation');
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Validation OC', $html);
+        self::assertStringContainsString('"id":' . $submittedId, $html);
+        self::assertStringNotContainsString('"id":' . $draftId . ',', $html, 'les brouillons ne sont pas à valider');
+        // Menu repliable à trois entrées
+        foreach (['Nouvelle OC', 'Liste OC', 'Validation OC'] as $label) {
+            self::assertStringContainsString($label, $html);
+        }
+    }
+
+    public function testListOffersModifyOnlyForDraftsAndNothingElse(): void
+    {
+        [$submittedId, $csrf] = $this->submittedOfferByAlice();
+        $draftId = $this->post('/fr/oc/save', $this->payload(), $csrf)['id'];
+
+        $this->client->request('GET', '/fr/oc');
+        $html = html_entity_decode((string) $this->client->getResponse()->getContent(), ENT_QUOTES);
+        preg_match_all('/"id":(\d+)[^{}]*?"editUrl":(null|"[^"]*")/', $html, $m, PREG_SET_ORDER);
+        $edit = [];
+        foreach ($m as $row) { $edit[(int) $row[1]] = $row[2]; }
+        self::assertNotSame('null', $edit[$draftId] ?? 'null', 'brouillon : bouton Modifier');
+        self::assertSame('null', $edit[$submittedId] ?? 'absent', 'OC soumise : consultation seule');
+    }
+
+    public function testListPageNoLongerHasANewOfferButton(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $this->client->request('GET', '/fr/oc');
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('class="btn btn-sm btn-primary">Nouvelle OC', (string) $this->client->getResponse()->getContent());
+        self::assertStringNotContainsString('Validation OC', (string) $this->client->getResponse()->getContent(), 'entrée de menu réservée à la Direction');
+    }
+
     // ── Décision de la Direction ─────────────────────────────────────────────
 
     /** Crée et soumet une OC en tant qu'Alice ; renvoie [id, jeton CSRF d'Alice]. */
@@ -276,7 +361,14 @@ final class OcControllerTest extends WebTestCase
         [$id] = $this->submittedOfferByAlice();
 
         $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
+        // Depuis la liste classique : consultation seule, aucun bouton de décision.
         $this->client->request('GET', "/fr/oc/$id");
+        $listHtml = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('id="btnValidateOffer"', $listHtml);
+        self::assertStringNotContainsString('id="btnRejectOffer"', $listHtml);
+
+        // Depuis le menu « Validation OC » : boutons de décision.
+        $this->client->request('GET', "/fr/oc/$id?from=validation");
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString('id="btnValidateOffer"', $html, 'bouton de décision visible pour la Direction');
         self::assertStringContainsString('id="btnRejectOffer"', $html);

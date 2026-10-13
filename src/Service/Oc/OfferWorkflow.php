@@ -13,7 +13,7 @@ final class OfferWorkflow
         'submitted' => ['from' => [OcStatus::DRAFT], 'to' => OcStatus::SUBMITTED],
         'validated' => ['from' => [OcStatus::SUBMITTED], 'to' => OcStatus::VALIDATED],
         'rejected' => ['from' => [OcStatus::SUBMITTED], 'to' => OcStatus::REJECTED],
-        'cancelled' => ['from' => [OcStatus::DRAFT, OcStatus::SUBMITTED, OcStatus::VALIDATED], 'to' => OcStatus::CANCELLED],
+        'cancelled' => ['from' => [OcStatus::DRAFT, OcStatus::SUBMITTED], 'to' => OcStatus::CANCELLED],
         'sent_to_x3' => ['from' => [OcStatus::VALIDATED], 'to' => OcStatus::SENT_TO_X3],
     ];
 

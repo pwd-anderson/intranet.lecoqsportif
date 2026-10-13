@@ -112,10 +112,16 @@ class Offer
     #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
     private Collection $history;
 
+    /** @var Collection<int, OfferFlow> flux XML préparés pour X3 (créés à la validation) */
+    #[ORM\OneToMany(targetEntity: OfferFlow::class, mappedBy: 'offer', cascade: ['persist'])]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $flows;
+
     public function __construct()
     {
         $this->lines = new ArrayCollection();
         $this->history = new ArrayCollection();
+        $this->flows = new ArrayCollection();
         $now = new \DateTimeImmutable();
         $this->createdAt = $now;
         $this->updatedAt = $now;
@@ -206,6 +212,18 @@ class Offer
 
     /** @return Collection<int, OfferHistory> */
     public function getHistory(): Collection { return $this->history; }
+
+    /** @return Collection<int, OfferFlow> */
+    public function getFlows(): Collection { return $this->flows; }
+
+    public function addFlow(OfferFlow $flow): static
+    {
+        if (!$this->flows->contains($flow)) {
+            $this->flows->add($flow);
+            $flow->setOffer($this);
+        }
+        return $this;
+    }
 
     public function addHistory(OfferHistory $entry): static
     {

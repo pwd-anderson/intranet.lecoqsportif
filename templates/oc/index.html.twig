@@ -25,8 +25,9 @@
             <div class="col-12">
                 <div class="box">
                     <div class="box-header with-border d-md-flex align-items-center justify-content-between">
-                        <h4 class="box-title">Offres commerciales</h4>
+                        <h4 class="box-title">{{ validationMode ? 'Validation OC — en attente de décision' : 'Liste des offres commerciales' }}</h4>
                         <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+                            {% if not validationMode %}
                             <select id="statusFilter" class="form-select form-select-sm" style="width: 170px;">
                                 <option value="">Tous les statuts</option>
                                 <option value="draft">Brouillon</option>
@@ -36,7 +37,7 @@
                                 <option value="cancelled">Annulée</option>
                                 <option value="sent_to_x3">Envoyée à X3</option>
                             </select>
-                            <a href="{{ path('app_oc_new') }}" class="btn btn-sm btn-primary">Nouvelle OC</a>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="box-body pt-2">
@@ -56,12 +57,14 @@
         document.addEventListener('DOMContentLoaded', function () {
             const rows = {{ rows|json_encode|raw }};
             const SHOW_URL = '{{ path('app_oc_show', {id: 0}) }}'.replace(/0$/, '');
+            const VALIDATION = {{ validationMode ? 'true' : 'false' }};
+            const LINK_SUFFIX = {{ validationMode ? "'?from=validation'" : "''" }};
             const cellText = { borderRight: '0.2px solid #CECECEFF', textAlign: 'left' };
 
             const columnDefs = [
                 {
                     field: 'number', headerName: 'N° OC', minWidth: 260, filter: 'agTextColumnFilter', cellStyle: cellText,
-                    cellRenderer: function (p) { return '<a href="' + SHOW_URL + p.data.id + '">' + p.value + '</a>'; },
+                    cellRenderer: function (p) { return '<a href="' + SHOW_URL + p.data.id + LINK_SUFFIX + '">' + p.value + '</a>'; },
                 },
                 { field: 'type', headerName: 'Type', minWidth: 110, filter: 'agSetColumnFilter', cellStyle: cellText },
                 { field: 'customers', headerName: 'Client(s)', minWidth: 320, filter: 'agTextColumnFilter', cellStyle: cellText },
@@ -74,6 +77,14 @@
                 { field: 'createdAt', headerName: 'Créée le', minWidth: 120, filter: 'agDateColumnFilter', cellStyle: cellText },
                 { field: 'startDate', headerName: 'Début', minWidth: 120, cellStyle: cellText },
                 { field: 'endDate', headerName: 'Fin', minWidth: 120, cellStyle: cellText },
+                {
+                    headerName: 'Actions', minWidth: 190, sortable: false, filter: false, cellStyle: cellText,
+                    cellRenderer: function (p) {
+                        const view = '<a class="btn btn-xs btn-outline-secondary me-1" href="' + SHOW_URL + p.data.id + LINK_SUFFIX + '">' + (VALIDATION ? 'Examiner' : 'Voir') + '</a>';
+                        // Liste : « Modifier » uniquement pour un brouillon, sinon consultation seule (aucune autre action).
+                        return view + (!VALIDATION && p.data.editUrl ? '<a class="btn btn-xs btn-primary" href="' + p.data.editUrl + '">Modifier</a>' : '');
+                    },
+                },
             ];
 
             const gridOptions = window.AgGridCommon.initGrid('#ocGrid', {
@@ -86,7 +97,8 @@
             });
             gridOptions.api.setRowData(rows);
 
-            document.getElementById('statusFilter').addEventListener('change', function () {
+            const statusFilter = document.getElementById('statusFilter');
+            if (statusFilter) statusFilter.addEventListener('change', function () {
                 const model = this.value ? { values: [this.value] } : null;
                 gridOptions.api.setFilterModel(model ? { status: model } : null);
             });

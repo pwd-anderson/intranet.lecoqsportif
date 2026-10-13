@@ -3,11 +3,13 @@
 namespace App\Tests\Service\Oc;
 
 use App\Entity\Oc\Offer;
+use App\Entity\Oc\OfferHistory;
 use App\Entity\User;
 use App\Service\Oc\OcAction;
 use App\Service\Oc\OcStatus;
 use App\Service\Oc\OcX3Lookup;
 use App\Service\Oc\OfferCalculator;
+use App\Service\Oc\OfferFlowService;
 use App\Service\Oc\OfferMailer;
 use App\Service\Oc\OfferNumberGenerator;
 use App\Service\Oc\OfferPdfGenerator;
@@ -26,6 +28,7 @@ final class OfferServiceTest extends TestCase
     private OfferNumberGenerator&MockObject $numbers;
     private OfferMailer&MockObject $mailer;
     private OfferPdfGenerator&MockObject $pdf;
+    private OfferFlowService&MockObject $flows;
     private int $flushes = 0;
 
     protected function setUp(): void
@@ -38,13 +41,14 @@ final class OfferServiceTest extends TestCase
         $this->x3 = $this->createMock(OcX3Lookup::class);
         $this->mailer = $this->createMock(OfferMailer::class);
         $this->pdf = $this->createMock(OfferPdfGenerator::class);
+        $this->flows = $this->createMock(OfferFlowService::class);
         $this->numbers = $this->createMock(OfferNumberGenerator::class);
         $this->numbers->method('generate')->willReturn('OC202610' . '20548' . '12345678');
     }
 
     private function service(): OfferService
     {
-        return new OfferService($this->em, $this->x3, $this->numbers, new OfferWorkflow(), new OfferCalculator(), $this->mailer, $this->pdf, new NullLogger());
+        return new OfferService($this->em, $this->x3, $this->numbers, new OfferWorkflow(), new OfferCalculator(), $this->mailer, $this->pdf, $this->flows, new NullLogger());
     }
 
     private function user(): User
@@ -371,6 +375,19 @@ final class OfferServiceTest extends TestCase
         $service->submit($offer, $this->user());
     }
 
+    /** Dernière entrée d'historique de cette action (la validation en ajoute plusieurs : PDF, flux X3…). */
+    private function entry(Offer $offer, OcAction $action): ?OfferHistory
+    {
+        $found = null;
+        foreach ($offer->getHistory() as $h) {
+            if ($h->getAction() === $action) {
+                $found = $h;
+            }
+        }
+
+        return $found;
+    }
+
     private function submittedOffer(OfferService $service): Offer
     {
         $offer = $service->save($this->data(), $this->user());
@@ -389,8 +406,8 @@ final class OfferServiceTest extends TestCase
 
         self::assertSame(OcStatus::VALIDATED, $offer->getStatus());
         self::assertNotNull($offer->getDecidedAt());
-        $last = $offer->getHistory()->last();
-        self::assertSame(OcAction::VALIDATED, $last->getAction());
+        $last = $this->entry($offer, OcAction::VALIDATED);
+        self::assertNotNull($last);
         self::assertSame(OcStatus::SUBMITTED, $last->getFromStatus());
         self::assertSame(OcStatus::VALIDATED, $last->getToStatus());
     }
@@ -491,7 +508,7 @@ final class OfferServiceTest extends TestCase
         $service->validate($offer, $this->user());
 
         self::assertSame(OcStatus::VALIDATED, $offer->getStatus());
-        self::assertSame(OcAction::PDF_SENT, $offer->getHistory()->last()->getAction());
+        self::assertNotNull($this->entry($offer, OcAction::PDF_SENT));
     }
 
     public function testAPdfFailureNeverCancelsTheValidationAndIsTraced(): void
@@ -506,8 +523,8 @@ final class OfferServiceTest extends TestCase
         $service->validate($offer, $this->user());
 
         self::assertSame(OcStatus::VALIDATED, $offer->getStatus());
-        $last = $offer->getHistory()->last();
-        self::assertSame(OcAction::PDF_FAILED, $last->getAction());
+        $last = $this->entry($offer, OcAction::PDF_FAILED);
+        self::assertNotNull($last);
         self::assertStringContainsString('Dompdf en panne', $last->getReason());
     }
 
@@ -524,7 +541,7 @@ final class OfferServiceTest extends TestCase
         $service->validate($offer, $this->user());
 
         self::assertSame(OcStatus::VALIDATED, $offer->getStatus());
-        self::assertSame(OcAction::PDF_FAILED, $offer->getHistory()->last()->getAction());
+        self::assertNotNull($this->entry($offer, OcAction::PDF_FAILED));
     }
 
     public function testWithMailsDisabledNoPdfIsGeneratedNorTraced(): void
@@ -537,6 +554,53 @@ final class OfferServiceTest extends TestCase
 
         $service->validate($offer, $this->user());
 
-        self::assertSame(OcAction::VALIDATED, $offer->getHistory()->last()->getAction());
+        self::assertNull($this->entry($offer, OcAction::PDF_SENT));
+        self::assertNull($this->entry($offer, OcAction::PDF_FAILED));
+    }
+
+    public function testValidationPreparesTheX3FlowAndTracesIt(): void
+    {
+        $this->x3Ok();
+        $this->flows->expects(self::once())->method('prepare')->willReturn([]);
+        $this->flows->method('queue')->willReturn(0);
+        $service = $this->service();
+        $offer = $this->submittedOffer($service);
+
+        $service->validate($offer, $this->user());
+
+        self::assertSame(OcStatus::VALIDATED, $offer->getStatus());
+        $last = $this->entry($offer, OcAction::X3_FLOW_PREPARED);
+        self::assertNotNull($last);
+        self::assertStringContainsString('désactivé', $last->getReason());
+    }
+
+    public function testWhenQueuedTheOfferBecomesSentToX3(): void
+    {
+        $this->x3Ok();
+        $this->flows->method('prepare')->willReturn([]);
+        $this->flows->method('queue')->willReturn(2);
+        $service = $this->service();
+        $offer = $this->submittedOffer($service);
+
+        $service->validate($offer, $this->user());
+
+        self::assertSame(OcStatus::SENT_TO_X3, $offer->getStatus());
+        self::assertSame(OcAction::SENT_TO_X3, $offer->getHistory()->last()->getAction());
+    }
+
+    public function testAnX3FlowFailureNeverCancelsTheValidationAndIsTraced(): void
+    {
+        $this->x3Ok();
+        $this->flows->method('prepare')->willThrowException(new \LogicException('prix absent'));
+        $this->mailer->expects(self::once())->method('reportError');
+        $service = $this->service();
+        $offer = $this->submittedOffer($service);
+
+        $service->validate($offer, $this->user());
+
+        self::assertSame(OcStatus::VALIDATED, $offer->getStatus());
+        $last = $this->entry($offer, OcAction::X3_ERROR);
+        self::assertNotNull($last);
+        self::assertStringContainsString('prix absent', $last->getReason());
     }
 }

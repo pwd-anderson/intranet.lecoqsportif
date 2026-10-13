@@ -11,11 +11,12 @@ final class WebServiceDispatcher
         private EntityManagerInterface $em,
     ) {}
 
-    public function dispatch(string $webserviceName, string $xml): SalesWebService
+    public function dispatch(string $webserviceName, string $xml, ?int $ocOfferId = null): SalesWebService
     {
         $ws = new SalesWebService();
         $ws->setName($webserviceName);
         $ws->setParameter($xml);
+        $ws->setOcOfferId($ocOfferId);
 
         $this->em->persist($ws);
         $this->em->flush();

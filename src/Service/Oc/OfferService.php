@@ -28,6 +28,7 @@ class OfferService
         private readonly OfferCalculator $calculator,
         private readonly OfferMailer $mailer,
         private readonly OfferPdfGenerator $pdf,
+        private readonly OfferFlowService $flows,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -239,6 +240,45 @@ class OfferService
 
         // La validation est enregistrée : le PDF et son envoi ne peuvent plus la défaire (échec tracé dans l'historique).
         $this->sendValidationPdf($offer, $user);
+        $this->prepareX3Flow($offer, $user);
+    }
+
+    /**
+     * Génère les flux XML X3 de l'OC validée. Par défaut (envoi désactivé) ils sont seulement conservés (« préparés »,
+     * visibles à la Direction) ; activé, ils sont placés dans sales_web_service et l'OC passe « Envoyée à X3 ».
+     * Ne défait jamais la validation : un échec est tracé (« Erreur d'envoi à X3 ») et notifié à l'admin.
+     */
+    public function prepareX3Flow(Offer $offer, User $user): void
+    {
+        try {
+            $flows = $this->flows->prepare($offer);
+            $queued = $this->flows->queue($offer);
+
+            $offer->addHistory(new OfferHistory(
+                OcAction::X3_FLOW_PREPARED, $offer->getStatus(), $offer->getStatus(), $user, self::displayName($user),
+                $queued > 0 ? sprintf('%d flux placés en file pour X3.', $queued) : 'Envoi à X3 désactivé : flux conservés sans être envoyés.',
+                ['flows' => count($flows), 'queued' => $queued],
+            ));
+            $this->em->wrapInTransaction(function () use ($offer): void {
+                $this->em->persist($offer);
+                $this->em->flush();
+            });
+
+            if ($queued > 0) {
+                $this->transition($offer, OcAction::SENT_TO_X3, $user, null);
+            }
+        } catch (\Throwable $e) {
+            $this->mailer->reportError('flux X3 de l\'OC ' . $offer->getNumber(), $e);
+            $offer->addHistory(new OfferHistory(OcAction::X3_ERROR, $offer->getStatus(), $offer->getStatus(), $user, self::displayName($user), 'Flux X3 non généré : ' . $e->getMessage()));
+            try {
+                $this->em->wrapInTransaction(function () use ($offer): void {
+                    $this->em->persist($offer);
+                    $this->em->flush();
+                });
+            } catch (\Throwable $inner) {
+                $this->logger->error('LCS OC : historique de l\'erreur de flux X3', ['exception' => $inner]);
+            }
+        }
     }
 
     /**
@@ -257,7 +297,7 @@ class OfferService
             $problem = $sent ? null : 'Le mail n\'a pas pu être envoyé (voir le journal).';
         } catch (\Throwable $e) {
             $problem = 'Génération du PDF impossible : ' . $e->getMessage();
-            $this->logger->error('LCS OC : PDF de validation', ['offer' => $offer->getNumber(), 'exception' => $e]);
+            $this->mailer->reportError('PDF de l\'OC ' . $offer->getNumber(), $e);
         }
 
         $offer->addHistory(new OfferHistory(
