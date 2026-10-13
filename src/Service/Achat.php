@@ -225,6 +225,20 @@ class Achat
         return null;
     }
 
+    public function getBaseArticlesTarifs(): array
+    {
+        try {
+            $query = $this->sqlFileLoader->load('Sei/base_articles_tarifs.sql');
+
+            return $this->mssqlSei()->executeQuery($query);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Achat : Base Articles/Tarifs', $e);
+            $this->logger->error('LCS Erreur Achat : Base Articles/Tarifs', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
     public function getReceptionFournisseur(): array
     {
         try {

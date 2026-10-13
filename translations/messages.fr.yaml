@@ -78,6 +78,7 @@ sidebar:
           backlog_fournisseur_x3: "Backlog Fournisseur"
           reception_fournisseur: "Réception Fournisseur"
           plan_transport_prevision: "SS27 Plan transport\nprévision de dates"
+          base_articles_tarifs: "Base Articles/Tarifs"
           comptes_fournisseurs: "Comptes Fournisseurs"
       it:
           tcd_cmd_non_soldees: "TCD Commandes web non Soldées"

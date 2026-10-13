@@ -38,6 +38,12 @@ final class AchatController extends AbstractController
         return $this->achatGeneric('reception_fournisseur');
     }
 
+    #[Route('/achat/base_articles_tarifs', name: 'app_achat_base_articles_tarifs')]
+    public function baseArticlesTarifsAlias(): Response
+    {
+        return $this->achatGeneric('base_articles_tarifs');
+    }
+
     /**
      * Plan transport prévision (Excel SharePoint PURCHASING) : template dédié (ETD colorée selon le statut
      * de départ, légende, date du dernier import) ; les colonnes restent configurées en base (aggrid_option).
@@ -69,6 +75,26 @@ final class AchatController extends AbstractController
         return new JsonResponse($helpers->convertArrayToUtf8($planTransport->fetchAll()));
     }
 
+
+    #[Route('/achat/base_articles_tarifs_json', name: 'base_articles_tarifs_json')]
+    public function baseArticlesTarifsJson(Achat $achat, Helpers $helpers): JsonResponse
+    {
+        $this->denyUnlessBaseArticlesAccess();
+
+        return new JsonResponse($helpers->convertArrayToUtf8($achat->getBaseArticlesTarifs()));
+    }
+
+    /**
+     * Prix d'achat, landed cost et tarifs : réservé à MANAGEMENT et CONTROLLING (pour l'instant), vérifié côté
+     * serveur sur la page ET la route JSON (le rôle seul ne gouverne que l'affichage du menu pour les autres stats).
+     * L'exclusion par utilisateur reste gérée par StatAccessSubscriber (clé app_achat_base_articles_tarifs).
+     */
+    private function denyUnlessBaseArticlesAccess(): void
+    {
+        if (!$this->isGranted('ROLE_MANAGEMENT') && !$this->isGranted('ROLE_CONTROLLING')) {
+            throw $this->createAccessDeniedException();
+        }
+    }
 
     // Routes JSON
     #[Route('/achat/backlog_fournisseur_json', name: 'backlog_fournisseur_json')]
@@ -115,7 +141,16 @@ final class AchatController extends AbstractController
     )]
     public function achatGeneric(string $type): Response
     {
+        if ($type === 'base_articles_tarifs') {
+            $this->denyUnlessBaseArticlesAccess();
+        }
+
         $config = [
+            'base_articles_tarifs' => [
+                'gridName' => 'base_articles_tarifs_grid',
+                'title' => 'Base Articles/Tarifs',
+                'jsonRoute' => 'base_articles_tarifs_json',
+            ],
             'backlog_fournisseur' => [
                 'gridName' => 'backlog_fournisseur_grid',
                 'title' => 'Backlog Fournisseur (Nav.)',
