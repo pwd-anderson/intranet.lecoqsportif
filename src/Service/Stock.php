@@ -242,10 +242,10 @@ class Stock
             ), static fn ($c) => $c !== '')));
 
             $famille = $famille !== null ? trim($famille) : null;
-            $famille = $famille !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $famille) : null;
+            $famille = ($famille !== null && $famille !== '') ? preg_replace('/[^A-Za-z0-9_\-]/', '', $famille) : null;
 
             $genre = $genre !== null ? trim($genre) : null;
-            $genre = $genre !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $genre) : null;
+            $genre = ($genre !== null && $genre !== '') ? preg_replace('/[^A-Za-z0-9_\-]/', '', $genre) : null;
 
             // Construction des clauses WHERE
             $collectionWhere = '';
