@@ -21,7 +21,7 @@ CREATE TABLE MASTER_TABLES.PLAN_TRANSPORT_PREVISION (
     DATE_XF          DATE          NULL,       -- départ usine
     DATE_ETD         DATE          NULL,
     DATE_ETA_FRANCE  DATE          NULL,       -- ETA France (Logtex)
-    STATUT_DEPART    NVARCHAR(50)  NULL,       -- PARTI / BOOKÉ — ON HOLD / vide = à planifier
+    STATUT_DEPART    NVARCHAR(255) NULL,       -- PARTI / BOOKÉ — ON HOLD / vide = à planifier / commentaire libre (80 car. constatés)
     IMPORTED_AT      DATETIME      NOT NULL,
     SOURCE_FILE      NVARCHAR(255) NULL,
     SOURCE_MODIFIED  DATETIME      NULL,
@@ -45,7 +45,7 @@ CREATE TABLE MASTER_TABLES.PLAN_TRANSPORT_PREVISION_DEV (
     DATE_XF          DATE          NULL,
     DATE_ETD         DATE          NULL,
     DATE_ETA_FRANCE  DATE          NULL,
-    STATUT_DEPART    NVARCHAR(50)  NULL,
+    STATUT_DEPART    NVARCHAR(255) NULL,
     IMPORTED_AT      DATETIME      NOT NULL,
     SOURCE_FILE      NVARCHAR(255) NULL,
     SOURCE_MODIFIED  DATETIME      NULL,
