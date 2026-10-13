@@ -229,51 +229,14 @@ class Achat
     {
         try {
             $query = $this->sqlFileLoader->load('Sei/base_articles_tarifs.sql');
-            $rows = $this->mssqlSei()->executeQuery($query);
 
-            foreach ($rows as $row) {
-                $this->applyLandedCost($row);
-            }
-
-            return $rows;
+            return $this->mssqlSei()->executeQuery($query);
         } catch (\Exception $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur Achat : Base Articles/Tarifs', $e);
             $this->logger->error('LCS Erreur Achat : Base Articles/Tarifs', ['exception' => $e]);
 
             return [];
         }
-    }
-
-    /**
-     * Prix d'achat en EUR (un prix USD est divisé par USD_TO_EUR_RATE) puis landed cost EUR :
-     * (P + transport) × (1 + douane %) + P × commission % + (P + transport) × taxe cuir %.
-     * Sans prix d'achat, les deux colonnes restent vides (pas de faux 0).
-     */
-    private const USD_TO_EUR_RATE = 1.15;
-
-    private function applyLandedCost(object $row): void
-    {
-        if ($row->PRIX_ACHAT === null) {
-            $row->PRIX_ACHAT_EUR = null;
-            $row->LANDED_COST_EUR = null;
-
-            return;
-        }
-
-        $prix = (float) $row->PRIX_ACHAT;
-        if ($row->DEVISE_ACHAT === 'USD') {
-            $prix /= self::USD_TO_EUR_RATE;
-        }
-        $transport = (float) ($row->FRAIS_TRANSPORT_EUR ?? 0);
-        $douane = (float) ($row->TAUX_DOUANE ?? 0) / 100;
-        $commission = (float) ($row->TAUX_COMMISSION ?? 0) / 100;
-        $cuir = (float) ($row->TAUX_TAXE_CUIR ?? 0) / 100;
-
-        $row->PRIX_ACHAT_EUR = round($prix, 4);
-        $row->LANDED_COST_EUR = round(
-            ($prix + $transport) * (1 + $douane) + $prix * $commission + ($prix + $transport) * $cuir,
-            4
-        );
     }
 
     public function getReceptionFournisseur(): array
