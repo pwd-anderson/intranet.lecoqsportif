@@ -176,11 +176,12 @@ final class StockController extends AbstractController
     #[Route('/stock/stock_produits_json', name: 'stock_produits_json')]
     public function stockProduitsJson(Request $request, Stock $stock, Helpers $helpers): JsonResponse
     {
-        $collection = $request->query->get('collection');
-        $famille    = $request->query->get('famille');
-        $genre      = $request->query->get('genre');
+        // Collections : sélection multiple (collection[]=A&collection[]=B) ; aucune = toutes les collections.
+        $collections = $request->query->all('collection');
+        $famille     = $request->query->get('famille');
+        $genre       = $request->query->get('genre');
 
-        $data = $stock->getStockProduits($collection, $famille, $genre);
+        $data = $stock->getStockProduits($collections, $famille, $genre);
         $dataUtf8 = $helpers->convertArrayToUtf8($data);
 
         return new JsonResponse($dataUtf8);
@@ -288,7 +289,7 @@ final class StockController extends AbstractController
         $dataUrl = $this->generateUrl($gridConfig['jsonRoute']);
 
         if ($type === 'stock_produits') {
-            $dataUrl .= '?collection=2026-01-SS';
+            $dataUrl .= '?collection[]=2026-01-SS';
         }
 
         return $this->render('stock/stock_generic.html.twig', [

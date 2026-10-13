@@ -227,14 +227,19 @@ class Stock
         }
     }
 
-    public function getStockProduits(?string $collection = null, ?string $famille = null, ?string $genre = null): array
+    /**
+     * @param list<string> $collections collections sélectionnées (vide = toutes)
+     */
+    public function getStockProduits(array $collections = [], ?string $famille = null, ?string $genre = null): array
     {
         try {
             $sql = $this->sqlFileLoader->load('Sei/stock_produits.sql');
 
-            // Nettoyage strict (anti-injection)
-            $collection = $collection !== null ? trim($collection) : null;
-            $collection = $collection !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $collection) : null;
+            // Nettoyage strict (anti-injection) : chaque collection est réduite à [A-Za-z0-9_-]
+            $collections = array_values(array_unique(array_filter(array_map(
+                static fn ($c) => is_string($c) ? preg_replace('/[^A-Za-z0-9_\-]/', '', trim($c)) : '',
+                $collections
+            ), static fn ($c) => $c !== '')));
 
             $famille = $famille !== null ? trim($famille) : null;
             $famille = $famille !== '' ? preg_replace('/[^A-Za-z0-9_\-]/', '', $famille) : null;
@@ -244,8 +249,8 @@ class Stock
 
             // Construction des clauses WHERE
             $collectionWhere = '';
-            if ($collection) {
-                $collectionWhere = " AND YIL.YCOLLECT_0 = '{$collection}'";
+            if ($collections !== []) {
+                $collectionWhere = " AND YIL.YCOLLECT_0 IN ('" . implode("', '", $collections) . "')";
             }
 
             $familleWhere = '';

@@ -6,6 +6,20 @@
     <link href="{{ asset('assets/css/ag-grid/ag-theme-alpine.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/ag-grid/ag-default.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
+    {% if type == 'stock_produits' %}
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        .ts-wrapper.form-select-sm { min-height: 31px; font-size: 13px; }
+        .ts-wrapper .ts-control { padding: 2px 8px; min-height: 31px; }
+        .ts-wrapper .ts-control > .item { background: #024185; color: #fff; border-radius: 4px; padding: 1px 6px; margin: 1px 4px 1px 0; font-size: 12px; }
+        .ts-wrapper .ts-control > .item .remove { color: #fff; border-color: rgba(255, 255, 255, 0.3); }
+        /* Largeur fixe : la liste ne s'élargit plus (Save / Reset / Excel restent visibles). Les collections cochées passent
+           à la ligne dans la liste (toutes visibles), avec défilement au-delà de 3 lignes. */
+        #collectionSelect + .ts-wrapper { width: 260px; min-width: 260px; max-width: 260px; flex: 0 0 260px; }
+        #collectionSelect + .ts-wrapper .ts-control { flex-wrap: wrap; max-height: 78px; overflow-y: auto; }
+        #collectionSelect + .ts-wrapper .ts-control > .item { white-space: nowrap; }
+    </style>
+    {% endif %}
 
     <style>
         .ag-theme-alpine {
@@ -147,8 +161,8 @@
                                         </select>
                                     {% endif %}
                                     {% if type == 'stock_produits' %}
-                                        <select id="collectionSelect" class="form-select form-select-sm" style="width:160px;">
-                                            {# Plus d'option "Toutes les collections" — choix obligatoire #}
+                                        <select id="collectionSelect" class="form-select form-select-sm" multiple style="width:260px;">
+                                            {# Options chargées en JS : « Tous » + les collections (sélection multiple) #}
                                         </select>
 
                                         <select id="familleSelect" class="form-select form-select-sm" style="width:160px;">
@@ -196,6 +210,7 @@
 
 {% block javascripts %}
     {{ parent() }}
+    {% if type == 'stock_produits' %}<script src="{{ asset('assets/js/pages/tom-select.complete.min.js') }}"></script>{% endif %}
     <script src="{{ asset('assets/js/pages/ag-grid-community.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-enterprise.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.0"></script>
@@ -397,19 +412,41 @@
                 const familleSelectSP  = document.getElementById('familleSelect');
                 const genreSelect      = document.getElementById('genreSelect');
 
-                // Charger les collections
+                // Collections : sélection multiple avec l'option « Tous » (= toutes les collections, aucun filtre).
+                // « Tous » exclut les autres choix ; cocher une collection retire « Tous » ; tout décocher revient à « Tous ».
+                const ALL = '__ALL__';
+                window.stockCollectionSelect = null;
                 if (collectionSelect) {
                     fetch('{{ path("stock_collections_json") }}')
                         .then(res => res.json())
                         .then(data => {
-                            data.forEach(collection => {
+                            collectionSelect.innerHTML = '';
+                            [ALL].concat(data).forEach(collection => {
                                 const option = document.createElement('option');
                                 option.value = collection;
-                                option.textContent = collection;
-                                if (collection === '2026-01-SS') {
-                                    option.selected = true;
-                                }
+                                option.textContent = collection === ALL ? 'Tous' : collection;
                                 collectionSelect.appendChild(option);
+                            });
+
+                            let previous = ['2026-01-SS'];
+                            window.stockCollectionSelect = window.AgGridCommon.setupMultiSelect('#collectionSelect', {
+                                placeholder: 'Toutes les collections',
+                                defaultValues: previous,
+                                onChange: function (values) {
+                                    let next = values.slice();
+                                    if (next.length === 0) {
+                                        next = [ALL];
+                                    } else if (next.includes(ALL) && !previous.includes(ALL)) {
+                                        next = [ALL];
+                                    } else if (next.includes(ALL) && next.length > 1) {
+                                        next = next.filter(v => v !== ALL);
+                                    }
+                                    if (next.join('|') !== values.join('|')) {
+                                        window.stockCollectionSelect.setValue(next, true);
+                                    }
+                                    previous = next;
+                                    reloadGridWithProduitsFilters();
+                                },
                             });
                         });
                 }
@@ -442,8 +479,8 @@
                         });
                 }
 
-                // Recharger la grille avec les filtres
-                [collectionSelect, familleSelectSP, genreSelect].forEach(select => {
+                // Recharger la grille avec les filtres (la liste des collections se recharge via TomSelect, ci-dessus)
+                [familleSelectSP, genreSelect].forEach(select => {
                     if (select) {
                         select.addEventListener('change', reloadGridWithProduitsFilters);
                     }
@@ -521,13 +558,17 @@
         }
 
         function reloadGridWithProduitsFilters() {
-            const collection = document.getElementById('collectionSelect')?.value || '';
+            const collections = (window.stockCollectionSelect ? window.stockCollectionSelect.getValue() : [])
+                .filter(c => c !== '__ALL__');
             const famille    = document.getElementById('familleSelect')?.value || '';
             const genre      = document.getElementById('genreSelect')?.value || '';
 
             const url = new URL('{{ dataUrl }}', window.location.origin);
 
-            if (collection) url.searchParams.set('collection', collection);
+            // L'URL initiale porte déjà collection[]=… : on repart d'une base propre. Aucune collection = toutes.
+            url.searchParams.delete('collection[]');
+            url.searchParams.delete('collection');
+            collections.forEach(c => url.searchParams.append('collection[]', c));
             if (famille)    url.searchParams.set('famille', famille);
             if (genre)      url.searchParams.set('genre', genre);
 
