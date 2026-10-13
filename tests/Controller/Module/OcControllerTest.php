@@ -33,13 +33,18 @@ final class OcControllerTest extends WebTestCase
         $x3->method('getCustomerDiscount')->willReturn(['REMISE' => 10, 'DATE_DEBUT' => '2027-01-01', 'DATE_FIN' => '2050-12-31']);
         $x3->method('getArticlesPrices')->willReturnCallback(static function (string $customer, array $codes): array {
             $known = [
-                '2210037' => ['ARTICLE' => '2210037', 'DESIGNATION' => 'GANTS SIMULES', 'MODELE' => 'MODSIM', 'COLLECTION' => '2099-01-SS', 'CODE_TARIF' => 'TARIFSIM', 'DEVISE' => 'EUR', 'TARIF' => 11.1, 'MSRP' => 22.2],
-                '1511960' => ['ARTICLE' => '1511960', 'DESIGNATION' => 'POLO SIMULE', 'MODELE' => 'MODSIM2', 'COLLECTION' => '2099-02-FW', 'CODE_TARIF' => 'TARIFSIM', 'DEVISE' => 'EUR', 'TARIF' => 33.3, 'MSRP' => 66.6],
+                '2210037' => ['ARTICLE' => '2210037', 'DESIGNATION' => 'GANTS SIMULES', 'MODELE' => 'MODSIM', 'COLLECTION' => '2099-01-SS', 'CODE_TARIF' => 'TARIFSIM', 'DEVISE' => 'EUR', 'TARIF' => 11.1, 'MSRP' => 22.2, 'PRIX_ACHAT' => 6.0, 'DEVISE_ACHAT' => 'USD'],
+                '1511960' => ['ARTICLE' => '1511960', 'DESIGNATION' => 'POLO SIMULE', 'MODELE' => 'MODSIM2', 'COLLECTION' => '2099-02-FW', 'CODE_TARIF' => 'TARIFSIM', 'DEVISE' => 'EUR', 'TARIF' => 33.3, 'MSRP' => 66.6, 'PRIX_ACHAT' => null, 'DEVISE_ACHAT' => null],
             ];
 
             return array_intersect_key($known, array_flip($codes));
         });
         $c->set(OcX3Lookup::class, $x3);
+
+        // Cours simulés (pour 1 EUR) : 6 USD d'achat = 5 EUR.
+        $divers = $this->createStub(\App\Service\Divers::class);
+        $divers->method('getExchangeRatesValues')->willReturn(['EUR' => 1.0, 'USD' => 1.2]);
+        $c->set(\App\Service\Divers::class, $divers);
 
         $pdf = $this->createStub(OfferPdfGenerator::class);
         $pdf->method('generate')->willReturn('%PDF-simule');
@@ -334,6 +339,33 @@ final class OcControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('class="btn btn-sm btn-primary">Nouvelle OC', (string) $this->client->getResponse()->getContent());
         self::assertStringNotContainsString('Validation OC', (string) $this->client->getResponse()->getContent(), 'entrée de menu réservée à la Direction');
+    }
+
+    public function testPurchasePriceAndLcsMarginAreOnlyInTheValidationView(): void
+    {
+        [$id] = $this->submittedOfferByAlice();   // payload : article 2210037, tarif OC 30 (net), achat simulé 6 USD = 5 EUR
+
+        // Le commercial ne voit jamais le prix d'achat ni la marge LCS.
+        $this->client->request('GET', "/fr/oc/$id");
+        $own = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('Marge LCS', $own);
+        self::assertStringNotContainsString("Prix d'achat", $own);
+
+        $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
+        // Détail ouvert depuis la liste : pas de vue de validation.
+        $this->client->request('GET', "/fr/oc/$id");
+        self::assertStringNotContainsString('Marge LCS', (string) $this->client->getResponse()->getContent());
+
+        // Vue de validation : prix d'achat converti en EUR (6 USD / 1,2 = 5,00), marge LCS (30 − 5) / 30 = 83,33 %.
+        $this->client->request('GET', "/fr/oc/$id?from=validation");
+        $html = html_entity_decode((string) $this->client->getResponse()->getContent(), ENT_QUOTES);
+        self::assertStringContainsString('Marge LCS (%)', $html);
+        self::assertMatchesRegularExpression('/5,00\s+EUR/', $html);
+        self::assertStringContainsString('83,33 %', $html);
+        self::assertMatchesRegularExpression('/25,00\s+EUR/', $html, 'valeur de la marge LCS');
+        // Colonnes retirées de la vue de validation.
+        self::assertStringNotContainsString('<th>Code tarif</th>', $html);
+        self::assertStringNotContainsString('<th>Remise client</th>', $html);
     }
 
     // ── Décision de la Direction ─────────────────────────────────────────────

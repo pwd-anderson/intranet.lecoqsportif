@@ -36,7 +36,7 @@ final class OfferPdfGeneratorTest extends KernelTestCase
 
         $line = (new OfferLine())->setArticleCode('2210037')->setArticleLabel('EFRO 22 Gants')->setCollection('2026-01-SS')
             ->setTariff('18.50')->setMsrp('39.00')->setMargin('43.08')->setMinQty(0)->setMaxQty(999999)
-            ->setX3Tariff('19.50')->setInjectedPrice('21.26')->setInjectedDiscount('13.00');
+            ->setX3Tariff('19.50')->setInjectedPrice('21.26')->setInjectedDiscount('13.00')->setPurchasePrice('4.84')->setPurchaseCurrency('USD');
         $offer = (new Offer())
             ->setNumber('OC2026102054812345678')->setCustomerCode('20548')->setCustomerName('T2 SPORT SAS')->setCustomerCurrency('EUR')
             ->setStartDate(new \DateTimeImmutable('2027-02-01'))->setEndDate(new \DateTimeImmutable('2027-12-31'))
@@ -53,7 +53,7 @@ final class OfferPdfGeneratorTest extends KernelTestCase
         foreach (['OC2026102054812345678', 'T2 SPORT SAS', 'IBOS', 'ALICE MARTIN', '2210037', 'EFRO 22 Gants', '18,50', '39,00', '43,08', '01/02/2027', '31/12/2027'] as $expected) {
             self::assertStringContainsString($expected, $html);
         }
-        foreach (['21,26', '21.26', '19,50', '19.50'] as $secret) {
+        foreach (['21,26', '21.26', '19,50', '19.50', '4,84', '4.84', 'Marge LCS'] as $secret) {
             self::assertStringNotContainsString($secret, $html, "« $secret » ne doit jamais figurer sur le PDF client");
         }
     }

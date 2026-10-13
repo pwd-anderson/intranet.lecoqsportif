@@ -29,6 +29,42 @@ final class OfferCalculator
     }
 
     /**
+     * Marge de LCS sur une ligne (vue de validation, reprise de l'ancienne « marge Powerdata / SCR ») :
+     *   coût    = prix d'achat converti dans la devise de l'OC (prix ÷ cours de sa devise × cours de la devise de l'OC ;
+     *             cours = unités de devise pour 1 EUR, EUR = 1 : Divers::getExchangeRatesValues)
+     *   valeur  = prix net facturé (tarif OC) − coût
+     *   marge % = valeur / prix net facturé × 100   (−100 % si le prix net est nul : on offre un produit acheté)
+     *
+     * @param array<string,float> $rates cours par devise (pour 1 EUR)
+     *
+     * @return array{cost: float, value: float, percent: float}|null null si le prix d'achat est inconnu ou non convertible
+     */
+    public function lcsMargin(float $netPrice, ?float $purchasePrice, ?string $purchaseCurrency, ?string $offerCurrency, array $rates): ?array
+    {
+        if ($purchasePrice === null) {
+            return null;
+        }
+
+        $from = $purchaseCurrency !== null && $purchaseCurrency !== '' ? $purchaseCurrency : $offerCurrency;
+        $to = $offerCurrency !== null && $offerCurrency !== '' ? $offerCurrency : $from;
+        if ($from === $to) {
+            $cost = $purchasePrice;
+        } elseif (($rates[$from] ?? 0) > 0 && ($rates[$to] ?? 0) > 0) {
+            $cost = $purchasePrice / $rates[$from] * $rates[$to];
+        } else {
+            return null;
+        }
+
+        $value = $netPrice - $cost;
+
+        return [
+            'cost' => round($cost, 4),
+            'value' => round($value, 4),
+            'percent' => $netPrice > 0 ? round($value / $netPrice * 100, 4) : -100.0,
+        ];
+    }
+
+    /**
      * Prix à ENVOYER à X3 (WDISPRI) pour obtenir le prix net voulu par le commercial.
      *
      * La remise client REMCLI est appliquée par X3 à TOUTES les lignes du client (règle métier du 2026-10-09,

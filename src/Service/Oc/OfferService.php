@@ -122,6 +122,8 @@ class OfferService
                 ->setModelCode($x3['MODELE'] ?? null)
                 ->setX3Tariff($x3['TARIF'] ?? null)
                 ->setX3Msrp($x3['MSRP'] ?? null)
+                ->setPurchasePrice($x3['PRIX_ACHAT'] ?? null)
+                ->setPurchaseCurrency($x3['DEVISE_ACHAT'] ?? null)
                 ->setX3ReadAt($readAt)
                 ->setTariff($in->tariff)
                 ->setInjectedPrice($injected[$in->articleCode]['price'])

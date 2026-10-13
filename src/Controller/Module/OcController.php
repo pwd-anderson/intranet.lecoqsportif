@@ -9,6 +9,8 @@ use App\Repository\Oc\OfferRepository;
 use App\Security\OfferVoter;
 use App\Service\Oc\OcStatus;
 use App\Service\Oc\OcX3Lookup;
+use App\Service\Divers;
+use App\Service\Oc\OfferCalculator;
 use App\Service\Oc\OfferPdfGenerator;
 use App\Service\Oc\OfferService;
 use App\Service\Oc\OfferValidationException;
@@ -39,6 +41,8 @@ final class OcController extends AbstractController
         private readonly OfferRepository $offers,
         private readonly OfferService $service,
         private readonly CsrfTokenManagerInterface $csrf,
+        private readonly OfferCalculator $calculator,
+        private readonly Divers $divers,
     ) {
     }
 
@@ -129,13 +133,45 @@ final class OcController extends AbstractController
     {
         $this->denyAccessUnlessGranted(OfferVoter::VIEW, $offer);
 
+        // Valider / Rejeter ne sont proposés que lorsqu'on arrive depuis le menu « Validation OC » (?from=validation).
+        $decisionMode = $request->query->get('from') === 'validation' && $this->isGranted(OfferVoter::DECIDE, $offer);
+
         return $this->render('oc/show.html.twig', [
             'offer' => $offer,
-            // Valider / Rejeter ne sont proposés que lorsqu'on arrive depuis le menu « Validation OC » (?from=validation).
-            'decisionMode' => $request->query->get('from') === 'validation' && $this->isGranted(OfferVoter::DECIDE, $offer),
+            'decisionMode' => $decisionMode,
+            // Prix d'achat et marge LCS : uniquement dans la vue de validation (jamais pour le commercial, le PDF ni les mails).
+            'lcs' => $decisionMode ? $this->lcsMargins($offer) : [],
             'warnings' => $this->service->warnings($offer),
             'csrf' => $this->csrf->getToken(self::CSRF_ID)->getValue(),
         ]);
+    }
+
+    /**
+     * Marge LCS de chaque ligne (clé = id de ligne). Cours de change lus dans X3 ; s'ils sont indisponibles, la marge est
+     * simplement omise (le prix d'achat reste affiché dans sa devise d'origine).
+     *
+     * @return array<int, array{cost: float, value: float, percent: float}|null>
+     */
+    private function lcsMargins(Offer $offer): array
+    {
+        try {
+            $rates = $this->divers->getExchangeRatesValues();
+        } catch (\Throwable) {
+            $rates = [];
+        }
+
+        $out = [];
+        foreach ($offer->getLines() as $line) {
+            $out[(int) $line->getId()] = $this->calculator->lcsMargin(
+                (float) $line->getTariff(),
+                $line->getPurchasePrice() !== null ? (float) $line->getPurchasePrice() : null,
+                $line->getPurchaseCurrency(),
+                $offer->getCustomerCurrency(),
+                $rates
+            );
+        }
+
+        return $out;
     }
 
     // ── Écritures (JSON) ─────────────────────────────────────────────────────

@@ -201,13 +201,68 @@ class OcX3Lookup
                 $result[trim((string) $row['ARTICLE'])] = $row;
             }
 
-            return $result;
+            return $this->withPurchasePrices($result);
         } catch (\Throwable $e) {
             $this->graphMailer->notifyError('❌ LCS Erreur OC : tarifs articles', $e);
             $this->logger->error('LCS Erreur OC : tarifs articles', ['exception' => $e]);
 
             return [];
         }
+    }
+
+    /**
+     * Ajoute à chaque article PRIX_ACHAT et DEVISE_ACHAT (liste 1PFCOL, par modèle et collection). Requête séparée : si elle
+     * échoue ou ne renvoie rien, les prix de vente restent disponibles et le prix d'achat est simplement absent (null).
+     *
+     * @param array<string, array<string,mixed>> $articles lignes de getArticlesPrices, indexées par code article
+     *
+     * @return array<string, array<string,mixed>>
+     */
+    private function withPurchasePrices(array $articles): array
+    {
+        $pairs = [];
+        foreach ($articles as $row) {
+            $model = trim((string) ($row['MODELE'] ?? ''));
+            $collection = trim((string) ($row['COLLECTION'] ?? ''));
+            if ($model !== '' && $collection !== '') {
+                $pairs[$model . "\0" . $collection] = [$model, $collection];
+            }
+        }
+        foreach ($articles as $code => $row) {
+            $articles[$code]['PRIX_ACHAT'] = null;
+            $articles[$code]['DEVISE_ACHAT'] = null;
+        }
+        if ($pairs === []) {
+            return $articles;
+        }
+
+        $params = [];
+        $conditions = [];
+        foreach (array_values($pairs) as $i => [$model, $collection]) {
+            $params['m' . $i] = $model;
+            $params['c' . $i] = $collection;
+            $conditions[] = '(PPL.PLICRI2_0 = :m' . $i . ' AND PPL.PLICRI1_0 = :c' . $i . ')';
+        }
+
+        try {
+            $query = str_replace('{{PAIRS}}', implode(' OR ', $conditions), $this->sqlFileLoader->load('Sei/oc_article_purchase_prices.sql'));
+            $found = [];
+            foreach ($this->db()->executeQueryWithParams($query, $params) as $row) {
+                $row = (array) $row;
+                $found[trim((string) $row['MODELE']) . "\0" . trim((string) $row['COLLECTION'])] = $row;
+            }
+            foreach ($articles as $code => $row) {
+                $key = trim((string) ($row['MODELE'] ?? '')) . "\0" . trim((string) ($row['COLLECTION'] ?? ''));
+                if (isset($found[$key])) {
+                    $articles[$code]['PRIX_ACHAT'] = $found[$key]['PRIX_ACHAT'];
+                    $articles[$code]['DEVISE_ACHAT'] = trim((string) $found[$key]['DEVISE_ACHAT']) ?: null;
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('LCS Erreur OC : prix d\'achat articles', ['exception' => $e]);
+        }
+
+        return $articles;
     }
 
     /**

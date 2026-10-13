@@ -19,6 +19,8 @@
         .oc-lines td { vertical-align: middle; text-align: center; font-variant-numeric: tabular-nums; }
         .oc-lines td.left { text-align: left; }
         .oc-lines td.oc { background: #e2f1e3; }
+        .oc-lines th.lcs { background: #7b3fa0; }
+        .oc-lines td.lcs { background: #efe6f5; }
         .oc-photo { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; margin: 0 auto; line-height: 0; overflow: hidden; }
         .oc-photo img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 4px; }
         .oc-photo img:not([src]) { width: 64px; height: 64px; background: url('/assets/images/no-image.png') center / contain no-repeat; }
@@ -86,6 +88,43 @@
 
                         <h5 class="mt-3">Articles ({{ offer.lines|length }})</h5>
                         <div class="table-responsive">
+{% if decisionMode %}
+                            <table class="table table-sm table-bordered oc-lines">
+                                <thead>
+                                    <tr>
+                                        <th>Photo</th><th>Produit</th>
+                                        <th class="lcs" title="Prix d'achat X3 (liste 1PFCOL, par modèle et collection), converti dans la devise de l'OC">Prix d'achat</th>
+                                        <th>MSRP</th>
+                                        <th class="oc">Tarif OC (net)</th><th class="oc">Marge souhaitée (%)</th>
+                                        <th class="lcs" title="(Tarif OC − prix d'achat) / Tarif OC">Marge LCS (%)</th><th class="lcs">Marge LCS (valeur)</th>
+                                        <th>Qté min</th><th>Qté max</th><th>Commentaire</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for l in offer.lines %}
+                                    {% set m = lcs[l.id] ?? null %}
+                                    {% set cur = offer.customerCurrency ?? '' %}
+                                    <tr>
+                                        <td><span class="oc-photo"><img alt="photo article" data-step="0" data-article="{{ l.articleCode }}" src="https://www.lecoqsportif.com/cdn/shop/files/{{ l.articleCode|url_encode }}_2.webp" onerror="ocPhotoError(this)"></span></td>
+                                        <td class="left"><strong>{{ l.articleCode }}</strong><br>{{ l.articleLabel ?? '—' }}</td>
+                                        <td class="lcs"{% if l.purchasePrice is not null %} title="Prix d'achat X3 : {{ l.purchasePrice|number_format(2, ',', ' ') }} {{ l.purchaseCurrency }}"{% endif %}>
+                                            {%- if m -%}{{ m.cost|number_format(2, ',', ' ') }} {{ cur }}
+                                            {%- elseif l.purchasePrice is not null -%}{{ l.purchasePrice|number_format(2, ',', ' ') }} {{ l.purchaseCurrency }}
+                                            {%- else -%}—{%- endif -%}
+                                        </td>
+                                        <td>{{ l.msrp is not null ? l.msrp|number_format(2, ',', ' ') ~ ' ' ~ cur : '—' }}</td>
+                                        <td class="oc"><strong>{{ l.tariff|number_format(2, ',', ' ') }} {{ cur }}</strong></td>
+                                        <td class="oc">{{ l.margin is not null ? l.margin|number_format(2, ',', ' ') ~ ' %' : '—' }}</td>
+                                        <td class="lcs">{{ m ? m.percent|number_format(2, ',', ' ') ~ ' %' : '—' }}</td>
+                                        <td class="lcs">{{ m ? m.value|number_format(2, ',', ' ') ~ ' ' ~ cur : '—' }}</td>
+                                        <td>{{ l.minQty|number_format(0, ',', ' ') }}</td>
+                                        <td>{{ l.maxQty|number_format(0, ',', ' ') }}</td>
+                                        <td class="left">{{ l.comment ?? '' }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+{% else %}
                             <table class="table table-sm table-bordered oc-lines">
                                 <thead>
                                     <tr>
@@ -113,6 +152,7 @@
                                 {% endfor %}
                                 </tbody>
                             </table>
+{% endif %}
                         </div>
 
                         {% if is_granted('OC_X3_FLOW', offer) %}

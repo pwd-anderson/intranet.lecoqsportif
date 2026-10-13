@@ -49,6 +49,13 @@ class OfferLine
     #[ORM\Column(type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
     private ?string $x3Msrp = null;
 
+    /** Prix d'achat X3 (liste 1PFCOL) et sa devise, figés à l'enregistrement. Visibles de la Direction seulement (vue de validation). */
+    #[ORM\Column(type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
+    private ?string $purchasePrice = null;
+
+    #[ORM\Column(length: 10, nullable: true)]
+    private ?string $purchaseCurrency = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $x3ReadAt;
 
@@ -138,6 +145,11 @@ class OfferLine
 
     public function getMargin(): ?string { return $this->margin; }
     public function setMargin(float|string|null $v): static { $this->margin = self::dec($v, 4); return $this; }
+
+    public function getPurchasePrice(): ?string { return $this->purchasePrice; }
+    public function setPurchasePrice(float|string|null $v): static { $this->purchasePrice = self::dec($v, 4); return $this; }
+    public function getPurchaseCurrency(): ?string { return $this->purchaseCurrency; }
+    public function setPurchaseCurrency(?string $v): static { $this->purchaseCurrency = $v !== null && trim($v) !== '' ? trim($v) : null; return $this; }
 
     public function getInjectedPrice(): ?string { return $this->injectedPrice; }
     public function setInjectedPrice(float|string|null $v): static { $this->injectedPrice = self::dec($v, 4); return $this; }

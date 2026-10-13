@@ -86,5 +86,39 @@ final class OfferCalculatorTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         (new OfferCalculator())->injectedPrice(0.0, 10.0);
     }
-}
 
+    public function testLcsMarginConvertsThePurchasePriceToTheOfferCurrency(): void
+    {
+        $calc = new OfferCalculator();
+
+        // 6 USD, cours USD 1,2 pour 1 EUR → 5 EUR ; net 30 EUR → valeur 25, marge 83,3333 %.
+        $r = $calc->lcsMargin(30.0, 6.0, 'USD', 'EUR', ['EUR' => 1.0, 'USD' => 1.2]);
+        self::assertEqualsWithDelta(5.0, $r['cost'], 0.0001);
+        self::assertEqualsWithDelta(25.0, $r['value'], 0.0001);
+        self::assertEqualsWithDelta(83.3333, $r['percent'], 0.0001);
+
+        // Même devise : aucun cours nécessaire.
+        self::assertEqualsWithDelta(50.0, $calc->lcsMargin(40.0, 20.0, 'EUR', 'EUR', [])['percent'], 0.0001);
+
+        // OC dans une autre devise que l'achat : 10 EUR d'achat → 16,28830 AUD.
+        $aud = $calc->lcsMargin(32.5766, 10.0, 'EUR', 'AUD', ['EUR' => 1.0, 'AUD' => 1.62883]);
+        self::assertEqualsWithDelta(16.2883, $aud['cost'], 0.0001);
+        self::assertEqualsWithDelta(50.0, $aud['percent'], 0.01);
+    }
+
+    public function testLcsMarginIsUnknownWithoutPurchasePriceOrRate(): void
+    {
+        $calc = new OfferCalculator();
+
+        self::assertNull($calc->lcsMargin(30.0, null, null, 'EUR', ['EUR' => 1.0]));
+        self::assertNull($calc->lcsMargin(30.0, 6.0, 'USD', 'EUR', ['EUR' => 1.0]), 'cours USD absent');
+    }
+
+    public function testLcsMarginOfAFreeProductIsMinusHundredPercent(): void
+    {
+        $r = (new OfferCalculator())->lcsMargin(0.0, 5.0, 'EUR', 'EUR', []);
+
+        self::assertSame(-100.0, $r['percent']);
+        self::assertEqualsWithDelta(-5.0, $r['value'], 0.0001);
+    }
+}

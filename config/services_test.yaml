@@ -14,3 +14,6 @@ services:
 
     App\Service\Oc\OfferPdfGenerator:
         public: true
+
+    App\Service\Divers:
+        public: true
