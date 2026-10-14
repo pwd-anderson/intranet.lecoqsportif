@@ -22,7 +22,7 @@ Le but de ce skill : éviter d'inventer une nouvelle façon de faire. Le projet 
 
 Comprendre le besoin, identifier tables/champs, produire une requête cohérente et légère. Estimer le **volume de lignes** dès cette étape : c'est lui qui décide du type de stat et du chargement. Si une requête fournie est lourde, le dire et proposer une version allégée avant d'aller plus loin.
 
-Règles minimales : dates en `CONVERT(varchar(10), [Col], 23) AS [Col]`, alias de colonnes = futurs `field` AG Grid, un fichier `.sql` dans `src/Infrastructure/Sql/{Sei|Navision}/`, aucun `ORDER BY` si la grille trie côté navigateur.
+Règles minimales : dates en `CONVERT(varchar(10), [Col], 23) AS [Col]`, alias de colonnes = futurs `field` AG Grid, un fichier `.sql` dans `src/Infrastructure/Sql/{Sei|Navision}/`, aucun `ORDER BY` si la grille trie côté navigateur. **Quantités, montants et taux décimaux : `CAST(… AS float)` dans la requête, jamais de `(int)` ni d'arrondi à l'entier en PHP, et test dans le PHP-FPM (pas seulement en CLI) : le pilote `dblib` du serveur web local tronque les décimales (voir `references/sql-et-performance.md`, « Décimales »).**
 
 ## 2. Choisir le type de stat (`references/choix-du-type.md`)
 

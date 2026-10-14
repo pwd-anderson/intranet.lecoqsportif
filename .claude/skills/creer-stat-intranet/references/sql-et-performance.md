@@ -16,6 +16,7 @@ La performance se pense dès l'écriture de la requête : c'est là que se jouen
 - Valeurs utilisateur : paramètres (`executeQueryWithParams`) ou liste blanche + échappement. En SSRM, `AgGridSqlBuilder` n'accepte que les colonnes du `fieldMap`.
 - Aucun `ORDER BY` quand la grille est client-side : SQL Server devrait trier tout le résultat avant de rendre la première ligne, et ça retarde l'ensemble. Le tri est fait par AG Grid.
 - Sélectionner uniquement les colonnes affichées. Les montants en devise : `[PRIX UNITAIRE]` + `[DEVISE]` côté SQL, conversion EUR côté PHP via `Divers::getExchangeRatesValues()` (même formule que le Backlog Clients), jamais le prix brut comme montant final.
+- **Décimales (règle importante, constatée le 2026-10-14)** : toute quantité, tout montant, prix ou taux susceptible d'avoir des décimales est converti **dans la requête** : `CAST(SUM(x) AS float) AS QUANTITE`, `CAST(col AS float) AS PRIX`. Côté PHP, **ne jamais** faire `(int)` ni `round(..)` à l'entier sur une quantité : `round((float) $v, 3)` au plus (3 décimales, comme l'affichage). Côté grille, une colonne `integer` avec `integerFormatter` n'ajoute aucun zéro (5 reste « 5 », 10,5 reste « 10,5 ») : inutile de la passer en `decimal`, dont le formateur force 2 décimales (réservé aux prix).
 - Listes de référence quasi statiques (collections X3) : lire le cache MySQL (`Divers::getCollections()`) plutôt que d'interroger le cube à chaque appel.
 
 ## Volume et transport
@@ -36,6 +37,12 @@ Le Backlog Clients complet (~176 000 lignes) tenait à environ 1,4 Go en mémoir
 - **Connexion MSSQL** : ouverture paresseuse (jusqu'à ~15 s pour `mssqlLcs`).
 - **JOIN manquant** : en SSRM, un JOIN absent d'une des 3 requêtes (données, comptage, agrégat) provoque « multi-part identifier could not be bound ».
 - **Encodage** : toujours passer les lignes par `Helpers::convertArrayToUtf8()` avant `JsonResponse`.
+
+## Décimales tronquées par le PHP-FPM local (dblib) — piège critique
+
+Le pilote `pdo_dblib` du **serveur web local** (PHP-FPM lancé par `symfony serve`) renvoie les `SUM()` et certaines colonnes décimales **tronquées à l'entier** (5,5 → 5), alors que le **même PHP en ligne de commande** les renvoie exactes. Conséquence : une vérification faite uniquement avec un script CLI (`php bin/console`, script de test) **ne voit pas le bug** ; la page, elle, affiche des totaux faux. Cas réels : Réception fournisseur (total 202 au lieu de 204,5 pour `CALCSI26-00555`) et Backlog fournisseur intersites (273 lignes décimales, total 172 903 au lieu de 173 039,5). Le `CAST(… AS float)` dans la requête règle le problème pour tous les drivers (dblib, sqlsrv de la prod).
+
+Vérifier une stat avec des quantités / montants décimaux **dans le PHP-FPM** : déposer un script temporaire `public/_diag_tmp.php` (boot de `.env`, PDO sur le DSN, exécution de la requête, somme des colonnes), l'appeler avec `curl http://127.0.0.1:8000/_diag_tmp.php` **et** avec `php public/_diag_tmp.php`, comparer les deux sommes, puis **supprimer le fichier**. Comparer aussi avec le total exact obtenu en SQL (`SELECT SUM(...)`). Un écart entre FPM et CLI = colonne à caster. En cas de doute sur un total affiché, lancer cette comparaison avant de chercher côté AG Grid (qui n'arrondit pas).
 
 ## Mesurer
 

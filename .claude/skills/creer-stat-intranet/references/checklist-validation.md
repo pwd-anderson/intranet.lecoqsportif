@@ -9,6 +9,7 @@ Avant de déclarer une stat terminée, parcourir cette liste et rapporter pour c
 - [ ] Pas de `SELECT *`, pas de `ORDER BY` pour une grille client-side
 - [ ] Skill `x3-lcs-sql` consulté pour les tables X3
 - [ ] Valeurs utilisateur paramétrées ou en liste blanche
+- [ ] Quantités / montants / taux décimaux : `CAST(… AS float)` dans la requête, aucun `(int)` ni arrondi à l'entier en PHP ; somme vérifiée **dans le PHP-FPM** (curl sur un script temporaire) et en CLI, identique au `SUM` SQL (le dblib du serveur web local tronque les décimales)
 
 ## Type de stat
 - [ ] Générique / flux client-side / SSRM / spécifique : choix justifié par le volume mesuré ou estimé
