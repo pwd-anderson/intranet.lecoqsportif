@@ -48,6 +48,8 @@ final class XmlBuilder
             self::fld($lin, 'DAE_AMTCUR', (string) $amtcur);
             self::fld($lin, 'DAE_TAX',    $ligne['Taxe']    ?? '');
             self::fld($lin, 'DAE_FREREF', $ligne['RefPiece'] ?? '');
+            // Contre-compte (colonne « Contre-compte » du fichier importé) : vide s'il n'est pas renseigné
+            self::fld($lin, 'DAE_OFFACC', trim($ligne['ContreCompte'] ?? ''));
             self::fld($lin, 'DAE_CCE1',   trim($ligne['Axe']  ?? ''));
             self::fld($lin, 'DAE_CCE2',   trim($ligne['Axe2'] ?? ''));
         }

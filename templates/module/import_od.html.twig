@@ -160,7 +160,7 @@
                         <h5>Lignes de la pièce</h5>
 
                         <p class="text-muted small mb-2">
-                            Copiez vos lignes depuis Excel (colonnes : Réf. pièce, Date, Compte, Axe 1, Axe 2, Tiers, Libellé, Débit, Crédit, Taxe) et collez ci-dessous.
+                            Copiez vos lignes depuis Excel (colonnes : Réf. pièce, Date, Compte, Axe 1, Axe 2, Tiers, Libellé, Débit, Crédit, Taxe, Contre-compte) et collez ci-dessous. La colonne « Contre-compte » est la dernière ; elle peut rester vide.
                         </p>
 
                         <div id="pasteZone"
@@ -175,7 +175,7 @@
                         </div>
 
                         <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
-                            <table class="table table-bordered table-sm" id="lignesTable" style="margin-bottom:0; min-width:900px;">
+                            <table class="table table-bordered table-sm" id="lignesTable" style="margin-bottom:0; min-width:1010px;">
                                 <thead>
                                     <tr>
                                         <th>Réf. pièce</th>
@@ -188,6 +188,7 @@
                                         <th style="width:100px">Débit</th>
                                         <th style="width:100px">Crédit</th>
                                         <th style="width:70px">Taxe</th>
+                                        <th style="width:110px">Contre-compte</th>
                                         <th style="width:36px"></th>
                                     </tr>
                                 </thead>
@@ -296,7 +297,7 @@
     }
 
     function ajouterLigne(cols = []) {
-        const keys  = ['RefPiece', 'Date', 'Compte', 'Axe', 'Axe2', 'Tiers', 'Libelle', 'Debit', 'Credit', 'Taxe'];
+        const keys  = ['RefPiece', 'Date', 'Compte', 'Axe', 'Axe2', 'Tiers', 'Libelle', 'Debit', 'Credit', 'Taxe', 'ContreCompte'];
         const tbody = document.querySelector('#lignesTable tbody');
         const tr    = document.createElement('tr');
 
@@ -369,6 +370,7 @@
                 Debit:    inputs[7].value.trim(),
                 Credit:   inputs[8].value.trim(),
                 Taxe:     inputs[9].value.trim(),
+                ContreCompte: inputs[10].value.trim(),
             };
         });
     }

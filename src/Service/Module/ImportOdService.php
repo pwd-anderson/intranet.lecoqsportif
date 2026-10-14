@@ -101,7 +101,11 @@ final class ImportOdService
         }
 
         // ── 2. Requête Compte : existence + flag collectif (SAC_0) ──────────
-        $compteValues = $this->uniqueNonEmpty(array_column($lignes, 'Compte'));
+        // Le contre-compte (facultatif) doit lui aussi exister dans le plan comptable.
+        $compteValues = $this->uniqueNonEmpty(array_merge(
+            array_column($lignes, 'Compte'),
+            array_map(fn($v) => trim((string) $v), array_column($lignes, 'ContreCompte'))
+        ));
         $compteMap    = [];
         if (!empty($compteValues)) {
             $in   = $this->inClause($compteValues);
@@ -146,6 +150,12 @@ final class ImportOdService
             // Axe 2 — validation si rempli (facultatif)
             if ($axe2Code !== '' && !in_array($axe2Code, $validAxe2, true)) {
                 $lineErrors[] = "Axe 2 « $axe2Code » inconnu";
+            }
+
+            // Contre-compte — validation si rempli (facultatif)
+            $contreCompte = trim($ligne['ContreCompte'] ?? '');
+            if ($contreCompte !== '' && !array_key_exists($contreCompte, $compteMap)) {
+                $lineErrors[] = "Contre-compte « $contreCompte » inconnu";
             }
 
             // Compte
