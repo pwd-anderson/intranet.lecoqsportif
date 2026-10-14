@@ -282,7 +282,9 @@ class Achat
 
             // 5. Enrichissement des lignes
             foreach ($data as $row) {
-                $row->QUANTITE = (int) round((float) $row->QUANTITE);
+                // Quantité exacte (10,5 reste 10,5) : l'arrondi à l'entier faussait le total et le montant de la ligne.
+                // 3 décimales au plus (comme l'affichage de la grille, qui n'ajoute jamais de zéros : 5 reste « 5 »).
+                $row->QUANTITE = round((float) $row->QUANTITE, 3);
 
                 // Prix unitaire : on cherche d'abord dans la facture, sinon dans la réception
                 if (isset($prixDataFacture[$row->POHNUM_0][$row->ARTICLE])) {
