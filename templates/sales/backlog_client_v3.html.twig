@@ -167,6 +167,9 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             let exportBound = false;
+            // Cases à cocher des panneaux de filtres cliquables (pas seulement le texte) : observateurs posés une seule fois,
+            // la grille étant recréée à chaque chargement.
+            let checkboxesPatched = false;
 
             document.getElementById('loadBtn').addEventListener('click', () => {
                 // Toutes les collections : la stat charge l'intégralité du backlog
@@ -316,6 +319,11 @@
                     });
 
                     window.gridOptions = gridOptions;
+                    if (!checkboxesPatched) {
+                        window.AgGridCommon.patchSidebarCheckboxes('#myGrid');
+                        window.AgGridCommon.patchSetFilterCheckboxes();
+                        checkboxesPatched = true;
+                    }
                     gridOptions.api.setRowData(lignes);
 
                     // Compteur de lignes et ligne de totaux, comme le fait reloadData()
