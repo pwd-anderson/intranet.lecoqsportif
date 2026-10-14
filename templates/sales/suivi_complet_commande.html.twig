@@ -197,6 +197,10 @@
 
             // N° commande / livraison / facture : lien PDF SharePoint si l'URL est configuree
             // (DOC_LINKS[champ] = prefixe), sinon meme apparence mais non cliquable.
+            // Nom du fichier SharePoint : {numero}-{client}.pdf ; client = colonne CLIENT (client commande) pour la
+            // commande et la livraison, CLIENT_FACTURE (client facture, souvent different) pour la facture. Sans client,
+            // le nom exact est inconnu : pas de lien cliquable plutot qu'un lien casse.
+            const DOC_CLIENT_FIELD = { NUM_COMMANDE: 'CLIENT', NUM_LIVRAISON: 'CLIENT', NUM_FACTURE: 'CLIENT_FACTURE' };
             // DOM construit via textContent : la valeur n'est jamais interpretee comme du HTML.
             function pdfIcon() {
                 const NS = 'http://www.w3.org/2000/svg';
@@ -227,18 +231,20 @@
                 return svg;
             }
 
-            function docLinkRenderer(prefix) {
+            function docLinkRenderer(prefix, clientField) {
                 return function (params) {
                     const value = params.value;
                     if (value === null || value === undefined || String(value).trim() === '') {
                         return '';
                     }
                     const text = String(value).trim();
+                    const rawClient = params.data ? params.data[clientField] : null;
+                    const client = rawClient !== null && rawClient !== undefined ? String(rawClient).trim() : '';
 
-                    if (prefix) {
+                    if (prefix && client !== '') {
                         const a = document.createElement('a');
                         a.className = 'scc-doc-link';
-                        a.href = prefix + encodeURIComponent(text) + '.pdf';
+                        a.href = prefix + encodeURIComponent(text + '-' + client) + '.pdf';
                         a.target = '_blank';
                         a.rel = 'noopener';
                         a.append(pdfIcon(), document.createTextNode(text));
@@ -255,7 +261,7 @@
 
             columnDefs.forEach(function (col) {
                 if (Object.prototype.hasOwnProperty.call(DOC_LINKS, col.field)) {
-                    col.cellRenderer = docLinkRenderer(DOC_LINKS[col.field]);
+                    col.cellRenderer = docLinkRenderer(DOC_LINKS[col.field], DOC_CLIENT_FIELD[col.field] || 'CLIENT');
                 }
             });
 

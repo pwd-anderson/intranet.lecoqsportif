@@ -723,14 +723,15 @@ final class SalesController extends AbstractController
 
     /**
      * Sous-dossier SharePoint (sous ERP_PDF_BASE_URL) de chaque type de document cliquable de
-     * « Suivi complet de commande ». Le fichier est {base}/{dossier}/{numero}.pdf (meme schema
-     * que les intranets des autres societes, ex. .../ERP_PDF/ORDERS/SOS0800515.pdf).
-     * null = dossier pas encore communique : le lien reste non cliquable meme si la base est definie.
+     * « Suivi complet de commande ». Le fichier est {base}/{dossier}/{numero}-{client}.pdf : le nom se termine
+     * par un tiret et le numero de client de la ligne (colonne CLIENT), ajoute par le navigateur
+     * (ex. .../ERP_PDF/ORDERS/SOS0800515-20548.pdf). Un lien SharePoint est une adresse exacte, sans joker.
+     * null = dossier pas communique : le lien reste non cliquable meme si la base est definie.
      */
     private const SUIVI_COMPLET_DOC_FOLDERS = [
         'NUM_COMMANDE'  => 'ORDERS',
-        'NUM_LIVRAISON' => null,
-        'NUM_FACTURE'   => null,
+        'NUM_LIVRAISON' => 'DELIVERIES',
+        'NUM_FACTURE'   => 'INVOICES',
     ];
 
     #[Route('/sales/suivi_complet_commande', name: 'app_sales_suivi_complet_commande')]

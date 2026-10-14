@@ -7,6 +7,7 @@
 SELECT [NUM_COMMANDE]
       ,CONVERT(varchar(10), [DATE_COMMANDE], 23)           AS [DATE_COMMANDE]
       ,[CLIENT]
+      ,[CLIENT_FACTURE]
       ,[RAISON_SOCIALE]
       ,[SITE_VENTE]
       ,[NUM_BON_PREPA]
