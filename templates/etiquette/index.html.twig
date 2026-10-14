@@ -20,11 +20,16 @@
         {# ===== Colonne gauche ===== #}
         <div class="eta-col-left">
 
-            {# Recherche livraison #}
+            {# Recherche : par n° de livraison OU par n° de commande d'achat #}
             <div class="eta-card">
-                <div class="eta-card-title">Livraison</div>
+                <div class="eta-card-title" id="etaCardTitle">Livraison</div>
                 <div class="eta-card-body">
-                    <label class="eta-field-label" for="etaNumeroLivraison">N° de livraison</label>
+                    <label class="eta-field-label" for="etaModeRecherche">Rechercher par</label>
+                    <select id="etaModeRecherche" class="eta-input" style="margin-bottom:10px">
+                        <option value="livraison" selected>N° de livraison</option>
+                        <option value="commande">N° de commande d'achat</option>
+                    </select>
+                    <label class="eta-field-label" for="etaNumeroLivraison" id="etaNumeroLabel">N° de livraison</label>
                     <input type="text" id="etaNumeroLivraison" class="eta-input"
                            placeholder="ex : BLLCSI26-00026423"
                            autocomplete="off" spellcheck="false">
@@ -72,7 +77,7 @@
                 <details class="eta-help">
                     <summary>❓ Aide — comment utiliser ce module</summary>
                     <div class="eta-help-body">
-                        <p><strong>1. Rechercher une livraison</strong> — Saisissez le numéro de livraison dans la colonne de gauche et cliquez sur « Rechercher ». Le tableau se remplit automatiquement avec une ligne par article.</p>
+                        <p><strong>1. Rechercher une livraison ou une commande d'achat</strong> — Choisissez le type de recherche dans la colonne de gauche, saisissez le numéro de livraison ou de commande d'achat et cliquez sur « Rechercher ». Le tableau se remplit automatiquement avec une ligne par article (pour une commande d'achat, les quantités viennent des réceptions fournisseur).</p>
                         <p><strong>2. Régler les cartons</strong> — Cliquez sur une ligne pour ouvrir l'onglet « Gestion du colisage ». Fixez le nombre de cartons, puis répartissez les quantités par plage (ex : cartons 1 à 5 → 20 pièces). La numérotation des cartons est continue sur l'ensemble de la livraison.</p>
                         <p><strong>3. Liste de colisage</strong> — L'onglet « Liste de colisage » affiche un récap par article et le détail carton par carton. Utilisez « Imprimer / Export PDF » pour générer le document papier ou PDF.</p>
                         <p><strong>4. Imprimer les étiquettes Zebra</strong> — Sélectionnez l'imprimante Zebra (colonne de gauche), puis cliquez sur « Imprimer » en bas : une étiquette ZPL est envoyée par carton via Zebra Browser Print (doit être installé et lancé sur ce poste).</p>
@@ -155,7 +160,7 @@
 
     {# ---- Footer ---- #}
     <div class="eta-footer">
-        <span id="etaStatus">Prêt — saisissez un numéro de livraison.</span>
+        <span id="etaStatus">Prêt — saisissez un numéro de livraison ou de commande d'achat.</span>
         <button class="eta-btn eta-btn-danger" id="etaBtnReset" style="position:absolute;right:200px;width:auto;padding:8px 14px">🗑 Nouvelle expédition</button>
         <progress id="etaProgressBar" max="100" value="0" style="display:none;width:160px"></progress>
         <button class="eta-btn eta-btn-success" id="etaBtnPrint" disabled style="width:auto;padding:8px 16px">⎙ Imprimer</button>
@@ -174,6 +179,16 @@
 const LABELARY_URL       = "https://api.labelary.com/v1/printers/8dpmm/labels/4x4/0/";
 const BROWSER_PRINT_URL  = "http://localhost:9100/";
 const LIVRAISON_URL      = "{{ path('app_etiquette_livraison') }}";
+const COMMANDE_ACHAT_URL = "{{ path('app_etiquette_commande_achat') }}";
+
+// Deux façons de chercher les lignes : par n° de livraison, ou par n° de commande d'achat (lignes lues dans les
+// réceptions fournisseur). Le n° trouvé alimente les étiquettes (champ « otb ») dans les deux cas.
+const MODES_RECHERCHE = {
+    livraison: { url: LIVRAISON_URL,      titre: "Livraison",         libelle: "N° de livraison",         placeholder: "ex : BLLCSI26-00026423", doc: "livraison",         docLabel: "N° livraison" },
+    commande:  { url: COMMANDE_ACHAT_URL, titre: "Commande d'achat",  libelle: "N° de commande d'achat",  placeholder: "ex : CAB25-03610/015",   doc: "commande d'achat",  docLabel: "N° commande d'achat" },
+};
+let modeRecherche = "livraison";
+let docLabelCourant = MODES_RECHERCHE.livraison.docLabel;   // libellé du n° des lignes chargées
 
 const ADDR_LINE1 = "LOGTEX p/c LCS International SAS";
 const ADDR_LINE2 = "Parc Logistique de L'Aube";
@@ -314,23 +329,24 @@ function buildZpl(otb, sku, taille, qty, itemName) {
 // CHARGEMENT LIVRAISON (remplace loadFile)
 // =============================================================================
 async function rechercherLivraison() {
+    const mode   = MODES_RECHERCHE[modeRecherche];
     const input  = document.getElementById("etaNumeroLivraison");
     const numero = input.value.trim();
     if (!numero) {
         input.classList.add("eta-input-error");
-        setStatus("Veuillez saisir un numéro de livraison.", "warn");
+        setStatus(`Veuillez saisir un ${mode.libelle.replace("N° de", "numéro de")}.`, "warn");
         return;
     }
     input.classList.remove("eta-input-error");
 
     const btn = document.getElementById("etaBtnRechercher");
     btn.disabled = true;
-    setStatus("Chargement de la livraison…");
+    setStatus(`Chargement de la ${mode.doc === "livraison" ? "livraison" : "commande d'achat"}…`);
     document.getElementById("etaLivraisonHint").innerHTML =
         '<span class="eta-loading"><span class="eta-spinner"></span> Recherche en cours…</span>';
 
     try {
-        const resp = await fetch(LIVRAISON_URL, {
+        const resp = await fetch(mode.url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ numero }),
@@ -342,7 +358,7 @@ async function rechercherLivraison() {
 
         if (!Array.isArray(data) || data.length === 0) {
             document.getElementById("etaLivraisonHint").textContent = "Aucune ligne trouvée.";
-            setStatus("Aucune ligne trouvée pour ce numéro de livraison.", "warn");
+            setStatus(`Aucune ligne trouvée pour ce ${mode.libelle.replace("N° de", "numéro de")}.`, "warn");
             return;
         }
 
@@ -352,7 +368,7 @@ async function rechercherLivraison() {
             const taille   = sepIdx >= 0 ? sku.slice(sepIdx + 1) : "";
             const qty      = Math.max(0, parseInt(row.QUANTITE_A_LIVREE) || 0);
             return {
-                otb:          String(row.N_LIVRAISON ?? ""),
+                otb:          String(row.N_LIVRAISON ?? row.N_COMMANDE_ACHAT ?? ""),
                 sku,
                 taille,
                 itemName:     String(row.DESIGNATION ?? ""),
@@ -362,6 +378,11 @@ async function rechercherLivraison() {
                 cartonLocked: [false],
             };
         }).filter(r => r.qty > 0);
+
+        docLabelCourant = mode.docLabel;
+
+        // Les étiquettes comptent des pièces entières : une quantité décimale (ex. 4,5) est ramenée à l'entier inférieur.
+        const decimales = data.filter(r => Number(r.QUANTITE_A_LIVREE) % 1 !== 0).length;
 
         selectedIndex   = null;
         activeCartonIdx = null;
@@ -383,7 +404,9 @@ async function rechercherLivraison() {
 
         document.getElementById("etaBtnPrint").disabled = rows.length === 0;
         document.getElementById("etaLivraisonHint").textContent = `${rows.length} ligne(s) chargée(s)`;
-        setStatus(`${rows.length} article(s) chargé(s) — ajustez le nombre de cartons si besoin.`, "ok");
+        setStatus(`${rows.length} article(s) chargé(s) — ajustez le nombre de cartons si besoin.`
+            + (decimales ? ` Attention : ${decimales} ligne(s) avec une quantité décimale, ramenée à l'entier inférieur pour les étiquettes.` : ""),
+            decimales ? "warn" : "ok");
 
     } catch (e) {
         document.getElementById("etaLivraisonHint").textContent = "";
@@ -543,7 +566,7 @@ function renderCartonDetail() {
 
     document.getElementById("etaCartonLineInfo").innerHTML =
         `<strong>${escapeHtml(r.sku)}</strong>${r.taille ? " — " + escapeHtml(r.taille) : ""} — ${escapeHtml(r.itemName)}` +
-        `<span class="eta-muted"> · N° livraison : ${escapeHtml(r.otb)} · Qté à livrer : ${r.qty} · Cartons n° ${offset + 1} à ${offset + r.cartons}</span>`;
+        `<span class="eta-muted"> · ${docLabelCourant} : ${escapeHtml(r.otb)} · Qté à livrer : ${r.qty} · Cartons n° ${offset + 1} à ${offset + r.cartons}</span>`;
 
     const hint = document.getElementById("etaCartonRangeHint");
     if (hint) hint.textContent = `(cette ligne : ${offset + 1} à ${offset + r.cartons})`;
@@ -692,7 +715,7 @@ function resetRowSplit() {
 function renderListeColisage() {
     const container = document.getElementById("etaListeContent");
     if (!rows.length) {
-        container.innerHTML = `<p style="padding:20px;text-align:center;color:var(--eta-muted)">Aucune donnée — recherchez d'abord un numéro de livraison.</p>`;
+        container.innerHTML = `<p style="padding:20px;text-align:center;color:var(--eta-muted)">Aucune donnée — recherchez d'abord un numéro de livraison ou de commande d'achat.</p>`;
         return;
     }
     const totalCartons = rows.reduce((a, r) => a + r.cartons, 0);
@@ -704,7 +727,7 @@ function renderListeColisage() {
     let html = `<div style="margin-bottom:10px">
         <h2 class="eta-section-title" style="margin-bottom:2px">Liste de colisage</h2>
         <div style="font-size:12px;color:var(--eta-muted)">
-            N° livraison : <strong>${escapeHtml(livraison)}</strong> — Édité le ${dateStr}<br>
+            ${docLabelCourant} : <strong>${escapeHtml(livraison)}</strong> — Édité le ${dateStr}<br>
             ${rows.length} article(s) · ${totalCartons} carton(s) · ${totalPieces} pièce(s)
         </div>
     </div>`;
@@ -904,7 +927,7 @@ document.getElementById("etaBtnTestPrint").addEventListener("click", async () =>
 // IMPRESSION ÉTIQUETTES
 // =============================================================================
 document.getElementById("etaBtnPrint").addEventListener("click", async () => {
-    if (!rows.length) { setStatus("Chargez d'abord une livraison.", "warn"); return; }
+    if (!rows.length) { setStatus("Chargez d'abord une livraison ou une commande d'achat.", "warn"); return; }
     const idx    = Number(document.getElementById("etaPrinterSelect").value);
     const device = printers[idx];
     if (!device) { setStatus("Aucune imprimante valide sélectionnée.", "warn"); return; }
@@ -961,12 +984,23 @@ document.getElementById("etaBtnReset").addEventListener("click", () => {
     updatePreviewButtonState();
     drawSummary();
     document.getElementById("etaBtnPrint").disabled = true;
-    setStatus("Prêt — saisissez un numéro de livraison.", "ok");
+    setStatus("Prêt — saisissez un numéro de livraison ou de commande d'achat.", "ok");
 });
 
 // =============================================================================
 // ACTIONS DES BOUTONS / APPEL LIVRAISON
 // =============================================================================
+document.getElementById("etaModeRecherche").addEventListener("change", e => {
+    modeRecherche = e.target.value;
+    const mode = MODES_RECHERCHE[modeRecherche];
+    document.getElementById("etaCardTitle").textContent   = mode.titre;
+    document.getElementById("etaNumeroLabel").textContent = mode.libelle;
+    const input = document.getElementById("etaNumeroLivraison");
+    input.placeholder = mode.placeholder;
+    input.value = "";
+    input.classList.remove("eta-input-error");
+    input.focus();
+});
 document.getElementById("etaBtnRechercher").addEventListener("click", rechercherLivraison);
 document.getElementById("etaNumeroLivraison").addEventListener("keydown", e => {
     if (e.key === "Enter") rechercherLivraison();

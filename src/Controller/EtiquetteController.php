@@ -32,4 +32,18 @@ final class EtiquetteController extends AbstractController
 
         return $this->json($helpers->convertArrayToUtf8($rows));
     }
+
+    /** Recherche par numéro de commande d'achat (lignes lues dans les réceptions fournisseur). */
+    #[Route('/etiquette/expedition/commande-achat', name: 'app_etiquette_commande_achat', methods: ['POST'])]
+    public function getCommandeAchat(Request $request, Etiquette $etiquette, Helpers $helpers): JsonResponse
+    {
+        $data   = json_decode($request->getContent(), true);
+        $numero = trim($data['numero'] ?? '');
+
+        if ($numero === '') {
+            return $this->json(['error' => 'Numéro de commande d\'achat manquant'], 400);
+        }
+
+        return $this->json($helpers->convertArrayToUtf8($etiquette->getLignesCommandeAchat($numero)));
+    }
 }
