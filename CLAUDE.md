@@ -274,6 +274,10 @@ La date des commandes fournisseur (`PORDERQ`, ancien premier choix) **n'entre pl
 
 **À faire / en attente.** Planifier le cron quotidien (`app:import-plan-transport`) ; charger le script `plan_transport_prevision.sql` (MySQL) et le DDL (SEI) en préprod/prod ; vérifier l'affichage du Backlog Client à l'écran ; nom de fichier logique côté métier.
 
+### Backlog Clients — lignes d'articles droppés en rouge clair (2026-10-14, affichage seulement)
+
+Sur la page Backlog Clients (v3), **toute la ligne passe en rouge clair** quand la colonne `DROPPE` vaut OUI (`rowClassRules` + CSS `.ligne-droppee` dans `backlog_client_v3.html.twig`). **Purement graphique, aucune logique de stat modifiée** (requête, service, contrôleur inchangés). Une colonne « ALERTE » (texte « ARTICLE DROPPÉ ») avait été ajoutée puis **retirée à la demande de l'utilisateur** : la colonne filtrable reste `DROPPÉ`. À savoir : un « É » écrit dans une requête SQL est déformé par le pilote dblib (ISO-8859-1), ne jamais en mettre dans un littéral SQL.
+
 ### Stat Contacts Clients (ADV, sous « Comptes Clients »)
 
 Pour chaque client, ses contacts pour les **5 fonctions suivies** (codes X3 `13` Email Confirmation de Commande, `14` Email Facture Comptabilité / Relance, `18` Directeur des achats, `19` Email confirmation de commande acheteur FTW, `20` idem acheteur APP). Le `CROSS JOIN (VALUES (13),(14),(18),(19),(20))` garantit **une ligne par client et par fonction même sans contact** (libellé de fonction toujours renseigné, colonnes du contact vides ; **le code de fonction n'est pas affiché**, retiré à la demande de l'utilisateur le 2026-10-09) ; un client avec plusieurs contacts pour une fonction ressort sur plusieurs lignes (154 cas). Tous les clients sont renvoyés, **actifs ET inactifs** (`STATUT_CLIENT` : 2 = Actif, 1 = Inactif, sinon « Non défini ») : mesuré le 2026-10-09, **15 620 lignes, 3 084 clients, 1,1 s, 6 Mo de JSON** (45 % de lignes de clients inactifs) → stat **générique** (très en dessous des 50 000 lignes qui justifieraient un autre mode).

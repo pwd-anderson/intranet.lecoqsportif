@@ -15,6 +15,8 @@
     <link href="{{ asset('assets/css/excel-loader.css') }}" rel="stylesheet">
 
     <style>
+        /* Article droppé (DROPPE = OUI) : ligne entière en rouge clair */
+        .ag-theme-alpine .ag-row.ligne-droppee .ag-cell { background-color: #fdeaea; }
         .ag-theme-alpine {
             --ag-header-background-color: rgb(2, 65, 133) !important;
             --ag-header-foreground-color: #FFFFFF !important;
@@ -138,6 +140,7 @@
     <script src="{{ asset('assets/js/pages/ag-grid-common.js') }}?v=2.6"></script>
 
     <script>
+        // Liste complète : les colonnes stock sont retirées si l'option n'est pas cochée
         // Liste complète : les colonnes stock sont retirées si l'option n'est pas cochée
         const allColumnDefs = {{ columns|json_encode|raw }};
         const STOCK_FIELD_RE = /_(WLOGM|WSFCN|WTAKH|WDTTH)$/;
@@ -305,6 +308,8 @@
                         integerColumns: {{ integerColumns|json_encode|raw }},
                         totalColumns: totalColumns,
                         headerClass: 'excelHeaderBlue',
+                        // Article droppé (DROPPE = OUI) : toute la ligne en rouge clair (CSS ci-dessus)
+                        rowClassRules: { 'ligne-droppee': p => !!(p.data && p.data.DROPPE === 'OUI') },
                         excelStyles: [
                             { id: 'excelHeaderBlue', font: { bold: true, color: '#FFFFFF' }, alignment: { horizontal: 'Center' }, interior: { color: '#024185', pattern: 'Solid' } },
                         ],
