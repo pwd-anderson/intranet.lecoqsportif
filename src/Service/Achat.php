@@ -74,7 +74,8 @@ class Achat
             $normalized = [];
             foreach ($backlogRows as $row) {
 
-                $quantite = (int) round((float) $row->QTYUOM_0 - (float) $row->RCPQTYSTU_0);
+                // Quantité exacte (aucune décimale constatée aujourd'hui, mais ne jamais arrondir à l'entier).
+                $quantite = round((float) $row->QTYUOM_0 - (float) $row->RCPQTYSTU_0, 3);
                 $prixUni  = (float) $row->NETPRI_0;
                 $devise   = $row->CUR_0;
 
@@ -143,7 +144,8 @@ class Achat
             $normalized = [];
             foreach ($intersitesRows as $row) {
 
-                $quantite = (int) round((float) ($row->QTE_RESTANTE ?? 0));
+                // Quantité exacte (4,5 reste 4,5), 3 décimales au plus : l'arrondi à l'entier faussait le total.
+                $quantite = round((float) ($row->QTE_RESTANTE ?? 0), 3);
                 $prixUni  = (float) ($row->PRIX ?? 0);
                 $devise   = $row->DEVISE ?? null;
 

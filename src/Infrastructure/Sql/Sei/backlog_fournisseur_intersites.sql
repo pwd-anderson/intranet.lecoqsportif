@@ -15,8 +15,9 @@ SELECT
     CONVERT(varchar(10), CI.XSHIPDAT_0, 23)  AS DATE_EXPEDITION,
     CONVERT(varchar(10), CI.EXTRCPDAT_0, 23) AS DATE_LIVRAISON,
     CI.ORDREF_0    AS REF_INTERNE,
-    CI.QTE_RESTANTE,
-    CI.VALORISATION_UNITAIRE AS PRIX,
+    -- float : sans ce CAST, le pilote PDO dblib du PHP-FPM local renvoyait les décimales tronquées (4,5 -> 4)
+    CAST(CI.QTE_RESTANTE AS float) AS QTE_RESTANTE,
+    CAST(CI.VALORISATION_UNITAIRE AS float) AS PRIX,
     CI.CUR_0       AS DEVISE,
     CI.MDL_0,
     CI.VALIDE
