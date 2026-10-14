@@ -8,9 +8,11 @@ parameters:
     env(DEV_TUNNEL_PUBLIC_HOST): ''
     dev_tunnel_public_host: '%env(DEV_TUNNEL_PUBLIC_HOST)%'
 
-    # URL de base SharePoint des PDF ERP (ex. .../Documents%20partages/ERP_PDF). Vide = liens
-    # documents affiches mais non cliquables (voir SalesController::suiviCompletCommande).
-    env(ERP_PDF_BASE_URL): ''
+    # URL de base SharePoint des PDF ERP (dossiers ORDERS / DELIVERIES / INVOICES, fichiers {numero}-{client}.pdf).
+    # Surchargeable par la variable d'environnement ERP_PDF_BASE_URL ; vide = liens documents affiches mais
+    # non cliquables (voir SalesController::suiviCompletCommande). '%%' = '%' litteral (sinon Symfony lit %20partages
+    # comme un parametre).
+    env(ERP_PDF_BASE_URL): 'https://lecoqsportif.sharepoint.com/Documents%%20partages/ERP_PDF'
 
     # Fichier SharePoint du plan transport prévision (URL "claire", lue via Microsoft Graph, droit
     # Sites.Read.All de l'application MailGraph). Nom provisoire en attendant un nom logique côté métier.
