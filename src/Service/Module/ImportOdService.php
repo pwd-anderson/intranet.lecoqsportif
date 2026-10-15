@@ -155,7 +155,7 @@ final class ImportOdService
             // Contre-compte — validation si rempli (facultatif)
             $contreCompte = trim($ligne['ContreCompte'] ?? '');
             if ($contreCompte !== '' && !array_key_exists($contreCompte, $compteMap)) {
-                $lineErrors[] = "Contre-compte « $contreCompte » inconnu";
+                $lineErrors[] = "Cnt Social « $contreCompte » inconnu";
             }
 
             // Compte
