@@ -353,14 +353,15 @@ final class SalesController extends AbstractController
     }
 
     #[Route('/sales/etat_commandes_clients_x3_filter_values', name: 'etat_commandes_clients_x3_filter_values', methods: ['POST'])]
-    public function etatCommandesClientsX3FilterValues(Request $request, Sales $sales): JsonResponse
+    public function etatCommandesClientsX3FilterValues(Request $request, Sales $sales, Helpers $helpers): JsonResponse
     {
         $payload     = json_decode($request->getContent(), true) ?? [];
         $field       = (string) ($payload['field'] ?? '');
         $filterModel = $payload['filterModel'] ?? [];
         $collections = $payload['collections'] ?? [];
         $collections = is_array($collections) ? array_values(array_filter($collections, 'is_string')) : [];
-        return new JsonResponse($sales->getEtatCommandesClientsX3DistinctValues($field, $filterModel, $collections));
+        // Les libellés avec accents (ex. statut « Soldé ») arrivent en ISO-8859-1 avec le pilote dblib : sans conversion, le JSON échoue.
+        return new JsonResponse($helpers->convertArrayToUtf8($sales->getEtatCommandesClientsX3DistinctValues($field, $filterModel, $collections)));
     }
 
     #[Route('/sales/etat_commandes_clients_x3_ssrm_json', name: 'etat_commandes_clients_x3_ssrm_json', methods: ['POST'])]

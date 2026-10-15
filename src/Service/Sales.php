@@ -1543,10 +1543,38 @@ class Sales
      * ATX7 = DISTRIBUTION_CHANNEL (TSCCOD_4, IDENT1=34) — nouvel alias, ne pas confondre avec
      *        ATX6 (GROUP_CODE, ZGRPCOD_0, IDENT1=6028) utilisé sur Backlog Client X3.
      */
+    /**
+     * Expressions SQL des quantités « annulée / à livrer / allouée / rupture / reste à allouer » de l'État des commandes
+     * clients, IDENTIQUES à celles de etat_commandes_clients.sql (colonnes de la grille) : le filtre, le tri et les totaux
+     * doivent porter sur la même valeur que celle affichée. Règle : quantité arrondie à l'entier, négative ramenée à 0 ;
+     * ligne soldée (SOQSTA_0 = 3) → le reliquat est « annulé », sinon il est « à livrer » ; allouée / rupture / reste à
+     * allouer valent 0 sur une ligne soldée.
+     *
+     * @return array<string,string>
+     */
+    private function etatCommandesClientsX3QuantityExpressions(): array
+    {
+        $rest = 'CAST(ROUND(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0), 0) AS INT)';
+        $all  = 'CAST(ROUND(SOQ.ALLQTY_0, 0) AS INT)';
+        $sht  = 'CAST(ROUND(SOQ.SHTQTY_0, 0) AS INT)';
+        $left = 'CAST(ROUND(SOQ.QTY_0 - SOQ.ALLQTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0, 0) AS INT)';
+
+        return [
+            'QUANTITE_ANNULEE'    => "CASE WHEN SOQ.SOQSTA_0 = 3 AND {$rest} > 0 THEN {$rest} ELSE 0 END",
+            'QUANTITE_A_LIVRER'   => "CASE WHEN SOQ.SOQSTA_0 <> 3 AND {$rest} > 0 THEN {$rest} ELSE 0 END",
+            'QUANTITE_ALLOUEE'    => "CASE WHEN SOQ.SOQSTA_0 <> 3 AND {$all} > 0 THEN {$all} ELSE 0 END",
+            'QUANTITE_EN_RUPTURE' => "CASE WHEN SOQ.SOQSTA_0 <> 3 AND {$sht} > 0 THEN {$sht} ELSE 0 END",
+            'RESTE_A_ALLOUER'     => "CASE WHEN SOQ.SOQSTA_0 <> 3 AND {$left} > 0 THEN {$left} ELSE 0 END",
+        ];
+    }
+
     private function getEtatCommandesClientsX3FieldMap(): array
     {
+        $qty = $this->etatCommandesClientsX3QuantityExpressions();
+
         return [
             'PAYS'                     => 'SOH.BPCCRYNAM_0',
+            'STATUT_COMMANDE'          => 'STA.LANMES_0',
             'LIGNE'                    => 'SOQ.SOPLIN_0',
             'SITE'                     => 'SOH.STOFCY_0',
             'MAINNETWORK'              => 'ATX.TEXTE_0',
@@ -1578,10 +1606,11 @@ class Sales
             'STATUT_ARTICLE'           => 'ITM.ITMSTA_0',
             'QUANTITE_COMMANDE'        => 'SOQ.QTY_0',
             'QUANTITE_LIVREE'          => '(SOQ.DLVQTY_0 + SOQ.ODLQTY_0)',
-            'QUANTITE_A_LIVRER'        => '(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0))',
-            'QUANTITE_ALLOUEE'         => 'SOQ.ALLQTY_0',
-            'QUANTITE_EN_RUPTURE'      => 'SOQ.SHTQTY_0',
-            'RESTE_A_ALLOUER'          => '(SOQ.QTY_0 - SOQ.ALLQTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0)',
+            'QUANTITE_ANNULEE'         => $qty['QUANTITE_ANNULEE'],
+            'QUANTITE_A_LIVRER'        => $qty['QUANTITE_A_LIVRER'],
+            'QUANTITE_ALLOUEE'         => $qty['QUANTITE_ALLOUEE'],
+            'QUANTITE_EN_RUPTURE'      => $qty['QUANTITE_EN_RUPTURE'],
+            'RESTE_A_ALLOUER'          => $qty['RESTE_A_ALLOUER'],
             'CUR_0'                    => 'SOH.CUR_0',
             'PRICE_HT'                 => 'SOP.NETPRINOT_0',
             'GROSS_PRICE_HT'           => 'SOP.GROPRI_0',
@@ -1686,6 +1715,9 @@ class Sales
                     $totalQteCommande = 0.0;
                     $totalQteLivree = 0.0;
                     $totalQteALivrer = 0.0;
+                    $totalQteAnnulee = 0.0;
+                    $totalMontantAnnuleDevise = 0.0;
+                    $totalMontantAnnuleEur = 0.0;
                     $totalQteAllouee = 0.0;
                     $totalQteEnRupture = 0.0;
                     $totalResteAAllouer = 0.0;
@@ -1702,6 +1734,8 @@ class Sales
                         $totalQteCommande   += (float) ($row->QUANTITE_COMMANDE ?? 0);
                         $totalQteLivree     += (float) ($row->QUANTITE_LIVREE   ?? 0);
                         $totalQteALivrer    += (float) ($row->QUANTITE_A_LIVRER ?? 0);
+                        $totalQteAnnulee    += (float) ($row->QUANTITE_ANNULEE  ?? 0);
+                        $totalMontantAnnuleDevise += (float) ($row->MONTANT_ANNULE_DEVISE ?? 0);
                         $totalQteAllouee    += (float) ($row->QUANTITE_ALLOUEE   ?? 0);
                         $totalQteEnRupture  += (float) ($row->QUANTITE_EN_RUPTURE ?? 0);
                         $totalResteAAllouer += (float) ($row->RESTE_A_ALLOUER    ?? 0);
@@ -1716,6 +1750,7 @@ class Sales
                             $totalMontantCommandeEur += (float) ($row->MONTANT_COMMANDE_DEVISE ?? 0) / (float) $rate;
                             $totalMontantLivreeEur   += (float) ($row->MONTANT_LIVREE_DEVISE    ?? 0) / (float) $rate;
                             $totalMontantALivrerEur  += (float) ($row->MONTANT_A_LIVRER_DEVISE  ?? 0) / (float) $rate;
+                            $totalMontantAnnuleEur   += (float) ($row->MONTANT_ANNULE_DEVISE    ?? 0) / (float) $rate;
                         }
                     }
 
@@ -1723,15 +1758,18 @@ class Sales
                         'QUANTITE_COMMANDE'        => (int) round($totalQteCommande),
                         'QUANTITE_LIVREE'          => (int) round($totalQteLivree),
                         'QUANTITE_A_LIVRER'        => (int) round($totalQteALivrer),
+                        'QUANTITE_ANNULEE'         => (int) round($totalQteAnnulee),
                         'QUANTITE_ALLOUEE'         => (int) round($totalQteAllouee),
                         'QUANTITE_EN_RUPTURE'      => (int) round($totalQteEnRupture),
                         'RESTE_A_ALLOUER'          => (int) round($totalResteAAllouer),
                         'MONTANT_COMMANDE_DEVISE'  => round($totalMontantCommandeDevise, 2),
                         'MONTANT_LIVREE_DEVISE'    => round($totalMontantLivreeDevise, 2),
                         'MONTANT_A_LIVRER_DEVISE'  => round($totalMontantALivrerDevise, 2),
+                        'MONTANT_ANNULE_DEVISE'    => round($totalMontantAnnuleDevise, 2),
                         'MONTANT_COMMANDE_EUR'     => round($totalMontantCommandeEur, 2),
                         'MONTANT_LIVREE_EUR'       => round($totalMontantLivreeEur, 2),
                         'MONTANT_A_LIVRER_EUR'     => round($totalMontantALivrerEur, 2),
+                        'MONTANT_ANNULE_EUR'       => round($totalMontantAnnuleEur, 2),
                     ];
                 }
             }
@@ -1766,19 +1804,24 @@ class Sales
      */
     private function buildEtatCommandesClientsX3AggregateSql(string $whereClause): string
     {
+        $qty    = $this->etatCommandesClientsX3QuantityExpressions();
+        $coef   = '(1 - (ISNULL(SVT.DTAAMT_0, 0)/100))';
+
         return "
         SELECT
             SOH.CUR_0 AS DEVISE,
             COUNT(*) AS NB_ROWS,
             SUM(SOQ.QTY_0) AS QUANTITE_COMMANDE,
             SUM(SOQ.DLVQTY_0 + SOQ.ODLQTY_0) AS QUANTITE_LIVREE,
-            SUM(SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) AS QUANTITE_A_LIVRER,
-            SUM(SOQ.ALLQTY_0) AS QUANTITE_ALLOUEE,
-            SUM(SOQ.SHTQTY_0) AS QUANTITE_EN_RUPTURE,
-            SUM(SOQ.QTY_0 - SOQ.ALLQTY_0 - SOQ.DLVQTY_0 - SOQ.ODLQTY_0) AS RESTE_A_ALLOUER,
+            SUM({$qty['QUANTITE_A_LIVRER']}) AS QUANTITE_A_LIVRER,
+            SUM({$qty['QUANTITE_ANNULEE']}) AS QUANTITE_ANNULEE,
+            SUM({$qty['QUANTITE_ALLOUEE']}) AS QUANTITE_ALLOUEE,
+            SUM({$qty['QUANTITE_EN_RUPTURE']}) AS QUANTITE_EN_RUPTURE,
+            SUM({$qty['RESTE_A_ALLOUER']}) AS RESTE_A_ALLOUER,
             SUM(SOP.NETPRINOT_0 * SOQ.QTY_0 * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_COMMANDE_DEVISE,
             SUM(SOP.NETPRINOT_0 * (SOQ.DLVQTY_0 + SOQ.ODLQTY_0) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_LIVREE_DEVISE,
-            SUM(SOP.NETPRINOT_0 * (SOQ.QTY_0 - (SOQ.DLVQTY_0 + SOQ.ODLQTY_0)) * (1 - (ISNULL(SVT.DTAAMT_0, 0)/100))) AS MONTANT_A_LIVRER_DEVISE
+            SUM(SOP.NETPRINOT_0 * ({$qty['QUANTITE_A_LIVRER']}) * {$coef}) AS MONTANT_A_LIVRER_DEVISE,
+            SUM(SOP.NETPRINOT_0 * ({$qty['QUANTITE_ANNULEE']}) * {$coef}) AS MONTANT_ANNULE_DEVISE
         FROM X3_LCS.SORDERQ SOQ
         INNER JOIN X3_LCS.SORDER  SOH ON SOQ.SOHNUM_0 = SOH.SOHNUM_0
         INNER JOIN X3_LCS.SORDERP SOP
@@ -1824,6 +1867,10 @@ class Sales
                 ON ITC.ITMREF_0  = SPLIT.ARTICLE_BASE
                AND ITC.YCOLLECT_0 = SOQ.YCOLLECT_0
         LEFT  JOIN X3_LCS.SVCRFOOT SVT ON SOH.SOHNUM_0 = SVT.VCRNUM_0 AND SVT.DTA_0 = 1
+        LEFT  JOIN X3_LCS.APLSTD STA
+               ON STA.LANCHP_0 = 279
+              AND STA.LANNUM_0 = SOQ.SOQSTA_0
+              AND STA.LAN_0    = 'FRA'
         WHERE
             SOH.ZSOHVALSTA_0 <> 3
             AND BPC.BCGCOD_0 <> 'INTER'
@@ -1834,7 +1881,7 @@ class Sales
     }
 
     /**
-     * Enrichissement : conversion EUR des 3 montants pré-calculés en devise d'origine
+     * Enrichissement : conversion EUR des 4 montants (commandé, livré, à livrer, annulé) pré-calculés en devise d'origine
      * (remise globale déjà appliquée côté SQL). Même règle que Sales::enrichBacklogClientsX3Rows()
      * / Pilotage::applyEurConversion() : montant EUR = montant devise / taux de la devise.
      */
@@ -1856,6 +1903,9 @@ class Sales
                 : 0.0;
             $row->MONTANT_A_LIVRER_EUR = $rateOk
                 ? round((float) $row->MONTANT_A_LIVRER_DEVISE / (float) $rate, 2)
+                : 0.0;
+            $row->MONTANT_ANNULE_EUR = $rateOk
+                ? round((float) $row->MONTANT_ANNULE_DEVISE / (float) $rate, 2)
                 : 0.0;
         }
     }

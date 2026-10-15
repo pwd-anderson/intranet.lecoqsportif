@@ -351,7 +351,7 @@
         const ssrmSetFilterFields = [
             'SITE', 'MAINNETWORK', 'ZCLASSE_0', 'COLLECTION', 'FAMILLE',
             'GENRE', 'AGE', 'DROPPE', 'NOOS', 'GROUP_CODE', 'CUR_0', 'REP1', 'REP2',
-            'CLIENT_COMMANDE', 'NOM_CLIENT_COMMANDE'
+            'CLIENT_COMMANDE', 'NOM_CLIENT_COMMANDE', 'STATUT_COMMANDE'
         ];
         const ssrmFilterValuesUrl = {
             'backlog_clients_x3': '{{ path('backlog_clients_x3_filter_values') }}',
@@ -802,6 +802,14 @@
 
                     window.etatCommandesSelectedCollections = collections;
                     agGridConfig.getStaticOptions = () => ({ collections: window.etatCommandesSelectedCollections });
+
+                    // Rechargement avec d'autres collections : on RECHARGE la grille existante (le datasource relit les
+                    // collections à chaque requête). Recréer une grille sur le même conteneur superposait une seconde grille
+                    // (deuxième en-tête en pied de page) et dupliquait les écouteurs des boutons.
+                    if (window.gridOptions && window.gridOptions.api) {
+                        window.gridOptions.api.refreshServerSide({ purge: true });
+                        return;
+                    }
 
                     // Masque le sélecteur, affiche la grille, puis initialise la grille SSRM
                     const picker = document.getElementById('etatCommandesPicker');

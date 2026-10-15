@@ -46,6 +46,12 @@ LEFT  JOIN X3_LCS.ZITMCOL ITC
         ON ITC.ITMREF_0  = SPLIT.ARTICLE_BASE
        AND ITC.YCOLLECT_0 = SOQ.YCOLLECT_0
 
+-- Libellé du statut de la ligne de commande (SOQSTA_0) : menu local 279 (APLSTD), langue française
+LEFT JOIN X3_LCS.APLSTD STA
+       ON STA.LANCHP_0 = 279
+      AND STA.LANNUM_0 = SOQ.SOQSTA_0
+      AND STA.LAN_0    = 'FRA'
+
 WHERE
     SOH.ZSOHVALSTA_0 <> 3
     AND BPC.BCGCOD_0 <> 'INTER'
