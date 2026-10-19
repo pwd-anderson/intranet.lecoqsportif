@@ -66,6 +66,10 @@ class Offer
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $x3ReadAt;
 
+    /** Environnement X3 (PROD / TEST / DEV) dans lequel les valeurs X3 ont été lues et où le flux sera envoyé. */
+    #[ORM\Column(length: 10, options: ['default' => 'PROD'])]
+    private string $x3Env = 'PROD';
+
     // ── Validité et texte ────────────────────────────────────────────────────
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private \DateTimeImmutable $startDate;
@@ -164,6 +168,8 @@ class Offer
     public function getCustomerDiscountEnd(): ?\DateTimeImmutable { return $this->customerDiscountEnd; }
     public function setCustomerDiscountEnd(?\DateTimeImmutable $v): static { $this->customerDiscountEnd = $v; return $this; }
 
+    public function getX3Env(): \App\Service\X3\X3Environment { return \App\Service\X3\X3Environment::tryFrom($this->x3Env) ?? \App\Service\X3\X3Environment::PROD; }
+    public function setX3Env(\App\Service\X3\X3Environment $v): static { $this->x3Env = $v->value; return $this; }
     public function getX3ReadAt(): \DateTimeImmutable { return $this->x3ReadAt; }
     public function setX3ReadAt(\DateTimeImmutable $v): static { $this->x3ReadAt = $v; return $this; }
 

@@ -280,7 +280,7 @@ La date des commandes fournisseur (`PORDERQ`, ancien premier choix) **n'entre pl
 
 **But.** Un commercial crée une OC (tarif) pour un client et un ou plusieurs articles ; une seule validation (valideur = `ROLE_ADMIN` / `ROLE_MANAGEMENT`, comme SOA) ; après validation, le module génère et envoie des flux XML à X3 : **Création** (aucun tarif spé existant pour même client + article + collection) ou **Modification** (un tarif spé existe déjà). V1 = uniquement « Tarif Spé » ; l'architecture doit permettre d'ajouter Référentiel / Devis / Remise sans refonte. L'ancien module (Screeneo, `/Users/ajacob/Sites/intranet.screeneo.local.v12/src/Controller/Sales/Oc`) n'est qu'une **référence métier**, pas à copier.
 
-**État (2026-10-08).** Fait : saisie, **enregistrement en base** (brouillon, modification, soumission, annulation, nouvelle OC à partir d'une OC rejetée), historique, lectures X3, droits. **Prix envoyé à X3 calculé et enregistré** (voir plus bas). **Validation et rejet par la Direction faits (étape 1, 2026-10-09)** : page de détail = vue de validation, mail au head commercial à la soumission, mail au commercial au rejet. **PDF + mail au commercial à la validation faits (étape 2, 2026-10-09)** ; **flux XML de création `WSCRESPL` préparé mais désactivé (étape 3, 2026-10-12)**. **Pas encore fait** : activation de l'envoi (format à confirmer avec X3), retour du résultat X3 par ligne d'OC, détection de l'existant (Création/Modification), blocage doublon, traitement du fichier d'import, multi-clients. Branche `oc` (rebasée sur `dev`), non mergée dans `dev`, jamais poussée.
+**État (2026-10-08).** Fait : saisie, **enregistrement en base** (brouillon, modification, soumission, annulation, nouvelle OC à partir d'une OC rejetée), historique, lectures X3, droits. **Prix envoyé à X3 calculé et enregistré** (voir plus bas). **Validation et rejet par la Direction faits (étape 1, 2026-10-09)** : page de détail = vue de validation, mail au head commercial à la soumission, mail au commercial au rejet. **PDF + mail au commercial à la validation faits (étape 2, 2026-10-09)** ; **flux XML de création `WSCRESPL` déposés dans `sales_web_service` à la validation (étape 3)**. **Pas encore fait** : format `7TSPEC` à confirmer avec X3 avant la mise en production, retour du résultat X3 par ligne d'OC, détection de l'existant (Création/Modification), blocage doublon, traitement du fichier d'import, multi-clients. Branche `oc` (rebasée sur `dev`), non mergée dans `dev`, jamais poussée.
 
 #### Données (MySQL de l'application — migration `Version20261008154551`)
 
@@ -369,26 +369,37 @@ Pages : `GET ''` liste (un commercial ne voit que ses OC), `GET /new`, `GET /{id
 - **Déploiement** : `dompdf/dompdf` est désormais dans `composer.json` → `composer install` dans chaque environnement.
 - Mesure (dev, 3 articles) : 5,4 s sans photo en cache, 0,2 s ensuite.
 
-#### Flux XML vers X3 (étape 3, 2026-10-12) — PRÉPARÉ MAIS DÉSACTIVÉ
+#### Flux XML vers X3 (étape 3, 2026-10-12) — déposés dans `sales_web_service` à la validation (2026-10-15)
 
-À la validation, `OfferService::validate()` appelle `prepareX3Flow()` : un flux **WSCRESPL** (création d'une ligne de tarif, type `7TSPEC`) par ligne d'OC, généré par `OfferXmlBuilder::creation()` (même structure que l'ancien `WebservicesToX3::getSplXml` : groupe `INH` de champs `FLD NAME=…` : `WPLI`=7TSPEC, `WPLISTRDAT`/`WPLIENDDAT` (Ymd), `WPLICRDIDX`=n° d'OC tronqué à 30, `WITMREF`=article parent, `WBPCNUM`=client, `WMINQTY`, `WMAXQTY`, `WCUR`=devise du client, `WDISPRI`=**prix envoyé** `injected_price`, jamais le tarif net). Création seule : pas de `WSUPD7TSPE` (modification), pas de détection de l'existant.
+À la validation, `OfferService::validate()` appelle `prepareX3Flow()` : un flux **WSCRESPL** (création d'une ligne de tarif, type `7TSPEC`) **par article ENFANT (variant) de chaque ligne d'OC** (décision du 2026-10-15 : l'OC est saisie par article parent, X3 reçoit un tarif par variant ; **le parent n'est jamais envoyé**), généré par `OfferXmlBuilder::creation($offer, $line, $variantCode)` (même structure que l'ancien `WebservicesToX3::getSplXml` : groupe `INH` de champs `FLD NAME=…` : `WPLI`=7TSPEC, `WPLISTRDAT`/`WPLIENDDAT` (Ymd), `WPLICRDIDX`=n° d'OC tronqué à 30, `WITMREF`=**variant** (code `PARENT_VARIANT`), `WBPCNUM`=client, `WMINQTY`, `WMAXQTY`, `WCUR`=devise du client, `WDISPRI`=**prix envoyé** `injected_price`, jamais le tarif net). Création seule : pas de `WSUPD7TSPE` (modification), pas de détection de l'existant.
 
 | Rôle | Fichier |
 |---|---|
 | Construction du XML | `src/Service/Oc/OfferXmlBuilder.php` |
-| Génération / mise en file | `src/Service/Oc/OfferFlowService.php` (`prepare`, `queue`, `isEnabled`) |
-| Stockage des flux | table `oc_offer_flow` — `App\Entity\Oc\OfferFlow` (statut `prepared` / `queued`), migration `Version20261012100000` |
-| Interrupteur | variable d'env **`OC_X3_FLOW_ENABLED`** (`0` par défaut, paramètre `oc.x3_flow_enabled` dans `services.yaml`) |
+| Génération / mise en file | `src/Service/Oc/OfferFlowService.php` (`send`) |
+| Stockage des flux | table `oc_offer_flow` — `App\Entity\Oc\OfferFlow` (statut `queued` ; `prepared` n'est plus utilisé), migration `Version20261012100000` |
 | Affichage | page de détail, bloc « Flux X3 » réservé à la Direction (`OfferVoter::X3_FLOW`) : XML de chaque ligne + statut |
 | Historique | `OcAction::X3_FLOW_PREPARED` (« Flux X3 préparé »), `X3_ERROR` en cas d'échec |
 
-- **Désactivé (défaut)** : les XML sont seulement conservés dans `oc_offer_flow` (« préparés »), **rien n'est écrit dans `sales_web_service`**, l'OC reste « Validée ». ⚠ La commande `app:sales:webservices:execute` exécute TOUTES les lignes non exécutées de `sales_web_service` (tous modules) : c'est pourquoi les flux préparés n'y sont jamais déposés tant que l'interrupteur est à `0`.
-- **Activé (`OC_X3_FLOW_ENABLED=1`)** : les XML sont déposés dans `sales_web_service` (via `WebServiceDispatcher`), flux « en file », l'OC passe « Envoyée à X3 » ; l'envoi effectif et la lecture du résultat sont ceux de la commande d'exécution existante (le suivi du résultat retour par ligne d'OC n'est pas encore relié à `oc_offer_flow`).
+**Variants d'un parent (2026-10-15).** `OcX3Lookup::getVariants()` + `src/Infrastructure/Sql/Sei/oc_article_variants.sql` : tous les articles `ITMMASTER` dont le code commence par `PARENT_` (`LIKE 'PARENT[_]%'` + contrôle `LEFT(code, CHARINDEX('_', code) - 1) = PARENT`), **sans tenir compte de la collection ni du statut**, chacun une seule fois, y compris `_SPL` et `_SMS*` (décision de l'utilisateur) ; même prix, mêmes quantités et mêmes dates pour tous les variants d'un parent. Vérifié en direct : 2210037 → 6, 1511960 → 10, 2121416 → 10. Placeholder `{{PARENTS}}` remplacé côté PHP (apostrophes doublées, `executeQuery` sans paramètre). **Contrairement aux autres lectures X3, une erreur remonte** (`iterateQuery`) : `MssqlManager::executeQuery` renverrait `[]` si X3 ne répond pas, ce qui passerait pour « aucun variant » et enverrait un flux incomplet. Un parent **sans variant** fait échouer toute la génération (rien d'enregistré, `X3_ERROR` tracé, validation conservée). Un même variant n'apparaît jamais deux fois dans les flux d'une OC.
+
+- **À la validation** : les XML sont déposés dans `sales_web_service` (via `WebServiceDispatcher`, dans la même transaction que la création de `oc_offer_flow`), flux « en file », et l'OC passe « Envoyée à X3 » ; l'envoi effectif et la lecture du résultat sont ceux de la commande d'exécution existante (le suivi du résultat par ligne d'OC n'est pas encore relié à `oc_offer_flow`). ⚠ Cette commande exécute TOUTES les lignes non exécutées de `sales_web_service` (tous modules).
 - **Lien vers l'OC** : `sales_web_service.oc_offer_id` (colonne facultative, nulle pour les autres modules ; migration `Version20261012110000`) est renseignée à chaque dépôt ; `oc_offer_flow.sales_web_service_id` donne le lien inverse.
 - **Ne défait jamais la validation** : un échec de génération est tracé (« Erreur d'envoi à X3 », motif) et notifié à l'admin (`OfferMailer::reportError`, qui sert aussi à l'échec du PDF). Les flux ne sont générés qu'une fois par OC.
-- **Format à confirmer avec l'équipe X3 avant d'activer** : fiche tarif `7TSPEC` (inexistante chez LCS, en cours de création), article parent ou variant, critère collection, devise, précision du prix (`WDISPRI` à 2 décimales actuellement, `PRI_0` accepte 5), `WMAXQTY` = 999999 si non renseigné.
+- **Format à confirmer avec l'équipe X3 avant la mise en production** : fiche tarif `7TSPEC` (inexistante chez LCS, en cours de création), article parent ou variant, critère collection, devise, précision du prix (`WDISPRI` à 2 décimales actuellement, `PRI_0` accepte 5), `WMAXQTY` = 999999 si non renseigné.
 - Vérifié avec les vraies données X3 (client 20548) : XML conformes, `WDISPRI` = 21,26 / 45,98.
-- Déploiement : migrations `Version20261012100000` et `Version20261012110000` ; ne PAS mettre `OC_X3_FLOW_ENABLED=1` avant validation du format.
+- Déploiement : migrations `Version20261012100000` et `Version20261012110000`. **Plus d'interrupteur** : dès qu'une OC est validée, ses flux sont dans `sales_web_service` et partent avec `app:sales:webservices:execute` (cette commande n'est **jamais lancée en local**, uniquement sur les serveurs).
+
+#### Environnement X3 choisi (PROD / TEST / DEV) — 2026-10-15
+
+**Pourquoi.** L'équipe X3 teste dans le dossier TEST : articles et prix y sont enregistrés. Un sélecteur dans l'en-tête (à côté de la langue) choisit **le schéma lu ET le dossier où les flux sont envoyés** ; PROD par défaut.
+
+- **Visible uniquement en `APP_ENV=dev`** (`X3EnvironmentProvider::isSwitchable()`). Partout ailleurs (préprod, prod, test, CLI) l'environnement est **toujours PROD**, même si une valeur traîne en session ; la route `POST /x3-environment` (`X3EnvironmentController`, CSRF) répond 404 hors dev. Pastille rouge « X3 TEST / X3 DEV » dans l'en-tête dès qu'on n'est pas sur PROD.
+- **Lectures** : les 8 requêtes `oc_*.sql` utilisent `{{X3_SCHEMA}}.` (au lieu de `X3_LCS.`), remplacé par `OcX3Lookup::sql()` d'après `X3Environment::schema()` (`X3_LCS`, `X3_LCS_TEST`, `X3_LCS_DEV`, liste blanche). Les autres modules de l'intranet restent sur `X3_LCS`.
+- **Écriture** : l'environnement est figé dans `oc_offer.x3_env` à chaque enregistrement et recopié dans `sales_web_service.x3_env` à chaque flux déposé (migration `Version20261015100000`, défaut `PROD` pour tout l'existant et les autres modules). `ExecuteSalesWebservicesCommand` envoie chaque ligne avec `SageX3Client::run($nom, $xml, $x3Env)` : PROD = `SAGE_X3_POOL_ALIAS`, TEST = `SAGE_X3_POOL_ALIAS_TEST`, DEV = `SAGE_X3_POOL_ALIAS_DEV`. **Un environnement sans pool configuré est refusé (erreur sur la ligne), jamais de repli sur PROD.**
+- **Garde-fou** : `OfferService::validate()` refuse de valider une OC enregistrée dans un autre environnement que l'actuel (ses prix viennent d'un autre dossier).
+- À renseigner dans le `.env` de l'environnement qui exécute la commande : les alias de pool TEST / DEV (vides par défaut).
+- Vérifié en direct : variants de 2210037 = 6 en PROD, 11 en TEST, 6 en DEV (les schémas ont bien des données différentes). Tests : `X3EnvironmentProviderTest`, `SageX3ClientTest`, garde de `OfferServiceTest`.
 
 #### Prix envoyé à X3 (WDISPRI) — remise client appliquée à toutes les lignes
 
@@ -435,7 +446,7 @@ Dans la vue de validation (page de détail ouverte depuis **Validation OC**, `?f
 
 #### À faire / questions métier ouvertes
 
-- **Étapes 2 et 3 faites** (voir leurs sections) : reste à confirmer le format avec l'équipe X3 puis activer `OC_X3_FLOW_ENABLED`.
+- **Étapes 2 et 3 faites** (voir leurs sections) : reste à confirmer le format avec l'équipe X3 avant la mise en production.
 - **Type de tarif « Tarif Spé » chez LCS** (aucun `7TSPEC`) → bloque la détection de l'existant (Création/Modification), le blocage doublon (OC soumises **et** validées non envoyées, deux messages distincts) et les flux `WSCRESPL` / `WSUPD7TSPE` (à relier à `sales_web_service`, envoi par commande à tentatives bornées + `notifyError`).
 - Source de la TVA (par pays du client ?) — le MSRP est TTC (confirmé). Marge souhaitée = marge du client sur le MSRP (comme l'ancien module : confirmé en lecture du code, à valider avec le métier). Comportement avant le 2027-01-01 (début des REMCLI) pour une OC qui démarre plus tôt. Précision du prix envoyé (2 ou 4-5 décimales) à valider avec X3.
 - Import Excel/CSV (traitement du fichier), stock affiché, multi-clients.

@@ -66,4 +66,12 @@ final class OfferXmlBuilderTest extends TestCase
         $this->expectException(\LogicException::class);
         (new OfferXmlBuilder())->creation($offer, $line);
     }
+
+    public function testVariantCodeReplacesTheParentInWitmref(): void
+    {
+        [$offer, $line] = $this->offer();
+
+        self::assertSame('2210037_40', self::fields((new OfferXmlBuilder())->creation($offer, $line, '2210037_40'))['WITMREF']);
+        self::assertSame($line->getArticleCode(), self::fields((new OfferXmlBuilder())->creation($offer, $line))['WITMREF']);
+    }
 }

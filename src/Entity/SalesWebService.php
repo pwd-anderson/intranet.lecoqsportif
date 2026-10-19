@@ -38,6 +38,10 @@ class SalesWebService
     #[ORM\Column(nullable: true)]
     private ?int $ocOfferId = null;
 
+    /** Environnement X3 visé (PROD / TEST / DEV) : détermine le pool utilisé par la commande d'exécution. */
+    #[ORM\Column(length: 10, options: ['default' => 'PROD'])]
+    private string $x3Env = 'PROD';
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private \DateTimeInterface $createdAt;
 
@@ -64,6 +68,8 @@ class SalesWebService
     public function setErpDocumentId(?string $id): static { $this->erpDocumentId = $id; return $this; }
     public function getOcOfferId(): ?int { return $this->ocOfferId; }
     public function setOcOfferId(?int $id): static { $this->ocOfferId = $id; return $this; }
+    public function getX3Env(): string { return $this->x3Env; }
+    public function setX3Env(string $env): static { $this->x3Env = $env; return $this; }
     public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
     public function getUpdatedAt(): ?\DateTimeInterface { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeInterface $dt): static { $this->updatedAt = $dt; return $this; }

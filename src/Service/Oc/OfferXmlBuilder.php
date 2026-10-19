@@ -20,7 +20,10 @@ final class OfferXmlBuilder
     /** Limite du champ « index » (référence) dans X3 : l'OC est référencée par son numéro, tronqué au besoin. */
     private const MAX_INDEX = 30;
 
-    public function creation(Offer $offer, OfferLine $line): string
+    /**
+     * @param string|null $articleCode article ENFANT (variant) du flux ; null = le code de la ligne (article parent)
+     */
+    public function creation(Offer $offer, OfferLine $line, ?string $articleCode = null): string
     {
         $injected = $line->getInjectedPrice();
         if ($injected === null || (float) $injected <= 0) {
@@ -36,7 +39,7 @@ final class OfferXmlBuilder
             'WPLISTRDAT' => $offer->getStartDate()->format('Ymd'),
             'WPLIENDDAT' => $offer->getEndDate()->format('Ymd'),
             'WPLICRDIDX' => substr($offer->getNumber(), 0, self::MAX_INDEX),
-            'WITMREF' => $line->getArticleCode(),
+            'WITMREF' => $articleCode ?? $line->getArticleCode(),
             'WBPCNUM' => $offer->getCustomerCode(),
             'WMINQTY' => (string) $line->getMinQty(),
             'WMAXQTY' => (string) $line->getMaxQty(),

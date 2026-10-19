@@ -63,6 +63,23 @@
                     <small class="text-muted" id="header-eur-usd" style="white-space: nowrap;"></small>
                 </li>
 
+                {% if x3_env.switchable %}
+                    {# Environnement X3 (lectures ET flux du module OC) : uniquement en APP_ENV=dev #}
+                    <li class="nav-item d-flex align-items-center me-3">
+                        <form id="x3-env-switcher" method="post" action="{{ path('app_x3_environment') }}" class="d-flex align-items-center gap-2">
+                            <input type="hidden" name="_token" value="{{ csrf_token('x3_environment') }}">
+                            <select name="environment" class="form-select form-select-sm" style="width: auto;" title="Environnement Sage X3 (lectures et flux du module OC)">
+                                {% for e in ['PROD', 'TEST', 'DEV'] %}
+                                    <option value="{{ e }}" {% if x3_env.current.value == e %}selected{% endif %}>X3 {{ e }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if x3_env.current.value != 'PROD' %}
+                                <span class="badge bg-danger">{{ x3_env.current.label }}</span>
+                            {% endif %}
+                        </form>
+                    </li>
+                {% endif %}
+
                 <li class="nav-item dropdown d-flex align-items-center me-3">
                     <form id="language-switcher">
                         <select name="locale" class="form-select form-select-sm" style="width: auto;">
@@ -93,6 +110,8 @@
                 }
             })
             .catch(() => {});
+
+document.querySelector('#x3-env-switcher select')?.addEventListener('change', function () { this.form.submit(); });
 
 document.querySelector('#language-switcher select').addEventListener('change', function () {
             const selectedLocale = this.value;

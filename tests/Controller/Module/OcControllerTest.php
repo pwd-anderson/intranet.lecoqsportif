@@ -39,6 +39,8 @@ final class OcControllerTest extends WebTestCase
 
             return array_intersect_key($known, array_flip($codes));
         });
+        // Variants simulés : 2 enfants par parent (le flux X3 part par variant, jamais pour le parent).
+        $x3->method('getVariants')->willReturnCallback(static fn (array $parents): array => array_combine($parents, array_map(static fn (string $p): array => [$p . '_01', $p . '_02'], $parents)));
         $c->set(OcX3Lookup::class, $x3);
 
         // Cours simulés (pour 1 EUR) : 6 USD d'achat = 5 EUR.
@@ -267,10 +269,10 @@ final class OcControllerTest extends WebTestCase
         self::assertStringNotContainsString('id="btnCancelOffer"', (string) $this->client->getResponse()->getContent());
         $this->post("/fr/oc/$id/cancel", ['reason' => 'x'], $csrf);
         self::assertResponseStatusCodeSame(403);
-        self::assertSame(OcStatus::VALIDATED, $this->statusOf($id));
+        self::assertSame(OcStatus::SENT_TO_X3, $this->statusOf($id));
     }
 
-    public function testValidationPreparesTheX3FlowWithoutSendingAnything(): void
+    public function testValidationQueuesTheX3FlowsInSalesWebService(): void
     {
         [$id] = $this->submittedOfferByAlice();
         $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
@@ -280,15 +282,16 @@ final class OcControllerTest extends WebTestCase
 
         $this->em->clear();
         $offer = $this->em->getRepository(Offer::class)->find($id);
-        self::assertCount(1, $offer->getFlows());
-        self::assertSame('prepared', $offer->getFlows()->first()->getStatus());
+        self::assertCount(2, $offer->getFlows(), 'un flux par variant (2 simulés), pas pour le parent');
+        self::assertStringContainsString('_01', $offer->getFlows()->first()->getXml());
+        self::assertSame('queued', $offer->getFlows()->first()->getStatus());
         self::assertStringContainsString('WITMREF', $offer->getFlows()->first()->getXml());
-        self::assertSame(OcStatus::VALIDATED, $offer->getStatus(), 'envoi désactivé : l\'OC reste « validée »');
-        self::assertSame($before, $this->em->getRepository(\App\Entity\SalesWebService::class)->count([]), 'rien dans sales_web_service');
+        self::assertSame(OcStatus::SENT_TO_X3, $offer->getStatus());
+        self::assertSame($before + 2, $this->em->getRepository(\App\Entity\SalesWebService::class)->count([]), 'un enregistrement par variant dans sales_web_service');
 
         $this->client->request('GET', "/fr/oc/$id");
         $html = (string) $this->client->getResponse()->getContent();
-        self::assertStringContainsString('Envoi à X3 désactivé', $html);
+        self::assertStringContainsString('Flux placés en file', $html);
         self::assertStringContainsString('WSCRESPL', $html);
 
         // Le commercial ne voit pas les flux techniques.
@@ -408,7 +411,7 @@ final class OcControllerTest extends WebTestCase
 
         $res = $this->post("/fr/oc/$id/validate", [], $this->csrf());
         self::assertTrue($res['ok'], json_encode($res));
-        self::assertSame('validated', $res['status']);
+        self::assertSame('sent_to_x3', $res['status']);
 
         $this->em->clear();
         $offer = $this->em->getRepository(Offer::class)->find($id);

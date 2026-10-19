@@ -42,7 +42,7 @@ class ExecuteSalesWebservicesCommand extends Command
             ));
 
             try {
-                $result = $this->sageClient->run($webservice->getName(), $webservice->getParameter());
+                $result = $this->sageClient->run($webservice->getName(), $webservice->getParameter(), $webservice->getX3Env());
 
                 $webservice->setUpdatedAt(new \DateTime());
 

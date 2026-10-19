@@ -5,6 +5,7 @@ namespace App\Service\Oc;
 use App\Infrastructure\Sql\SqlFileLoader;
 use App\Service\Tools\GraphMailer;
 use App\Service\Tools\MssqlManager;
+use App\Service\X3\X3EnvironmentProvider;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -29,6 +30,7 @@ class OcX3Lookup
         private readonly LoggerInterface $logger,
         private readonly GraphMailer $graphMailer,
         private readonly SqlFileLoader $sqlFileLoader,
+        private readonly X3EnvironmentProvider $environment,
         #[Autowire('%mssql.connections%')]
         array $connections,
         #[Autowire('%db.lcs_sei%')]
@@ -43,6 +45,12 @@ class OcX3Lookup
      * défaut en ISO-8859-1 : sans charset=UTF-8, un « ° » dans une désignation arrivait en octet invalide pour
      * MySQL (enregistrement refusé) et tout caractère hors Latin-1 était remplacé par « ? ».
      */
+    /** Charge une requête et y place le schéma de l'environnement X3 choisi ({{X3_SCHEMA}}, valeur d'une liste blanche). */
+    private function sql(string $file): string
+    {
+        return str_replace('{{X3_SCHEMA}}', $this->environment->current()->schema(), $this->sqlFileLoader->load($file));
+    }
+
     private function db(): MssqlManager
     {
         if ($this->mssql === null) {
@@ -90,7 +98,7 @@ class OcX3Lookup
         }
 
         try {
-            $query = $this->sqlFileLoader->load('Sei/oc_customer_discount.sql');
+            $query = $this->sql('Sei/oc_customer_discount.sql');
             $rows = $this->db()->executeQueryWithParams($query, ['code' => $customerCode]);
 
             return $rows[0] ?? null;
@@ -116,7 +124,7 @@ class OcX3Lookup
         }
 
         try {
-            $rows = $this->db()->executeQueryWithParams($this->sqlFileLoader->load('Sei/oc_customer_get.sql'), ['code' => $customerCode]);
+            $rows = $this->db()->executeQueryWithParams($this->sql('Sei/oc_customer_get.sql'), ['code' => $customerCode]);
 
             return isset($rows[0]) ? (array) $rows[0] : null;
         } catch (\Throwable $e) {
@@ -140,7 +148,7 @@ class OcX3Lookup
         }
 
         try {
-            $rows = $this->db()->executeQueryWithParams($this->sqlFileLoader->load('Sei/oc_customer_address.sql'), ['code' => $customerCode]);
+            $rows = $this->db()->executeQueryWithParams($this->sql('Sei/oc_customer_address.sql'), ['code' => $customerCode]);
 
             return isset($rows[0]) ? (array) $rows[0] : null;
         } catch (\Throwable $e) {
@@ -192,7 +200,7 @@ class OcX3Lookup
             $query = str_replace(
                 ['{{ARTICLES_CR}}', '{{ARTICLES}}'],
                 [implode(', ', $inCr), implode(', ', $inMain)],
-                $this->sqlFileLoader->load('Sei/oc_article_prices.sql')
+                $this->sql('Sei/oc_article_prices.sql')
             );
 
             $result = [];
@@ -208,6 +216,39 @@ class OcX3Lookup
 
             return [];
         }
+    }
+
+    /**
+     * Variants (articles enfants « PARENT_VARIANT ») de chaque article parent donné : TOUS les variants du parent, sans
+     * tenir compte de la collection ni du statut, chacun une seule fois ; le parent lui-même n'est pas renvoyé.
+     *
+     * Contrairement aux autres lectures de ce service, une erreur X3 REMONTE (exception) : un résultat vide signifie
+     * « ce parent n'a aucun variant », jamais « X3 n'a pas répondu » (MssqlManager::executeQuery renverrait [] dans les
+     * deux cas), sinon un flux X3 incomplet partirait en silence.
+     *
+     * @param list<string> $parentCodes
+     *
+     * @return array<string, list<string>> variants triés, indexés par code parent (clé présente même sans variant)
+     *
+     * @throws \Throwable X3 injoignable ou requête en erreur
+     */
+    public function getVariants(array $parentCodes): array
+    {
+        $parentCodes = array_values(array_unique(array_filter(array_map('trim', $parentCodes), static fn (string $c): bool => $c !== '')));
+        $result = array_fill_keys($parentCodes, []);
+        if ($parentCodes === []) {
+            return $result;
+        }
+
+        $values = implode(', ', array_map(static fn (string $c): string => "('" . str_replace("'", "''", $c) . "')", $parentCodes));
+        $query = str_replace('{{PARENTS}}', $values, $this->sql('Sei/oc_article_variants.sql'));
+
+        foreach ($this->db()->iterateQuery($query) as $row) {
+            $row = (array) $row;
+            $result[trim((string) $row['PARENT'])][] = trim((string) $row['ENFANT']);
+        }
+
+        return $result;
     }
 
     /**
@@ -245,7 +286,7 @@ class OcX3Lookup
         }
 
         try {
-            $query = str_replace('{{PAIRS}}', implode(' OR ', $conditions), $this->sqlFileLoader->load('Sei/oc_article_purchase_prices.sql'));
+            $query = str_replace('{{PAIRS}}', implode(' OR ', $conditions), $this->sql('Sei/oc_article_purchase_prices.sql'));
             $found = [];
             foreach ($this->db()->executeQueryWithParams($query, $params) as $row) {
                 $row = (array) $row;
@@ -281,7 +322,7 @@ class OcX3Lookup
         $like = '%' . strtr(mb_strtoupper($input), ['[' => '[[]', '%' => '[%]', '_' => '[_]']) . '%';
 
         try {
-            $query = $this->sqlFileLoader->load($sqlFile);
+            $query = $this->sql($sqlFile);
 
             return $this->db()->executeQueryWithParams($query, array_fill_keys($paramNames, $like));
         } catch (\Throwable $e) {

@@ -160,7 +160,7 @@
                             {% if offer.flows is empty %}
                                 <p class="text-muted small">Aucun flux généré pour cette OC.</p>
                             {% else %}
-                                <p class="text-muted small">{% if offer.flows|first.status == 'queued' %}Flux placés en file d'envoi vers X3.{% else %}<strong>Envoi à X3 désactivé</strong> : les flux ci-dessous sont préparés et conservés, rien n'a été envoyé à X3.{% endif %}</p>
+                                <p class="text-muted small">Flux placés en file d'envoi vers X3 (envoyés par la commande d'exécution des webservices).</p>
                                 {% for f in offer.flows %}
                                     <details class="mb-1">
                                         <summary>{{ f.webservice }} — article {{ f.articleCode }} <span class="badge bg-secondary">{{ f.status == 'queued' ? 'en file' : 'préparé' }}</span></summary>

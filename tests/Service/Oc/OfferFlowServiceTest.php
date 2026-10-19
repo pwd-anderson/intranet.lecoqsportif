@@ -6,6 +6,7 @@ use App\Entity\Oc\Offer;
 use App\Entity\Oc\OfferFlow;
 use App\Entity\Oc\OfferLine;
 use App\Entity\SalesWebService;
+use App\Service\Oc\OcX3Lookup;
 use App\Service\Oc\OfferFlowService;
 use App\Service\Oc\OfferXmlBuilder;
 use App\Service\Webservice\WebServiceDispatcher;
@@ -27,9 +28,13 @@ final class OfferFlowServiceTest extends TestCase
         $this->em->method('persist')->willReturnCallback(function (object $o): void { $this->persisted[] = $o; });
     }
 
-    private function service(bool $enabled): OfferFlowService
+    /** @param array<string, list<string>> $variants */
+    private function service(array $variants = ['2210037' => ['2210037_40', '2210037_41'], '1511960' => ['1511960_SPL']]): OfferFlowService
     {
-        return new OfferFlowService($this->em, new OfferXmlBuilder(), new WebServiceDispatcher($this->em), $enabled);
+        $x3 = $this->createStub(OcX3Lookup::class);
+        $x3->method('getVariants')->willReturn($variants);
+
+        return new OfferFlowService($this->em, new OfferXmlBuilder(), new WebServiceDispatcher($this->em), $x3);
     }
 
     private function offer(): Offer
@@ -44,49 +49,36 @@ final class OfferFlowServiceTest extends TestCase
         return $offer;
     }
 
-    public function testDisabledByDefaultFlowsArePreparedAndNothingIsSent(): void
+    public function testValidationDepositsOneQueuedFlowPerVariantInSalesWebService(): void
     {
-        $service = $this->service(false);
-        $offer = $this->offer();
-
-        $flows = $service->prepare($offer);
-
-        self::assertCount(2, $flows);
-        self::assertSame(OfferFlow::PREPARED, $flows[0]->getStatus());
-        self::assertSame('WSCRESPL', $flows[0]->getWebservice());
-        self::assertSame(0, $service->queue($offer));
-        self::assertSame(OfferFlow::PREPARED, $offer->getFlows()->first()->getStatus());
-        self::assertSame([], array_filter($this->persisted, static fn ($o) => $o instanceof SalesWebService), 'rien dans sales_web_service');
-    }
-
-    public function testPreparingTwiceDoesNotDuplicateTheFlows(): void
-    {
-        $service = $this->service(false);
-        $offer = $this->offer();
-
-        $service->prepare($offer);
-        $service->prepare($offer);
-
-        self::assertCount(2, $offer->getFlows());
-    }
-
-    public function testEnabledFlowsAreQueuedInSalesWebService(): void
-    {
-        $service = $this->service(true);
         $offer = $this->offer();
         (new \ReflectionProperty(Offer::class, 'id'))->setValue($offer, 42);
 
-        $service->prepare($offer);
+        $flows = $this->service()->send($offer);
 
-        self::assertSame(2, $service->queue($offer));
-        self::assertSame(OfferFlow::QUEUED, $offer->getFlows()->first()->getStatus());
+        self::assertCount(3, $flows, 'un flux par variant (2 + 1), jamais pour le parent');
+        self::assertSame(['2210037_40', '2210037_41', '1511960_SPL'], array_map(static fn ($fl) => $fl->getArticleCode(), $flows));
+        self::assertStringContainsString('2210037_40', $flows[0]->getXml());
+        self::assertSame('WSCRESPL', $flows[0]->getWebservice());
+        self::assertSame(OfferFlow::QUEUED, $flows[0]->getStatus());
         $queued = array_values(array_filter($this->persisted, static fn ($o) => $o instanceof SalesWebService));
-        self::assertCount(2, $queued);
+        self::assertCount(3, $queued);
         self::assertSame('WSCRESPL', $queued[0]->getName());
         self::assertStringContainsString('WDISPRI', $queued[0]->getParameter());
-        self::assertFalse($queued[0]->isExecuted());
+        self::assertFalse($queued[0]->isExecuted(), 'envoyé plus tard par la commande d\'exécution');
         self::assertSame(42, $queued[0]->getOcOfferId(), 'colonne oc_offer_id renseignée');
-        self::assertSame(0, $service->queue($offer), 'un flux déjà en file n\'est pas renvoyé');
+    }
+
+    public function testSendingTwiceDoesNotDuplicateTheFlows(): void
+    {
+        $service = $this->service();
+        $offer = $this->offer();
+
+        $service->send($offer);
+        $service->send($offer);
+
+        self::assertCount(3, $offer->getFlows());
+        self::assertCount(3, array_filter($this->persisted, static fn ($o) => $o instanceof SalesWebService));
     }
 
     public function testNothingIsStoredWhenOneLineCannotBeBuilt(): void
@@ -95,10 +87,30 @@ final class OfferFlowServiceTest extends TestCase
         $offer->getLines()->last()->setInjectedPrice(null);
 
         try {
-            $this->service(false)->prepare($offer);
+            $this->service()->send($offer);
             self::fail('Une ligne sans prix à envoyer doit empêcher la génération.');
         } catch (\LogicException) {
             self::assertCount(0, $offer->getFlows());
         }
+    }
+
+    public function testParentWithoutVariantStopsEverything(): void
+    {
+        $offer = $this->offer();
+
+        try {
+            $this->service(['2210037' => ['2210037_40'], '1511960' => []])->send($offer);
+            self::fail('Un parent sans variant doit empêcher la génération.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('1511960', $e->getMessage());
+            self::assertCount(0, $offer->getFlows());
+        }
+    }
+
+    public function testSameVariantIsNeverSentTwice(): void
+    {
+        $flows = $this->service(['2210037' => ['2210037_40'], '1511960' => ['2210037_40']])->send($this->offer());
+
+        self::assertCount(1, $flows);
     }
 }

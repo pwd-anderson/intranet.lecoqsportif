@@ -6,16 +6,13 @@ use App\Entity\Oc\Offer;
 use App\Entity\Oc\OfferFlow;
 use App\Service\Webservice\WebServiceDispatcher;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Flux XML vers X3 d'une OC validée : un WSCRESPL (création du tarif spécial) par ligne.
+ * Flux XML vers X3 d'une OC validée : un WSCRESPL (création du tarif spécial) par ARTICLE ENFANT (variant) de chaque
+ * ligne d'OC (saisie par article parent).
  *
- * DÉSACTIVÉ PAR DÉFAUT (variable d'env OC_X3_FLOW_ENABLED, « 0 » si absente) : le XML est généré et conservé dans
- * oc_offer_flow (statut « prepared ») pour être relu par l'équipe X3, mais RIEN n'est placé dans sales_web_service.
- * Ce point est essentiel : la commande app:sales:webservices:execute exécute TOUTES les lignes non exécutées de
- * sales_web_service, y compris celles des autres modules. Activé, les XML sont placés dans sales_web_service
- * (statut « queued ») et partent avec cette commande.
+ * Les XML sont générés au moment où la Direction valide l'OC et déposés directement dans sales_web_service ; l'envoi
+ * effectif à X3 est fait par la commande app:sales:webservices:execute (lancée sur les serveurs, jamais en local).
  */
 class OfferFlowService
 {
@@ -23,69 +20,53 @@ class OfferFlowService
         private readonly EntityManagerInterface $em,
         private readonly OfferXmlBuilder $builder,
         private readonly WebServiceDispatcher $dispatcher,
-        #[Autowire('%oc.x3_flow_enabled%')]
-        private readonly bool $enabled,
+        private readonly OcX3Lookup $x3,
     ) {
     }
 
-    public function isEnabled(): bool
-    {
-        return $this->enabled;
-    }
-
     /**
-     * Génère les flux de l'OC (une fois : sans effet si l'OC en a déjà). Atomique : si une ligne ne peut pas être
-     * construite, aucun flux n'est enregistré et l'exception remonte.
+     * Génère les flux de l'OC et les dépose dans sales_web_service (une fois : sans effet si l'OC en a déjà).
+     * Atomique : si un parent n'a aucun variant ou si une ligne ne peut pas être construite, rien n'est enregistré ni
+     * déposé et l'exception remonte.
      *
-     * @return list<OfferFlow> les flux de l'OC
+     * @return list<OfferFlow> les flux de l'OC (statut « queued »)
      */
-    public function prepare(Offer $offer): array
+    public function send(Offer $offer): array
     {
         if (!$offer->getFlows()->isEmpty()) {
             return $offer->getFlows()->toArray();
         }
 
+        // L'OC est saisie par article PARENT, mais X3 reçoit un tarif par article ENFANT (variant) : tous les variants du
+        // parent, sans tenir compte de la collection, chacun une fois ; le parent n'est jamais envoyé.
+        $variants = $this->x3->getVariants(array_map(static fn ($l) => $l->getArticleCode(), $offer->getLines()->toArray()));
+
         $flows = [];
+        $seen = [];
         foreach ($offer->getLines() as $line) {
-            $flows[] = new OfferFlow($offer, $line->getArticleCode(), OfferXmlBuilder::WEBSERVICE, $this->builder->creation($offer, $line));
+            $children = $variants[$line->getArticleCode()] ?? [];
+            if ($children === []) {
+                throw new \RuntimeException(sprintf('Aucun variant trouvé pour l\'article parent %s : flux X3 non généré.', $line->getArticleCode()));
+            }
+            foreach ($children as $child) {
+                if (isset($seen[$child])) {
+                    continue; // jamais deux fois le même variant dans un flux
+                }
+                $seen[$child] = true;
+                $flows[] = new OfferFlow($offer, $child, OfferXmlBuilder::WEBSERVICE, $this->builder->creation($offer, $line, $child));
+            }
         }
 
         $this->em->wrapInTransaction(function () use ($offer, $flows): void {
             foreach ($flows as $flow) {
                 $offer->addFlow($flow);
+                $ws = $this->dispatcher->dispatch($flow->getWebservice(), $flow->getXml(), $offer->getId(), $offer->getX3Env()->value);
+                $flow->markQueued((int) $ws->getId());
             }
             $this->em->persist($offer);
             $this->em->flush();
         });
 
         return $flows;
-    }
-
-    /**
-     * Place les flux « prepared » dans sales_web_service (envoi effectif à X3 par la commande d'exécution).
-     * Ne fait rien, et renvoie 0, si l'envoi est désactivé.
-     *
-     * @return int nombre de flux placés en file
-     */
-    public function queue(Offer $offer): int
-    {
-        if (!$this->enabled) {
-            return 0;
-        }
-
-        $queued = 0;
-        $this->em->wrapInTransaction(function () use ($offer, &$queued): void {
-            foreach ($offer->getFlows() as $flow) {
-                if ($flow->getStatus() !== OfferFlow::PREPARED) {
-                    continue;
-                }
-                $ws = $this->dispatcher->dispatch($flow->getWebservice(), $flow->getXml(), $offer->getId());
-                $flow->markQueued((int) $ws->getId());
-                ++$queued;
-            }
-            $this->em->flush();
-        });
-
-        return $queued;
     }
 }

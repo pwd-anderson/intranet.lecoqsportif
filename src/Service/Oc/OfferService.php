@@ -2,6 +2,7 @@
 
 namespace App\Service\Oc;
 
+use App\Service\X3\X3EnvironmentProvider;
 use App\Entity\Oc\Offer;
 use App\Entity\Oc\OfferHistory;
 use App\Entity\Oc\OfferLine;
@@ -29,6 +30,7 @@ class OfferService
         private readonly OfferMailer $mailer,
         private readonly OfferPdfGenerator $pdf,
         private readonly OfferFlowService $flows,
+        private readonly X3EnvironmentProvider $x3Environment,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -97,6 +99,7 @@ class OfferService
             ->setCustomerDiscountStart(isset($discount['DATE_DEBUT']) ? new \DateTimeImmutable($discount['DATE_DEBUT']) : null)
             ->setCustomerDiscountEnd(isset($discount['DATE_FIN']) ? new \DateTimeImmutable($discount['DATE_FIN']) : null)
             ->setX3ReadAt($readAt)
+            ->setX3Env($this->x3Environment->current())
             ->setStartDate($input->startDate)
             ->setEndDate($input->endDate)
             ->setComment($input->comment)
@@ -232,6 +235,14 @@ class OfferService
     {
         $this->workflow->target($offer->getStatus(), OcAction::VALIDATED); // LogicException si impossible, avant de lire X3
 
+        // Les prix de l'OC ont été lus dans un environnement X3 précis : valider depuis un autre enverrait au mauvais dossier.
+        if ($offer->getX3Env() !== $this->x3Environment->current()) {
+            throw new OfferValidationException([sprintf(
+                'Cette OC a été enregistrée avec l\'environnement %s, l\'environnement actuel est %s : changez d\'environnement ou refaites l\'OC.',
+                $offer->getX3Env()->label(), $this->x3Environment->current()->label(),
+            )]);
+        }
+
         if (($drift = $this->discountDrift($offer)) !== null) {
             throw new OfferValidationException([$drift]);
         }
@@ -246,27 +257,26 @@ class OfferService
     }
 
     /**
-     * Génère les flux XML X3 de l'OC validée. Par défaut (envoi désactivé) ils sont seulement conservés (« préparés »,
-     * visibles à la Direction) ; activé, ils sont placés dans sales_web_service et l'OC passe « Envoyée à X3 ».
+     * Génère les flux XML X3 de l'OC validée (un par variant) et les dépose dans sales_web_service ; l'OC passe
+     * « Envoyée à X3 » (l'envoi effectif est fait par la commande app:sales:webservices:execute).
      * Ne défait jamais la validation : un échec est tracé (« Erreur d'envoi à X3 ») et notifié à l'admin.
      */
     public function prepareX3Flow(Offer $offer, User $user): void
     {
         try {
-            $flows = $this->flows->prepare($offer);
-            $queued = $this->flows->queue($offer);
+            $flows = $this->flows->send($offer);
 
             $offer->addHistory(new OfferHistory(
                 OcAction::X3_FLOW_PREPARED, $offer->getStatus(), $offer->getStatus(), $user, self::displayName($user),
-                $queued > 0 ? sprintf('%d flux placés en file pour X3.', $queued) : 'Envoi à X3 désactivé : flux conservés sans être envoyés.',
-                ['flows' => count($flows), 'queued' => $queued],
+                sprintf('%d flux placés en file pour X3.', count($flows)),
+                ['flows' => count($flows)],
             ));
             $this->em->wrapInTransaction(function () use ($offer): void {
                 $this->em->persist($offer);
                 $this->em->flush();
             });
 
-            if ($queued > 0) {
+            if ($flows !== []) {
                 $this->transition($offer, OcAction::SENT_TO_X3, $user, null);
             }
         } catch (\Throwable $e) {

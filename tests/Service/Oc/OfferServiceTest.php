@@ -48,7 +48,7 @@ final class OfferServiceTest extends TestCase
 
     private function service(): OfferService
     {
-        return new OfferService($this->em, $this->x3, $this->numbers, new OfferWorkflow(), new OfferCalculator(), $this->mailer, $this->pdf, $this->flows, new NullLogger());
+        return new OfferService($this->em, $this->x3, $this->numbers, new OfferWorkflow(), new OfferCalculator(), $this->mailer, $this->pdf, $this->flows, new \App\Service\X3\X3EnvironmentProvider(new \Symfony\Component\HttpFoundation\RequestStack(), 'test'), new NullLogger());
     }
 
     private function user(): User
@@ -558,32 +558,18 @@ final class OfferServiceTest extends TestCase
         self::assertNull($this->entry($offer, OcAction::PDF_FAILED));
     }
 
-    public function testValidationPreparesTheX3FlowAndTracesIt(): void
+    public function testValidationSendsTheX3FlowsToTheQueueAndTheOfferBecomesSentToX3(): void
     {
         $this->x3Ok();
-        $this->flows->expects(self::once())->method('prepare')->willReturn([]);
-        $this->flows->method('queue')->willReturn(0);
+        $this->flows->expects(self::once())->method('send')->willReturn([new \stdClass(), new \stdClass()]);
         $service = $this->service();
         $offer = $this->submittedOffer($service);
 
         $service->validate($offer, $this->user());
 
-        self::assertSame(OcStatus::VALIDATED, $offer->getStatus());
         $last = $this->entry($offer, OcAction::X3_FLOW_PREPARED);
         self::assertNotNull($last);
-        self::assertStringContainsString('désactivé', $last->getReason());
-    }
-
-    public function testWhenQueuedTheOfferBecomesSentToX3(): void
-    {
-        $this->x3Ok();
-        $this->flows->method('prepare')->willReturn([]);
-        $this->flows->method('queue')->willReturn(2);
-        $service = $this->service();
-        $offer = $this->submittedOffer($service);
-
-        $service->validate($offer, $this->user());
-
+        self::assertStringContainsString('2 flux', $last->getReason());
         self::assertSame(OcStatus::SENT_TO_X3, $offer->getStatus());
         self::assertSame(OcAction::SENT_TO_X3, $offer->getHistory()->last()->getAction());
     }
@@ -591,7 +577,7 @@ final class OfferServiceTest extends TestCase
     public function testAnX3FlowFailureNeverCancelsTheValidationAndIsTraced(): void
     {
         $this->x3Ok();
-        $this->flows->method('prepare')->willThrowException(new \LogicException('prix absent'));
+        $this->flows->method('send')->willThrowException(new \LogicException('prix absent'));
         $this->mailer->expects(self::once())->method('reportError');
         $service = $this->service();
         $offer = $this->submittedOffer($service);
@@ -602,5 +588,21 @@ final class OfferServiceTest extends TestCase
         $last = $this->entry($offer, OcAction::X3_ERROR);
         self::assertNotNull($last);
         self::assertStringContainsString('prix absent', $last->getReason());
+    }
+
+    public function testValidationIsRefusedWhenTheOfferWasSavedInAnotherX3Environment(): void
+    {
+        $this->x3Ok();
+        $service = $this->service();
+        $offer = $this->submittedOffer($service);
+        $offer->setX3Env(\App\Service\X3\X3Environment::TEST); // l'environnement actuel (hors dev) est PROD
+
+        try {
+            $service->validate($offer, $this->user());
+            self::fail('Une OC enregistrée en TEST ne se valide pas depuis PROD.');
+        } catch (OfferValidationException $e) {
+            self::assertStringContainsString('X3 TEST', $e->getMessage());
+        }
+        self::assertSame(OcStatus::SUBMITTED, $offer->getStatus());
     }
 }

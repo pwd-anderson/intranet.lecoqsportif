@@ -8,9 +8,8 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Flux XML préparé pour X3 à la validation d'une OC (un flux par ligne d'OC).
  *
- * Statuts : « prepared » = XML généré et conservé ici, RIEN n'est parti vers X3 (envoi désactivé) ;
- * « queued » = XML placé dans sales_web_service, exécuté par la commande app:sales:webservices:execute.
- * Ces lignes ne sont jamais modifiées après coup, hormis le passage de « prepared » à « queued ».
+ * Statut « queued » = XML placé dans sales_web_service, exécuté par la commande app:sales:webservices:execute
+ * (« prepared » n'est plus utilisé : conservé pour les anciennes lignes). Ces lignes ne sont jamais modifiées après coup.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'oc_offer_flow')]
