@@ -328,6 +328,24 @@ function buildZpl(otb, sku, taille, qty, itemName) {
 // =============================================================================
 // CHARGEMENT LIVRAISON (remplace loadFile)
 // =============================================================================
+// Efface les lignes affichées (tableau, colisage, liste, bouton Imprimer). Appelée quand une recherche ne ramène rien ou
+// échoue : sans cela, le résultat de la recherche précédente resterait affiché (et imprimable) sous un autre numéro.
+function viderResultats() {
+    rows = [];
+    selectedIndex   = null;
+    activeCartonIdx = null;
+    document.getElementById("etaColisageEmpty").style.display   = "";
+    document.getElementById("etaColisageContent").style.display = "none";
+    refreshTable();
+    populateSkuSelect();
+    updatePreviewButtonState();
+    drawSummary();
+    if (document.getElementById("etaTabListe").classList.contains("active")) {
+        renderListeColisage();
+    }
+    document.getElementById("etaBtnPrint").disabled = true;
+}
+
 async function rechercherLivraison() {
     const mode   = MODES_RECHERCHE[modeRecherche];
     const input  = document.getElementById("etaNumeroLivraison");
@@ -357,6 +375,7 @@ async function rechercherLivraison() {
         const data = await resp.json();
 
         if (!Array.isArray(data) || data.length === 0) {
+            viderResultats();
             document.getElementById("etaLivraisonHint").textContent = "Aucune ligne trouvée.";
             setStatus(`Aucune ligne trouvée pour ce ${mode.libelle.replace("N° de", "numéro de")}.`, "warn");
             return;
@@ -409,6 +428,7 @@ async function rechercherLivraison() {
             decimales ? "warn" : "ok");
 
     } catch (e) {
+        viderResultats();
         document.getElementById("etaLivraisonHint").textContent = "";
         setStatus("Erreur : " + e.message, "warn");
     } finally {
