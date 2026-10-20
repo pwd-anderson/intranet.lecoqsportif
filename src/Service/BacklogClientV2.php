@@ -326,7 +326,7 @@ LEFT  JOIN (
      * Client reste ainsi TOUJOURS disponible : seules les dates du plan transport manquent. Contrôle fait une
      * fois par requête HTTP.
      */
-    private function planTransportSource(): string
+    public function planTransportSource(): string
     {
         if ($this->planTransportSource !== null) {
             return $this->planTransportSource;

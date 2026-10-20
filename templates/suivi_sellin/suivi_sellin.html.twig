@@ -1,0 +1,83 @@
+{% extends 'base.html.twig' %}
+
+{#
+  Module Suivi Sellin global — page normale de l'intranet.
+  L'application (public/assets/suivi_sellin/suivi.js + suivi.css) est reprise du template d'un Sales Manager. Son CSS est
+  préfixé par .ssg.ssg et chaque élément est remis à l'état du navigateur (all:revert) pour que les règles globales du
+  thème intranet ne s'y mélangent pas : voir l'en-tête de suivi.css. Le JS est enveloppé dans une fonction (ses
+  variables globales « $ », « S », « D »… écraseraient sinon celles de l'intranet, jQuery compris).
+  Les onglets pas encore livrés sont masqués dès le rendu (sinon ils clignotent pendant le chargement des données).
+  Le menu latéral de l'intranet garde son état habituel (bouton push-menu de l'en-tête).
+#}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="{{ asset('assets/suivi_sellin/suivi.css') }}?v=3">
+{% endblock %}
+
+{% block body %}
+<div class="ssg" id="ssg-root">
+<header class="mast">
+  <div class="wrap">
+    <div class="brand"><div class="brand-t"><div>
+<h1>Suivi Sellin global</h1>
+      <div class="sub">Carnet de commandes BOH · comparaison saison N / N-1</div>
+    </div></div></div>
+    <div class="seasons">
+      <label for="seasonN"><span><span class="sw n"></span>Saison N</span><select id="seasonN"></select></label>
+      <span class="vs">vs</span>
+      <label for="seasonP"><span><span class="sw p"></span>Saison N-1</span><select id="seasonP"></select></label>
+      <div class="exports"><button type="button" class="exbtn" id="expBtn">Exporter en PowerPoint</button><button type="button" class="exbtn ghost" id="xlsBtn">Exporter Excel</button></div>
+    </div>
+  </div>
+  
+</header>
+
+<main class="wrap layout">
+  <aside class="side">
+    <div class="side-h">Analyses</div>
+    <nav class="tabs" role="tablist" id="tabs" aria-orientation="vertical">
+      <button class="tab tab-home" role="tab" data-t="accueil"{{ 'accueil' in endpoints.enabled ? '' : ' hidden' }} aria-selected="true"><span class="tn">Accueil</span><span class="td">Mon cockpit commercial</span></button>
+      <button class="tab" role="tab" data-t="synthese"{{ 'synthese' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Synthèse N vs N-1</span><span class="td">Tableau croisé, comparable, écarts</span></button>
+      <button class="tab" role="tab" data-t="clients"{{ 'clients' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Vue centrale</span><span class="td">Comparable par groupe et groupement</span></button>
+      <button class="tab" role="tab" data-t="alertes"{{ 'alertes' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Alertes <span class='alb' id='alBadge' hidden></span></span><span class="td">Clients et lignes à surveiller</span></button>
+      <button class="tab" role="tab" data-t="magasins"{{ 'magasins' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Magasins</span><span class="td">Recherche, hausses et baisses</span></button>
+      <button class="tab" role="tab" data-t="portes"{{ 'portes' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Portes perdues / nouvelles</span><span class="td">Portes à reconquérir</span></button>
+      <button class="tab" role="tab" data-t="fact"{{ 'fact' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Facturation</span><span class="td">Facturé et reste à livrer (RDD)</span></button>
+      <button class="tab" role="tab" data-t="accomp"{{ 'accomp' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Accompagnement commercial</span><span class="td">Décotes, retours, avoirs</span></button>
+      <button class="tab" role="tab" data-t="sellout"{{ 'sellout' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Sell-out</span><span class="td">Ventes et stocks magasins par semaine</span></button>
+      <button class="tab" role="tab" data-t="reassort"{{ 'reassort' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Pré-saison / réassort</span><span class="td">Magasins, pièces, rythme</span></button>
+      <button class="tab" role="tab" data-t="saisons"{{ 'saisons' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Évolution saisons</span><span class="td">Historique sur 8 saisons</span></button>
+      <button class="tab" role="tab" data-t="diffusion"{{ 'diffusion' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Diffusion de l'offre</span><span class="td">Part des portes par référence</span></button>
+      <button class="tab" role="tab" data-t="infos"{{ 'infos' in endpoints.enabled ? '' : ' hidden' }} aria-selected="false"><span class="tn">Données &amp; définitions</span><span class="td">Sources et règles de calcul</span></button>
+    </nav>
+  </aside>
+  <div class="content">
+    <div class="minebox" id="mineBox"></div>
+    <div class="filters" id="filters"></div>
+    <div class="kpis" id="kpis"><div class="kpi"><h3>Chargement</h3><div class="big">…</div></div></div>
+    <section class="panel" id="panel"><div class="loading">Chargement des données…</div></section>
+  </div>
+</main>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<div id="fiche" hidden></div>
+<div id="exp" hidden></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+{# Trame PowerPoint reprise telle quelle du template (source() = aucun traitement Twig). #}
+<script type="text/plain" id="trame64">{{ source('suivi_sellin/_trame64.txt')|raw }}</script>
+{# Requêtes de chaque onglet (bouton « Requêtes utilisées » en bas de page) et adresses des données. #}
+<script type="application/json" id="ssgQueries">{{ queries|json_encode(constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') b-or constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP'))|raw }}</script>
+<script type="application/json" id="ssgEndpoints">{{ endpoints|json_encode|raw }}</script>
+<script src="{{ asset('assets/suivi_sellin/lib-pptxgenjs.js') }}?v=1"></script>
+<script src="{{ asset('assets/suivi_sellin/lib-xlsx.js') }}?v=1"></script>
+<script src="{{ asset('assets/suivi_sellin/lib-jszip.js') }}?v=1"></script>
+<script src="{{ asset('assets/suivi_sellin/suivi.js') }}?v=4"></script>
+{% endblock %}

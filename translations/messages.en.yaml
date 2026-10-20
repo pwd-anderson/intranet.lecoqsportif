@@ -88,4 +88,5 @@ sidebar:
         livraisons: "Delivery Tracking"
     modules:
         distributor_availability: "Distributor Availability"
+        suivi_sellin: "Suivi Sellin global"
         arrivals_logtex: "Arrivées Logtex"
