@@ -3332,25 +3332,33 @@ function ralPanel(P){
 function aboutHtml(){
   return`<div class="card"><div class="card-b about"><div class="cols">
   <div><h2>Source et périmètre</h2><ul>
-    <li>Fichier « TEST AUTOMATISATION RAPPORT PREVIEW » (extraction du carnet de commandes BOH) : 563 070 lignes brutes.</li>
-    <li>Toutes les classes de commande (Sales order type) sont chargées sur les saisons 2024-01-SS à 2027-02-FW. Le filtre <b>Sales order type</b> est sur <b>PS</b> par défaut.</li><li>Le compte <b>4437</b> (Intersport France) est classé en <b>Centrale Intersport</b> (groupe client et groupement) et peut être exclu d'un clic avec la case « Exclure la centrale Intersport ».</li>
-    <li>Le filtre <b>Périmètre BOH</b> est actif par défaut (colonne « Is Boh Perimeter » = vrai). Retirez-le pour inclure les lignes hors périmètre.</li>
-    <li>La PLV (famille POP) est exclue de tous les chiffres.</li><li>Les valeurs vides de l'extraction apparaissent sous « (non renseigné) ».</li>
+    <li><b>Carnet, facturé, reste à facturer</b> : vue <b>LCS_X3SALESX</b> du cube SEI, toutes sociétés (LCSI, Espagne, Italie), saisons 2024-01-SS à 2027-02-FW. Le filtre <b>Sales order type</b> est sur <b>PS</b> par défaut.</li>
+    <li>Le compte <b>4437</b> (Intersport France) est classé en <b>Centrale Intersport</b> (groupe client et groupement) et peut être exclu d'un clic avec la case « Exclure la centrale Intersport ».</li>
+    <li>Le filtre <b>Périmètre BOH</b> est actif par défaut. Les commandes X3 n'ont pas de drapeau de périmètre : un client est dans le périmètre si son business model l'est (hors E-COMMERCE, FRANCE OTHER, DOTATIONS, GROUP COMPANIES, DESTOCKEUR, DISCOUNTERS, RETAIL BUSINESS et clients sans business model). Règle déduite des données, à confirmer par le Sales Manager. Retirez le filtre pour tout inclure.</li>
+    <li>La PLV (famille POP) est exclue de tous les chiffres. Les valeurs vides apparaissent sous « (non renseigné) ».</li>
+    <li><b>Hiérarchie client</b> (business model, groupe, groupement, manager, commercial) : table LCS_CUSTOMER, valeurs actuelles du client.</li>
   </ul></div>
   <div><h2>Définitions</h2><ul>
     <li><b>Porte</b> : un client (n° client) avec un CA &gt; 0 sur la saison, pour les types de commande sélectionnés.</li>
-    <li><b>Comparable</b> : porte avec une PS &gt; 0 sur les deux saisons comparées (avec le filtre par défaut sur PS). Le calcul suit les filtres actifs : avec Textile sélectionné, ce sont les portes qui ont commandé du textile sur les deux saisons.</li>
-    <li><b>Porte perdue</b> : CA &gt; 0 en N-1 et aucune commande en N. <b>Nouvelle porte</b> : l'inverse.</li>
-    <li><b>Évo</b> : (N − N-1) / N-1. « nouveau » quand N-1 vaut zéro.</li>
+    <li><b>Comparable</b> : porte avec une PS &gt; 0 sur les deux saisons comparées (avec le filtre par défaut sur PS). Le calcul suit les filtres actifs.</li>
+    <li><b>Porte perdue</b> : CA &gt; 0 en N-1 et aucune commande en N. <b>Nouvelle porte</b> : l'inverse. <b>Évo</b> : (N − N-1) / N-1, « nouveau » quand N-1 vaut zéro.</li>
+    <li><b>Pré-saison</b> = commandes de type PS ; <b>réassort</b> = type RE, passées pendant la saison.</li>
+    <li><b>RAL</b> : reste à livrer. <b>Écoulement</b> : vendu ÷ (vendu + stock magasin). <b>Couverture</b> : stock ÷ ventes moyennes des dernières semaines.</li>
+    <li><b>Réassort conseillé</b> : formule du fichier Push Réassort, (vendu + stock) × écoulement ÷ (0,03 × semaines depuis la première vente ou le premier stock) × 0,33.</li>
   </ul></div>
-  <div><h2>Vues du rapport Power BI non reproduites</h2><ul>
-    <li>Vues « to date » et RDD saison : l'extraction n'a ni date de commande ni date de livraison.</li>
-    <li>Découpage Lifestyle / Sportstyle, Key account / Field account, Good / Better / Best, pays (Italie, Espagne…) et trimestre : colonnes absentes.</li>
-    <li>PO + annulations et modifications de la semaine précédente : nécessitent un historique hebdomadaire.</li>
+  <div><h2>Autres sources</h2><ul>
+    <li><b>Remises et conditions de paiement</b> : vue PRODXXX_CLIENT_INTRANE (celle de Comptes Clients).</li>
+    <li><b>Backlog et dates d'arrivée</b> : Backlog Clients de l'intranet (X3) ; la date prévue vient du transit intersites, à défaut du plan transport SS27.</li>
+    <li><b>Avoirs</b> : CONSO_INVOICES (type CREDITMEMO). La liste « Derniers avoirs » ne montre que les avoirs de 100 € et plus.</li>
+    <li><b>Annulations</b> : règles de la stat État des commandes clients (quantités annulées, converties en euros au cours X3 du jour).</li>
+    <li><b>Sell-out Intersport et Sport 2000</b> : ventes et stocks hebdomadaires du cube (LCS_SELLOUT_SALES), limités aux articles du reporting Push Réassort de la saison ; RAL, préparation et réassort conseillé viennent des fichiers Push Réassort de la dernière semaine déposés sur SharePoint (saisons en cours seulement).</li>
+    <li><b>Photos</b> : site lecoqsportif.com ; les articles de la collection à venir n'y sont pas encore.</li>
   </ul></div>
   <div><h2>Mise à jour</h2><ul>
-    <li>Les chiffres sont figés à la date du fichier reçu (6 octobre 2026).</li>
-    <li>Export PowerPoint : bouton en haut à droite. La présentation d'un client, groupement, groupe client ou commercial suit les filtres Sales order type et Périmètre BOH et couvre toutes les familles ; « Sélection actuelle » reprend tous les filtres.</li><li>Facturation : le commandé est celui de l'extraction principale ; l'extraction « BOH / INV / ROB / RDD » sert à le répartir entre facturé (par mois de facture) et reste à livrer (par date de livraison demandée), au prorata de chaque ligne client × référence, car elle répète le montant commandé sur chaque date. Le détail « backlog ADV » vient du fichier Backlog client du 06/10/2026.</li><li>Pour actualiser, il suffit de fournir une nouvelle extraction au même format.</li><li>Fiche magasin : commercial, groupement et groupe client sont ceux qui reviennent le plus souvent sur les commandes du magasin. La fiche suit les filtres Sales order type et Périmètre BOH, mais montre toutes les familles.</li>
+    <li>Les données sont reconstruites chaque matin ; elles sont à jour au <b>${fD(ASOF)}</b>.</li>
+    <li>Le sell-out suit les fichiers Push Réassort déposés chaque lundi sur SharePoint.</li>
+    <li>Export PowerPoint : bouton en haut à droite. La présentation d'un client, groupement, groupe client ou commercial suit les filtres Sales order type et Périmètre BOH et couvre toutes les familles ; « Sélection actuelle » reprend tous les filtres.</li>
+    <li>Le bouton « Requêtes utilisées » en bas de chaque onglet donne la requête exacte de chaque chiffre.</li>
   </ul></div>
   </div></div></div>`;
 }

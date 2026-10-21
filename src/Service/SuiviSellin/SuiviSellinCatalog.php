@@ -90,27 +90,53 @@ final class SuiviSellinCatalog
                 'title'  => 'Commandes de réassort (type RE) : commandé et facturé',
                 'source' => 'Vue SEI LCS_X3SALESX',
                 'file'   => 'Sei/modules/suivi_sellin/04_reassort.sql',
-                'note'   => 'Par saison, famille, client, mois de facture et semaine de livraison demandée (environ 34 000 lignes). Le RAL magasin et le réassort conseillé ne sont pas dans le cube.',
+                'note'   => 'Par saison, famille, client, mois de facture et semaine de livraison demandée (environ 34 000 lignes). Le RAL magasin et le réassort conseillé du sell-out viennent des fichiers Push Réassort (voir l\'onglet Sell-out).',
             ],
             'sellout_hebdo' => [
                 'title'  => 'Sell-out hebdomadaire : ventes et stock magasin',
                 'source' => 'Cube SEI_X3_LCS.LCS_SELLOUT_SALES',
                 'file'   => 'Sei/modules/suivi_sellin/07_sellout_hebdo.sql',
-                'note'   => 'Intersport et Sport 2000, depuis 2025 S01 (environ 110 000 lignes).',
+                'note'   => 'Intersport et Sport 2000, restreint aux articles du reporting Push Réassort de chaque saison (une requête par saison et enseigne ; le cube contient bien plus d\'articles que la collection suivie).',
             ],
             'sellout_ref' => [
                 'title'  => 'Sell-out par référence',
                 'source' => 'Cube SEI_X3_LCS.LCS_SELLOUT_SALES',
                 'file'   => 'Sei/modules/suivi_sellin/08_sellout_reference.sql',
-                'note'   => 'Ventes cumulées de la saison et stock de la dernière semaine, par magasin et article (environ 310 000 lignes).',
+                'note'   => 'Ventes cumulées de la saison, stock de la semaine de référence et ventes des dernières semaines, par magasin et article (mêmes articles que la requête hebdomadaire).',
+            ],
+            'sellout_fichiers' => [
+                'title'  => 'Sell-out : fichiers Push Réassort (SharePoint)',
+                'source' => 'Fichiers Excel SharePoint, lecture seule',
+                'file'   => 'Sei/modules/suivi_sellin/14_sellout_fichiers_push.sql',
+                'note'   => 'Liste d\'articles de la saison, RAL, préparation, valeur du stock et informations des magasins des saisons en cours ; réassort conseillé recalculé avec la formule du fichier.',
             ],
         ];
     }
 
     /**
+     * Requêtes dont dépend la fiche magasin (ouverte depuis la plupart des onglets) : elle reprend le carnet, la facturation,
+     * le reste à livrer, le backlog, les remises, les avoirs, les annulations et le sell-out du magasin ou du groupement.
+     */
+    private const FICHE_QUERIES = ['carnet', 'clients', 'facturation', 'reassort', 'reste_a_livrer', 'backlog', 'remises', 'avoirs', 'annulations', 'annulations_articles', 'sellout_hebdo', 'sellout_ref', 'sellout_fichiers'];
+
+    /**
      * @return list<array{key:string, title:string, subtitle:string, queries:list<string>}>
      */
     public function menus(): array
+    {
+        $all = array_keys($this->queries());
+
+        return array_map(static function (array $menu) use ($all): array {
+            $menu['queries'] = $menu['key'] === 'infos'
+                ? $all
+                : array_values(array_unique([...$menu['queries'], ...self::FICHE_QUERIES]));
+
+            return $menu;
+        }, $this->baseMenus());
+    }
+
+    /** @return list<array{key:string, title:string, subtitle:string, queries:list<string>}> requêtes propres à chaque onglet */
+    private function baseMenus(): array
     {
         return [
             ['key' => 'accueil',   'title' => 'Accueil',                       'subtitle' => 'Mon cockpit commercial',               'queries' => ['carnet', 'clients', 'backlog', 'remises']],
@@ -121,7 +147,7 @@ final class SuiviSellinCatalog
             ['key' => 'portes',    'title' => 'Portes perdues / nouvelles',    'subtitle' => 'Portes à reconquérir',                 'queries' => ['carnet', 'clients']],
             ['key' => 'fact',      'title' => 'Facturation',                   'subtitle' => 'Facturé et reste à livrer (RDD)',      'queries' => ['facturation', 'reste_a_livrer', 'backlog', 'backlog_commandes', 'clients']],
             ['key' => 'accomp',    'title' => 'Accompagnement commercial',     'subtitle' => 'Décotes, retours, avoirs, annulations', 'queries' => ['avoirs', 'annulations', 'annulations_articles', 'carnet', 'clients']],
-            ['key' => 'sellout',   'title' => 'Sell-out',                      'subtitle' => 'Ventes et stocks magasins par semaine', 'queries' => ['sellout_hebdo', 'sellout_ref']],
+            ['key' => 'sellout',   'title' => 'Sell-out',                      'subtitle' => 'Ventes et stocks magasins par semaine', 'queries' => ['sellout_hebdo', 'sellout_ref', 'sellout_fichiers']],
             ['key' => 'reassort',  'title' => 'Pré-saison / réassort',         'subtitle' => 'Magasins, pièces, rythme',             'queries' => ['reassort', 'carnet', 'clients']],
             ['key' => 'saisons',   'title' => 'Évolution saisons',             'subtitle' => 'Historique sur 8 saisons',             'queries' => ['carnet', 'clients']],
             ['key' => 'diffusion', 'title' => 'Diffusion de l\'offre',         'subtitle' => 'Part des portes par référence',        'queries' => ['carnet', 'clients']],
@@ -164,7 +190,7 @@ final class SuiviSellinCatalog
      */
     public function enabledTabs(): array
     {
-        return ['accueil', 'synthese', 'clients', 'alertes', 'magasins', 'portes', 'saisons', 'diffusion', 'fact', 'reassort', 'accomp'];
+        return ['accueil', 'synthese', 'clients', 'alertes', 'magasins', 'portes', 'saisons', 'diffusion', 'fact', 'reassort', 'accomp', 'sellout', 'infos'];
     }
 
     /**

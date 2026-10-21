@@ -18,6 +18,7 @@ final class SuiviSellinData
         private readonly RemisesBuilder $remises,
         private readonly FacturationBuilder $facturation,
         private readonly AccompagnementBuilder $accompagnement,
+        private readonly SelloutBuilder $sellout,
     ) {
     }
 
@@ -33,6 +34,13 @@ final class SuiviSellinData
         $builders = $this->builders();
         if (!isset($builders[$name])) {
             throw new \InvalidArgumentException("Jeu de données inconnu : {$name}");
+        }
+
+        // Le sell-out lit des fichiers SharePoint et des millions de lignes du cube (plusieurs minutes) : jamais construit
+        // à l'affichage. Le jeu du dernier rafraîchissement est servi tel quel, quel que soit son âge ; à défaut, un jeu
+        // vide (l'onglet Sell-out n'a alors rien à afficher, les autres onglets ne sont pas touchés).
+        if ($name === 'sodata') {
+            return $this->store->read($name) ?? ['json' => '{}', 'builtAt' => time()];
         }
 
         return $this->store->get($name, $builders[$name], self::TTL);
@@ -62,6 +70,7 @@ final class SuiviSellinData
             'accdata' => fn (): string => $this->encode($this->accompagnement->buildAcc($this->mainDecoded())),
             'anndata' => fn (): string => $this->encode($this->accompagnement->buildAnn($this->mainDecoded())),
             'robdata' => fn (): string => $this->encode($this->facturation->buildRob($this->mainDecoded())),
+            'sodata'  => fn (): string => $this->encode($this->sellout->build()),
         ];
     }
 

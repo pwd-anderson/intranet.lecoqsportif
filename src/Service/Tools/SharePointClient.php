@@ -37,6 +37,33 @@ class SharePointClient
     }
 
     /**
+     * Liste le contenu d'un dossier (lecture seule). Un dossier de plus de 200 éléments est suivi page par page.
+     *
+     * @return list<array{name:string,size:int,lastModified:string,isFolder:bool}>
+     */
+    public function listFolder(string $url): array
+    {
+        $next = self::GRAPH . '/shares/' . $this->shareId($url) . '/driveItem/children?$top=200';
+        $items = [];
+        while ($next !== null) {
+            $page = $this->httpClient->request('GET', $next, [
+                'headers' => ['Authorization' => 'Bearer ' . $this->tokenService->getAccessToken()],
+            ])->toArray();
+            foreach ($page['value'] ?? [] as $item) {
+                $items[] = [
+                    'name' => (string) ($item['name'] ?? ''),
+                    'size' => (int) ($item['size'] ?? 0),
+                    'lastModified' => (string) ($item['lastModifiedDateTime'] ?? ''),
+                    'isFolder' => isset($item['folder']),
+                ];
+            }
+            $next = $page['@odata.nextLink'] ?? null;
+        }
+
+        return $items;
+    }
+
+    /**
      * Télécharge le fichier en flux (fichiers de plusieurs dizaines de Mo : jamais en mémoire).
      */
     public function download(string $url, string $targetPath): void

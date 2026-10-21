@@ -1,0 +1,17 @@
+-- Pas du SQL : lecture des fichiers « Push Réassort » déposés chaque lundi sur SharePoint (Microsoft Graph, lecture seule).
+-- Dossier : SALES / Reporting - Push Réassort (SellOut) / <AAAA_WNN>  (le dernier dossier de semaine).
+-- Fichiers : 6 classeurs Excel LCS_SELLOUTv4_<APL|FTW|HDW>_<INTERSPORT|SPORT2000>_W<NN>.xlsx.
+--
+-- Onglet « Parameter »      : B3 = enseigne, B4 = classe (APL = Textile, FTW = Footwear, HDW = Accessoires), B8 = saison (série).
+-- Onglet « Item Detail »    : A à E = responsable de zone, chef de secteur, n° client, groupement, ville ;
+--                             F à H = article, désignation, ligne produit ; J = 1re semaine de vente ou de stock ;
+--                             L = ventes de la saison ; N = stock ; O = valeur du stock (€) ; P = préparation.
+-- Onglet « Variant Detail » : C = client, F = article, V = RAL (reste à livrer), sommé sur les tailles.
+--
+-- Utilisation :
+--   * liste des articles de la saison et de l'enseigne (périmètre des requêtes sell-out du cube) ;
+--   * RAL, préparation, valeur du stock et informations des magasins (saisons en cours uniquement) ;
+--   * réassort conseillé = (vendu + stock) x [vendu / (vendu + stock + préparation)] / (0,03 x semaines) x 0,33,
+--     avec semaines = semaine de référence + 1 - semaine de la colonne J (reste de la division par 48 au-delà de 52).
+-- Saisons closes (SS25, FW25, SS26) : liste d'articles reprise du template (src/Infrastructure/SelloutReference/articles_seed.json) ;
+-- RAL, préparation et réassort conseillé y sont à zéro (fichiers non disponibles).
