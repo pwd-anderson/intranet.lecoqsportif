@@ -8,3 +8,6 @@ services:
 
     App\Service\Sales:
         public: true
+
+    App\Service\Etiquette:
+        public: true

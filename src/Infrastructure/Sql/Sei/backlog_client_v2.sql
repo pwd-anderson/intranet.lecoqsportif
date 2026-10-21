@@ -45,7 +45,7 @@ SELECT
 
     ISNULL(PO.PO_EN_COURS, 0) AS PO_EN_COURS,
     -- Date d'arrivée prévue (la colonne garde son nom historique) : 1) date de l'INTERSITE en transit (CI),
-    -- 2) sinon ETA France du plan transport (PT, commandes du site WLOGM uniquement).
+    -- 2) sinon ETA France du plan transport (PT, commandes des sites WLOGM et WFIFR uniquement).
     -- La date des commandes fournisseur (PO) n'entre plus ici : PO ne sert qu'à PO_EN_COURS.
     COALESCE(CI.DATE_INTERSITE, PT.DATE_ETA_FRANCE) AS DATE_COMMANDE_FOURNISSEUR
     {{STOCK_COLUMNS}}
@@ -118,14 +118,14 @@ LEFT  JOIN (
 ) CI ON CI.ITMREF_0 = SOQ.ITMREF_0 AND CI.SITE_RECEPTION = SOH.STOFCY_0
 -- Repli plan transport : ETA France (arrivée chez Logtex) la plus proche de l'article, passée ou non,
 -- toutes lignes du plan quel que soit leur statut de départ. Appliquée aux seules commandes du site
--- WLOGM (Logtex). {{PLAN_TRANSPORT_TABLE}} est remplacé par le service : la table (suffixe _DEV en local) ou,
+-- WLOGM (Logtex) et WFIFR. {{PLAN_TRANSPORT_TABLE}} est remplacé par le service : la table (suffixe _DEV en local) ou,
 -- si elle est absente / illisible, une source vide de mêmes colonnes (le backlog reste alors disponible,
 -- simplement sans les dates du plan).
 LEFT  JOIN (
     SELECT PTS.ARTICLE_SKU, CONVERT(varchar(10), MIN(PTS.DATE_ETA_FRANCE), 23) AS DATE_ETA_FRANCE
     FROM {{PLAN_TRANSPORT_TABLE}} PTS
     GROUP BY PTS.ARTICLE_SKU
-) PT ON PT.ARTICLE_SKU = SOQ.ITMREF_0 AND SOH.STOFCY_0 = 'WLOGM'
+) PT ON PT.ARTICLE_SKU = SOQ.ITMREF_0 AND SOH.STOFCY_0 IN ('WLOGM', 'WFIFR')
 {{STOCK_JOINS}}
 
 WHERE

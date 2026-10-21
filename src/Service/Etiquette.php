@@ -25,32 +25,28 @@ class Etiquette
     }
 
     /**
-     * Lignes d'une commande d'achat, lues dans les réceptions fournisseur (une ligne par commande et par article).
-     * Le numéro est reconnu avec ou sans son suffixe « /NNN ».
+     * Lignes d'un shipment (X3_LCS.SHIPMENTD), à la place de l'ancienne recherche par commande d'achat : une ligne par article,
+     * quantité = expédié - reçu. Le numéro est reconnu tel quel (ex. EXPLCSI26-00174).
      */
-    public function getLignesCommandeAchat(string $numeroCommande): array
+    public function getLignesShipment(string $numeroShipment): array
     {
         try {
-            $numeroCommande = trim($numeroCommande);
-            if ($numeroCommande === '') {
+            $numeroShipment = trim($numeroShipment);
+            if ($numeroShipment === '') {
                 return [];
             }
-            // Apostrophes doublées (comme la requête livraison) ; pour le LIKE, \ % _ [ saisis par l'utilisateur sont en plus
-            // neutralisés (ESCAPE '\' dans la requête).
-            $exact = str_replace("'", "''", $numeroCommande);
-            $like  = str_replace("'", "''", strtr($numeroCommande, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_', '[' => '\\[']));
 
             $query = str_replace(
-                ['{{NUMERO_COMMANDE}}', '{{NUMERO_COMMANDE_LIKE}}'],
-                [$exact, $like],
-                $this->sqlFileLoader->load('Sei/etiquette_expedition_commande_achat.sql')
+                '{{NUMERO_SHIPMENT}}',
+                str_replace("'", "''", $numeroShipment),
+                $this->sqlFileLoader->load('Sei/etiquette_expedition_shipment.sql')
             );
 
             return $this->mssqlSei->executeQuery($query);
 
         } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Étiquette : Récupération lignes commande d\'achat', $e);
-            $this->logger->error('LCS Erreur Étiquette : Récupération lignes commande d\'achat', ['exception' => $e]);
+            $this->graphMailer->notifyError('❌ LCS Erreur Étiquette : Récupération lignes shipment', $e);
+            $this->logger->error('LCS Erreur Étiquette : Récupération lignes shipment', ['exception' => $e]);
 
             return [];
         }
