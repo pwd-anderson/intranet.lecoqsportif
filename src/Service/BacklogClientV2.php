@@ -821,7 +821,7 @@ LEFT  JOIN (
             SELECT PTS.ARTICLE_SKU, CONVERT(varchar(10), MIN(PTS.DATE_ETA_FRANCE), 23) AS DATE_ETA_FRANCE
             FROM {$this->planTransportSource()} PTS
             GROUP BY PTS.ARTICLE_SKU
-        ) PT ON PT.ARTICLE_SKU = SOQ.ITMREF_0 AND SOH.STOFCY_0 = 'WLOGM'";
+        ) PT ON PT.ARTICLE_SKU = SOQ.ITMREF_0 AND SOH.STOFCY_0 IN ('WLOGM', 'WFIFR')";
         }
 
         // Un filtre sur une colonne stock référence STK.* : sans la jointure, les totaux échouent
