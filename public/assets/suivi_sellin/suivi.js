@@ -714,17 +714,23 @@ function curSeasonName(d){d=d||new Date();const y=d.getFullYear(),m=d.getMonth()
 let REM={r:{}};try{REM=JSON.parse(document.getElementById('remises').textContent)}catch(e){}
 const remFmt=v=>v==null||v===''?'—':typeof v==='number'?v.toLocaleString('fr-FR',{maximumFractionDigits:2})+' %':String(v);
 function remChip(c){const r=REM.r[c];if(!r)return'<span class="dash">—</span>';return`<span class="remc" data-tip="Remise FW26 : ${remFmt(r[0])}<br>Remise SS27 : ${remFmt(r[1])}${r[2]?'<br>Paiement : '+esc(r[2]):''}">${remFmt(r[1])}</span>`}
-/* Photos produit : plus de planche statique (celle du template, figée sur 2 112 articles). Même principe que les autres
-   pages de l'intranet (Arrivées Logtex…) : le navigateur charge la photo sur lecoqsportif.com en essayant les suffixes
-   de nom connus ; si aucun ne répond, le serveur interroge la recherche du site (route lecoqsportif_image_lookup, avec
-   cache) ; sinon la case reste grise. */
+/* Photos produit : plus de planche statique (celle du template, figée sur 2 112 articles). Ordre de recherche :
+   1) la photo de l'article sur SharePoint (MARKETING/ASSETS/GHOST), à défaut son sketch (PRODUCTS/APPAREL) — affiché comme
+      une photo, sans mention — par la route app_suivi_sellin_image du module ;
+   2) si le serveur n'en a aucune : le site lecoqsportif.com, en essayant les suffixes de nom connus, puis la recherche du
+      site (route lecoqsportif_image_lookup, avec cache) ;
+   3) sinon la case reste grise. */
 const PHOTO_BASE='https://www.lecoqsportif.com/cdn/shop/files/';
 const PHOTO_CASCADE=['_2.webp','_new_1.webp','_1.webp','_2.jpg','_new_1.jpg','_1.jpg'];
 function pImgNone(S,title){return`<span class="pimg none" style="width:${S}px;height:${S}px"${title?` title="${title}"`:''}></span>`}
 function pImg(code,S){S=S||44;code=String(code==null?'':code).trim();if(!code||code==='(non renseigné)')return pImgNone(S);
-  return`<span class="pimg ph" style="width:${S}px;height:${S}px"><img src="${PHOTO_BASE}${encodeURIComponent(code)}${PHOTO_CASCADE[0]}" data-article="${esc(code)}" data-step="0" alt="" loading="lazy" decoding="async" onerror="window.__ssgPhotoErr(this)"></span>`}
+  /* article à 7 chiffres : photo / sketch du serveur d'abord ; autre code : directement l'e-shop */
+  const sp=/^\d{7}$/.test(code)&&SSG.image;
+  const src=sp?SSG.image.replace('0000000',code):PHOTO_BASE+encodeURIComponent(code)+PHOTO_CASCADE[0];
+  return`<span class="pimg ph" style="width:${S}px;height:${S}px"><img src="${src}" data-article="${esc(code)}" data-step="${sp?-1:0}" alt="" loading="lazy" decoding="async" onerror="window.__ssgPhotoErr(this)"></span>`}
 window.__ssgPhotoErr=function(img){
   const step=+img.dataset.step||0;
+  if(step===-1){img.dataset.step='0';img.src=PHOTO_BASE+encodeURIComponent(img.dataset.article||'')+PHOTO_CASCADE[0];return}
   if(step<PHOTO_CASCADE.length-1){img.dataset.step=String(step+1);img.src=img.src.replace(PHOTO_CASCADE[step],PHOTO_CASCADE[step+1]);return}
   img.onerror=null;
   const box=img.parentElement,none=()=>{if(box){box.className='pimg none';box.title="Pas d'image";box.innerHTML=''}};
@@ -1076,7 +1082,10 @@ function trCompute(mode,sel){
 const TR_IMG={};
 function trThumb(code){code=String(code||'');if(!code||!SSG.imageBase64)return Promise.resolve(null);
   return TR_IMG[code]||(TR_IMG[code]=(async()=>{
-    try{const r=await fetch(SSG.imageBase64.replace('ARTICLE_PLACEHOLDER',encodeURIComponent(code)),{credentials:'same-origin'});const d=await r.json();if(!d||!d.success)return null;
+    try{let d=null;
+      if(/^\d{7}$/.test(code)&&SSG.imageSpBase64){try{const r0=await fetch(SSG.imageSpBase64.replace('0000000',code),{credentials:'same-origin'});d=await r0.json()}catch(e){d=null}}
+      if(!d||!d.success){const r=await fetch(SSG.imageBase64.replace('ARTICLE_PLACEHOLDER',encodeURIComponent(code)),{credentials:'same-origin'});d=await r.json()}
+      if(!d||!d.success)return null;
       const im=await new Promise(res=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>res(null);i.src='data:image/'+(d.imageType==='jpg'?'jpeg':d.imageType||'jpeg')+';base64,'+d.base64});if(!im)return null;
       const T=192,cv=document.createElement('canvas');cv.width=T;cv.height=T;const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,T,T);g.imageSmoothingQuality='high';
       const k=Math.min(T/im.width,T/im.height),w=im.width*k,h=im.height*k;g.drawImage(im,(T-w)/2,(T-h)/2,w,h);return cv.toDataURL('image/png').split(',')[1]}
