@@ -85,6 +85,18 @@ final class ProductImageLibrary
             }
         }
 
+        // Garde-fou : un parcours qui ne retrouve presque rien (SharePoint muet, droit retiré, dossier renommé) ne doit pas
+        // écraser un index sain, sinon tous les articles perdraient leur photo jusqu'à la nuit suivante.
+        $previous = $this->index();
+        $before = count($previous['photos']);
+        if ($before > 0 && count($photos) < $before * 0.5) {
+            throw new \RuntimeException(sprintf(
+                'Index des images abandonné : %d photos trouvées contre %d dans l\'index actuel (moins de la moitié). L\'ancien index est conservé.',
+                count($photos),
+                $before,
+            ));
+        }
+
         $index = ['builtAt' => time(), 'photos' => $photos, 'sketches' => $sketches];
         $dir = dirname($this->indexPath);
         if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
