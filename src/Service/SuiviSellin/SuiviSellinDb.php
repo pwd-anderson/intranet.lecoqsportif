@@ -36,13 +36,25 @@ final class SuiviSellinDb
     {
         if ($this->pdo === null) {
             $dsn = $this->connection['dsn'];
-            if (str_starts_with($dsn, 'dblib:') && stripos($dsn, 'charset=') === false) {
-                $dsn = rtrim($dsn, ';') . ';charset=UTF-8';
+            $options = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION];
+            if (str_starts_with($dsn, 'dblib:')) {
+                // FreeTDS : ISO-8859-1 par défaut, délai de connexion/requête en secondes.
+                if (stripos($dsn, 'charset=') === false) {
+                    $dsn = rtrim($dsn, ';') . ';charset=UTF-8';
+                }
+                $options[PDO::ATTR_TIMEOUT] = 300;
+            } elseif (str_starts_with($dsn, 'sqlsrv:')) {
+                // Pilote Microsoft (préprod / prod) : UTF-8 d'office ; PDO::ATTR_TIMEOUT n'existe pas (« unsupported attribute »),
+                // le délai de requête a son propre attribut. MARS désactivé comme dans MssqlManager (facteur 10 sur les
+                // requêtes volumineuses) : on ne lance donc jamais une requête tant que la précédente n'est pas lue en entier.
+                if (stripos($dsn, 'MultipleActiveResultSets') === false) {
+                    $dsn = rtrim($dsn, ';') . ';MultipleActiveResultSets=false';
+                }
+                if (defined('PDO::SQLSRV_ATTR_QUERY_TIMEOUT')) {
+                    $options[PDO::SQLSRV_ATTR_QUERY_TIMEOUT] = 300;
+                }
             }
-            $this->pdo = new PDO($dsn, $this->connection['user'], $this->connection['password'], [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_TIMEOUT => 300,
-            ]);
+            $this->pdo = new PDO($dsn, $this->connection['user'], $this->connection['password'], $options);
         }
 
         return $this->pdo;
