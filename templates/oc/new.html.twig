@@ -30,6 +30,22 @@
         .oc-photo img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 4px; }
         .oc-photo img:not([src]) { width: 64px; height: 64px; background: url('/assets/images/no-image.png') center / contain no-repeat; }
         .oc-client-title { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+        .oc-variant { background: #fafbfd; }
+        .oc-variant td.left { padding-left: 30px; }
+        .oc-size-badge { display: inline-block; background: #e8eef7; color: #1f3d6e; border-radius: 10px; padding: 1px 8px; font-size: 11px; font-weight: 600; }
+        .oc-size-note { font-size: 12px; color: #5b6b7b; margin-top: 2px; }
+        .oc-size-chip { display: inline-flex; align-items: center; gap: 6px; margin: 0 8px 8px 0; padding: 5px 12px 5px 8px; border: 1px solid #b9cbe0; border-radius: 16px; background: #fff; cursor: pointer; user-select: none; font-weight: 600; }
+        .oc-size-chip:hover { border-color: #3b82c4; }
+        .oc-size-chip input { position: absolute; opacity: 0; pointer-events: none; }
+        .oc-size-box { width: 16px; height: 16px; border: 2px solid #8aa4c2; border-radius: 4px; background: #fff; display: inline-block; position: relative; }
+        .oc-size-chip.on { background: #e3f0fd; border-color: #3b82c4; }
+        .oc-size-chip.on .oc-size-box { background: #3b82c4; border-color: #3b82c4; }
+        .oc-size-chip.on .oc-size-box::after { content: ''; position: absolute; left: 3px; top: -1px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+        .oc-import-table td.err { background: #fdeaec; color: #a50e26; }
+        .oc-import-table td.ok { background: #e6f4ea; color: #1e6b34; font-weight: 600; }
+        .oc-import-table td.skip { background: #fdf2dc; color: #8a5500; }
+        .oc-import-table tr.bad { background: #fff7f8; }
+        .oc-sizes-panel { text-align: left; background: #f4f8fc; border: 1px solid #d5e3f3; border-radius: 6px; padding: 10px 14px; font-size: 13px; }
         .oc-warn { display: block; text-align: left; font-size: 12px; padding: 4px 10px; border-radius: 4px; margin: 2px 0; }
         .oc-warn.existing { background: #e6f2fc; color: #0b5394; }
         .oc-warn.pending { background: #fdeaec; color: #a50e26; font-weight: 600; }
@@ -113,6 +129,7 @@
                                 </span>
                             </div>
                             <datalist id="ocArticleList"></datalist>
+                            <div class="form-text">Pour une taille précise (ou une taille à un autre prix), tapez son code avec « _ » (ex. 2210037_T9) ou utilisez le bouton « Prix par taille » sous la ligne de l'article.</div>
                             <div class="form-text" id="ocImportHint">L'import est disponible une fois le client sélectionné.</div>
                         </div>
 
@@ -158,6 +175,9 @@
             const DISCOUNT_URL = '{{ path('app_oc_api_customer_discount', {code: 'CODE_PLACEHOLDER'}) }}';
             const PRICES_URL = '{{ path('app_oc_api_prices') }}';
             const ARTICLE_URL = '{{ path('app_oc_api_articles') }}';
+            const IMPORT_URL = '{{ path('app_oc_import') }}';
+            // Tailles (variants) d'un article parent, lues dans X3 pour le bouton « Prix par taille ».
+            const VARIANTS_URL = '{{ path('app_oc_api_article_variants', {parent: 'PARENTPLACEHOLDER'}) }}';
             // TVA : placeholder (20 %) tant que sa source n'est pas branchée (sert au calcul de la marge à partir du MSRP).
             const DEFAULT_TVA = 20;
             const PHOTO_BASE = 'https://www.lecoqsportif.com/cdn/shop/files/';
@@ -166,7 +186,7 @@
             const PHOTO_LOOKUP_URL = '{{ path('lecoqsportif_image_lookup', {article: 'ARTICLE_PLACEHOLDER'}) }}';
 
             // removed : lignes (client|article) supprimées individuellement ; l'article reste proposé aux autres clients.
-            const state = { customers: [], articles: [], lines: {}, numbers: {}, removed: {}, prices: {}, offerId: null, sourceOfferId: null };
+            const state = { customers: [], articles: [], lines: {}, numbers: {}, removed: {}, prices: {}, offerId: null, sourceOfferId: null, variants: {}, sizePanel: null, sizeChecks: {} };
 
             const $ = function (id) { return document.getElementById(id); };
             const esc = function (s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
@@ -236,12 +256,23 @@
                         // MSRP proposé dans le champ (modifiable) tant que l'utilisateur ne l'a pas saisi lui-même.
                         const line = ensureLine(c, a);
                         if (d.msrp !== null && !line.pvcTouched) { line.pvc = String(d.msrp); }
+                        // Ligne ajoutée avec un prix (import) : la marge se calcule dès que le MSRP est connu.
+                        if (line.price !== '' && line.margin === '') {
+                            const net = pvNet(line.pvc, a.tva);
+                            if (net) { line.margin = fmt(round(((net - num(line.price)) / net) * 100, 2)); }
+                        }
                         render();
                     })
                     .catch(function () { state.prices[k] = { error: true }; render(); });
             }
 
             function lineKey(c, a) { return c + '|' + a; }
+
+            // Une ligne est soit un article PARENT (« 2210037 » : son prix vaut pour toutes ses tailles), soit une TAILLE
+            // (« 2210037_T9 » : ce prix ne vaut que pour cette taille et l'emporte sur celui du parent).
+            function parentOf(ref) { return String(ref).split('_')[0]; }
+            function isVariant(ref) { return String(ref).indexOf('_') > -1; }
+            function sizeOf(ref) { return String(ref).slice(parentOf(ref).length + 1); }
 
             function ensureLine(customer, article) {
                 const k = lineKey(customer.code, article.ref);
@@ -316,6 +347,84 @@
                 return !!w && (w.type === 'pending' || w.type === 'unsent');
             }
 
+            // Cellule « Produit » : code, désignation et, sous un parent, ce qui part à X3 ; sous une taille, ce que son prix remplace.
+            function productCell(a, visible, parentLines) {
+                let html = '<strong>' + esc(a.ref) + '</strong>';
+                if (isVariant(a.ref)) {
+                    return html + ' <span class="oc-size-badge">Taille ' + esc(sizeOf(a.ref)) + '</span><br>' + esc(a.label)
+                        + '<div class="oc-size-note">' + (parentLines[parentOf(a.ref)]
+                            ? 'Ce prix remplace celui de l\'article pour cette taille.'
+                            : 'Cette taille uniquement : les autres tailles ne partent pas à X3.') + '</div>';
+                }
+                const own = visible.filter(function (v) { return isVariant(v.ref) && parentOf(v.ref) === a.ref; }).map(function (v) { return esc(sizeOf(v.ref)); });
+                return html + '<br>' + esc(a.label)
+                    + '<div class="oc-size-note">' + (own.length ? 'Toutes les tailles à ce prix, sauf : ' + own.join(', ') + '.' : 'Toutes les tailles au même prix.') + '</div>'
+                    + '<button type="button" class="btn btn-sm btn-outline-primary mt-1" data-sizes="' + esc(a.ref) + '">Prix par taille</button>';
+            }
+
+            // Tailles d'un parent lues dans X3 (une erreur n'est jamais présentée comme « aucune taille »).
+            function loadVariants(parent) {
+                const cur = state.variants[parent];
+                if (cur && !cur.error) { return; }
+                state.variants[parent] = { loading: true };
+                fetch(VARIANTS_URL.replace('PARENTPLACEHOLDER', encodeURIComponent(parent)), { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                    .then(function (d) { state.variants[parent] = { list: d.variants || [] }; render(); })
+                    .catch(function () { state.variants[parent] = { error: true }; render(); });
+            }
+
+            // Panneau « Prix par taille » sous la ligne d'un parent : cases à cocher des tailles pas encore saisies.
+            function sizesPanelRow(a) {
+                if (isVariant(a.ref) || state.sizePanel !== a.ref) { return ''; }
+                const v = state.variants[a.ref];
+                let body;
+                let actions = '';
+                if (!v || v.loading) {
+                    body = 'Chargement des tailles…';
+                } else if (v.error) {
+                    body = 'Les tailles ne peuvent pas être lues (X3 indisponible). <button type="button" class="btn btn-sm btn-link" data-sizes-retry="' + esc(a.ref) + '">Réessayer</button>';
+                } else {
+                    const present = {};
+                    state.articles.forEach(function (x) { if (!state.removed[lineKey(state.customers[0].code, x.ref)]) { present[x.ref] = true; } });
+                    const free = v.list.filter(function (r) { return !present[r]; });
+                    if (!v.list.length) {
+                        body = 'Cet article n\'a aucune taille dans X3.';
+                    } else if (!free.length) {
+                        body = 'Toutes les tailles ont déjà leur propre ligne.';
+                    } else {
+                        body = '<div class="mb-2">Cochez les tailles à tarifer à part. Chaque ligne démarre avec le prix et les quantités de l\'article, modifiables ensuite :</div>'
+                            + free.map(function (r) {
+                                const on = !!state.sizeChecks[r];
+                                return '<label class="oc-size-chip' + (on ? ' on' : '') + '"><input type="checkbox" data-size-check="' + esc(r) + '"' + (on ? ' checked' : '') + '><span class="oc-size-box"></span>' + esc(sizeOf(r)) + '</label>';
+                            }).join('');
+                        actions = '<button type="button" class="btn btn-sm btn-primary me-2" data-sizes-add="' + esc(a.ref) + '">Ajouter les tailles cochées</button>'
+                            + '<button type="button" class="btn btn-sm btn-outline-primary me-2" data-sizes-all="' + esc(a.ref) + '">Tout cocher</button>';
+                    }
+                }
+                return '<tr class="oc-sizes-row"><td colspan="13"><div class="oc-sizes-panel">' + body
+                    + '<div class="mt-2">' + actions + '<button type="button" class="btn btn-sm btn-secondary" data-sizes-close="1">Fermer</button></div></div></td></tr>';
+            }
+
+            // Crée une ligne par taille cochée, avec le prix, le MSRP et les quantités de la ligne parent comme point de départ.
+            function addSizes(refs) {
+                state.customers.forEach(function (c) {
+                    refs.forEach(function (ref) {
+                        const parentArt = state.articles.find(function (x) { return x.ref === parentOf(ref); });
+                        const parentLine = parentArt ? ensureLine(c, parentArt) : null;
+                        let art = state.articles.find(function (x) { return x.ref === ref; });
+                        if (art) { delete state.removed[lineKey(c.code, ref)]; return; }
+                        art = { ref: ref, label: parentArt ? parentArt.label : '', tva: parentArt ? parentArt.tva : DEFAULT_TVA, warnings: {} };
+                        state.articles.push(art);
+                        const l = ensureLine(c, art);
+                        if (parentLine) {
+                            l.price = parentLine.price; l.margin = parentLine.margin; l.pvc = parentLine.pvc; l.pvcTouched = parentLine.pvcTouched;
+                            l.minQty = parentLine.minQty; l.maxQty = parentLine.maxQty; l.comment = parentLine.comment;
+                        }
+                        loadPrices(c, art);
+                    });
+                });
+            }
+
             function render() {
                 // Chips
                 $('ocCustomerChips').innerHTML = state.customers.map(function (c) {
@@ -346,14 +455,25 @@
                 let anyBlocked = false;
                 $('ocTables').innerHTML = state.customers.map(function (c) {
                     const visible = state.articles.filter(function (a) { return !state.removed[lineKey(c.code, a.ref)]; });
+                    // Les lignes d'un même article sont regroupées : la ligne parent d'abord, puis ses tailles.
+                    const firstIdx = {};
+                    state.articles.forEach(function (a, i) { const p = parentOf(a.ref); if (!(p in firstIdx)) { firstIdx[p] = i; } });
+                    visible.sort(function (x, y) {
+                        const px = parentOf(x.ref), py = parentOf(y.ref);
+                        if (px !== py) { return firstIdx[px] - firstIdx[py]; }
+                        if (isVariant(x.ref) !== isVariant(y.ref)) { return isVariant(x.ref) ? 1 : -1; }
+                        return x.ref < y.ref ? -1 : 1;
+                    });
+                    const parentLines = {};
+                    visible.forEach(function (a) { if (!isVariant(a.ref)) { parentLines[a.ref] = true; } });
                     const rows = visible.map(function (a) {
                         const l = ensureLine(c, a);
                         const p = state.prices[lineKey(c.code, a.ref)] || {};
                         const blocked = isBlocked(a, c.code);
                         if (blocked) anyBlocked = true;
-                        return '<tr data-key="' + esc(lineKey(c.code, a.ref)) + '" class="' + (blocked ? 'oc-blocked' : '') + '">'
-                            + '<td>' + photoHtml(a.ref) + '</td>'
-                            + '<td class="left"><strong>' + esc(a.ref) + '</strong><br>' + esc(a.label) + '</td>'
+                        return '<tr data-key="' + esc(lineKey(c.code, a.ref)) + '" class="' + (blocked ? 'oc-blocked' : '') + (isVariant(a.ref) ? ' oc-variant' : '') + '">'
+                            + '<td>' + (isVariant(a.ref) && parentLines[parentOf(a.ref)] ? '' : photoHtml(parentOf(a.ref))) + '</td>'
+                            + '<td class="left">' + productCell(a, visible, parentLines) + '</td>'
                             + '<td>' + esc(p.currency || c.currency) + '</td>'
                             + '<td>' + esc(priceText(p, 'tariffCode')) + '</td>'
                             + '<td>' + esc(priceText(p, 'tariff')) + '</td>'
@@ -367,6 +487,7 @@
                             + '<td><textarea class="form-control form-control-sm oc-comment" data-f="comment" rows="2" maxlength="500">' + esc(l.comment) + '</textarea></td>'
                             + '<td><button type="button" class="btn btn-sm btn-danger" data-rm-line="' + esc(lineKey(c.code, a.ref)) + '" title="Supprimer cet article pour ce client" aria-label="Supprimer la ligne">×</button></td>'
                             + '</tr>'
+                            + sizesPanelRow(a)
                             + (a.warnings[c.code] ? '<tr><td colspan="13" style="padding:0 6px 6px">' + warningHtml(a, c.code) + '</td></tr>' : '');
                     }).join('');
                     return '<div class="mb-4" data-customer="' + esc(c.code) + '">'
@@ -536,6 +657,48 @@
                 if (rc) { state.customers = state.customers.filter(function (c) { return c.code !== rc; }); render(); }
             });
 
+            // « Prix par taille » : ouvrir / fermer le panneau, cocher des tailles, les ajouter.
+            document.addEventListener('click', function (e) {
+                const t = e.target;
+                const get = function (n) { return t.getAttribute ? t.getAttribute(n) : null; };
+                if (get('data-sizes')) {
+                    const p = get('data-sizes');
+                    state.sizePanel = state.sizePanel === p ? null : p;
+                    if (state.sizePanel) { loadVariants(p); }
+                    render();
+                } else if (get('data-sizes-retry')) {
+                    const p = get('data-sizes-retry');
+                    delete state.variants[p];
+                    loadVariants(p);
+                    render();
+                } else if (get('data-sizes-all')) {
+                    const p = get('data-sizes-all');
+                    const v = state.variants[p];
+                    const present = {};
+                    state.articles.forEach(function (x) { if (!state.removed[lineKey(state.customers[0].code, x.ref)]) { present[x.ref] = true; } });
+                    (v && v.list ? v.list : []).forEach(function (r) { if (!present[r]) { state.sizeChecks[r] = true; } });
+                    render();
+                } else if (get('data-sizes-close')) {
+                    state.sizePanel = null;
+                    render();
+                } else if (get('data-sizes-add')) {
+                    const p = get('data-sizes-add');
+                    const refs = Object.keys(state.sizeChecks).filter(function (r) { return state.sizeChecks[r] && parentOf(r) === p; });
+                    if (!refs.length) { toast('Cochez au moins une taille.'); return; }
+                    addSizes(refs);
+                    refs.forEach(function (r) { delete state.sizeChecks[r]; });
+                    state.sizePanel = null;
+                    render();
+                }
+            });
+            $('ocTables').addEventListener('change', function (e) {
+                const r = e.target.getAttribute('data-size-check');
+                if (r) {
+                    state.sizeChecks[r] = e.target.checked;
+                    e.target.closest('label').classList.toggle('on', e.target.checked);   // coche dessinée par la page (le thème masque les cases natives)
+                }
+            });
+
             $('ocTables').addEventListener('input', function (e) {
                 const f = e.target.getAttribute('data-f');
                 if (!f) return;
@@ -636,6 +799,98 @@
 
             $('btnSubmit').addEventListener('click', function () {
                 confirmModal('Soumettre cette OC pour validation ? Elle ne sera plus modifiable.', submitOffer, 'Soumettre l\'OC');
+            });
+
+            // ── Import d'un fichier de lignes : analyse par le serveur, aperçu avec les erreurs, ajout des lignes valides ──
+            let importRows = [];
+            const fmtNum = function (v) { return v === null || v === undefined ? '—' : (Number(v) % 1 === 0 ? String(v) : Number(v).toFixed(2)); };
+            const alreadyInOffer = function (ref) {
+                return state.articles.some(function (a) { return a.ref === ref && !state.customers.some(function (c) { return state.removed[lineKey(c.code, a.ref)]; }); });
+            };
+
+            function importReset() {
+                importRows = [];
+                $('ocImportRows').innerHTML = '';
+                $('ocImportPreviewWrap').classList.add('d-none');
+                $('ocImportMsg').innerHTML = '';
+                $('ocImportSummary').textContent = '';
+                $('ocImportAdd').disabled = true;
+                $('ocImportAdd').textContent = 'Ajouter les lignes valides';
+            }
+
+            function importRender(res) {
+                importRows = res.rows;
+                let ready = 0;
+                $('ocImportRows').innerHTML = res.rows.map(function (r) {
+                    const dup = r.status === 'ok' && alreadyInOffer(r.article);
+                    if (r.status === 'ok' && !dup) { ready += 1; }
+                    const check = r.status === 'ok'
+                        ? (dup ? '<td class="skip">Déjà dans l\'OC : ignorée</td>' : '<td class="ok">✓ Valide' + (r.isSize ? ' (taille)' : '') + '</td>')
+                        : '<td class="err">' + r.errors.map(esc).join('<br>') + '</td>';
+                    return '<tr class="' + (r.status === 'ok' ? '' : 'bad') + '"><td>' + esc(r.line) + '</td><td><strong>' + esc(r.article) + '</strong></td>'
+                        + '<td>' + esc(r.label || '—') + '</td><td class="text-end">' + esc(fmtNum(r.tariff)) + '</td><td class="text-end">' + esc(fmtNum(r.x3Tariff)) + '</td>'
+                        + '<td class="text-end">' + esc(fmtNum(r.minQty)) + '</td><td class="text-end">' + esc(fmtNum(r.maxQty)) + '</td>'
+                        + '<td>' + esc(r.comment || '') + '</td>' + check + '</tr>';
+                }).join('');
+                $('ocImportPreviewWrap').classList.remove('d-none');
+                const s = res.summary;
+                $('ocImportMsg').innerHTML = '<div class="alert ' + (s.errors ? 'alert-warning' : 'alert-success') + ' py-2 mb-0">'
+                    + s.total + ' ligne' + (s.total > 1 ? 's' : '') + ' lue' + (s.total > 1 ? 's' : '') + ' : <strong>' + s.valid + ' valide' + (s.valid > 1 ? 's' : '') + '</strong>'
+                    + (s.errors ? ', <strong>' + s.errors + ' en erreur</strong> (non ajoutée' + (s.errors > 1 ? 's' : '') + ' : corrigez le fichier et réimportez-les).' : '.') + '</div>';
+                $('ocImportSummary').textContent = ready + ' ligne' + (ready > 1 ? 's' : '') + ' à ajouter';
+                $('ocImportAdd').disabled = ready === 0;
+                $('ocImportAdd').textContent = 'Ajouter ' + (ready > 1 ? 'les ' + ready + ' lignes valides' : (ready === 1 ? 'la ligne valide' : 'les lignes valides'));
+            }
+
+            $('ocImportModal').addEventListener('show.bs.modal', function () { $('ocImportFile').value = ''; importReset(); });
+
+            $('ocImportFile').addEventListener('change', function () {
+                importReset();
+                const file = this.files && this.files[0];
+                if (!file) { return; }
+                if (!state.customers.length) { $('ocImportMsg').innerHTML = '<div class="alert alert-danger py-2 mb-0">Sélectionnez d\'abord le client.</div>'; return; }
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('customerCode', state.customers[0].code);
+                $('ocImportMsg').innerHTML = '<div class="text-muted">Analyse du fichier en cours (contrôle des articles dans X3)…</div>';
+                fetch(IMPORT_URL, { method: 'POST', headers: { 'Accept': 'application/json', 'X-CSRF-Token': CSRF }, body: fd })
+                    .then(function (r) { return r.json().catch(function () { return { ok: false, errors: ['Réponse inattendue du serveur (' + r.status + ').'] }; }); })
+                    .then(function (res) {
+                        if (!res.ok) {
+                            $('ocImportMsg').innerHTML = '<div class="alert alert-danger py-2 mb-0">' + (res.errors || ['Erreur inconnue.']).map(esc).join('<br>') + '</div>';
+                            return;
+                        }
+                        importRender(res);
+                    })
+                    .catch(function () { $('ocImportMsg').innerHTML = '<div class="alert alert-danger py-2 mb-0">Le serveur ne répond pas : réessayez.</div>'; });
+            });
+
+            $('ocImportAdd').addEventListener('click', function () {
+                let added = 0;
+                importRows.forEach(function (r) {
+                    if (r.status !== 'ok' || alreadyInOffer(r.article)) { return; }
+                    state.customers.forEach(function (c) {
+                        delete state.removed[lineKey(c.code, r.article)];
+                        let art = state.articles.find(function (x) { return x.ref === r.article; });
+                        if (!art) {
+                            art = { ref: r.article, label: r.label || '', tva: DEFAULT_TVA, warnings: {} };
+                            state.articles.push(art);
+                        }
+                        const l = ensureLine(c, art);
+                        l.price = String(r.tariff);
+                        l.margin = '';
+                        l.minQty = r.minQty;
+                        l.maxQty = r.maxQty;
+                        l.comment = r.comment || '';
+                        loadPrices(c, art);
+                    });
+                    added += 1;
+                });
+                // Fermeture par le bouton « Fermer » du modal (même chemin que l'utilisateur) : Modal.getInstance().hide() laisse un fond gris
+                // bloquant quand Bootstrap est chargé deux fois par le thème de l'intranet.
+                $('ocImportModal').querySelector('.modal-footer [data-bs-dismiss="modal"]').click();
+                render();
+                toast(added + ' ligne' + (added > 1 ? 's' : '') + ' ajoutée' + (added > 1 ? 's' : '') + ' à l\'OC : vérifiez-les puis enregistrez le brouillon.');
             });
 
             // ── Chargement d'une OC existante (modification d'un brouillon) ou d'une OC rejetée (nouvelle OC) ──

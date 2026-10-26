@@ -1,6 +1,8 @@
-{# Modal d'import Excel/CSV des lignes d'OC — v0 : interface seule, le traitement du fichier viendra plus tard. #}
+{# Modal d'import Excel/CSV des lignes d'OC : un fichier = un client = une OC (client et dates choisis à l'écran).
+   Le fichier est analysé par le serveur (POST /oc/import), qui renvoie chaque ligne avec son contrôle ; « Ajouter » place les lignes
+   valides dans l'OC en cours de saisie (rien n'est enregistré avant « Enregistrer le brouillon »). Le JS est dans new.html.twig. #}
 <div class="modal fade" id="ocImportModal" tabindex="-1" aria-labelledby="ocImportModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="ocImportModalLabel">Importer des lignes d'OC</h5>
@@ -8,35 +10,32 @@
             </div>
             <div class="modal-body">
                 <p class="text-muted mb-2">
-                    Importez plusieurs articles en une fois pour le client sélectionné (article, tarif, quantités, dates, commentaire).
-                    Chaque ligne sera contrôlée avant création : client actif, article actif, tarif spé déjà existant, OC en attente.
+                    Importez plusieurs articles en une fois pour le client sélectionné. Le fichier contient les lignes (article, tarif OC,
+                    quantités, commentaire) ; le client et les dates sont ceux de l'écran. Chaque ligne est contrôlée avant d'être ajoutée.
                 </p>
                 <p class="small mb-2"><strong>Client concerné :</strong> <span id="ocImportClients" class="text-muted"></span></p>
-                <div class="alert alert-warning py-2 small mb-3">
-                    Version visuelle : le traitement du fichier n'est pas encore branché.
-                </div>
-                <div class="border rounded p-4 text-center mb-3" style="border-style: dashed !important; background: #f6f8fb;">
+                <div class="border rounded p-3 text-center mb-2" style="border-style: dashed !important; background: #f6f8fb;">
                     <input type="file" class="form-control" id="ocImportFile" accept=".xlsx,.xls,.csv">
-                    <div class="small text-muted mt-2">Formats acceptés : .xlsx, .xls, .csv</div>
+                    <div class="small text-muted mt-2">Formats acceptés : .xlsx, .xls, .csv (200 lignes et 2 Mo au maximum)</div>
                 </div>
-                <a href="#" class="small disabled" aria-disabled="true" onclick="return false;">Télécharger le fichier modèle</a>
-                <div class="table-responsive mt-3">
-                    <table class="table table-sm table-bordered mb-0 small">
-                        <thead class="table-light">
+                <a href="{{ path('app_oc_import_template') }}" class="small">Télécharger le fichier modèle</a>
+                <div id="ocImportMsg" class="mt-3"></div>
+                <div class="table-responsive mt-2 d-none" id="ocImportPreviewWrap" style="max-height: 46vh; overflow: auto;">
+                    <table class="table table-sm table-bordered mb-0 small oc-import-table">
+                        <thead class="table-light" style="position: sticky; top: 0;">
                             <tr>
-                                <th>Article</th><th>Tarif</th><th>Qté min</th><th>Qté max</th>
-                                <th>Début</th><th>Fin</th><th>Commentaire</th><th>Contrôle</th>
+                                <th>Ligne</th><th>Article</th><th>Désignation</th><th class="text-end">Tarif OC</th><th class="text-end">Tarif X3</th>
+                                <th class="text-end">Qté min</th><th class="text-end">Qté max</th><th>Commentaire</th><th>Contrôle</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr><td colspan="8" class="text-muted text-center">Aperçu et résultat des contrôles ligne par ligne après sélection du fichier.</td></tr>
-                        </tbody>
+                        <tbody id="ocImportRows"></tbody>
                     </table>
                 </div>
             </div>
             <div class="modal-footer">
+                <span class="me-auto small text-muted" id="ocImportSummary"></span>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                <button type="button" class="btn btn-primary" disabled>Créer les OC</button>
+                <button type="button" class="btn btn-primary" id="ocImportAdd" disabled>Ajouter les lignes valides</button>
             </div>
         </div>
     </div>

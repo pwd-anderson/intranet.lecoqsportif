@@ -39,6 +39,10 @@
         .ref { font-weight: bold; font-size: 10px; }
         .net { font-weight: bold; }
         .comment { font-size: 8px; color: #555; margin-top: 2px; }
+        .size { background: #e8eef7; color: #1f3d6e; font-size: 8px; font-weight: bold; padding: 1px 5px; }
+        .size-note { font-size: 8px; color: #555; margin-top: 2px; }
+        .size-row td { background: #fafbfd; }
+        .size-row td.info { padding-left: 16px; }
     </style>
 </head>
 <body>
@@ -100,12 +104,14 @@
     <tbody>
     {% for row in rows %}
         {% set l = row.line %}
-        <tr>
-            <td class="photo">{% if row.photo %}<img src="{{ row.photo }}" alt="">{% else %}<div class="nophoto">photo</div>{% endif %}</td>
-            <td>
-                <div class="ref">{{ l.articleCode }}</div>
+        <tr{% if l.variant %} class="size-row"{% endif %}>
+            <td class="photo">{% if row.first %}{% if row.photo %}<img src="{{ row.photo }}" alt="">{% else %}<div class="nophoto">photo</div>{% endif %}{% endif %}</td>
+            <td{% if l.variant %} class="info"{% endif %}>
+                <div class="ref">{{ l.articleCode }}{% if l.variant %} <span class="size">TAILLE {{ l.sizeLabel }}</span>{% endif %}</div>
                 {% if l.articleLabel %}{{ l.articleLabel }}<br>{% endif %}
                 {% if l.collection %}<span class="muted">Collection : {{ l.collection }}</span>{% endif %}
+                {% if not l.variant and row.sizeLabels %}<div class="size-note">Toutes les tailles à ce prix, sauf : {{ row.sizeLabels|join(', ') }} (prix propres ci-dessous).</div>{% endif %}
+                {% if l.variant and not row.hasParentLine %}<div class="size-note">Cette taille uniquement.</div>{% endif %}
                 {% if l.comment %}<div class="comment">{{ l.comment }}</div>{% endif %}
             </td>
             <td class="num-cell">{{ l.minQty|number_format(0, ',', ' ') }}</td>

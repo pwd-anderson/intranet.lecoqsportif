@@ -82,6 +82,12 @@ class OcX3Lookup
      */
     public function searchArticles(string $input): array
     {
+        // Une saisie contenant « _ » vise un variant (taille, ex. « 2210037_T9 ») : recherche par code seulement. Sinon, articles
+        // parents (code ou désignation), comme avant.
+        if (str_contains($input, '_')) {
+            return $this->search('Sei/oc_article_search_variants.sql', $input, ['q_ref'], 'recherche taille');
+        }
+
         return $this->search('Sei/oc_article_search.sql', $input, ['q_ref', 'q_des'], 'recherche article');
     }
 

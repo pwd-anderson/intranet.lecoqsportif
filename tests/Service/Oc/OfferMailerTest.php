@@ -173,4 +173,18 @@ final class OfferMailerTest extends TestCase
         self::assertFalse($this->mailer('test')->isEnabled());
         self::assertTrue($this->mailer('prod')->isEnabled());
     }
+    public function testTheMailCountsArticlesNotSizesAndMentionsSizeLines(): void
+    {
+        $offer = $this->offer();
+        $offer->clearLines();
+        foreach (['2210037', '2210037_T9', '2210037_T10', '1511960'] as $code) {
+            $offer->addLine((new OfferLine())->setArticleCode($code));
+        }
+        $sent = null;
+        $this->graph->method('send')->willReturnCallback(function (Email $m) use (&$sent): void { $sent = $m; });
+
+        $this->mailer('prod')->notifySubmitted($offer);
+
+        self::assertStringContainsString('2 (dont 2 lignes de taille)', (string) $sent->getHtmlBody());
+    }
 }

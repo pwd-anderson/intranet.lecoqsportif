@@ -7,11 +7,16 @@ use App\Entity\User;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use App\Repository\Oc\OfferRepository;
 use App\Security\OfferVoter;
+use App\Service\Oc\Import\OfferImportChecker;
+use App\Service\Oc\Import\OfferImportException;
+use App\Service\Oc\Import\OfferImportReader;
+use App\Service\Oc\Import\OfferImportTemplate;
 use App\Service\Oc\OcStatus;
 use App\Service\Oc\OcX3Lookup;
 use App\Service\Divers;
 use App\Service\Oc\OfferCalculator;
 use App\Service\Oc\OfferPdfGenerator;
+use App\Service\Oc\OfferSizing;
 use App\Service\Oc\OfferService;
 use App\Service\Oc\OfferValidationException;
 use App\Service\Tools\Helpers;
@@ -129,14 +134,29 @@ final class OcController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_oc_show', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function show(#[MapEntity] Offer $offer, Request $request): Response
+    public function show(#[MapEntity] Offer $offer, Request $request, OcX3Lookup $x3): Response
     {
         $this->denyAccessUnlessGranted(OfferVoter::VIEW, $offer);
 
         // Valider / Rejeter ne sont proposés que lorsqu'on arrive depuis le menu « Validation OC » (?from=validation).
         $decisionMode = $request->query->get('from') === 'validation' && $this->isGranted(OfferVoter::DECIDE, $offer);
 
+        // Lignes regroupées par article (le parent puis ses tailles). Pour la Direction, on lit aussi les tailles de chaque article dans X3
+        // afin de montrer ce qui partira réellement (« Envoyé à X3 ») ; si X3 ne répond pas, la page s'affiche quand même.
+        $lines = $offer->getLines()->toArray();
+        $sizes = null;
+        $sizesUnavailable = false;
+        if ($decisionMode) {
+            try {
+                $sizes = $x3->getVariants(array_map(static fn ($l): string => $l->getParentCode(), $lines));
+            } catch (\Throwable) {
+                $sizesUnavailable = true;
+            }
+        }
+
         return $this->render('oc/show.html.twig', [
+            'groups' => OfferSizing::groups($lines, $sizes),
+            'sizesUnavailable' => $sizesUnavailable,
             'offer' => $offer,
             'decisionMode' => $decisionMode,
             // Prix d'achat et marge LCS : uniquement dans la vue de validation (jamais pour le commercial, le PDF ni les mails).
@@ -175,6 +195,50 @@ final class OcController extends AbstractController
     }
 
     // ── Écritures (JSON) ─────────────────────────────────────────────────────
+
+    /**
+     * Import d'un fichier de lignes (Excel / CSV) pour le client de l'écran : POST multipart (file, customerCode), jeton CSRF. Ne crée
+     * rien en base : renvoie chaque ligne lue avec son contrôle (ok / error + motifs) ; la page ajoute ensuite les lignes valides à
+     * l'OC en cours de saisie, que le commercial relit et enregistre comme d'habitude.
+     */
+    #[Route('/import', name: 'app_oc_import', methods: ['POST'])]
+    public function import(Request $request, OfferImportReader $reader, OfferImportChecker $checker): JsonResponse
+    {
+        if ($error = $this->guardWrite($request)) {
+            return $error;
+        }
+
+        $file = $request->files->get('file');
+        if (!$file instanceof \Symfony\Component\HttpFoundation\File\UploadedFile || !$file->isValid()) {
+            return $this->fail(['Aucun fichier reçu (ou envoi interrompu) : choisissez un fichier .xlsx, .xls ou .csv.'], 422);
+        }
+
+        try {
+            $rows = $reader->read($file->getPathname(), pathinfo((string) $file->getClientOriginalName(), PATHINFO_EXTENSION));
+            $checked = $checker->check((string) $request->request->get('customerCode', ''), $rows);
+        } catch (OfferImportException $e) {
+            return $this->fail([$e->getMessage()], 422);
+        }
+
+        $valid = count(array_filter($checked, static fn (array $r): bool => $r['status'] === 'ok'));
+
+        return new JsonResponse([
+            'ok' => true,
+            'rows' => $checked,
+            'summary' => ['total' => count($checked), 'valid' => $valid, 'errors' => count($checked) - $valid],
+        ]);
+    }
+
+    /** Fichier modèle de l'import : GET /oc/import-template. */
+    #[Route('/import-template', name: 'app_oc_import_template', methods: ['GET'])]
+    public function importTemplate(OfferImportTemplate $template): Response
+    {
+        return new Response($template->binary(), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, 'modele_import_oc.xlsx'),
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
 
     /** Crée ou met à jour un brouillon. Corps JSON : voir OfferInput ; "id" pour une mise à jour, "sourceOfferId" pour une OC issue d'un rejet. */
     #[Route('/save', name: 'app_oc_save', methods: ['POST'])]
@@ -370,7 +434,23 @@ final class OcController extends AbstractController
         ]);
     }
 
-    /** Autocomplétion article parent (X3_LCS) : GET /oc/api/articles?q=... */
+    /**
+     * Tailles (variants) d'un article parent : GET /oc/api/articles/{parent}/variants -> {"variants": ["2210037_L", ...]}.
+     * Une erreur X3 rend 503 (jamais une liste vide, qui voudrait dire « aucune taille »).
+     */
+    #[Route('/api/articles/{parent}/variants', name: 'app_oc_api_article_variants', requirements: ['parent' => '[A-Za-z0-9]+'], methods: ['GET'])]
+    public function articleVariants(string $parent, OcX3Lookup $lookup): JsonResponse
+    {
+        try {
+            $variants = $lookup->getVariants([$parent])[$parent] ?? [];
+        } catch (\Throwable) {
+            return new JsonResponse(['variants' => [], 'error' => 'X3 indisponible'], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
+        return new JsonResponse(['variants' => array_values($variants)]);
+    }
+
+    /** Autocomplétion article (X3_LCS) : GET /oc/api/articles?q=... (parents ; variants si la saisie contient « _ ») */
     #[Route('/api/articles', name: 'app_oc_api_articles', methods: ['GET'])]
     public function articles(Request $request, OcX3Lookup $lookup, Helpers $helpers): JsonResponse
     {

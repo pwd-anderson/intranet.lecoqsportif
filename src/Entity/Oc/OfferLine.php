@@ -7,7 +7,8 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Une ligne d'OC = un article (parent, sans variant). Elle conserve À LA FOIS ce que X3 donnait à
+ * Une ligne d'OC = un article : un PARENT (« 2210037 », le prix s'applique à toutes ses tailles) ou un VARIANT
+ * (« 2210037_T9 », ce prix ne vaut que pour cette taille et l'emporte sur celui du parent). Elle conserve À LA FOIS ce que X3 donnait à
  * l'enregistrement (tarif X3, MSRP X3, collection...) et ce que le commercial a décidé (tarif OC, MSRP
  * utilisé, TVA, marge, quantités) : on peut ainsi comparer plus tard l'un et l'autre.
  */
@@ -30,7 +31,7 @@ class OfferLine
 
     // ── Article, figé depuis X3 ──────────────────────────────────────────────
     #[ORM\Column(length: 50)]
-    private string $articleCode;
+    private string $articleCode = '';
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $articleLabel = null;
@@ -114,6 +115,23 @@ class OfferLine
     public function setPosition(int $v): static { $this->position = $v; return $this; }
 
     public function getArticleCode(): string { return $this->articleCode; }
+
+    /** Code parent d'un article : « 2210037_T9 » → « 2210037 » (un parent est son propre parent). */
+    public static function parentOf(string $articleCode): string
+    {
+        return explode('_', $articleCode, 2)[0];
+    }
+
+    /** Vrai pour un variant (taille) : le code de ligne contient « _ » (« PARENT_VARIANT »). */
+    public function isVariant(): bool { return str_contains($this->articleCode, '_'); }
+
+    public function getParentCode(): string { return self::parentOf($this->articleCode); }
+
+    /** Taille d'une ligne de variant : « 2210037_T9 » → « T9 » (chaîne vide pour un parent). */
+    public function getSizeLabel(): string
+    {
+        return $this->isVariant() ? substr($this->articleCode, strlen($this->getParentCode()) + 1) : '';
+    }
     public function setArticleCode(string $v): static { $this->articleCode = $v; return $this; }
 
     public function getArticleLabel(): ?string { return $this->articleLabel; }

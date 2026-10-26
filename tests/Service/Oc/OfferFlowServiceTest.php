@@ -113,4 +113,95 @@ final class OfferFlowServiceTest extends TestCase
 
         self::assertCount(1, $flows);
     }
+    // ── Prix par taille : une ligne « variant » l'emporte sur la ligne de son parent ─────────────────────────────
+
+    private function offerWith(array $lines): Offer
+    {
+        $offer = (new Offer())
+            ->setNumber('OC2026102054812345678')->setCustomerCode('20548')->setCustomerCurrency('EUR')
+            ->setStartDate(new \DateTimeImmutable('2027-02-01'))->setEndDate(new \DateTimeImmutable('2027-12-31'));
+        foreach ($lines as $code => $injected) {
+            $offer->addLine((new OfferLine())->setArticleCode($code)->setMinQty(0)->setMaxQty(999999)->setTariff('10')->setInjectedPrice($injected));
+        }
+
+        return $offer;
+    }
+
+    /** @param list<OfferFlow> $flows @return array<string, string> code article => WDISPRI */
+    private function pricesOf(array $flows): array
+    {
+        $out = [];
+        foreach ($flows as $f) {
+            preg_match('/NAME="WDISPRI">([^<]+)</', $f->getXml(), $m);
+            $out[$f->getArticleCode()] = $m[1];
+        }
+
+        return $out;
+    }
+
+    public function testVariantLinesOverrideTheParentPriceAndOthersKeepTheParentPrice(): void
+    {
+        $variants = ['2210037' => ['2210037_L', '2210037_M', '2210037_S']];
+        $offer = $this->offerWith(['2210037' => '35.00', '2210037_L' => '30.00', '2210037_S' => '43.00']);
+
+        $flows = $this->service($variants)->send($offer);
+
+        self::assertSame(['2210037_L' => '30', '2210037_M' => '35', '2210037_S' => '43'], $this->sorted($this->pricesOf($flows)));
+        self::assertCount(3, $flows, 'un seul flux par taille, jamais deux');
+    }
+
+    public function testResultDoesNotDependOnTheOrderOfTheLines(): void
+    {
+        $variants = ['2210037' => ['2210037_L', '2210037_M', '2210037_S']];
+        $parentFirst = $this->sorted($this->pricesOf($this->service($variants)->send($this->offerWith(['2210037' => '35.00', '2210037_L' => '30.00']))));
+        $this->persisted = [];
+        $childFirst = $this->sorted($this->pricesOf($this->service($variants)->send($this->offerWith(['2210037_L' => '30.00', '2210037' => '35.00']))));
+
+        self::assertSame($parentFirst, $childFirst);
+        self::assertSame(['2210037_L' => '30', '2210037_M' => '35', '2210037_S' => '35'], $childFirst);
+    }
+
+    public function testVariantLineAloneSendsOnlyThatSize(): void
+    {
+        $flows = $this->service(['2210037' => ['2210037_L', '2210037_M', '2210037_S']])->send($this->offerWith(['2210037_L' => '30.00']));
+
+        self::assertSame(['2210037_L' => '30'], $this->pricesOf($flows), 'ni les autres tailles ni le parent');
+    }
+
+    public function testParentFullyCoveredByVariantLinesSendsOnlyThoseSizes(): void
+    {
+        $flows = $this->service(['2210037' => ['2210037_L', '2210037_S']])->send($this->offerWith(['2210037' => '35.00', '2210037_L' => '30.00', '2210037_S' => '43.00']));
+
+        self::assertSame(['2210037_L' => '30', '2210037_S' => '43'], $this->sorted($this->pricesOf($flows)));
+    }
+
+    public function testVariantUnknownToItsParentStopsEverything(): void
+    {
+        $offer = $this->offerWith(['2210037' => '35.00', '2210037_XXL' => '30.00']);
+
+        try {
+            $this->service(['2210037' => ['2210037_L', '2210037_S']])->send($offer);
+            self::fail('Une taille absente de X3 doit empêcher la génération.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('2210037_XXL', $e->getMessage());
+            self::assertCount(0, $offer->getFlows());
+            self::assertCount(0, array_filter($this->persisted, static fn ($o) => $o instanceof SalesWebService));
+        }
+    }
+
+    public function testVariantsOfTwoParentsAreMixedCorrectly(): void
+    {
+        $variants = ['2210037' => ['2210037_L', '2210037_S'], '1511960' => ['1511960_40', '1511960_41']];
+        $flows = $this->service($variants)->send($this->offerWith(['2210037' => '35.00', '1511960' => '20.00', '1511960_41' => '25.00']));
+
+        self::assertSame(['1511960_40' => '20', '1511960_41' => '25', '2210037_L' => '35', '2210037_S' => '35'], $this->sorted($this->pricesOf($flows)));
+    }
+
+    /** @param array<string,string> $a */
+    private function sorted(array $a): array
+    {
+        ksort($a);
+
+        return $a;
+    }
 }

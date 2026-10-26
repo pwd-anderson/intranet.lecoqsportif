@@ -4,6 +4,7 @@ namespace App\Service\Oc;
 
 use App\Entity\Oc\Offer;
 use App\Entity\Oc\OfferFlow;
+use App\Entity\Oc\OfferLine;
 use App\Service\Webservice\WebServiceDispatcher;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -37,24 +38,14 @@ class OfferFlowService
             return $offer->getFlows()->toArray();
         }
 
-        // L'OC est saisie par article PARENT, mais X3 reçoit un tarif par article ENFANT (variant) : tous les variants du
-        // parent, sans tenir compte de la collection, chacun une fois ; le parent n'est jamais envoyé.
-        $variants = $this->x3->getVariants(array_map(static fn ($l) => $l->getArticleCode(), $offer->getLines()->toArray()));
+        // Règle parent / taille : voir OfferSizing (une ligne de taille l'emporte sur celle de son parent ; un parent envoie ses variants
+        // sans ceux qui ont leur propre ligne ; une taille seule ne tarife que cette taille ; jamais le parent lui-même).
+        $lines = $offer->getLines()->toArray();
+        $variants = $this->x3->getVariants(array_map(static fn (OfferLine $l) => $l->getParentCode(), $lines));
 
         $flows = [];
-        $seen = [];
-        foreach ($offer->getLines() as $line) {
-            $children = $variants[$line->getArticleCode()] ?? [];
-            if ($children === []) {
-                throw new \RuntimeException(sprintf('Aucun variant trouvé pour l\'article parent %s : flux X3 non généré.', $line->getArticleCode()));
-            }
-            foreach ($children as $child) {
-                if (isset($seen[$child])) {
-                    continue; // jamais deux fois le même variant dans un flux
-                }
-                $seen[$child] = true;
-                $flows[] = new OfferFlow($offer, $child, OfferXmlBuilder::WEBSERVICE, $this->builder->creation($offer, $line, $child));
-            }
+        foreach (OfferSizing::assign($lines, $variants) as $f) {
+            $flows[] = new OfferFlow($offer, $f['variant'], OfferXmlBuilder::WEBSERVICE, $this->builder->creation($offer, $f['line'], $f['variant']));
         }
 
         $this->em->wrapInTransaction(function () use ($offer, $flows): void {

@@ -52,9 +52,20 @@ class OfferPdfGenerator
     {
         $deadline = microtime(true) + self::PHOTO_BUDGET_SECONDS;
 
+        // Lignes regroupées par article : la photo (celle du parent) n'est cherchée et affichée qu'une fois par article, sur sa première ligne ;
+        // les tailles à un prix propre suivent, avec leur taille.
         $rows = [];
-        foreach ($offer->getLines() as $line) {
-            $rows[] = ['line' => $line, 'photo' => $this->photo($line->getArticleCode(), $deadline)];
+        foreach (OfferSizing::groups($offer->getLines()->toArray()) as $group) {
+            $photo = $this->photo($group['parent'], $deadline);
+            foreach ($group['lines'] as $i => $line) {
+                $rows[] = [
+                    'line' => $line,
+                    'first' => $i === 0,
+                    'photo' => $i === 0 ? $photo : null,
+                    'sizeLabels' => $group['sizeLabels'],
+                    'hasParentLine' => $group['parentLine'] !== null,
+                ];
+            }
         }
 
         return $this->twig->render('oc/pdf/offer.html.twig', [

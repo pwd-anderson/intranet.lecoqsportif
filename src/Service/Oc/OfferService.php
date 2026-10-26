@@ -72,6 +72,10 @@ class OfferService
             throw new OfferValidationException(['Article(s) introuvable(s) dans X3 (ou X3 indisponible) : ' . implode(', ', $missing) . '.']);
         }
 
+        // Une ligne « variant » (PARENT_TAILLE) n'est acceptée que si la taille existe bien chez ce parent dans X3 : un code mal
+        // tapé ou un variant disparu serait sinon refusé plus tard, à l'envoi des flux.
+        $this->assertVariantsExist($input->lines);
+
         // Prix à envoyer à X3, calculés AVANT de toucher à l'entité (une erreur ne doit rien modifier).
         $discountPercent = isset($discount['REMISE']) ? (float) $discount['REMISE'] : null;
         $injected = [];
@@ -358,6 +362,38 @@ class OfferService
     /**
      * @param callable(Offer): void|null $apply
      */
+    /**
+     * @param list<\App\Service\Oc\Input\OfferLineInput> $lines
+     *
+     * @throws OfferValidationException une taille inconnue de son parent, ou X3 qui ne répond pas
+     */
+    private function assertVariantsExist(array $lines): void
+    {
+        $variantLines = array_values(array_filter($lines, static fn ($l): bool => str_contains($l->articleCode, '_')));
+        if ($variantLines === []) {
+            return;
+        }
+
+        $parents = array_values(array_unique(array_map(static fn ($l): string => OfferLine::parentOf($l->articleCode), $variantLines)));
+        try {
+            $known = $this->x3->getVariants($parents);
+        } catch (\Throwable $e) {
+            $this->logger->error('OfferService : lecture des tailles X3 impossible', ['exception' => $e]);
+            throw new OfferValidationException(['Les tailles ne peuvent pas être contrôlées (X3 indisponible) : rien n\'est enregistré, réessayez.']);
+        }
+
+        $errors = [];
+        foreach ($variantLines as $l) {
+            $parent = OfferLine::parentOf($l->articleCode);
+            if (!in_array($l->articleCode, $known[$parent] ?? [], true)) {
+                $errors[] = sprintf('Taille %s : elle n\'existe pas pour l\'article %s dans X3.', $l->articleCode, $parent);
+            }
+        }
+        if ($errors !== []) {
+            throw new OfferValidationException($errors);
+        }
+    }
+
     private function transition(Offer $offer, OcAction $action, User $user, ?string $reason, ?callable $apply = null): void
     {
         $from = $offer->getStatus();

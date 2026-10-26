@@ -66,4 +66,35 @@ final class OfferPdfGeneratorTest extends KernelTestCase
         self::assertSame('OC_OC2026102054812345678.pdf', $generator->filename($offer));
         self::assertStringStartsWith('%PDF', $generator->generate($offer));
     }
+    public function testSizeLinesAreGroupedUnderTheirArticleWithASinglePhotoCell(): void
+    {
+        $offer = $this->offer();
+        $offer->addLine((new OfferLine())->setArticleCode('2210037_T9')->setArticleLabel('EFRO 22 Gants')->setTariff('15.00')->setMsrp('39.00')->setMargin('61.54')
+            ->setMinQty(5)->setMaxQty(50)->setInjectedPrice('17.24')->setInjectedDiscount('13.00'));
+        $offer->addLine((new OfferLine())->setArticleCode('1511960')->setArticleLabel('Polo')->setTariff('30.00')->setMinQty(0)->setMaxQty(999999)->setInjectedPrice('34.48'));
+
+        $html = $this->generator()->renderHtml($offer);
+
+        self::assertStringContainsString('TAILLE T9', $html);
+        self::assertStringContainsString('Toutes les tailles à ce prix, sauf : T9', $html);
+        self::assertStringContainsString('15,00', $html, 'le prix de la taille figure sur le PDF');
+        self::assertSame(2, substr_count($html, 'class="nophoto"'), 'une cellule photo par article (2210037 et 1511960), pas une par taille');
+        self::assertLessThan(strpos($html, '1511960'), strpos($html, 'TAILLE T9'), 'la taille suit son article, avant l\'article suivant');
+        foreach (['17,24', '17.24', '34,48'] as $secret) {
+            self::assertStringNotContainsString($secret, $html, 'le prix envoyé à X3 ne figure jamais sur le PDF client');
+        }
+        self::assertStringStartsWith('%PDF', $this->generator()->generate($offer));
+    }
+
+    public function testASizeAloneIsLabelledAsThatSizeOnly(): void
+    {
+        $offer = $this->offer();
+        $offer->clearLines();
+        $offer->addLine((new OfferLine())->setArticleCode('2210037_T9')->setArticleLabel('EFRO 22 Gants')->setTariff('15.00')->setMinQty(0)->setMaxQty(999999)->setInjectedPrice('17.24'));
+
+        $html = $this->generator()->renderHtml($offer);
+
+        self::assertStringContainsString('TAILLE T9', $html);
+        self::assertStringContainsString('Cette taille uniquement', $html);
+    }
 }

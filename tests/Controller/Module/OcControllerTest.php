@@ -37,6 +37,14 @@ final class OcControllerTest extends WebTestCase
                 '1511960' => ['ARTICLE' => '1511960', 'DESIGNATION' => 'POLO SIMULE', 'MODELE' => 'MODSIM2', 'COLLECTION' => '2099-02-FW', 'CODE_TARIF' => 'TARIFSIM', 'DEVISE' => 'EUR', 'TARIF' => 33.3, 'MSRP' => 66.6, 'PRIX_ACHAT' => null, 'DEVISE_ACHAT' => null],
             ];
 
+            // Une taille (« PARENT_xx ») a les mêmes valeurs X3 que son parent : même modèle, mêmes tarifs.
+            foreach ($codes as $code) {
+                $parent = explode('_', $code, 2)[0];
+                if ($code !== $parent && isset($known[$parent])) {
+                    $known[$code] = ['ARTICLE' => $code] + $known[$parent];
+                }
+            }
+
             return array_intersect_key($known, array_flip($codes));
         });
         // Variants simulés : 2 enfants par parent (le flux X3 part par variant, jamais pour le parent).
@@ -548,5 +556,212 @@ final class OcControllerTest extends WebTestCase
         $this->client->request('POST', $url, [], [], array_filter(['CONTENT_TYPE' => 'application/json', 'HTTP_X-CSRF-Token' => $csrf]), '{}');
 
         return $this->client->getResponse()->getStatusCode();
+    }
+    // ── Prix par taille ──────────────────────────────────────────────────────────────────────────────────────
+
+    public function testSizesApiListsTheVariantsOfAParent(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $this->client->request('GET', '/fr/oc/api/articles/2210037/variants');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['variants' => ['2210037_01', '2210037_02']], json_decode((string) $this->client->getResponse()->getContent(), true));
+    }
+
+    public function testEntryPageOffersThePerSizeButtonAndExplainsTheRule(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $this->client->request('GET', '/fr/oc/new');
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Prix par taille', $html);
+        self::assertStringContainsString('data-sizes', $html);
+        self::assertStringContainsString('/oc/api/articles/PARENTPLACEHOLDER/variants', $html);
+    }
+
+    public function testASizePriceIsSavedAndOnlyThatSizeGetsItsOwnPriceInTheX3Flows(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $csrf = $this->csrf();
+        $lines = [
+            ['articleCode' => '2210037', 'tariff' => '30', 'msrp' => '60', 'vatRate' => 20, 'minQty' => 0, 'maxQty' => 500, 'comment' => ''],
+            ['articleCode' => '2210037_01', 'tariff' => '25', 'msrp' => '60', 'vatRate' => 20, 'minQty' => 0, 'maxQty' => 500, 'comment' => 'taille spéciale'],
+        ];
+        $res = $this->post('/fr/oc/save', $this->payload(['lines' => $lines]), $csrf);
+        self::assertTrue($res['ok'], json_encode($res));
+        $id = $res['id'];
+        self::assertTrue($this->post("/fr/oc/$id/submit", [], $csrf)['ok']);
+
+        $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
+        self::assertTrue($this->post("/fr/oc/$id/validate", [], $this->csrf())['ok']);
+
+        $this->em->clear();
+        $offer = $this->em->getRepository(Offer::class)->find($id);
+        self::assertCount(2, $offer->getLines(), 'deux lignes enregistrées : le parent et sa taille');
+        $prices = [];
+        foreach ($offer->getFlows() as $flow) {
+            preg_match('/NAME="WDISPRI">([^<]+)</', $flow->getXml(), $m);
+            $prices[$flow->getArticleCode()] = $m[1];
+        }
+        ksort($prices);
+        // remise client simulée : 10 % → 25 / 0,9 = 27,78 pour la taille _01 ; 30 / 0,9 = 33,33 pour les autres (_02)
+        self::assertSame(['2210037_01' => '27.78', '2210037_02' => '33.33'], $prices);
+    }
+
+    public function testASizeUnknownToItsParentIsRefusedAtSaving(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $csrf = $this->csrf();
+        $lines = [['articleCode' => '2210037_99', 'tariff' => '25', 'msrp' => '60', 'vatRate' => 20, 'minQty' => 0, 'maxQty' => 500, 'comment' => '']];
+
+        $res = $this->post('/fr/oc/save', $this->payload(['lines' => $lines]), $csrf);
+
+        self::assertFalse($res['ok']);
+        self::assertStringContainsString('2210037_99', implode(' ', $res['errors']));
+        self::assertSame(0, $this->em->getRepository(Offer::class)->count([]));
+    }
+    // ── Import d'un fichier de lignes ────────────────────────────────────────────────────────────────────────
+
+    private function upload(string $content, string $name, ?string $csrf, string $customer = '20548'): array
+    {
+        $path = tempnam(sys_get_temp_dir(), 'ocimp');
+        file_put_contents($path, $content);
+        $file = new \Symfony\Component\HttpFoundation\File\UploadedFile($path, $name, null, null, true);
+        $this->client->request('POST', '/fr/oc/import', ['customerCode' => $customer], ['file' => $file], ['HTTP_X_CSRF_TOKEN' => (string) $csrf]);
+        @unlink($path);
+
+        return json_decode((string) $this->client->getResponse()->getContent(), true) ?? [];
+    }
+
+    public function testImportReadsAFileAndChecksEveryLineWithoutCreatingAnything(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $csrf = $this->csrf();
+        $csv = "Article;Tarif OC;Qté min;Qté max;Commentaire\n2210037;30;0;500;ok\n2210037_01;25;;;taille\n9999999;12;;;inconnu\n1511960;abc;;;mauvais tarif\n2210037_77;20;;;taille inconnue\n";
+
+        $res = $this->upload($csv, 'lignes.csv', $csrf);
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($res['ok']);
+        self::assertSame(['total' => 5, 'valid' => 2, 'errors' => 3], $res['summary']);
+        $byArticle = [];
+        foreach ($res['rows'] as $r) {
+            $byArticle[$r['article']] = $r;
+        }
+        self::assertSame('ok', $byArticle['2210037']['status']);
+        self::assertSame('GANTS SIMULES', $byArticle['2210037']['label']);
+        self::assertSame('ok', $byArticle['2210037_01']['status']);
+        self::assertTrue($byArticle['2210037_01']['isSize']);
+        self::assertStringContainsString('introuvable', $byArticle['9999999']['errors'][0]);
+        self::assertStringContainsString('Tarif', $byArticle['1511960']['errors'][0]);
+        self::assertStringContainsString('n\'existe pas', $byArticle['2210037_77']['errors'][0]);
+        self::assertSame(0, $this->em->getRepository(Offer::class)->count([]), 'l\'import ne crée aucune OC : la page ajoute les lignes valides au brouillon');
+    }
+
+    public function testImportWithoutCsrfTokenIsRefused(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+
+        $this->upload("Article;Tarif\n2210037;10\n", 'lignes.csv', 'jeton-bidon');
+
+        self::assertResponseStatusCodeSame(419);
+    }
+
+    public function testImportRefusesAnUnsupportedFileAndAMissingFile(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $csrf = $this->csrf();
+
+        $res = $this->upload('contenu', 'lignes.pdf', $csrf);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('Format non pris en charge', $res['errors'][0]);
+
+        $this->client->request('POST', '/fr/oc/import', ['customerCode' => '20548'], [], ['HTTP_X_CSRF_TOKEN' => $csrf]);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testImportTemplateIsAnExcelFile(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+
+        $this->client->request('GET', '/fr/oc/import-template');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('spreadsheetml', (string) $this->client->getResponse()->headers->get('Content-Type'));
+        self::assertStringContainsString('modele_import_oc.xlsx', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+        self::assertStringStartsWith('PK', (string) $this->client->getResponse()->getContent(), 'un .xlsx est une archive zip');
+    }
+
+    public function testImportIsReservedToTheOcRoles(): void
+    {
+        $this->client->loginUser($this->user('compta@example.test', ['ROLE_USER', 'ROLE_ACCOUNTING']), 'main');
+
+        $this->client->request('GET', '/fr/oc/import-template');
+
+        self::assertResponseStatusCodeSame(403);
+    }
+    // ── Vue de validation et page de détail avec des prix par taille ─────────────────────────────────────────
+
+    private function submittedOfferWithSizesByAlice(): int
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $csrf = $this->csrf();
+        $lines = [
+            ['articleCode' => '2210037_01', 'tariff' => '25', 'msrp' => '60', 'vatRate' => 20, 'minQty' => 5, 'maxQty' => 50, 'comment' => 'taille 01'],
+            ['articleCode' => '2210037', 'tariff' => '30', 'msrp' => '60', 'vatRate' => 20, 'minQty' => 0, 'maxQty' => 500, 'comment' => ''],
+        ];
+        $id = $this->post('/fr/oc/save', $this->payload(['lines' => $lines]), $csrf)['id'];
+        self::assertTrue($this->post("/fr/oc/$id/submit", [], $csrf)['ok']);
+
+        return $id;
+    }
+
+    public function testValidationViewGroupsSizesAndShowsWhatIsSentToX3(): void
+    {
+        $id = $this->submittedOfferWithSizesByAlice();
+        $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
+
+        $this->client->request('GET', "/fr/oc/$id?from=validation");
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Taille 01', $html);
+        self::assertStringContainsString('Toutes les tailles à ce prix, sauf : 01', $html);
+        self::assertStringContainsString('Envoyé à X3 pour 2210037', $html);
+        self::assertStringContainsString('2 tailles', $html, 'les 2 variants simulés partent à X3');
+        self::assertStringContainsString('(ligne de taille)', $html);
+        self::assertStringContainsString('(prix de l\'article)', $html);
+        self::assertLessThan(strpos($html, '2210037_01'), strpos($html, 'Toutes les tailles à ce prix'), 'le parent est affiché avant sa taille, même saisie dans l\'autre ordre');
+        self::assertStringContainsString('Prix d\'achat', $html);
+    }
+
+    public function testDetailPageForTheCreatorGroupsSizesWithoutTheSentSummary(): void
+    {
+        $id = $this->submittedOfferWithSizesByAlice();
+
+        $this->client->request('GET', "/fr/oc/$id");
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Taille 01', $html);
+        self::assertStringContainsString('Remplace le prix de l\'article pour cette taille', $html);
+        self::assertStringNotContainsString('Envoyé à X3 pour', $html);
+        self::assertStringNotContainsString('Prix d\'achat', $html);
+        self::assertStringContainsString('2 lignes dont 1 de taille', $html, 'le titre indique le nombre de lignes de taille');
+    }
+    public function testSizeAloneHasNoRedundantSentSummaryInTheValidationView(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $csrf = $this->csrf();
+        $lines = [['articleCode' => '1511960_01', 'tariff' => '44', 'msrp' => '66', 'vatRate' => 20, 'minQty' => 0, 'maxQty' => 500, 'comment' => '']];
+        $id = $this->post('/fr/oc/save', $this->payload(['lines' => $lines]), $csrf)['id'];
+        self::assertTrue($this->post("/fr/oc/$id/submit", [], $csrf)['ok']);
+        $this->client->loginUser($this->user('boss@example.test', ['ROLE_USER', 'ROLE_MANAGEMENT']), 'main');
+
+        $this->client->request('GET', "/fr/oc/$id?from=validation");
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Cette taille uniquement', $html);
+        self::assertStringNotContainsString('Envoyé à X3 pour', $html, 'une taille seule : le résumé répéterait la ligne');
     }
 }

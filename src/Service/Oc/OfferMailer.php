@@ -3,6 +3,7 @@
 namespace App\Service\Oc;
 
 use App\Entity\Oc\Offer;
+use App\Entity\Oc\OfferLine;
 use App\Service\Tools\GraphMailer;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -160,8 +161,17 @@ class OfferMailer
             . $row('Client', $this->e($offer->getCustomerCode() . ' - ' . $offer->getCustomerName()))
             . $row('Créée par', $this->e($offer->getCreatedByName()))
             . $row('Validité', $offer->getStartDate()->format('d/m/Y') . ' → ' . $offer->getEndDate()->format('d/m/Y'))
-            . $row('Articles', (string) $offer->getLines()->count())
+            . $row('Articles', $this->articlesSummary($offer))
             . '</table>';
+    }
+
+    /** « 3 » ; ou « 3 (dont 2 lignes de taille) » quand l'OC contient des lignes de taille (un article = un parent et ses tailles). */
+    private function articlesSummary(Offer $offer): string
+    {
+        $articles = count(\App\Service\Oc\OfferSizing::groups($offer->getLines()->toArray()));
+        $sizes = count(array_filter($offer->getLines()->toArray(), static fn (OfferLine $l): bool => $l->isVariant()));
+
+        return $sizes > 0 ? sprintf('%d (dont %d ligne%s de taille)', $articles, $sizes, $sizes > 1 ? 's' : '') : (string) $articles;
     }
 
     private function button(Offer $offer, string $label): string

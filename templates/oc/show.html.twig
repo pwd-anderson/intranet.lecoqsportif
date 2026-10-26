@@ -21,6 +21,10 @@
         .oc-lines td.oc { background: #e2f1e3; }
         .oc-lines th.lcs { background: #7b3fa0; }
         .oc-lines td.lcs { background: #efe6f5; }
+        .oc-size-row { background: #fafbfd; }
+        .oc-size-badge { display: inline-block; background: #e8eef7; color: #1f3d6e; border-radius: 10px; padding: 1px 8px; font-size: 11px; font-weight: 600; }
+        .oc-size-note { font-size: 12px; color: #5b6b7b; margin-top: 2px; font-weight: normal; }
+        .oc-sent-row td { background: #eef5ee; text-align: left; font-size: 12.5px; }
         .oc-photo { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; margin: 0 auto; line-height: 0; overflow: hidden; }
         .oc-photo img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 4px; }
         .oc-photo img:not([src]) { width: 64px; height: 64px; background: url('/assets/images/no-image.png') center / contain no-repeat; }
@@ -86,7 +90,8 @@
                             <div class="col-12 text-muted small">Valeurs X3 lues le {{ offer.x3ReadAt|date('d/m/Y à H:i') }} et conservées telles quelles.</div>
                         </dl>
 
-                        <h5 class="mt-3">Articles ({{ offer.lines|length }})</h5>
+                        <h5 class="mt-3">Articles ({{ groups|length }}){% set sizeCount = offer.lines|filter(l => l.variant)|length %}{% if sizeCount > 0 %} <small class="text-muted">· {{ offer.lines|length }} lignes dont {{ sizeCount }} de taille</small>{% endif %}</h5>
+                        {% if decisionMode and sizesUnavailable %}<div class="alert alert-warning py-2 small">Les tailles de chaque article n'ont pas pu être lues dans X3 : le détail de ce qui partira à X3 n'est pas affiché (la validation relira X3).</div>{% endif %}
                         <div class="table-responsive">
 {% if decisionMode %}
                             <table class="table table-sm table-bordered oc-lines">
@@ -101,12 +106,17 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                {% for l in offer.lines %}
+                                {% for g in groups %}
+                                {% for l in g.lines %}
                                     {% set m = lcs[l.id] ?? null %}
                                     {% set cur = offer.customerCurrency ?? '' %}
-                                    <tr>
-                                        <td><span class="oc-photo"><img alt="photo article" data-step="0" data-article="{{ l.articleCode }}" src="https://www.lecoqsportif.com/cdn/shop/files/{{ l.articleCode|url_encode }}_2.webp" onerror="ocPhotoError(this)"></span></td>
-                                        <td class="left"><strong>{{ l.articleCode }}</strong><br>{{ l.articleLabel ?? '—' }}</td>
+                                    <tr{% if l.variant %} class="oc-size-row"{% endif %}>
+                                        <td>{% if loop.first %}<span class="oc-photo"><img alt="photo article" data-step="0" data-article="{{ l.parentCode }}" src="https://www.lecoqsportif.com/cdn/shop/files/{{ l.parentCode|url_encode }}_2.webp" onerror="ocPhotoError(this)"></span>{% endif %}</td>
+                                        <td class="left"{% if l.variant %} style="padding-left:28px"{% endif %}><strong>{{ l.articleCode }}</strong>{% if l.variant %} <span class="oc-size-badge">Taille {{ l.sizeLabel }}</span>{% endif %}<br>{{ l.articleLabel ?? '—' }}
+                                            {%- if not l.variant and g.sizeLabels %}<div class="oc-size-note">Toutes les tailles à ce prix, sauf : {{ g.sizeLabels|join(', ') }}.</div>
+                                            {%- elseif l.variant and g.parentLine %}<div class="oc-size-note">Remplace le prix de l'article pour cette taille.</div>
+                                            {%- elseif l.variant %}<div class="oc-size-note">Cette taille uniquement : les autres tailles ne partent pas à X3.</div>{% endif -%}
+                                        </td>
                                         <td class="lcs"{% if l.purchasePrice is not null %} title="Prix d'achat X3 : {{ l.purchasePrice|number_format(2, ',', ' ') }} {{ l.purchaseCurrency }}"{% endif %}>
                                             {%- if m -%}{{ m.cost|number_format(2, ',', ' ') }} {{ cur }}
                                             {%- elseif l.purchasePrice is not null -%}{{ l.purchasePrice|number_format(2, ',', ' ') }} {{ l.purchaseCurrency }}
@@ -122,6 +132,19 @@
                                         <td class="left">{{ l.comment ?? '' }}</td>
                                     </tr>
                                 {% endfor %}
+                                {# Une taille seule : la ligne dit déjà tout (« Cette taille uniquement »), le résumé ne ferait que la répéter ; il ne reste que les problèmes éventuels. #}
+                                {% if g.sent is not null and (g.parentLine or g.sent.problems) %}
+                                    {% set cur = offer.customerCurrency ?? '' %}
+                                    <tr class="oc-sent-row"><td></td><td colspan="10">
+                                    {% if g.parentLine %}
+                                        <strong>Envoyé à X3 pour {{ g.parent }} :</strong> {{ g.sent.total }} taille{{ g.sent.total > 1 ? 's' : '' }}
+                                        {%- for o in g.sent.own %} · <strong>{{ o.size }}</strong> à {{ o.line.tariff|number_format(2, ',', ' ') }} {{ cur }} <span class="text-muted">(ligne de taille)</span>{% endfor %}
+                                        {%- if g.sent.rest > 0 %} · {{ g.sent.rest }} {{ g.sent.own ? 'autre' ~ (g.sent.rest > 1 ? 's' : '') ~ ' taille' ~ (g.sent.rest > 1 ? 's' : '') : 'taille' ~ (g.sent.rest > 1 ? 's' : '') }} à <strong>{{ g.sent.restLine.tariff|number_format(2, ',', ' ') }} {{ cur }}</strong> <span class="text-muted">(prix de l'article)</span>{% endif %}
+                                    {% endif %}
+                                        {%- for p in g.sent.problems %}<br><span class="text-danger">⚠ {{ p }} : la validation sera refusée.</span>{% endfor %}
+                                    </td></tr>
+                                {% endif %}
+                                {% endfor %}
                                 </tbody>
                             </table>
 {% else %}
@@ -134,10 +157,15 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                {% for l in offer.lines %}
-                                    <tr>
-                                        <td><span class="oc-photo"><img alt="photo article" data-step="0" data-article="{{ l.articleCode }}" src="https://www.lecoqsportif.com/cdn/shop/files/{{ l.articleCode|url_encode }}_2.webp" onerror="ocPhotoError(this)"></span></td>
-                                        <td class="left"><strong>{{ l.articleCode }}</strong><br>{{ l.articleLabel ?? '—' }}</td>
+                                {% for g in groups %}
+                                {% for l in g.lines %}
+                                    <tr{% if l.variant %} class="oc-size-row"{% endif %}>
+                                        <td>{% if loop.first %}<span class="oc-photo"><img alt="photo article" data-step="0" data-article="{{ l.parentCode }}" src="https://www.lecoqsportif.com/cdn/shop/files/{{ l.parentCode|url_encode }}_2.webp" onerror="ocPhotoError(this)"></span>{% endif %}</td>
+                                        <td class="left"{% if l.variant %} style="padding-left:28px"{% endif %}><strong>{{ l.articleCode }}</strong>{% if l.variant %} <span class="oc-size-badge">Taille {{ l.sizeLabel }}</span>{% endif %}<br>{{ l.articleLabel ?? '—' }}
+                                            {%- if not l.variant and g.sizeLabels %}<div class="oc-size-note">Toutes les tailles à ce prix, sauf : {{ g.sizeLabels|join(', ') }}.</div>
+                                            {%- elseif l.variant and g.parentLine %}<div class="oc-size-note">Remplace le prix de l'article pour cette taille.</div>
+                                            {%- elseif l.variant %}<div class="oc-size-note">Cette taille uniquement : les autres tailles ne partent pas à X3.</div>{% endif -%}
+                                        </td>
                                         <td>{{ offer.customerCurrency ?? '—' }}</td>
                                         <td>{{ offer.customerTariffCode ?? '—' }}</td>
                                         <td>{{ l.x3Tariff is not null ? l.x3Tariff|number_format(2, ',', ' ') : '—' }}</td>
@@ -149,6 +177,7 @@
                                         <td>{{ l.maxQty|number_format(0, ',', ' ') }}</td>
                                         <td class="left">{{ l.comment ?? '' }}</td>
                                     </tr>
+                                {% endfor %}
                                 {% endfor %}
                                 </tbody>
                             </table>

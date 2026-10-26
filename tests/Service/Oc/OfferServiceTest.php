@@ -605,4 +605,97 @@ final class OfferServiceTest extends TestCase
         }
         self::assertSame(OcStatus::SUBMITTED, $offer->getStatus());
     }
+    // ── Prix par taille : une ligne « variant » (PARENT_TAILLE) à côté, ou à la place, de la ligne parent ──────────
+
+    /** @param array<string, list<string>>|\Throwable $variants tailles connues de X3 par parent (ou erreur X3) */
+    private function x3WithSizes(array|\Throwable $variants): void
+    {
+        $this->x3->method('getCustomer')->willReturn(['CODE_CLIENT' => '20548', 'NOM_CLIENT' => 'T2 SPORT SAS', 'DEVISE' => 'EUR', 'CODE_TARIF' => 'WSPEUR']);
+        $this->x3->method('getCustomerDiscount')->willReturn(['REMISE' => 13, 'DATE_DEBUT' => '2027-01-01', 'DATE_FIN' => '2050-12-31']);
+        $price = static fn (string $code): array => ['ARTICLE' => $code, 'DESIGNATION' => 'EFRO 22 Gants', 'MODELE' => '221H028', 'COLLECTION' => '2026-01-SS', 'TARIF' => 19.5, 'MSRP' => 39];
+        $this->x3->method('getArticlesPrices')->willReturn(['2210037' => $price('2210037'), '2210037_L' => $price('2210037_L'), '2210037_S' => $price('2210037_S'), '2210037_XXL' => $price('2210037_XXL')]);
+        if ($variants instanceof \Throwable) {
+            $this->x3->method('getVariants')->willThrowException($variants);
+        } else {
+            $this->x3->method('getVariants')->willReturn($variants);
+        }
+    }
+
+    /** @param array<string,int|float> $sizes taille => tarif OC */
+    private function sizeLines(array $sizes): array
+    {
+        $lines = [['articleCode' => '2210037', 'tariff' => 35, 'msrp' => 60, 'vatRate' => 20, 'minQty' => 0, 'maxQty' => 500, 'comment' => '']];
+        foreach ($sizes as $size => $tariff) {
+            $lines[] = ['articleCode' => '2210037_' . $size, 'tariff' => (float) $tariff, 'msrp' => 60, 'vatRate' => 20, 'minQty' => 0, 'maxQty' => 500, 'comment' => ''];
+        }
+
+        return $lines;
+    }
+
+    public function testVariantLinesAreSavedNextToTheParentLineWithTheirOwnPrice(): void
+    {
+        $this->x3WithSizes(['2210037' => ['2210037_L', '2210037_M', '2210037_S']]);
+
+        $offer = $this->service()->save($this->data(['lines' => $this->sizeLines(['L' => 30, 'S' => 43])]), $this->user());
+
+        self::assertCount(3, $offer->getLines());
+        $byCode = [];
+        foreach ($offer->getLines() as $l) {
+            $byCode[$l->getArticleCode()] = $l;
+        }
+        self::assertFalse($byCode['2210037']->isVariant());
+        self::assertTrue($byCode['2210037_L']->isVariant());
+        self::assertSame('2210037', $byCode['2210037_L']->getParentCode());
+        self::assertSame('30.0000', $byCode['2210037_L']->getTariff());
+        self::assertSame('43.0000', $byCode['2210037_S']->getTariff());
+        self::assertSame('35.0000', $byCode['2210037']->getTariff());
+        // prix envoyé à X3 calculé pour CHAQUE ligne avec la remise client (13 %) : 30 / 0,87 = 34,48
+        self::assertSame('34.4800', $byCode['2210037_L']->getInjectedPrice());
+        self::assertSame('13.0000', $byCode['2210037_L']->getInjectedDiscount());
+    }
+
+    public function testVariantLineAloneIsAcceptedAndPricesOnlyThatSize(): void
+    {
+        $this->x3WithSizes(['2210037' => ['2210037_L', '2210037_S']]);
+        $lines = [['articleCode' => '2210037_L', 'tariff' => 30, 'msrp' => 60, 'vatRate' => 20, 'minQty' => 0, 'maxQty' => 500, 'comment' => '']];
+
+        $offer = $this->service()->save($this->data(['lines' => $lines]), $this->user());
+
+        self::assertCount(1, $offer->getLines());
+        self::assertSame('2210037_L', $offer->getLines()[0]->getArticleCode());
+    }
+
+    public function testSizeUnknownToItsParentIsRefusedAndNothingIsSaved(): void
+    {
+        $this->x3WithSizes(['2210037' => ['2210037_L', '2210037_S']]);
+        $this->em->expects(self::never())->method('persist');
+
+        try {
+            $this->service()->save($this->data(['lines' => $this->sizeLines(['XXL' => 30])]), $this->user());
+            self::fail('Une taille absente de X3 doit être refusée.');
+        } catch (\App\Service\Oc\OfferValidationException $e) {
+            self::assertStringContainsString('2210037_XXL', implode(' ', $e->getErrors()));
+        }
+    }
+
+    public function testSizesCannotBeCheckedWhenX3IsDown(): void
+    {
+        $this->x3WithSizes(new \RuntimeException('X3 injoignable'));
+        $this->em->expects(self::never())->method('persist');
+
+        try {
+            $this->service()->save($this->data(['lines' => $this->sizeLines(['L' => 30])]), $this->user());
+            self::fail('Sans réponse de X3, une taille ne peut pas être acceptée.');
+        } catch (\App\Service\Oc\OfferValidationException $e) {
+            self::assertStringContainsString('X3 indisponible', implode(' ', $e->getErrors()));
+        }
+    }
+
+    public function testParentOnlyOffersNeverCallTheVariantLookup(): void
+    {
+        $this->x3Ok();
+        $this->x3->expects(self::never())->method('getVariants');
+
+        $this->service()->save($this->data(), $this->user());
+    }
 }
