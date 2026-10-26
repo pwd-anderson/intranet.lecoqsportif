@@ -94,6 +94,7 @@
                             <button id="saveGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-success" type="button">Save</button>
                             <button id="resetGridConfigBtn" class="waves-effect waves-light btn btn-sm bg-gradient-secondary" type="button">Reset</button>
                             <button id="exportBtn" class="btn btn-primary btn-sm" type="button">Excel</button>
+                            <button id="exportCsvBtn" class="btn btn-primary btn-sm" type="button" title="Toutes les lignes de la recherche en cours, sans la limite d'affichage">CSV complet</button>
                             <span id="rowCount" class="text-muted small"></span>
                         </div>
                     </div>
@@ -132,6 +133,9 @@
                                             <option value="3">3 derniers mois</option>
                                             <option value="6">6 derniers mois</option>
                                             <option value="12">12 derniers mois</option>
+                                            <option value="18">18 derniers mois</option>
+                                            <option value="24">24 derniers mois</option>
+                                            <option value="30">30 derniers mois</option>
                                         </select>
                                     </div>
                                     <span class="scc-or">ou</span>
@@ -164,6 +168,31 @@
                         </div>
                     </div>
 
+                </div>
+            </div>
+        </div>
+        <div class="modal fade" id="sccBpModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Bon de préparation <span id="sccBpTitle"></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="sccBpState" class="text-muted"></div>
+                        <table id="sccBpTable" class="table table-sm table-striped" style="display:none;">
+                            <thead>
+                                <tr><th>N° colis</th><th>Article</th><th>Description</th><th class="text-end">Qté</th><th class="text-end">Poids</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                            <tfoot>
+                                <tr class="fw-bold"><td colspan="3">Total</td><td id="sccBpTotQty" class="text-end"></td><td id="sccBpTotWei" class="text-end"></td></tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fermer</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -265,6 +294,68 @@
                 }
             });
 
+            // N° bon de prepa : lien (info-bulle) qui ouvre le detail du bon dans une fenetre Bootstrap.
+            const BP_URL = {{ path('sales_suivi_complet_commande_bon_prepa')|json_encode|raw }};
+            const bpModalEl = document.getElementById('sccBpModal');
+            const bpModal = new bootstrap.Modal(bpModalEl);
+            const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
+            let bpRequest = 0;
+
+            function openBpDetail(num) {
+                const state = document.getElementById('sccBpState');
+                const table = document.getElementById('sccBpTable');
+                const tbody = table.querySelector('tbody');
+                document.getElementById('sccBpTitle').textContent = num;
+                tbody.replaceChildren();
+                table.style.display = 'none';
+                state.textContent = 'Chargement…';
+                bpModal.show();
+
+                const mine = ++bpRequest;
+                fetch(BP_URL + '?num=' + encodeURIComponent(num))
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                    .then(function (rows) {
+                        if (mine !== bpRequest) return;
+                        if (rows.length === 0) { state.textContent = 'Aucun détail trouvé pour ce bon de préparation.'; return; }
+                        let qty = 0, wei = 0;
+                        rows.forEach(function (row) {
+                            qty += Number(row.QTE) || 0;
+                            wei += Number(row.POIDS) || 0;
+                            const tr = document.createElement('tr');
+                            [row.N_COLIS, row.ARTICLE, row.DESCRIPTION, nf.format(Number(row.QTE) || 0), nf.format(Number(row.POIDS) || 0)].forEach(function (v, i) {
+                                const td = document.createElement('td');
+                                td.textContent = v === null || v === undefined ? '' : String(v);
+                                if (i >= 3) td.className = 'text-end';
+                                tr.appendChild(td);
+                            });
+                            tbody.appendChild(tr);
+                        });
+                        document.getElementById('sccBpTotQty').textContent = nf.format(qty);
+                        document.getElementById('sccBpTotWei').textContent = nf.format(wei);
+                        // Sans n° de colis : bon pas encore expédié, on montre les lignes préparées.
+                        state.textContent = rows.every(function (r) { return !r.N_COLIS; })
+                            ? 'Bon non expédié : pas encore de colis, voici les lignes préparées.'
+                            : '';
+                        table.style.display = '';
+                    })
+                    .catch(function () { if (mine === bpRequest) state.textContent = 'Impossible de charger le détail du bon.'; });
+            }
+
+            columnDefs.forEach(function (col) {
+                if (col.field !== 'NUM_BON_PREPA') return;
+                col.cellRenderer = function (params) {
+                    const text = params.value === null || params.value === undefined ? '' : String(params.value).trim();
+                    if (text === '') return '';
+                    const a = document.createElement('a');
+                    a.href = '#';
+                    a.className = 'scc-doc-link';
+                    a.title = 'Voir le détail du bon de préparation';
+                    a.textContent = text;
+                    a.addEventListener('click', function (e) { e.preventDefault(); openBpDetail(text); });
+                    return a;
+                };
+            });
+
             const agGridConfig = {
                 columnDefs:     columnDefs,
                 dataUrl:        null,
@@ -322,7 +413,14 @@
                 window.AgGridCommon.showGridLoader('#myGrid');
 
                 fetch(DATA_URL + '?' + params.toString())
-                    .then(function (r) { return r.json(); })
+                    .then(function (r) {
+                        // Le serveur coupe un résultat trop gros (les lignes les plus récentes sont gardées) et le signale par cet en-tête.
+                        const cap = r.headers.get('X-Result-Truncated');
+                        hint.textContent = cap
+                            ? 'Résultat limité aux ' + Number(cap).toLocaleString('fr-FR') + ' lignes les plus récentes : choisissez une période plus courte ou cherchez par numéro pour tout voir.'
+                            : '';
+                        return r.json();
+                    })
                     .then(function (data) {
                         gridOptions.api.setRowData(data);
                         window.AgGridCommon.loadGridState(gridOptions, STATE_KEY);
@@ -369,6 +467,13 @@
             document.getElementById('resetGridConfigBtn').addEventListener('click', function () {
                 window.AgGridCommon.clearGridState(STATE_KEY);
                 location.reload();
+            });
+
+            // CSV complet : relance la recherche affichee cote serveur, sans plafond de lignes.
+            document.getElementById('exportCsvBtn').addEventListener('click', function () {
+                const params = collectFilters();
+                if ([...params.keys()].length === 0) return;
+                window.location.href = {{ path('sales_suivi_complet_commande_export_csv')|json_encode|raw }} + '?' + params.toString();
             });
 
             document.getElementById('exportBtn').addEventListener('click', async function () {

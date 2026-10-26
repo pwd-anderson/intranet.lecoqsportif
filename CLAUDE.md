@@ -297,6 +297,28 @@ Les tables `CONTACT`, `CONTACTCRM`, `APLSTD` (libellés de fonction : `LANCHP_0 
 
 **Piège de test (valable pour tous les tests fonctionnels).** `KernelBrowser` **redémarre l'application entre deux requêtes** : un service simulé via `static::getContainer()->set(...)` est perdu dès la 2e requête et le test interroge alors le vrai X3 sans que rien ne le signale. Toujours appeler `$client->disableReboot()` dans `setUp()` ; les services à simuler sont déclarés `public: true` dans `config/services_test.yaml` (avec `_defaults: autowire: true`, sinon Symfony ne les câble plus).
 
+### Stat Suivi complet de commande (ADV) — historique Navision (2026-10-26)
+
+Chaîne **commande → bon de préparation → livraison → facture**, chargée **uniquement à la recherche** (un des 4 numéros — commande, BP, BL, facture — ou une période). Route `SalesController::suiviCompletCommande` / `…Json`, service `Sales::getSuiviCompletCommande()`, SQL `src/Infrastructure/Sql/Sei/suivi_complet_commande.sql`, colonnes AG Grid `suivi_complet_commande_grid`.
+
+**Deux sources, même structure de 20 colonnes (`UNION ALL`)** :
+1. **X3** : la vue `MASTER_TABLES.PRODXXX_SUIVI_COMPLET_COMMANDE` (commandes `SON` / `B2B`, 16 600 lignes depuis 2025).
+2. **Historique Navision** : `SEI_X3_LCS.LCS_X3SALESX` filtré `SOURCE = '0.Nav_Histo'` et `COMPANYCODE = 'LCSI'` (commandes **facturées**, du 2023 au **2026-04-09**), joint à `DWH_LCS.F_Sales_Preparations` (BP) et `X3_LCS.BPCUSTOMER` (client). Une ligne par enchaînement (commande, BP, BL, facture) via `GROUP BY` : la requête fournie à l'origine (`SELECT DISTINCT` ligne à ligne) renvoyait **une ligne par montant de ligne de facture** pour un même enchaînement.
+   - **Montants facture HT / TTC = somme des lignes de la facture** (le cube n'a aucun total d'entête ; vérifié : facture `FVB26008024` = 262,30 sur 11 lignes). Une facture à plusieurs commandes donne le même total sur chacune.
+   - **États** (prépa 3 / validation BL 2 / facturation BL 2) = « expédié » quand la ligne du BP est `SHIPPED`, **vides (NULL) sinon** — la requête d'origine écrivait `''` dans un `CASE` numérique, ce qui donne 0.
+   - Pas de **date de livraison** dans l'historique ; date d'expédition = date d'expédition du BP.
+   - Colonnes texte forcées en `Latin1_General_BIN` (collation de la vue X3), types alignés (`datetime2(7)`, `decimal(27,13)`, `tinyint`) : sans cela l'`UNION ALL` échoue.
+   - 498 commandes existent dans les deux sources (reprise Navision → X3) avec des factures différentes (0 facture commune) : les deux enchaînements s'affichent.
+- **Plafond d'affichage** : `Sales::SUIVI_COMPLET_MAX_ROWS` = **100 000 lignes** (50 000 au départ, relevé à la demande de l'utilisateur le 2026-10-26) (les plus récentes, `ORDER BY DATE_COMMANDE DESC`). Mesures : 12 mois = 25 188 lignes (14 Mo), année 2025 = 87 692 (passe en entier avec 100 000), 30 mois = 198 130 → coupés (50 000 lignes ≈ 27 Mo et ≈ 15 s en local ; 100 000 ≈ 55 Mo). La route renvoie l'en-tête `X-Result-Truncated` et la page affiche « Résultat limité aux 100 000 lignes les plus récentes : choisissez une période plus courte ou cherchez par numéro ». Une recherche par numéro n'est jamais coupée.
+- **Périodes** : « derniers mois » 3 / 6 / 12 / 18 / 24 / 30 (`Sales::SUIVI_COMPLET_MONTHS`, liste blanche) et années courante −3 (jusqu'à 2023). Le filtre porte sur **`DATE_CREATION_BP`** (comme l'ancienne vue) : les commandes **sans bon de préparation** (36 % des lignes historiques de 2025) ne sortent donc pas d'une recherche par période, seulement d'une recherche par numéro.
+- Durées mesurées (poste local, dblib) : recherche par numéro 2 à 3 s ; 12 mois ≈ 12 s ; 30 mois ≈ 15 s (le téléchargement de 27 Mo domine).
+- **Piège poste local** : le pilote `dblib` tronque les décimales (un montant 262,30 s'affiche 262) — pas sur les serveurs (`sqlsrv`).
+- Aucune modification de base de données : tout est dans le fichier SQL. Tests : `tests/Service/SalesSuiviCompletCommandeTest.php`.
+
+**Export « CSV complet » (2026-10-26).** Bouton à côté d'Excel : relance la recherche affichée côté serveur **sans plafond de lignes** (route GET `sales_suivi_complet_commande_export_csv`, `Sales::writeSuiviCompletCommandeCsv`, lecture/écriture au fil de l'eau via `MssqlManager::iterateQueryWithParams`, qui contrairement à `executeQueryWithParams` laisse remonter les erreurs). Même requête et mêmes paramètres liés que l'écran (`buildSuiviCompletQuery`), colonnes visibles de `suivi_complet_commande_grid`, format du CSV du Backlog Client (BOM, `sep=;`, `;`). Vérifié : 3 mois = 6 085 lignes, 19 colonnes. Refusé (400) sans critère.
+
+**Détail d'un bon de préparation (2026-10-26).** Le N° bon de prépa est un lien (info-bulle « Voir le détail… ») qui ouvre une fenêtre Bootstrap : colis, article, description, quantité, poids + totaux. SQL `Sei/suivi_complet_bon_prepa_detail.sql` (`STOPREH` / `STOPRED` / `SPACKD`, n° lié en paramètre, quantité et poids castés en float), `Sales::getBonPrepaDetail()`, route GET `sales_suivi_complet_commande_bon_prepa` (`?num=`). Vérifié sur `BPLCSI26-00023978` : 7 lignes, 14 pièces, 12,209 de poids. Pas de détail pour les bons de l'historique Navision s'ils n'existent pas dans X3 (message « Aucun détail trouvé »).
+
 ### Tunnel de dev (callback Azure AD en local)
 
 Pour tester le flux de connexion Azure AD en local, il faut une URL HTTPS publique stable à enregistrer comme Reply URL dans Azure AD. Solution retenue : **Microsoft Dev Tunnels** (`devtunnel`), gratuit, sans limite d'appels (contrairement à ngrok gratuit).

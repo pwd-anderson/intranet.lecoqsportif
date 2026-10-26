@@ -17,6 +17,10 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class Sales
 {
+    /** Suivi complet de commande : plafond de lignes renvoyées au navigateur (les plus récentes) et périodes « derniers mois » acceptées. */
+    public const SUIVI_COMPLET_MAX_ROWS = 100000;
+    public const SUIVI_COMPLET_MONTHS = [3, 6, 12, 18, 24, 30];
+
     private ?MssqlManager $mssqlLcsInstance = null;
     private ?MssqlManager $mssqlSeiInstance = null;
     private bool $isDev;
@@ -771,15 +775,123 @@ class Sales
      * (ET entre tous les criteres renseignes). Les noms de colonnes viennent d'une liste blanche,
      * les valeurs saisies sont toujours liees en parametres nommes (jamais concatenees dans le SQL).
      *
+     * Deux sources (voir Sei/suivi_complet_commande.sql) : X3 et l'historique Navision (jusqu'au 2026-04-09, depuis 2023).
+     *
      * Periode (exclusive, portee par DATE_CREATION_BP comme l'ancien filtre de la vue) :
-     *  - ['type' => 'months', 'value' => 3|6|12] : bons de prepa crees depuis N mois (meme calcul
+     *  - ['type' => 'months', 'value' => 3|6|12|18|24|30] : bons de prepa crees depuis N mois (meme calcul
      *    que la vue : DATEADD(MONTH, -N, maintenant)) ;
      *  - ['type' => 'year', 'value' => 2026] : bons de prepa crees dans l'annee civile.
+     *
+     * Plafond : SUIVI_COMPLET_MAX_ROWS lignes (les plus recentes) pour ne pas envoyer des centaines de milliers de lignes au
+     * navigateur (30 derniers mois = ~200 000 lignes) ; $truncated vaut true quand le resultat a ete coupe.
      *
      * @param array<string,string> $filters cles : NUM_COMMANDE, NUM_BON_PREPA, NUM_LIVRAISON, NUM_FACTURE
      * @param array{type?:string,value?:int|string}|null $period
      */
-    public function getSuiviCompletCommande(array $filters, ?array $period = null): array
+    public function getSuiviCompletCommande(array $filters, ?array $period = null, ?bool &$truncated = null): array
+    {
+        $truncated = false;
+
+        $built = $this->buildSuiviCompletQuery($filters, $period, self::SUIVI_COMPLET_MAX_ROWS + 1);
+        if ($built === null) {
+            return [];
+        }
+
+        try {
+            $rows = $this->mssqlSei()->executeQueryWithParams($built['query'], $built['params']);
+            // Une ligne de plus que le plafond : sa presence indique que le resultat a ete coupe.
+            if (count($rows) > self::SUIVI_COMPLET_MAX_ROWS) {
+                $truncated = true;
+                $rows = array_slice($rows, 0, self::SUIVI_COMPLET_MAX_ROWS);
+            }
+
+            return $rows;
+
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Suivi complet de commande', $e);
+            $this->logger->error('LCS Erreur Sales : Suivi complet de commande', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    /**
+     * Detail d'un bon de preparation (colis / articles / quantites / poids) pour la fenetre du Suivi complet.
+     * Un n° vide ou une erreur donne une liste vide (erreur notifiee).
+     */
+    public function getBonPrepaDetail(string $numBonPrepa): array
+    {
+        $numBonPrepa = trim($numBonPrepa);
+        if ($numBonPrepa === '' || strlen($numBonPrepa) > 40) {
+            return [];
+        }
+
+        try {
+            $query = $this->sqlFileLoader->load('Sei/suivi_complet_bon_prepa_detail.sql');
+
+            return $this->mssqlSei()->executeQueryWithParams($query, ['num_bon_prepa' => $numBonPrepa, 'num_bon_prepa_lignes' => $numBonPrepa]);
+        } catch (\Exception $e) {
+            $this->graphMailer->notifyError('❌ LCS Erreur Sales : détail bon de préparation', $e);
+            $this->logger->error('LCS Erreur Sales : détail bon de préparation', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    /**
+     * Export CSV du Suivi complet de commande : meme recherche que l'ecran, mais SANS plafond de lignes
+     * (les lignes sont lues et ecrites au fil de l'eau, la memoire reste constante).
+     *
+     * @param resource $out
+     * @param array<string,string> $filters
+     * @param array{type?:string,value?:int|string}|null $period
+     * @param array<string,array{header:string,type:string}> $columns colonnes a ecrire, dans l'ordre
+     * @return int nombre de lignes ecrites
+     */
+    public function writeSuiviCompletCommandeCsv($out, array $filters, ?array $period, array $columns): int
+    {
+        $built = $this->buildSuiviCompletQuery($filters, $period, 2147483647);
+        if ($built === null) {
+            return 0;
+        }
+
+        fwrite($out, "\xEF\xBB\xBF");
+        fwrite($out, "sep=;\r\n");
+        fputcsv($out, array_column($columns, 'header'), ';', '"', '');
+
+        $count = 0;
+        foreach ($this->mssqlSei()->iterateQueryWithParams($built['query'], $built['params']) as $row) {
+            $line = [];
+            foreach ($columns as $field => $meta) {
+                $line[] = $this->formatCsvValue($row[$field] ?? null, $meta['type']);
+            }
+            fputcsv($out, $line, ';', '"', '');
+            if (++$count % 5000 === 0) {
+                flush();
+            }
+        }
+
+        return $count;
+    }
+
+    private function formatCsvValue(mixed $value, string $type): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return match ($type) {
+            'decimal', 'percent' => number_format((float) $value, 2, ',', ''),
+            'integer'            => (string) (int) round((float) $value),
+            default              => trim((string) $value),
+        };
+    }
+
+    /**
+     * Requete + parametres lies du Suivi complet (criteres sur liste blanche, jamais de valeur saisie dans le SQL).
+     * null = aucun critere : on ne lance jamais la requete sans filtre.
+     *
+     * @return array{query:string,params:array<string,mixed>}|null
+     */
+    private function buildSuiviCompletQuery(array $filters, ?array $period, int $limit): ?array
     {
         $allowed = ['NUM_COMMANDE', 'NUM_BON_PREPA', 'NUM_LIVRAISON', 'NUM_FACTURE'];
 
@@ -797,7 +909,7 @@ class Sales
         $periodType = $period['type'] ?? null;
         $periodValue = (int) ($period['value'] ?? 0);
 
-        if ($periodType === 'months' && in_array($periodValue, [3, 6, 12], true)) {
+        if ($periodType === 'months' && in_array($periodValue, self::SUIVI_COMPLET_MONTHS, true)) {
             $conditions[] = '[DATE_CREATION_BP] >= :period_from';
             $params['period_from'] = (new \DateTimeImmutable())->modify("-{$periodValue} months")->format('Y-m-d H:i:s');
         } elseif ($periodType === 'year' && $periodValue >= 2000 && $periodValue <= 2100) {
@@ -807,20 +919,14 @@ class Sales
         }
 
         if ($conditions === []) {
-            return [];
+            return null;
         }
 
-        try {
-            $query = $this->sqlFileLoader->load('Sei/suivi_complet_commande.sql');
-            $query = str_replace('{{WHERE}}', 'WHERE ' . implode(' AND ', $conditions), $query);
+        $query = $this->sqlFileLoader->load('Sei/suivi_complet_commande.sql');
+        $query = str_replace('{{WHERE}}', 'WHERE ' . implode(' AND ', $conditions), $query);
+        $query = str_replace('{{LIMIT}}', (string) $limit, $query);
 
-            return $this->mssqlSei()->executeQueryWithParams($query, $params);
-
-        } catch (\Exception $e) {
-            $this->graphMailer->notifyError('❌ LCS Erreur Sales : Suivi complet de commande', $e);
-            $this->logger->error('LCS Erreur Sales : Suivi complet de commande', ['exception' => $e]);
-            return [];
-        }
+        return ['query' => $query, 'params' => $params];
     }
 
     public function getVentesQteCaArticle(int $year, string $client): array

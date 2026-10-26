@@ -759,7 +759,7 @@ final class SalesController extends AbstractController
             'totalColumns'   => $grid['totalColumns'],
             'dataUrl'        => $this->generateUrl('sales_suivi_complet_commande_json'),
             'docLinks'       => $docLinks,
-            'periodYears'    => range((int) date('Y'), (int) date('Y') - 2),
+            'periodYears'    => range((int) date('Y'), (int) date('Y') - 3),   // l'historique Navision remonte à 2023
         ]);
     }
 
@@ -776,7 +776,70 @@ final class SalesController extends AbstractController
             'value' => (string) $request->query->get('period_value', ''),
         ];
 
-        return new JsonResponse($helpers->convertArrayToUtf8($sales->getSuiviCompletCommande($filters, $period)));
+        $truncated = false;
+        $rows = $sales->getSuiviCompletCommande($filters, $period, $truncated);
+
+        $response = new JsonResponse($helpers->convertArrayToUtf8($rows));
+        // Résultat coupé au plafond (les lignes les plus récentes sont conservées) : la page l'annonce à l'utilisateur.
+        if ($truncated) {
+            $response->headers->set('X-Result-Truncated', (string) Sales::SUIVI_COMPLET_MAX_ROWS);
+        }
+
+        return $response;
+    }
+
+    /**
+     * CSV complet (sans plafond de lignes) de la recherche en cours : memes criteres que la page,
+     * colonnes visibles de la grille dans l'ordre de la config AG Grid.
+     */
+    #[Route('/sales/suivi_complet_commande_export_csv', name: 'sales_suivi_complet_commande_export_csv', methods: ['GET'])]
+    public function suiviCompletCommandeExportCsv(Request $request, Sales $sales, GraphMailer $graphMailer): Response
+    {
+        $filters = [];
+        foreach (['NUM_COMMANDE', 'NUM_BON_PREPA', 'NUM_LIVRAISON', 'NUM_FACTURE'] as $field) {
+            $filters[$field] = (string) $request->query->get($field, '');
+        }
+        $period = [
+            'type'  => (string) $request->query->get('period_type', ''),
+            'value' => (string) $request->query->get('period_value', ''),
+        ];
+
+        if (trim(implode('', $filters)) === '' && !in_array($period['type'], ['months', 'year'], true)) {
+            return new Response('Aucun critère de recherche.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $columns = [];
+        foreach ($this->aggridOptionRepository->findBy(['gridName' => 'suivi_complet_commande_grid'], ['orderIndex' => 'ASC']) as $option) {
+            if ($option->isVisible() !== false) {
+                $columns[$option->getField()] = ['header' => $option->getHeaderName(), 'type' => (string) $option->getType()];
+            }
+        }
+
+        $response = new StreamedResponse(function () use ($sales, $filters, $period, $columns, $graphMailer) {
+            set_time_limit(0);
+            $out = fopen('php://output', 'w');
+            try {
+                $sales->writeSuiviCompletCommandeCsv($out, $filters, $period, $columns);
+            } catch (\Throwable $e) {
+                $graphMailer->notifyError('❌ LCS Erreur Suivi complet de commande export CSV', $e);
+            } finally {
+                fclose($out);
+            }
+        });
+
+        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="Suivi_complet_commande_' . (new \DateTimeImmutable())->format('Y-m-d_His') . '.csv"');
+        $response->headers->set('X-Accel-Buffering', 'no');
+
+        return $response;
+    }
+
+    #[Route('/sales/suivi_complet_commande_bon_prepa', name: 'sales_suivi_complet_commande_bon_prepa', methods: ['GET'])]
+    public function suiviCompletBonPrepaDetail(Request $request, Sales $sales, Helpers $helpers): JsonResponse
+    {
+        $rows = $sales->getBonPrepaDetail((string) $request->query->get('num', ''));
+
+        return new JsonResponse($helpers->convertArrayToUtf8($rows));
     }
 
     #[Route('/sales/suivi_facturation', name: 'app_sales_suivi_facturation')]

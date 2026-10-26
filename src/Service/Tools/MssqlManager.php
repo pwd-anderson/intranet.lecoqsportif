@@ -96,6 +96,30 @@ class MssqlManager
         }
     }
 
+    /**
+     * Comme iterateQuery() mais avec parametres nommes lies. Contrairement a executeQueryWithParams(),
+     * une erreur SQL remonte (un export ne doit jamais passer pour un resultat vide).
+     *
+     * @return \Generator<array<string, mixed>>
+     */
+    public function iterateQueryWithParams(string $query, array $params = []): \Generator
+    {
+        if ($this->connection === null) {
+            throw new \RuntimeException('Connexion MSSQL indisponible.');
+        }
+
+        $stmt = $this->connection->prepare($query);
+        foreach ($params as $key => $value) {
+            $type = $value === null ? PDO::PARAM_NULL : (is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            $stmt->bindValue(':' . $key, $value, $type);
+        }
+        $stmt->execute();
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            yield $row;
+        }
+    }
+
     public function executeQueryWithParams(string $query, array $params = []): array
     {
         try {
