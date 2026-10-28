@@ -2,13 +2,20 @@
 
 namespace App\Controller;
 
+use App\Entity\User;
 use App\Repository\AggridOptionRepository;
+use App\Repository\UserStatExclusionRepository;
 use App\Service\Achat;
 use App\Service\PlanTransport\PlanTransportImporter;
 use App\Service\AgGrid\AgGridColumnBuilder;
 use App\Service\Tools\Helpers;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -64,7 +71,83 @@ final class AchatController extends AbstractController
             'totalColumns' => $grid['totalColumns'],
             'dataUrl' => $this->generateUrl('plan_transport_prevision_json'),
             'lastImport' => $planTransport->getLastImport(),
+            'canImport' => $this->canImportPlanTransport(),
         ]);
+    }
+
+    /**
+     * Bouton « Import » de la stat : relance la commande app:import-plan-transport (même code que le cron) et renvoie
+     * un résultat lisible pour le popup. Réservé aux rôles de la stat (PURCHASING + super-users), vérifié côté serveur.
+     * En cas d'échec la table garde sa version précédente (import transactionnel de la commande).
+     */
+    #[Route('/achat/plan_transport_prevision_import', name: 'plan_transport_prevision_import', methods: ['POST'])]
+    public function planTransportPrevisionImport(
+        Request $request,
+        KernelInterface $kernel,
+        PlanTransportImporter $planTransport,
+        UserStatExclusionRepository $exclusions,
+    ): JsonResponse {
+        if (!$this->canImportPlanTransport()) {
+            return new JsonResponse(['success' => false, 'message' => "Vous n'avez pas le droit de lancer cet import."], Response::HTTP_FORBIDDEN);
+        }
+        $user = $this->getUser();
+        if ($user instanceof User && in_array('app_plan_transport_prevision', $exclusions->findExcludedStatKeysForUser($user), true)) {
+            return new JsonResponse(['success' => false, 'message' => "Vous n'avez pas accès à cette statistique."], Response::HTTP_FORBIDDEN);
+        }
+        if (!$this->isCsrfTokenValid('plan_transport_import', (string) $request->request->get('_token'))) {
+            return new JsonResponse(['success' => false, 'message' => 'Session expirée : rechargez la page puis réessayez.'], Response::HTTP_FORBIDDEN);
+        }
+
+        // Un seul import à la fois (double clic, deux utilisateurs) : sinon deux remplacements complets se croiseraient.
+        $lockFile = $kernel->getProjectDir() . '/var/plan_transport_import.lock';
+        $lock = fopen($lockFile, 'c');
+        if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+            return new JsonResponse(['success' => false, 'message' => 'Un import est déjà en cours. Patientez une minute puis rechargez la page.'], Response::HTTP_CONFLICT);
+        }
+
+        try {
+            // Téléchargement (35 Mo) + lecture + écriture : plus long que la limite PHP par défaut.
+            set_time_limit(300);
+
+            $application = new Application($kernel);
+            $application->setAutoExit(false);
+            $output = new BufferedOutput();
+            $exitCode = $application->run(new ArrayInput(['command' => 'app:import-plan-transport']), $output);
+            $text = trim(preg_replace('/\s+/u', ' ', $output->fetch()));
+        } catch (\Throwable $e) {
+            $exitCode = 1;
+            $text = $e->getMessage();
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+
+        if ($exitCode !== 0) {
+            // La commande écrit « Import en échec, la table est inchangée : <raison> ».
+            $reason = preg_match('/table est inchangée\s*:\s*(.+?)(?:\s*\[ERROR\]|$)/u', $text, $m) ? trim($m[1]) : $text;
+
+            return new JsonResponse([
+                'success' => false,
+                'message' => "L'import a échoué. Les données précédentes sont conservées et le service IT a été prévenu par mail.",
+                'detail' => mb_substr($reason, 0, 500),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $rows = preg_match('/([\d\s\x{00A0}\x{202F}]+)\s+lignes importées/u', $text, $m) ? (int) preg_replace('/\D+/', '', $m[1]) : null;
+        $last = $planTransport->getLastImport();
+
+        return new JsonResponse([
+            'success' => true,
+            'message' => 'Le plan transport prévision a été mis à jour.',
+            'rows' => $rows,
+            'sourceFile' => $last['sourceFile'] ?? null,
+            'importedAt' => $last['importedAt'] ?? null,
+        ]);
+    }
+
+    private function canImportPlanTransport(): bool
+    {
+        return $this->isGranted('ROLE_PURCHASING') || $this->isGranted('ROLE_MANAGEMENT') || $this->isGranted('ROLE_CONTROLLING');
     }
 
     // ################## ROUTES JSON (inchangées) #####################

@@ -80,6 +80,9 @@
 
                     <div class="box-body">
                         <div class="pt-legend mb-2" aria-label="Légende du code couleur de la date ETD">
+                            {% if canImport %}
+                                <button id="importPlanBtn" class="btn btn-primary btn-sm" type="button" data-token="{{ csrf_token('plan_transport_import') }}" data-url="{{ path('plan_transport_prevision_import') }}" title="Relance l'import du fichier SharePoint PURCHASING dans la base (même traitement que l'import automatique du matin).">Import</button>
+                            {% endif %}
                             <strong>Date ETD :</strong>
                             <span class="chip"><span class="swatch parti"></span> Parti</span>
                             <span class="chip"><span class="swatch booke"></span> Booking confirmé, en attente</span>
@@ -105,6 +108,32 @@
             </div>
         </div>
         {{ include('components/_excel_loader.html.twig') }}
+
+        {% if canImport %}
+        <div class="modal fade" id="modal-import-plan" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title" id="importPlanTitle">Import en cours…</h4>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <div id="importPlanSpinner">
+                            <div class="grid-loader-spinner mx-auto"></div>
+                            <p class="mb-0">Téléchargement et lecture du fichier SharePoint…<br><span class="text-muted small">Cela prend en général 30 à 60 secondes. Ne fermez pas cette page.</span></p>
+                        </div>
+                        <div id="importPlanResult" style="display: none;">
+                            <div id="importPlanIcon" style="font-size: 44px; line-height: 1;"></div>
+                            <p id="importPlanMessage" class="fw-600 mt-2 mb-1"></p>
+                            <p id="importPlanDetail" class="text-muted small mb-0"></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer" id="importPlanFooter" style="display: none;">
+                        <button type="button" class="btn btn-primary" id="importPlanClose">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </section>
 {% endblock %}
 
@@ -165,6 +194,61 @@
             window.onBtExportExcel = async function () {
                 await ExcelExportStandard.export(window.gridOptions, 'SS27_Plan_transport_prevision_de_dates.xlsx');
             };
+
+            const importBtn = document.getElementById('importPlanBtn');
+            if (importBtn) {
+                const modalEl = document.getElementById('modal-import-plan');
+                const importModal = new bootstrap.Modal(modalEl);
+                const $ = id => document.getElementById(id);
+                let reloadOnClose = false;
+
+                const showResult = (ok, message, detail) => {
+                    $('importPlanSpinner').style.display = 'none';
+                    $('importPlanResult').style.display = '';
+                    $('importPlanFooter').style.display = '';
+                    $('importPlanTitle').textContent = ok ? 'Import terminé' : "Échec de l'import";
+                    $('importPlanIcon').textContent = ok ? '✅' : '❌';
+                    $('importPlanMessage').textContent = message;
+                    $('importPlanDetail').textContent = detail || '';
+                    reloadOnClose = ok;
+                };
+
+                $('importPlanClose').addEventListener('click', () => {
+                    importModal.hide();
+                    if (reloadOnClose) { location.reload(); }
+                });
+
+                importBtn.addEventListener('click', async () => {
+                    importBtn.disabled = true;
+                    $('importPlanSpinner').style.display = '';
+                    $('importPlanResult').style.display = 'none';
+                    $('importPlanFooter').style.display = 'none';
+                    $('importPlanTitle').textContent = 'Import en cours…';
+                    importModal.show();
+
+                    try {
+                        const body = new FormData();
+                        body.append('_token', importBtn.dataset.token);
+                        const response = await fetch(importBtn.dataset.url, { method: 'POST', body, credentials: 'same-origin' });
+                        let data = null;
+                        try { data = await response.json(); } catch (e) { /* réponse non JSON (timeout du serveur / proxy) */ }
+
+                        if (data && data.success) {
+                            const nb = data.rows ? data.rows.toLocaleString('fr-FR') + ' lignes importées' : '';
+                            const fichier = data.sourceFile ? 'Fichier « ' + data.sourceFile + ' »' : '';
+                            showResult(true, data.message, [nb, fichier].filter(Boolean).join(' · ') + '. La page va se recharger.');
+                        } else if (data) {
+                            showResult(false, data.message, data.detail ? 'Cause : ' + data.detail : '');
+                        } else {
+                            showResult(false, "Le serveur n'a pas répondu à temps (HTTP " + response.status + "). L'import a peut-être abouti : rechargez la page pour vérifier la date du dernier import.", '');
+                        }
+                    } catch (e) {
+                        showResult(false, 'Connexion au serveur impossible. Vérifiez votre réseau puis réessayez.', '');
+                    } finally {
+                        importBtn.disabled = false;
+                    }
+                });
+            }
 
             document.getElementById('saveGridConfigBtn').addEventListener('click', function () {
                 window.AgGridCommon.saveGridState(window.gridOptions, agGridConfig.stateKey);
