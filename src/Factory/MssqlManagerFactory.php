@@ -7,6 +7,9 @@ use Psr\Log\LoggerInterface;
 
 class MssqlManagerFactory
 {
+    /** @var list<MssqlManager> */
+    private array $created = [];
+
     public function __construct(
         private LoggerInterface $logger,
         private array $connections // injecté depuis services.yaml
@@ -20,11 +23,19 @@ class MssqlManagerFactory
 
         $conf = $this->connections[$connectionName];
 
-        return new MssqlManager(
+        return $this->created[] = new MssqlManager(
             dsn: $conf['dsn'],
             user: $conf['user'],
             password: $conf['password'],
             logger: $this->logger
         );
+    }
+
+    /** Rouvre toutes les connexions créées par cette fabrique (commandes longues, cf. MssqlManager::reconnect). */
+    public function reconnectAll(): void
+    {
+        foreach ($this->created as $manager) {
+            $manager->reconnect();
+        }
     }
 }

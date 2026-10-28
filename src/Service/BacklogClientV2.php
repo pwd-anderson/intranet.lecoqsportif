@@ -528,6 +528,26 @@ LEFT  JOIN (
 
     public function writeCsv($out, SsrmRequest $request, array $columns): void
     {
+        fwrite($out, "\xEF\xBB\xBF" . 'sep=;' . PHP_EOL);
+        fputcsv($out, array_column($columns, 'header'), ';', '"', '');
+
+        foreach ($this->iterateExportRows($request) as $row) {
+            $line = [];
+            foreach ($columns as $field => $column) {
+                $line[] = $this->formatCsvValue($row[$field] ?? '', $column['type']);
+            }
+            fputcsv($out, $line, ';', '"', '');
+        }
+    }
+
+    /**
+     * Lignes du backlog prêtes à exporter (UTF-8, montants EUR calculés), lues au fil de l'eau : base commune du
+     * CSV complet et de l'export Excel automatique.
+     *
+     * @return \Generator<int, array<string, mixed>>
+     */
+    public function iterateExportRows(SsrmRequest $request): \Generator
+    {
         $collectionsClause = $this->resolveCollectionsClause($request);
         if ($collectionsClause === null) {
             throw new \InvalidArgumentException('Aucune collection sélectionnée.');
@@ -549,9 +569,6 @@ LEFT  JOIN (
 
         $taux = $this->divers->getExchangeRatesValues();
 
-        fwrite($out, "\xEF\xBB\xBF" . 'sep=;' . PHP_EOL);
-        fputcsv($out, array_column($columns, 'header'), ';', '"', '');
-
         foreach ($this->mssqlSei->iterateQuery($sql) as $row) {
             $row  = $this->helpers->convertArrayToUtf8($row);
             $rate = $taux[trim((string) $row['CUR_0'])] ?? null;
@@ -562,11 +579,7 @@ LEFT  JOIN (
                 ? (float) $row['PRIX_UNITAIRE'] / (float) $rate
                 : 0.0;
 
-            $line = [];
-            foreach ($columns as $field => $column) {
-                $line[] = $this->formatCsvValue($row[$field] ?? '', $column['type']);
-            }
-            fputcsv($out, $line, ';', '"', '');
+            yield $row;
         }
     }
 

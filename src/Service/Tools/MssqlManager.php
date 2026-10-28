@@ -37,6 +37,11 @@ class MssqlManager
         private string $password,
         private LoggerInterface $logger
     ) {
+        $this->connect();
+    }
+
+    private function connect(): void
+    {
         try {
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -65,6 +70,16 @@ class MssqlManager
                 ['exception' => $e, 'dsn' => $this->dsn]
             );
         }
+    }
+
+    /**
+     * Rouvre la connexion. Pour les commandes longues : une connexion restée inactive pendant plusieurs minutes est
+     * coupée par le serveur (« Unexpected EOF », puis « DBPROCESS is dead » à chaque requête suivante).
+     */
+    public function reconnect(): void
+    {
+        $this->connection = null;
+        $this->connect();
     }
 
     public function executeQuery(string $query): array

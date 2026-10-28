@@ -319,6 +319,32 @@ Chaîne **commande → bon de préparation → livraison → facture**, chargée
 
 **Détail d'un bon de préparation (2026-10-26).** Le N° bon de prépa est un lien (info-bulle « Voir le détail… ») qui ouvre une fenêtre Bootstrap : colis, article, description, quantité, poids + totaux. SQL `Sei/suivi_complet_bon_prepa_detail.sql` (`STOPREH` / `STOPRED` / `SPACKD`, n° lié en paramètre, quantité et poids castés en float), `Sales::getBonPrepaDetail()`, route GET `sales_suivi_complet_commande_bon_prepa` (`?num=`). Vérifié sur `BPLCSI26-00023978` : 7 lignes, 14 pièces, 12,209 de poids. Pas de détail pour les bons de l'historique Navision s'ils n'existent pas dans X3 (message « Aucun détail trouvé »).
 
+### Export automatique vers SharePoint « ASK SUPPLY DATA SOURCE » (2026-10-27)
+
+Commande `php bin/console app:export-sharepoint-ask-supply-data-source` (`src/Command/Export/ExportSharePointAskSupplyDataSourceCommand.php`) : génère 7 fichiers dont le contenu reproduit le bouton d'export manuel de chaque stat et les dépose dans `PURCHASING/ASK SUPPLY DATA SOURCE` (bibliothèque Documents partagés), **nom fixe, remplacé à chaque exécution**. Lue par des machines (pas de style soigné). Prévue pour un cron quotidien (à planifier). Options : `--only=<clé>` (répétable), `--dry-run` (fichiers dans `var/upload/export/ask_supply_data_source/`, rien déposé, aucun mail).
+
+| Clé | Fichier | Source / filtre |
+|---|---|---|
+| `backlog-fournisseur` | `Backlog_Fournisseur.xlsx` | `Achat::getBacklogFournisseur()` + `getBacklogFournisseurIntersites()`, sans filtre de collection |
+| `backlog-clients` | `Backlog_Clients.xlsx` | contenu du bouton « CSV complet » (toutes collections, avec le stock) mais **en Excel** (le CSV n'est plus déposé, décision du 2026-10-28) : `BacklogClientV2::iterateExportRows`, nombres bruts ; 139 817 lignes, 27,5 Mo, ≈ 41 s |
+| `stock-allocation` | `Stock_Allocation.xlsx` | `Stock::getStockAllocation(null)` = « Global » |
+| `produits` | `Produits.xlsx` | `Stock::getStockProduits(['2027-01-SS','2027-02-FW'])` — **collections écrites dans la commande** (`PRODUITS_COLLECTIONS`) |
+| `reception-fournisseur` | `Reception_Fournisseur.xlsx` | `Achat::getReceptionFournisseur()` |
+| `etat-commandes-clients` | `Etat_Commandes_Clients.xlsx` | `Sales::getEtatCommandesClientsX3Paginated` par blocs de 40 000, **3 collections les plus récentes** (`ETAT_COMMANDES_COLLECTIONS_COUNT`, liste `Divers::getCollections()`) |
+| `base-articles-tarifs` | `Base_Articles_Tarifs.xlsx` | `Achat::getBaseArticlesTarifs()` (stat réservée MANAGEMENT/CONTROLLING à l'écran, mais déposée dans le dossier PURCHASING : décision de l'utilisateur) |
+
+**Fichiers.** `src/Service/Export/AskSupplyDataExporter.php` (contenu : colonnes visibles de la config `aggrid_option`, ordre `order_index`, en-têtes `header_name`), `XlsxStreamWriter.php` (xlsx écrit **ligne par ligne**, mémoire constante ; chaînes jamais interprétées comme formules), `SharePointClient::upload()` (session de dépôt Graph par blocs de 10 Mo, remplace le fichier existant).
+
+**Format = export manuel.** Grilles Achats/Stock (export AG Grid) : nombres bruts, **dates `jj/mm/aaaa`** (vérifié sur le vrai export de Réception Fournisseur : cellules `16/04/2026` en texte, quantités/prix numériques), texte tel quel ; `Produits` : colonne PHOTO vide et `TAUX_DEPRECIATION` en « NN % » (processCellCallback de la page). Etat des commandes clients (export SSRM ExcelJS) : valeurs brutes de la requête. En-tête bleu `#024185`, ligne figée, filtre automatique, largeurs 12–40.
+
+**Sécurité.** Les services renvoient `[]` en cas d'erreur SQL : **0 ligne = échec**, le fichier n'est jamais déposé (le précédent reste sur SharePoint). Un échec n'arrête pas les autres exports ; un seul mail récapitulatif (`GraphMailer::notifyError`) et code de sortie non nul.
+
+**Prérequis.** Droit d'application d'écriture SharePoint pour MailGraph : un dépôt réel depuis le poste de l'utilisateur a réussi le 2026-10-27 (4 fichiers déposés). Sans ce droit : 403.
+
+**Piège connexions (corrigé le 2026-10-27).** Chaque service ouvre sa connexion MSSQL au démarrage ; celle d'un service resté inactif pendant les exports longs est coupée par le serveur (« Unexpected EOF » puis « DBPROCESS is dead »), et les services renvoient alors `[]`. La commande appelle `MssqlManagerFactory::reconnectAll()` avant chaque export et retente une fois un export à 0 ligne **ou interrompu par une exception** (coupure « Unexpected EOF » intermittente en cours de lecture, constatée le 2026-10-28 sur le CSV). `composer install` inutile (aucune nouvelle dépendance).
+
+**Mesures (dev, dry-run, 2026-10-27).** Réception 47 472 lignes (5 s), Stock Allocation 88 965 (39 s), Backlog Fournisseur 16 983 (6 s), Backlog Clients CSV 142 397 lignes / 61 Mo (35 s), Produits 1 677 (1 s).
+
 ### Tunnel de dev (callback Azure AD en local)
 
 Pour tester le flux de connexion Azure AD en local, il faut une URL HTTPS publique stable à enregistrer comme Reply URL dans Azure AD. Solution retenue : **Microsoft Dev Tunnels** (`devtunnel`), gratuit, sans limite d'appels (contrairement à ngrok gratuit).
