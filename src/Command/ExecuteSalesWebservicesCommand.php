@@ -27,7 +27,7 @@ class ExecuteSalesWebservicesCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $repo        = $this->em->getRepository(SalesWebService::class);
-        $webservices = $repo->findBy(['executed' => false]);
+        $webservices = $repo->findBy(['executed' => false], ['id' => 'ASC']);
 
         if (empty($webservices)) {
             $output->writeln('<info>Aucun webservice en attente.</info>');

@@ -28,11 +28,15 @@ final class OfferFlowServiceTest extends TestCase
         $this->em->method('persist')->willReturnCallback(function (object $o): void { $this->persisted[] = $o; });
     }
 
-    /** @param array<string, list<string>> $variants */
-    private function service(array $variants = ['2210037' => ['2210037_40', '2210037_41'], '1511960' => ['1511960_SPL']]): OfferFlowService
+    /**
+     * @param array<string, list<string>> $variants
+     * @param list<array<string,mixed>> $existing tarifs 7TSPEC déjà en place renvoyés par X3
+     */
+    private function service(array $variants = ['2210037' => ['2210037_40', '2210037_41'], '1511960' => ['1511960_SPL']], array $existing = []): OfferFlowService
     {
         $x3 = $this->createStub(OcX3Lookup::class);
         $x3->method('getVariants')->willReturn($variants);
+        $x3->method('getExistingSpecialTariffs')->willReturn($existing);
 
         return new OfferFlowService($this->em, new OfferXmlBuilder(), new WebServiceDispatcher($this->em), $x3);
     }
@@ -67,6 +71,60 @@ final class OfferFlowServiceTest extends TestCase
         self::assertStringContainsString('WDISPRI', $queued[0]->getParameter());
         self::assertFalse($queued[0]->isExecuted(), 'envoyé plus tard par la commande d\'exécution');
         self::assertSame(42, $queued[0]->getOcOfferId(), 'colonne oc_offer_id renseignée');
+    }
+
+    private static function existing(string $fiche, string $article, string $start, string $end): array
+    {
+        return ['FICHE' => $fiche, 'CLIENT' => '20548', 'ARTICLE' => $article, 'DATE_DEBUT' => $start, 'DATE_FIN' => $end, 'PRIX' => 69.77, 'DEVISE' => 'EUR'];
+    }
+
+    public function testAnExistingSpecialTariffIsClosedTheDayBeforeAndBeforeTheCreation(): void
+    {
+        $offer = $this->offer(); // début 2027-02-01
+        (new \ReflectionProperty(Offer::class, 'id'))->setValue($offer, 42);
+
+        $flows = $this->service(existing: [self::existing('SPL26-0007', '2210037_40', '2026-10-28', '2027-10-28')])->send($offer);
+
+        self::assertSame(['WSUPD7TSPE', 'WSCRESPL', 'WSCRESPL', 'WSCRESPL'], array_map(static fn ($f) => $f->getWebservice(), $flows), 'la clôture part avant les créations');
+        self::assertSame('2210037_40', $flows[0]->getArticleCode());
+        self::assertStringContainsString('NAME="WSCODETARIF">7TSPEC<', $flows[0]->getXml());
+        self::assertStringContainsString('NAME="WSFICHETARIF">SPL26-0007<', $flows[0]->getXml());
+        self::assertStringContainsString('NAME="WSITMREF">2210037_40<', $flows[0]->getXml());
+        self::assertStringContainsString('NAME="WSDATE">20270131<', $flows[0]->getXml(), 'veille du début de l\'OC');
+        $queued = array_values(array_filter($this->persisted, static fn ($o) => $o instanceof SalesWebService));
+        self::assertSame('WSUPD7TSPE', $queued[0]->getName(), 'déposé en premier dans sales_web_service');
+        self::assertSame(42, $queued[0]->getOcOfferId());
+    }
+
+    public function testAnExistingTariffStartingOnOrAfterTheOfferStartBlocksEverything(): void
+    {
+        $offer = $this->offer(); // début 2027-02-01
+
+        foreach (['2027-02-01', '2027-03-15'] as $start) {
+            try {
+                $this->service(existing: [self::existing('SPL26-0009', '2210037_41', $start, '2027-12-31')])->send($offer);
+                self::fail('Un ancien tarif qui ne peut pas être clôturé doit empêcher la génération.');
+            } catch (\RuntimeException $e) {
+                self::assertStringContainsString('SPL26-0009', $e->getMessage());
+            }
+            self::assertCount(0, $offer->getFlows());
+        }
+        self::assertCount(0, array_filter($this->persisted, static fn ($o) => $o instanceof SalesWebService));
+    }
+
+    public function testConflictMessagesListsTheBlockingTariffs(): void
+    {
+        $service = $this->service(existing: [
+            self::existing('SPL26-0007', '2210037_40', '2026-10-28', '2027-10-28'),
+            self::existing('SPL26-0009', '2210037_41', '2027-02-01', '2027-12-31'),
+        ]);
+
+        $messages = $service->conflictMessages($this->offer());
+
+        self::assertCount(1, $messages);
+        self::assertStringContainsString('2210037_41', $messages[0]);
+        self::assertStringContainsString('SPL26-0009', $messages[0]);
+        self::assertStringContainsString('01/02/2027', $messages[0]);
     }
 
     public function testSendingTwiceDoesNotDuplicateTheFlows(): void

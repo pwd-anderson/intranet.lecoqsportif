@@ -251,6 +251,18 @@ class OfferService
             throw new OfferValidationException([$drift]);
         }
 
+        // Le prix de l'OC remplace les tarifs spéciaux déjà en place (clôturés la veille) : un ancien tarif qui ne peut pas être clôturé
+        // (il commence le jour du début de l'OC ou après) bloque la validation. X3 muet = on ne valide pas à l'aveugle.
+        try {
+            $conflicts = $this->flows->conflictMessages($offer);
+        } catch (\Throwable $e) {
+            $this->logger->error('OfferService : contrôle des tarifs spéciaux existants impossible', ['exception' => $e]);
+            throw new OfferValidationException(['Les tarifs spéciaux déjà en place pour ce client n\'ont pas pu être contrôlés (X3 ne répond pas) : réessayez.']);
+        }
+        if ($conflicts !== []) {
+            throw new OfferValidationException($conflicts);
+        }
+
         $this->transition($offer, OcAction::VALIDATED, $user, null, static function (Offer $o): void {
             $o->setDecidedAt(new \DateTimeImmutable());
         });
@@ -269,11 +281,14 @@ class OfferService
     {
         try {
             $flows = $this->flows->send($offer);
+            $closures = count(array_filter($flows, static fn ($f): bool => $f->getWebservice() === OfferXmlBuilder::WEBSERVICE_CLOSURE));
 
             $offer->addHistory(new OfferHistory(
                 OcAction::X3_FLOW_PREPARED, $offer->getStatus(), $offer->getStatus(), $user, self::displayName($user),
-                sprintf('%d flux placés en file pour X3.', count($flows)),
-                ['flows' => count($flows)],
+                $closures > 0
+                    ? sprintf('%d flux placés en file pour X3 (dont %d clôtures d\'anciens tarifs spéciaux).', count($flows), $closures)
+                    : sprintf('%d flux placés en file pour X3.', count($flows)),
+                ['flows' => count($flows), 'closures' => $closures],
             ));
             $this->em->wrapInTransaction(function () use ($offer): void {
                 $this->em->persist($offer);

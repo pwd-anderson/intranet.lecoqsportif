@@ -390,6 +390,27 @@ Pages : `GET ''` liste (un commercial ne voit que ses OC), `GET /new`, `GET /{id
 - Vérifié avec les vraies données X3 (client 20548) : XML conformes, `WDISPRI` = 21,26 / 45,98.
 - Déploiement : migrations `Version20261012100000` et `Version20261012110000`. **Plus d'interrupteur** : dès qu'une OC est validée, ses flux sont dans `sales_web_service` et partent avec `app:sales:webservices:execute` (cette commande n'est **jamais lancée en local**, uniquement sur les serveurs).
 
+#### Clôture de l'ancien tarif spécial — WSUPD7TSPE (2026-10-28)
+
+**Règle (décidée avec l'utilisateur) : le prix de l'OC la plus récente remplace l'ancien.** À la validation, pour chaque variant à créer, les fiches `7TSPEC` du client déjà ouvertes à la date de début de l'OC sont **clôturées la veille de ce début** (flux **WSUPD7TSPE**), AVANT les créations (WSCRESPL). Reprise de l'ancien module Screeneo (`generateWebServiceTarifSpecifique` : `WSCODETARIF` = `7TSPEC`, `WSFICHETARIF` = fiche, `WSITMREF` = article, `WSDATE` = début − 1 jour), avec trois corrections : type de tarif filtré (`PLI_0 = '7TSPEC'`, l'ancien code pouvait clôturer un autre type), comparaison avec la **date de début de l'OC** (l'ancien code comparait à la date du jour) et un conflit bloquant.
+
+| Rôle | Fichier |
+|---|---|
+| Requête des fiches existantes (client + variants, ouvertes à la date de début) | `src/Infrastructure/Sql/Sei/oc_existing_special_tariffs.sql` (une fiche `PLICRD_0` = un client `PLICRI1_0` + un variant `PLICRI2_0`, ligne 1000) |
+| Lecture (une erreur X3 REMONTE, jamais « aucun tarif » par défaut) | `OcX3Lookup::getExistingSpecialTariffs()` |
+| Règle clôture / conflit (pure, testée) | `OfferTariffClosures::plan()` / `conflictMessage()` |
+| XML | `OfferXmlBuilder::closure()` (`WEBSERVICE_CLOSURE = 'WSUPD7TSPE'`) |
+| Plan + dépôt | `OfferFlowService::inspect()` (lit X3 : créations, clôtures, conflits), `conflictMessages()`, `send()` (clôtures d'abord, puis créations ; atomique) |
+| Blocage à la validation | `OfferService::validate()` (conflit ou X3 muet = refus, rien n'est enregistré) |
+| Information avant validation | page de détail en mode validation : encadré bleu (n tarifs clôturés + détail) ou rouge (conflit) |
+
+- **Conflit** = un ancien tarif qui commence le jour du début de l'OC ou après : sa fin (veille) serait avant son propre début, il ne peut pas être clôturé et resterait actif en même temps que le nouveau. **La validation est refusée** avec le n° de fiche, les dates et le prix ; la Direction change la date de début de l'OC ou fait corriger la fiche dans X3. (Comportement de X3 devant une fin < début non testé : le blocage évite d'y dépendre.)
+- Un ancien tarif encore valable longtemps après la nouvelle OC est clôturé quand même (le prix de l'OC récente doit remonter dans les commandes). Une fiche déjà fermée avant le début de l'OC n'est pas touchée.
+- Les clôtures sont stockées comme les créations dans `oc_offer_flow` (colonne `webservice` = `WSUPD7TSPE`, pas de migration) ; l'historique indique « dont n clôtures d'anciens tarifs spéciaux ». `ExecuteSalesWebservicesCommand` envoie maintenant dans l'ordre des identifiants (`['id' => 'ASC']`) : clôtures avant créations.
+- **Vérifié en lecture sur X3 TEST (2026-10-28)** : 22 fiches `7TSPEC` (client 5266, variants `2610490_*`), la requête trouve les fiches ouvertes et, pour un début d'OC au 2026-10-28 (jour de début des fiches de test), les signale en conflit. **Pas encore envoyé à X3** : à tester via `app:sales:webservices:execute` sur un serveur pointant TEST.
+- ⚠ **À vérifier à l'envoi** : la commande d'exécution ne marque un flux « exécuté » que si la réponse X3 contient un identifiant de document (`GRP[1]/FLD`). On ne sait pas si WSUPD7TSPE en renvoie un ; sinon il resterait « non exécuté » et serait renvoyé à chaque passage (sans danger pour une clôture, la date étant fixe). Et si une clôture échoue, la création part quand même (chaque flux a son propre try/catch).
+- Tests : `OfferTariffClosuresTest`, `OfferFlowServiceTest` (clôture avant création, conflit, messages), `OfferServiceTest` (validation refusée sur conflit ou X3 muet), `OfferXmlBuilderTest`.
+
 #### Prix par taille (2026-10-23, demandé après la présentation) — saisie, flux X3, validation, PDF et e-mails faits
 
 **Règle.** Une ligne d'OC est un article **parent** (`2210037`) ou un **variant** (`2210037_T9`, le code contient `_`). Le prix du parent vaut pour toutes ses tailles ; **une ligne de variant l'emporte sur celle du parent pour cette taille** ; un variant seul (sans ligne parent) ne tarife **que cette taille** (les autres ne partent pas à X3). Chaque ligne a ses propres prix, marge et quantités (une ligne de taille démarre avec ceux du parent, modifiables).
@@ -490,7 +511,7 @@ Dans la vue de validation (page de détail ouverte depuis **Validation OC**, `?f
 #### À faire / questions métier ouvertes
 
 - **Étapes 2 et 3 faites** (voir leurs sections) : reste à confirmer le format avec l'équipe X3 avant la mise en production.
-- **Type de tarif « Tarif Spé » chez LCS** (aucun `7TSPEC`) → bloque la détection de l'existant (Création/Modification), le blocage doublon (OC soumises **et** validées non envoyées, deux messages distincts) et les flux `WSCRESPL` / `WSUPD7TSPE` (à relier à `sales_web_service`, envoi par commande à tentatives bornées + `notifyError`).
+- **Type de tarif « Tarif Spé » chez LCS** : `7TSPEC` existe maintenant (3 lignes en PROD, 22 en TEST) ; la détection de l'existant et la clôture WSUPD7TSPE sont faites (voir « Clôture de l'ancien tarif spécial »). Restent le blocage doublon (OC soumises **et** validées non envoyées, deux messages distincts) et, historique de la question : bloquait la détection de l'existant (Création/Modification), le blocage doublon (OC soumises **et** validées non envoyées, deux messages distincts) et les flux `WSCRESPL` / `WSUPD7TSPE` (à relier à `sales_web_service`, envoi par commande à tentatives bornées + `notifyError`).
 - Source de la TVA (par pays du client ?) — le MSRP est TTC (confirmé). Marge souhaitée = marge du client sur le MSRP (comme l'ancien module : confirmé en lecture du code, à valider avec le métier). Comportement avant le 2027-01-01 (début des REMCLI) pour une OC qui démarre plus tôt. Précision du prix envoyé (2 ou 4-5 décimales) à valider avec X3.
 - Import Excel/CSV (traitement du fichier), stock affiché, multi-clients.
 

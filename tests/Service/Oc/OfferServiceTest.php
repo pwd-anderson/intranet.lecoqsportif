@@ -437,6 +437,41 @@ final class OfferServiceTest extends TestCase
         self::assertSame($historyBefore, $offer->getHistory()->count(), 'rien n\'est tracé');
     }
 
+    public function testValidateIsRefusedWhenAnExistingSpecialTariffCannotBeClosed(): void
+    {
+        $this->x3Ok();
+        $this->flows->method('conflictMessages')->willReturn(['Article 2210037_40 : la fiche SPL26-0001 commence le jour du début de cette OC.']);
+        $this->flows->expects(self::never())->method('send');
+        $service = $this->service();
+        $offer = $this->submittedOffer($service);
+
+        try {
+            $service->validate($offer, $this->user());
+            self::fail('La validation aurait dû être refusée.');
+        } catch (OfferValidationException $e) {
+            self::assertStringContainsString('SPL26-0001', $e->getErrors()[0]);
+        }
+
+        self::assertSame(OcStatus::SUBMITTED, $offer->getStatus());
+    }
+
+    public function testValidateIsRefusedWhenTheExistingTariffsCannotBeRead(): void
+    {
+        $this->x3Ok();
+        $this->flows->method('conflictMessages')->willThrowException(new \RuntimeException('X3 muet'));
+        $service = $this->service();
+        $offer = $this->submittedOffer($service);
+
+        try {
+            $service->validate($offer, $this->user());
+            self::fail('Pas de validation à l\'aveugle.');
+        } catch (OfferValidationException $e) {
+            self::assertStringContainsString('n\'ont pas pu être contrôlés', $e->getErrors()[0]);
+        }
+
+        self::assertSame(OcStatus::SUBMITTED, $offer->getStatus());
+    }
+
     public function testOnlyASubmittedOfferCanBeValidated(): void
     {
         $this->x3Ok();
@@ -561,7 +596,10 @@ final class OfferServiceTest extends TestCase
     public function testValidationSendsTheX3FlowsToTheQueueAndTheOfferBecomesSentToX3(): void
     {
         $this->x3Ok();
-        $this->flows->expects(self::once())->method('send')->willReturn([new \stdClass(), new \stdClass()]);
+        $this->flows->expects(self::once())->method('send')->willReturn([
+            new \App\Entity\Oc\OfferFlow(new Offer(), '2210037_40', 'WSUPD7TSPE', '<x/>'),
+            new \App\Entity\Oc\OfferFlow(new Offer(), '2210037_40', 'WSCRESPL', '<x/>'),
+        ]);
         $service = $this->service();
         $offer = $this->submittedOffer($service);
 
@@ -570,6 +608,7 @@ final class OfferServiceTest extends TestCase
         $last = $this->entry($offer, OcAction::X3_FLOW_PREPARED);
         self::assertNotNull($last);
         self::assertStringContainsString('2 flux', $last->getReason());
+        self::assertStringContainsString('dont 1 clôtures', $last->getReason());
         self::assertSame(OcStatus::SENT_TO_X3, $offer->getStatus());
         self::assertSame(OcAction::SENT_TO_X3, $offer->getHistory()->last()->getAction());
     }

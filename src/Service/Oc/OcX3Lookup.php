@@ -258,6 +258,48 @@ class OcX3Lookup
     }
 
     /**
+     * Tarifs spéciaux (7TSPEC) existants du client pour ces articles ENFANTS, encore ouverts à la date de début de la nouvelle OC.
+     * Une erreur X3 REMONTE (exception) : « aucun tarif » ne doit jamais vouloir dire « X3 n'a pas répondu », sinon une
+     * clôture serait oubliée en silence.
+     *
+     * @param list<string> $variants
+     *
+     * @return list<array{FICHE:string,CLIENT:string,ARTICLE:string,DATE_DEBUT:string,DATE_FIN:string,PRIX:float,DEVISE:string}>
+     *
+     * @throws \Throwable
+     */
+    public function getExistingSpecialTariffs(string $customerCode, array $variants, \DateTimeInterface $startDate): array
+    {
+        $variants = array_values(array_unique(array_filter(array_map('trim', $variants), static fn (string $v): bool => $v !== '')));
+        if (trim($customerCode) === '' || $variants === []) {
+            return [];
+        }
+
+        $quote = static fn (string $v): string => "'" . str_replace("'", "''", $v) . "'";
+        $query = str_replace(
+            ['{{CLIENT}}', '{{DATE_DEBUT}}', '{{VARIANTS}}'],
+            [$quote(trim($customerCode)), $quote($startDate->format('Y-m-d')), implode(', ', array_map($quote, $variants))],
+            $this->sql('Sei/oc_existing_special_tariffs.sql')
+        );
+
+        $rows = [];
+        foreach ($this->db()->iterateQuery($query) as $row) {
+            $row = (array) $row;
+            $rows[] = [
+                'FICHE' => trim((string) $row['FICHE']),
+                'CLIENT' => trim((string) $row['CLIENT']),
+                'ARTICLE' => trim((string) $row['ARTICLE']),
+                'DATE_DEBUT' => trim((string) $row['DATE_DEBUT']),
+                'DATE_FIN' => trim((string) $row['DATE_FIN']),
+                'PRIX' => (float) $row['PRIX'],
+                'DEVISE' => trim((string) $row['DEVISE']),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
      * Ajoute à chaque article PRIX_ACHAT et DEVISE_ACHAT (liste 1PFCOL, par modèle et collection). Requête séparée : si elle
      * échoue ou ne renvoie rien, les prix de vente restent disponibles et le prix d'achat est simplement absent (null).
      *

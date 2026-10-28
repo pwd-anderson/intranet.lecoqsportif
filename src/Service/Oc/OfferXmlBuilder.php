@@ -15,10 +15,39 @@ use App\Entity\Oc\OfferLine;
 final class OfferXmlBuilder
 {
     public const WEBSERVICE = 'WSCRESPL';
+    /** Clôture d'une fiche de tarif existante (date de fin) : voir closure() et OfferTariffClosures. */
+    public const WEBSERVICE_CLOSURE = 'WSUPD7TSPE';
     public const PRICE_TYPE = '7TSPEC';
 
     /** Limite du champ « index » (référence) dans X3 : l'OC est référencée par son numéro, tronqué au besoin. */
     private const MAX_INDEX = 30;
+
+    /**
+     * XML du webservice X3 WSUPD7TSPE : fixe la date de fin d'une fiche de tarif 7TSPEC existante (même structure que l'ancien
+     * module Screeneo, WebservicesToX3::getUpd7Tspe).
+     *
+     * @param string $fiche   n° de la fiche à clôturer (SPRICLIST.PLICRD_0)
+     * @param string $article article ENFANT (variant) de la fiche
+     * @param string $endDate nouvelle date de fin, AAAAMMJJ
+     */
+    public function closure(string $fiche, string $article, string $endDate): string
+    {
+        $root = new \SimpleXMLElement("<?xml version='1.0' encoding='UTF-8' ?><PARAM></PARAM>");
+        $group = $root->addChild('GRP');
+        $group->addAttribute('ID', 'INH');
+
+        $fields = [
+            'WSCODETARIF' => self::PRICE_TYPE,
+            'WSFICHETARIF' => $fiche,
+            'WSITMREF' => $article,
+            'WSDATE' => $endDate,
+        ];
+        foreach ($fields as $name => $value) {
+            $group->addChild('FLD', htmlspecialchars($value, ENT_XML1))->addAttribute('NAME', $name);
+        }
+
+        return $root->asXML();
+    }
 
     /**
      * @param string|null $articleCode article ENFANT (variant) du flux ; null = le code de la ligne (article parent)

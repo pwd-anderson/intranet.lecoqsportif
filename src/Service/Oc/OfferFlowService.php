@@ -10,7 +10,8 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Flux XML vers X3 d'une OC validée : un WSCRESPL (création du tarif spécial) par ARTICLE ENFANT (variant) de chaque
- * ligne d'OC (saisie par article parent).
+ * ligne d'OC (saisie par article parent), précédé d'un WSUPD7TSPE (clôture la veille) pour chaque tarif spécial déjà en place
+ * du client sur ces variants (le prix de l'OC la plus récente remplace l'ancien).
  *
  * Les XML sont générés au moment où la Direction valide l'OC et déposés directement dans sales_web_service ; l'envoi
  * effectif à X3 est fait par la commande app:sales:webservices:execute (lancée sur les serveurs, jamais en local).
@@ -26,11 +27,52 @@ class OfferFlowService
     }
 
     /**
-     * Génère les flux de l'OC et les dépose dans sales_web_service (une fois : sans effet si l'OC en a déjà).
-     * Atomique : si un parent n'a aucun variant ou si une ligne ne peut pas être construite, rien n'est enregistré ni
-     * déposé et l'exception remonte.
+     * Ce qui partira à X3 pour cette OC, en relisant X3 : un flux par variant à créer, et les tarifs spéciaux déjà en place du
+     * client à clôturer avant (ou en conflit, voir OfferTariffClosures). Une erreur X3 remonte.
      *
-     * @return list<OfferFlow> les flux de l'OC (statut « queued »)
+     * @return array{creations: list<array{variant:string,line:OfferLine,own:bool}>, closures: list<array{fiche:string,article:string,endDate:string,row:array<string,mixed>}>, conflicts: list<array<string,mixed>>}
+     *
+     * @throws \Throwable X3 injoignable ; \RuntimeException ligne sans variant
+     */
+    public function inspect(Offer $offer): array
+    {
+        // Règle parent / taille : voir OfferSizing (une ligne de taille l'emporte sur celle de son parent ; un parent envoie ses variants
+        // sans ceux qui ont leur propre ligne ; une taille seule ne tarife que cette taille ; jamais le parent lui-même).
+        $lines = $offer->getLines()->toArray();
+        $variants = $this->x3->getVariants(array_map(static fn (OfferLine $l) => $l->getParentCode(), $lines));
+        $creations = OfferSizing::assign($lines, $variants);
+
+        $existing = $this->x3->getExistingSpecialTariffs(
+            $offer->getCustomerCode(),
+            array_map(static fn (array $f): string => $f['variant'], $creations),
+            $offer->getStartDate(),
+        );
+
+        return ['creations' => $creations] + OfferTariffClosures::plan($existing, $offer->getStartDate());
+    }
+
+    /**
+     * Textes des conflits de tarifs existants (vide = rien ne s'oppose à l'envoi). Sert à bloquer la validation.
+     *
+     * @return list<string>
+     *
+     * @throws \Throwable X3 injoignable
+     */
+    public function conflictMessages(Offer $offer): array
+    {
+        return array_map(
+            static fn (array $row): string => OfferTariffClosures::conflictMessage($row, $offer->getStartDate()),
+            $this->inspect($offer)['conflicts'],
+        );
+    }
+
+    /**
+     * Génère les flux de l'OC et les dépose dans sales_web_service (une fois : sans effet si l'OC en a déjà), clôtures
+     * (WSUPD7TSPE) d'abord, créations (WSCRESPL) ensuite : la commande d'exécution les envoie dans l'ordre de dépôt.
+     * Atomique : si un parent n'a aucun variant, si un tarif existant est en conflit ou si une ligne ne peut pas être construite,
+     * rien n'est enregistré ni déposé et l'exception remonte.
+     *
+     * @return list<OfferFlow> les flux de l'OC (statut « queued »), clôtures puis créations
      */
     public function send(Offer $offer): array
     {
@@ -38,13 +80,16 @@ class OfferFlowService
             return $offer->getFlows()->toArray();
         }
 
-        // Règle parent / taille : voir OfferSizing (une ligne de taille l'emporte sur celle de son parent ; un parent envoie ses variants
-        // sans ceux qui ont leur propre ligne ; une taille seule ne tarife que cette taille ; jamais le parent lui-même).
-        $lines = $offer->getLines()->toArray();
-        $variants = $this->x3->getVariants(array_map(static fn (OfferLine $l) => $l->getParentCode(), $lines));
+        $plan = $this->inspect($offer);
+        if ($plan['conflicts'] !== []) {
+            throw new \RuntimeException('Flux X3 non généré : ' . OfferTariffClosures::conflictMessage($plan['conflicts'][0], $offer->getStartDate()));
+        }
 
         $flows = [];
-        foreach (OfferSizing::assign($lines, $variants) as $f) {
+        foreach ($plan['closures'] as $c) {
+            $flows[] = new OfferFlow($offer, $c['article'], OfferXmlBuilder::WEBSERVICE_CLOSURE, $this->builder->closure($c['fiche'], $c['article'], $c['endDate']));
+        }
+        foreach ($plan['creations'] as $f) {
             $flows[] = new OfferFlow($offer, $f['variant'], OfferXmlBuilder::WEBSERVICE, $this->builder->creation($offer, $f['line'], $f['variant']));
         }
 
