@@ -16,7 +16,6 @@ use App\Service\Oc\OcX3Lookup;
 use App\Service\Divers;
 use App\Service\Oc\OfferCalculator;
 use App\Service\Oc\OfferFlowService;
-use App\Service\Oc\OfferTariffClosures;
 use App\Service\Oc\OfferPdfGenerator;
 use App\Service\Oc\OfferSizing;
 use App\Service\Oc\OfferService;
@@ -136,7 +135,7 @@ final class OcController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_oc_show', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function show(#[MapEntity] Offer $offer, Request $request, OcX3Lookup $x3, OfferFlowService $flows): Response
+    public function show(#[MapEntity] Offer $offer, Request $request, OcX3Lookup $x3): Response
     {
         $this->denyAccessUnlessGranted(OfferVoter::VIEW, $offer);
 
@@ -156,23 +155,7 @@ final class OcController extends AbstractController
             }
         }
 
-        // Tarifs spéciaux déjà en place pour ce client : ceux qui seront clôturés la veille, et ceux qui bloquent la validation.
-        $tariffNotice = null;
-        if ($decisionMode) {
-            try {
-                $plan = $flows->inspect($offer);
-                $tariffNotice = [
-                    'closures' => $plan['closures'],
-                    'conflicts' => array_map(static fn (array $row): string => OfferTariffClosures::conflictMessage($row, $offer->getStartDate()), $plan['conflicts']),
-                    'unavailable' => false,
-                ];
-            } catch (\Throwable) {
-                $tariffNotice = ['closures' => [], 'conflicts' => [], 'unavailable' => true];
-            }
-        }
-
         return $this->render('oc/show.html.twig', [
-            'tariffNotice' => $tariffNotice,
             'groups' => OfferSizing::groups($lines, $sizes),
             'sizesUnavailable' => $sizesUnavailable,
             'offer' => $offer,
@@ -466,6 +449,40 @@ final class OcController extends AbstractController
         }
 
         return new JsonResponse(['variants' => array_values($variants)]);
+    }
+
+    /**
+     * Tarifs spéciaux déjà en place du client sur ces articles (avertissement avant la soumission d'une OC pas encore soumise) :
+     * POST /oc/api/existing-tariffs {customerCode, startDate (Y-m-d), articleCodes[]} -> {"ok":true,"tariffs":[...]}.
+     * X3 muet : 503 (jamais une liste vide, qui voudrait dire « aucun tarif »).
+     */
+    #[Route('/api/existing-tariffs', name: 'app_oc_api_existing_tariffs', methods: ['POST'])]
+    public function existingTariffs(Request $request, OfferFlowService $flows): JsonResponse
+    {
+        if ($error = $this->guardWrite($request)) {
+            return $error;
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $customer = is_array($data) ? (string) ($data['customerCode'] ?? '') : '';
+        $start = is_array($data) ? \DateTimeImmutable::createFromFormat('!Y-m-d', (string) ($data['startDate'] ?? '')) : false;
+        $codes = is_array($data) && is_array($data['articleCodes'] ?? null) ? array_values(array_filter($data['articleCodes'], 'is_string')) : [];
+        $codes = array_values(array_filter($codes, static fn (string $c): bool => preg_match('/^[A-Za-z0-9_]{1,50}$/', $c) === 1));
+
+        if (preg_match('/^[A-Za-z0-9]{1,15}$/', $customer) !== 1 || $start === false || $codes === [] || count($codes) > 200) {
+            return $this->fail(['Client, date de début et articles requis.'], 422);
+        }
+
+        try {
+            $rows = $flows->existingTariffsFor($customer, $start, $codes);
+        } catch (\Throwable) {
+            return new JsonResponse(['ok' => false, 'unavailable' => true, 'errors' => ['X3 indisponible']], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
+        return new JsonResponse(['ok' => true, 'tariffs' => array_map(static fn (array $r): array => [
+            'article' => $r['ARTICLE'], 'fiche' => $r['FICHE'], 'from' => $r['DATE_DEBUT'], 'to' => $r['DATE_FIN'],
+            'price' => (float) $r['PRIX'], 'currency' => $r['DEVISE'],
+        ], $rows)]);
     }
 
     /** Autocomplétion article (X3_LCS) : GET /oc/api/articles?q=... (parents ; variants si la saisie contient « _ ») */

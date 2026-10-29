@@ -52,6 +52,26 @@ class OfferFlowService
     }
 
     /**
+     * Tarifs spéciaux déjà en place du client sur les variants que ces articles enverraient à X3, pour une OC pas encore
+     * enregistrée (avertissement à la saisie, jamais bloquant). Les articles qui ne peuvent pas partir (taille inconnue, parent
+     * sans variant) sont ignorés ici : l'enregistrement les refuse. Une erreur X3 remonte.
+     *
+     * @param list<string> $articleCodes parents ou tailles, comme les lignes de l'OC
+     *
+     * @return list<array<string,mixed>> lignes X3 (FICHE, ARTICLE, DATE_DEBUT, DATE_FIN, PRIX, DEVISE), triées par article puis fiche
+     *
+     * @throws \Throwable X3 injoignable
+     */
+    public function existingTariffsFor(string $customerCode, \DateTimeInterface $startDate, array $articleCodes): array
+    {
+        $lines = array_map(static fn (string $code): OfferLine => (new OfferLine())->setArticleCode($code), array_values(array_unique($articleCodes)));
+        $variants = $this->x3->getVariants(array_values(array_unique(array_map(static fn (OfferLine $l) => $l->getParentCode(), $lines))));
+        $flows = OfferSizing::plan($lines, $variants)['flows'];
+
+        return $this->x3->getExistingSpecialTariffs($customerCode, array_map(static fn (array $f): string => $f['variant'], $flows), $startDate);
+    }
+
+    /**
      * Textes des conflits de tarifs existants (vide = rien ne s'oppose à l'envoi). Sert à bloquer la validation.
      *
      * @return list<string>

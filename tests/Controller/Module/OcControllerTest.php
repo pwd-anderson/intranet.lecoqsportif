@@ -568,6 +568,24 @@ final class OcControllerTest extends WebTestCase
         self::assertSame(['variants' => ['2210037_01', '2210037_02']], json_decode((string) $this->client->getResponse()->getContent(), true));
     }
 
+    public function testExistingTariffsApiNeedsCsrfAndValidDataAndNeverBlocks(): void
+    {
+        $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');
+        $url = '/fr/oc/api/existing-tariffs';
+        $body = ['customerCode' => '20548', 'startDate' => '2027-01-01', 'articleCodes' => ['2210037']];
+
+        $this->post($url, $body, null);
+        self::assertSame(419, $this->client->getResponse()->getStatusCode());
+
+        $csrf = $this->csrf();
+        $this->post($url, ['startDate' => 'pas une date'] + $body, $csrf);
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+
+        $res = $this->post($url, $body, $csrf);
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        self::assertSame(['ok' => true, 'tariffs' => []], $res);
+    }
+
     public function testEntryPageOffersThePerSizeButtonAndExplainsTheRule(): void
     {
         $this->client->loginUser($this->user('alice@example.test', ['ROLE_USER', 'ROLE_SALES']), 'main');

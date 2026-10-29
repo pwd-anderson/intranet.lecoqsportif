@@ -73,24 +73,6 @@
                         {% endif %}
                         <div id="ocMessage" class="alert alert-danger d-none"></div>
                         {% for w in warnings %}<div class="alert alert-warning py-2">{{ w }}</div>{% endfor %}
-                        {% if tariffNotice %}
-                            {% if tariffNotice.unavailable %}
-                                <div class="alert alert-warning py-2 small">Les tarifs spéciaux déjà en place pour ce client n'ont pas pu être lus dans X3 : la validation les contrôlera.</div>
-                            {% endif %}
-                            {% for c in tariffNotice.conflicts %}<div class="alert alert-danger py-2"><strong>Validation impossible.</strong> {{ c }}</div>{% endfor %}
-                            {% if tariffNotice.closures %}
-                                <div class="alert alert-info py-2">
-                                    <strong>{{ tariffNotice.closures|length }} tarif(s) spécial(aux) déjà en place seront clôturés</strong> la veille du début de cette OC ({{ offer.startDate|date_modify('-1 day')|date('d/m/Y') }}) : le prix de cette OC les remplace.
-                                    <details class="mt-1"><summary class="small">Voir le détail</summary>
-                                        <ul class="small mb-0">
-                                            {% for c in tariffNotice.closures %}
-                                                <li>{{ c.article }} — fiche {{ c.fiche }} : du {{ c.row.DATE_DEBUT|date('d/m/Y') }} au {{ c.row.DATE_FIN|date('d/m/Y') }}, prix {{ c.row.PRIX|number_format(2, ',', ' ') }} {{ c.row.DEVISE }}</li>
-                                            {% endfor %}
-                                        </ul>
-                                    </details>
-                                </div>
-                            {% endif %}
-                        {% endif %}
 
                         <dl class="row oc-dl">
                             <div class="col-md-3"><dt>Type</dt><dd>Tarif Spé</dd></div>

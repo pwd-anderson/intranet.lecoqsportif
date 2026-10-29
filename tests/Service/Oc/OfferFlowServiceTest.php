@@ -78,6 +78,21 @@ final class OfferFlowServiceTest extends TestCase
         return ['FICHE' => $fiche, 'CLIENT' => '20548', 'ARTICLE' => $article, 'DATE_DEBUT' => $start, 'DATE_FIN' => $end, 'PRIX' => 69.77, 'DEVISE' => 'EUR'];
     }
 
+    public function testExistingTariffsForAnUnsavedOfferAreLookedUpOnTheVariantsThatWouldBeSent(): void
+    {
+        $x3 = $this->createMock(OcX3Lookup::class);
+        $x3->method('getVariants')->willReturn(['2210037' => ['2210037_40', '2210037_41']]);
+        $row = self::existing('SPL26-0007', '2210037_40', '2026-10-28', '2027-10-28');
+        $x3->expects(self::once())->method('getExistingSpecialTariffs')
+            ->with('20548', ['2210037_40', '2210037_41'], self::callback(static fn ($d) => $d->format('Y-m-d') === '2027-02-01'))
+            ->willReturn([$row]);
+        $service = new OfferFlowService($this->em, new OfferXmlBuilder(), new WebServiceDispatcher($this->em), $x3);
+
+        $found = $service->existingTariffsFor('20548', new \DateTimeImmutable('2027-02-01'), ['2210037', '2210037']);
+
+        self::assertSame([$row], $found);
+    }
+
     public function testAnExistingSpecialTariffIsClosedTheDayBeforeAndBeforeTheCreation(): void
     {
         $offer = $this->offer(); // début 2027-02-01

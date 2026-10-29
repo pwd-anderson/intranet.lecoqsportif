@@ -170,6 +170,7 @@
             const INITIAL = {{ initial|json_encode|raw }};
             const SAVE_URL = '{{ path('app_oc_save') }}';
             const SUBMIT_URL_TPL = '{{ path('app_oc_submit', {id: 0}) }}';
+            const EXISTING_TARIFFS_URL = '{{ path('app_oc_api_existing_tariffs') }}';
             const CUSTOMER_URL = '{{ path('app_oc_api_customers') }}';
             const CUSTOMER_MIN_CHARS = 2;
             const DISCOUNT_URL = '{{ path('app_oc_api_customer_discount', {code: 'CODE_PLACEHOLDER'}) }}';
@@ -797,8 +798,36 @@
                 }).catch(function () { setBusy(false); showErrors(['Le serveur ne répond pas, réessayez.']); });
             }
 
+            const frDate = function (iso) { const p = String(iso).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso; };
+
+            // Avertissement (non bloquant) : tarifs spéciaux du client déjà en place sur ces articles, lus dans X3 au clic sur « Soumettre ».
+            function existingTariffsHtml(tariffs, start) {
+                const rows = tariffs.map(function (t) {
+                    return '<li><strong>' + esc(t.article) + '</strong> — fiche ' + esc(t.fiche) + ' : du ' + frDate(t.from) + ' au ' + frDate(t.to)
+                        + ', prix ' + Number(t.price).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 5 }) + ' ' + esc(t.currency) + '</li>';
+                }).join('');
+                return '<div class="p-3 mb-3 rounded" style="background:#f8d7da;color:#842029;border:1px solid #f1aeb5">'
+                    + '<strong>Attention : pour ce client, ' + tariffs.length + ' tarif(s) spécial(aux) existe(nt) déjà sur ces articles</strong> (OC du ' + frDate(start) + ').'
+                    + '<ul class="small mt-2 mb-0" style="max-height:240px;overflow:auto">' + rows + '</ul></div>'
+                    + 'Soumettre quand même ? Elle ne sera plus modifiable.';
+            }
+
             $('btnSubmit').addEventListener('click', function () {
-                confirmModal('Soumettre cette OC pour validation ? Elle ne sera plus modifiable.', submitOffer, 'Soumettre l\'OC');
+                clearErrors();
+                if (!canSubmit()) { showErrors(['Sélectionnez un client et ajoutez au moins un article.']); return; }
+                const p = buildPayload();
+                const plain = function () { confirmModal('Soumettre cette OC pour validation ? Elle ne sera plus modifiable.', submitOffer, 'Soumettre l\'OC'); };
+                setBusy(true);
+                post(EXISTING_TARIFFS_URL, { customerCode: p.customerCode, startDate: p.startDate, articleCodes: p.lines.map(function (l) { return l.articleCode; }) })
+                    .then(function (res) {
+                        setBusy(false);
+                        if (res.ok && res.tariffs && res.tariffs.length) {
+                            confirmModal(existingTariffsHtml(res.tariffs, p.startDate), submitOffer, 'Tarifs spéciaux déjà en place');
+                        } else {
+                            plain();   // aucun tarif, ou X3 muet : la validation contrôlera de nouveau
+                        }
+                    })
+                    .catch(function () { setBusy(false); plain(); });
             });
 
             // ── Import d'un fichier de lignes : analyse par le serveur, aperçu avec les erreurs, ajout des lignes valides ──
