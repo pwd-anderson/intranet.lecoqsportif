@@ -23,8 +23,6 @@ final class SageX3Client
         string $poolAlias,
         string $codeLang = 'FRA',
         int $requestConfig = 0,
-        /** @var array<string,string> pool par environnement X3 (TEST, DEV) ; PROD = $poolAlias */
-        private readonly array $poolAliases = [],
     ) {
         $this->param = [
             'codeLang'      => $codeLang,
@@ -51,23 +49,10 @@ final class SageX3Client
         return $this->soapClient;
     }
 
-    /**
-     * @param string $x3Env PROD (défaut, pool historique), TEST ou DEV. Un environnement sans pool configuré est
-     *                      refusé : jamais de repli sur PROD (un flux de test ne doit pas partir en production).
-     */
-    public function run(string $webserviceName, string $xmlPayload, string $x3Env = 'PROD'): mixed
+    public function run(string $webserviceName, string $xmlPayload): mixed
     {
-        $param = $this->param;
-        if ($x3Env !== 'PROD') {
-            $alias = $this->poolAliases[$x3Env] ?? '';
-            if ($alias === '') {
-                throw new \RuntimeException(sprintf('Aucun pool X3 configuré pour l\'environnement %s (variable SAGE_X3_POOL_ALIAS_%s).', $x3Env, $x3Env));
-            }
-            $param['poolAlias'] = $alias;
-        }
-
         try {
-            return $this->soapClient()->run($param, $webserviceName, $xmlPayload);
+            return $this->soapClient()->run($this->param, $webserviceName, $xmlPayload);
         } catch (SoapFault $e) {
             throw new \RuntimeException('Erreur lors de l\'appel du webservice Sage X3 : ' . $e->getMessage());
         }

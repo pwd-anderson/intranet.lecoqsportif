@@ -4,9 +4,6 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-    env(SAGE_X3_POOL_ALIAS_TEST): ''
-    env(SAGE_X3_POOL_ALIAS_DEV): ''
-
     env(DEV_TUNNEL_PUBLIC_HOST): ''
     dev_tunnel_public_host: '%env(DEV_TUNNEL_PUBLIC_HOST)%'
 
@@ -120,7 +117,3 @@ services:
             $login:     '%env(resolve:SAGE_X3_LOGIN)%'
             $password:  '%env(resolve:SAGE_X3_PASSWORD)%'
             $poolAlias: '%env(resolve:SAGE_X3_POOL_ALIAS)%'
-            # Pool des environnements X3 de test (module OC, choix possible en APP_ENV=dev seulement). Vide = refusé.
-            $poolAliases:
-                TEST: '%env(SAGE_X3_POOL_ALIAS_TEST)%'
-                DEV: '%env(SAGE_X3_POOL_ALIAS_DEV)%'
