@@ -72,7 +72,8 @@ class OfferFlowService
     }
 
     /**
-     * Textes des conflits de tarifs existants (vide = rien ne s'oppose à l'envoi). Sert à bloquer la validation.
+     * Textes d'avertissement des tarifs existants qui commencent le jour du début de l'OC ou après (informatif, ne bloque plus rien).
+     * Sert aussi à vérifier que X3 répond avant de valider.
      *
      * @return list<string>
      *
@@ -89,7 +90,7 @@ class OfferFlowService
     /**
      * Génère les flux de l'OC et les dépose dans sales_web_service (une fois : sans effet si l'OC en a déjà), clôtures
      * (WSUPD7TSPE) d'abord, créations (WSCRESPL) ensuite : la commande d'exécution les envoie dans l'ordre de dépôt.
-     * Atomique : si un parent n'a aucun variant, si un tarif existant est en conflit ou si une ligne ne peut pas être construite,
+     * Atomique : si un parent n'a aucun variant ou si une ligne ne peut pas être construite,
      * rien n'est enregistré ni déposé et l'exception remonte.
      *
      * @return list<OfferFlow> les flux de l'OC (statut « queued »), clôtures puis créations
@@ -101,9 +102,6 @@ class OfferFlowService
         }
 
         $plan = $this->inspect($offer);
-        if ($plan['conflicts'] !== []) {
-            throw new \RuntimeException('Flux X3 non généré : ' . OfferTariffClosures::conflictMessage($plan['conflicts'][0], $offer->getStartDate()));
-        }
 
         $flows = [];
         foreach ($plan['closures'] as $c) {

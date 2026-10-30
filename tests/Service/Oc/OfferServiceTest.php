@@ -437,22 +437,17 @@ final class OfferServiceTest extends TestCase
         self::assertSame($historyBefore, $offer->getHistory()->count(), 'rien n\'est tracé');
     }
 
-    public function testValidateIsRefusedWhenAnExistingSpecialTariffCannotBeClosed(): void
+    public function testValidateIsNoLongerBlockedByAnExistingSpecialTariffThatCannotBeClosedTheDayBefore(): void
     {
         $this->x3Ok();
         $this->flows->method('conflictMessages')->willReturn(['Article 2210037_40 : la fiche SPL26-0001 commence le jour du début de cette OC.']);
-        $this->flows->expects(self::never())->method('send');
+        $this->flows->expects(self::once())->method('send')->willReturn([]);
         $service = $this->service();
         $offer = $this->submittedOffer($service);
 
-        try {
-            $service->validate($offer, $this->user());
-            self::fail('La validation aurait dû être refusée.');
-        } catch (OfferValidationException $e) {
-            self::assertStringContainsString('SPL26-0001', $e->getErrors()[0]);
-        }
+        $service->validate($offer, $this->user());
 
-        self::assertSame(OcStatus::SUBMITTED, $offer->getStatus());
+        self::assertSame(OcStatus::VALIDATED, $offer->getStatus());
     }
 
     public function testValidateIsRefusedWhenTheExistingTariffsCannotBeRead(): void

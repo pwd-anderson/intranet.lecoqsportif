@@ -804,7 +804,8 @@
             function existingTariffsHtml(tariffs, start) {
                 const rows = tariffs.map(function (t) {
                     return '<li><strong>' + esc(t.article) + '</strong> — fiche ' + esc(t.fiche) + ' : du ' + frDate(t.from) + ' au ' + frDate(t.to)
-                        + ', prix ' + Number(t.price).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 5 }) + ' ' + esc(t.currency) + '</li>';
+                        + ', prix ' + Number(t.price).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 5 }) + ' ' + esc(t.currency)
+                        + (t.conflict ? '<br><em>Commence le jour du début de cette OC ou après : sa clôture la veille est antérieure à son début, X3 peut la refuser.</em>' : '') + '</li>';
                 }).join('');
                 return '<div class="p-3 mb-3 rounded" style="background:#f8d7da;color:#842029;border:1px solid #f1aeb5">'
                     + '<strong>Attention : pour ce client, ' + tariffs.length + ' tarif(s) spécial(aux) existe(nt) déjà sur ces articles</strong> (OC du ' + frDate(start) + ').'

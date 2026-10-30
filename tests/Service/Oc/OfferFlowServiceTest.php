@@ -111,23 +111,19 @@ final class OfferFlowServiceTest extends TestCase
         self::assertSame(42, $queued[0]->getOcOfferId());
     }
 
-    public function testAnExistingTariffStartingOnOrAfterTheOfferStartBlocksEverything(): void
+    public function testAnExistingTariffStartingOnOrAfterTheOfferStartIsStillClosedTheDayBefore(): void
     {
         $offer = $this->offer(); // début 2027-02-01
 
-        foreach (['2027-02-01', '2027-03-15'] as $start) {
-            try {
-                $this->service(existing: [self::existing('SPL26-0009', '2210037_41', $start, '2027-12-31')])->send($offer);
-                self::fail('Un ancien tarif qui ne peut pas être clôturé doit empêcher la génération.');
-            } catch (\RuntimeException $e) {
-                self::assertStringContainsString('SPL26-0009', $e->getMessage());
-            }
-            self::assertCount(0, $offer->getFlows());
-        }
-        self::assertCount(0, array_filter($this->persisted, static fn ($o) => $o instanceof SalesWebService));
+        $flows = $this->service(existing: [self::existing('SPL26-0009', '2210037_41', '2027-02-01', '2027-12-31')])->send($offer);
+
+        self::assertSame('WSUPD7TSPE', $flows[0]->getWebservice());
+        self::assertStringContainsString('NAME="WSFICHETARIF">SPL26-0009<', $flows[0]->getXml());
+        self::assertStringContainsString('NAME="WSDATE">20270131<', $flows[0]->getXml(), 'veille du début de l\'OC, même si elle précède le début de la fiche');
+        self::assertCount(4, $flows, 'la clôture puis les trois créations');
     }
 
-    public function testConflictMessagesListsTheBlockingTariffs(): void
+    public function testConflictMessagesListsTheTariffsStartingOnOrAfterTheOfferStart(): void
     {
         $service = $this->service(existing: [
             self::existing('SPL26-0007', '2210037_40', '2026-10-28', '2027-10-28'),

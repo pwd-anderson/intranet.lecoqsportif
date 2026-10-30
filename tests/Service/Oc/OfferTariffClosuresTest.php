@@ -31,15 +31,16 @@ final class OfferTariffClosuresTest extends TestCase
         self::assertSame([], $plan['conflicts']);
     }
 
-    public function testATariffStartingTheSameDayOrLaterIsAConflict(): void
+    public function testATariffStartingTheSameDayOrLaterIsFlaggedButStillClosed(): void
     {
         $plan = OfferTariffClosures::plan(
-            [self::row('SPL26-0001', '2027-03-01'), self::row('SPL26-0002', '2027-06-01')],
+            [self::row('SPL26-0001', '2027-03-01'), self::row('SPL26-0002', '2027-06-01'), self::row('SPL26-0003', '2026-10-01')],
             new \DateTimeImmutable('2027-03-01'),
         );
 
-        self::assertSame([], $plan['closures']);
-        self::assertSame(['SPL26-0001', 'SPL26-0002'], array_column($plan['conflicts'], 'FICHE'));
+        self::assertSame(['SPL26-0001', 'SPL26-0002'], array_column($plan['conflicts'], 'FICHE'), 'signalés');
+        self::assertSame(['SPL26-0001', 'SPL26-0002', 'SPL26-0003'], array_column($plan['closures'], 'fiche'), 'tous clôturés la veille');
+        self::assertSame('20270228', $plan['closures'][0]['endDate']);
     }
 
     public function testClosureXmlCarriesTheFourWebserviceFields(): void

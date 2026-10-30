@@ -251,16 +251,13 @@ class OfferService
             throw new OfferValidationException([$drift]);
         }
 
-        // Le prix de l'OC remplace les tarifs spéciaux déjà en place (clôturés la veille) : un ancien tarif qui ne peut pas être clôturé
-        // (il commence le jour du début de l'OC ou après) bloque la validation. X3 muet = on ne valide pas à l'aveugle.
+        // Le prix de l'OC remplace les tarifs spéciaux déjà en place (clôturés la veille). Un ancien tarif qui commence le jour du début
+        // de l'OC ou après n'empêche plus la validation (avertissement à la soumission) ; X3 muet = on ne valide pas à l'aveugle.
         try {
-            $conflicts = $this->flows->conflictMessages($offer);
+            $this->flows->conflictMessages($offer);
         } catch (\Throwable $e) {
             $this->logger->error('OfferService : contrôle des tarifs spéciaux existants impossible', ['exception' => $e]);
             throw new OfferValidationException(['Les tarifs spéciaux déjà en place pour ce client n\'ont pas pu être contrôlés (X3 ne répond pas) : réessayez.']);
-        }
-        if ($conflicts !== []) {
-            throw new OfferValidationException($conflicts);
         }
 
         $this->transition($offer, OcAction::VALIDATED, $user, null, static function (Offer $o): void {

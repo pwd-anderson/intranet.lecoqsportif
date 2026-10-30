@@ -481,7 +481,7 @@ final class OcController extends AbstractController
 
         return new JsonResponse(['ok' => true, 'tariffs' => array_map(static fn (array $r): array => [
             'article' => $r['ARTICLE'], 'fiche' => $r['FICHE'], 'from' => $r['DATE_DEBUT'], 'to' => $r['DATE_FIN'],
-            'price' => (float) $r['PRIX'], 'currency' => $r['DEVISE'],
+            'price' => (float) $r['PRIX'], 'currency' => $r['DEVISE'], 'conflict' => $r['DATE_DEBUT'] >= $start->format('Y-m-d'),
         ], $rows)]);
     }
 
