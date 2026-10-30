@@ -802,10 +802,12 @@
 
             // Avertissement (non bloquant) : tarifs spéciaux du client déjà en place sur ces articles, lus dans X3 au clic sur « Soumettre ».
             function existingTariffsHtml(tariffs, start) {
+                const d = new Date(start + 'T00:00:00'); d.setDate(d.getDate() - 1);
+                const dayBefore = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
                 const rows = tariffs.map(function (t) {
                     return '<li><strong>' + esc(t.article) + '</strong> — fiche ' + esc(t.fiche) + ' : du ' + frDate(t.from) + ' au ' + frDate(t.to)
                         + ', prix ' + Number(t.price).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 5 }) + ' ' + esc(t.currency)
-                        + (t.conflict ? '<br><em>Commence le jour du début de cette OC ou après : sa clôture la veille est antérieure à son début, X3 peut la refuser.</em>' : '') + '</li>';
+                        + (t.conflict ? '<br><em>Cette fiche commence le ' + frDate(t.from) + ' : l\'arrêter au ' + dayBefore + ' (la veille du début de cette OC) est impossible, car elle finirait avant de commencer. X3 peut refuser ; dans ce cas l\'ancien prix resterait actif en même temps que le nouveau. Pour l\'éviter, démarrez l\'OC au moins un jour après le ' + frDate(t.from) + '.</em>' : '') + '</li>';
                 }).join('');
                 return '<div class="p-3 mb-3 rounded" style="background:#f8d7da;color:#842029;border:1px solid #f1aeb5">'
                     + '<strong>Attention : pour ce client, ' + tariffs.length + ' tarif(s) spécial(aux) existe(nt) déjà sur ces articles</strong> (OC du ' + frDate(start) + ').'
