@@ -109,7 +109,6 @@
                             <label class="form-label fw-bold" for="ocCustomerInput">Client</label>
                             <div class="input-group oc-search mb-2">
                                 <input type="text" class="form-control" id="ocCustomerInput" list="ocCustomerList" placeholder="Code ou nom du client…" autocomplete="off">
-                                <button type="button" class="btn btn-primary" id="btnAddCustomer">Sélectionner</button>
                             </div>
                             <datalist id="ocCustomerList"></datalist>
                             <div id="ocCustomerChips"></div>
@@ -434,7 +433,6 @@
 
                 // Un seul client par OC (la sélection multiple reviendra plus tard) : recherche bloquée une fois choisi.
                 $('ocCustomerInput').disabled = state.customers.length >= 1;
-                $('btnAddCustomer').disabled = state.customers.length >= 1;
                 $('ocCustomerInput').placeholder = state.customers.length ? 'Retirez le client pour en choisir un autre' : 'Code ou nom du client…';
 
                 // Import : disponible uniquement quand au moins un client est sélectionné.
@@ -530,7 +528,10 @@
             $('ocCustomerInput').addEventListener('input', function () {
                 clearTimeout(customerTimer);
                 const v = this.value;
-                // Choix dans la liste : la saisie est un libellé déjà proposé, inutile (et nocif) de relancer une recherche.
+                // Choix dans la liste : la saisie est un libellé déjà proposé, le client est ajouté tout de suite (pas de bouton) et il est
+                // inutile (et nocif) de relancer une recherche. Un code tapé seul n'ajoute rien : il peut n'être que le début d'un autre.
+                const picked = customerResults.find(function (c) { return customerLabel(c).toLowerCase() === v.trim().toLowerCase(); });
+                if (picked) { addCustomer(picked); return; }
                 if (exactCustomer(v, customerResults)) { return; }
                 customerTimer = setTimeout(function () {
                     searchCustomers(v).catch(function () { toast('Recherche client indisponible, réessayez.'); });
@@ -615,7 +616,8 @@
                 render();
             }
 
-            $('btnAddCustomer').addEventListener('click', function () {
+            // Entrée dans le champ client : code exact, libellé exact ou résultat unique (le choix dans la liste ajoute déjà le client).
+            function submitCustomer() {
                 const text = $('ocCustomerInput').value;
                 const cached = exactCustomer(text, customerResults);
                 if (cached) { addCustomer(cached); return; }
@@ -625,7 +627,7 @@
                     if (!c) { toast('Plusieurs clients correspondent : choisissez-en un dans la liste.'); return; }
                     addCustomer(c);
                 }).catch(function () { toast('Recherche client indisponible, réessayez.'); });
-            });
+            }
             $('btnAddArticle').addEventListener('click', function () {
                 const text = $('ocArticleInput').value;
                 const cached = exactArticle(text, articleResults);
@@ -639,7 +641,7 @@
             });
             ['ocCustomerInput', 'ocArticleInput'].forEach(function (id) {
                 $(id).addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter') { e.preventDefault(); $(id === 'ocCustomerInput' ? 'btnAddCustomer' : 'btnAddArticle').click(); }
+                    if (e.key === 'Enter') { e.preventDefault(); if (id === 'ocCustomerInput') { submitCustomer(); } else { $('btnAddArticle').click(); } }
                 });
             });
 
@@ -802,15 +804,12 @@
 
             // Avertissement (non bloquant) : tarifs spéciaux du client déjà en place sur ces articles, lus dans X3 au clic sur « Soumettre ».
             function existingTariffsHtml(tariffs, start) {
-                const d = new Date(start + 'T00:00:00'); d.setDate(d.getDate() - 1);
-                const dayBefore = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
                 const rows = tariffs.map(function (t) {
                     return '<li><strong>' + esc(t.article) + '</strong> — fiche ' + esc(t.fiche) + ' : du ' + frDate(t.from) + ' au ' + frDate(t.to)
-                        + ', prix ' + Number(t.price).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 5 }) + ' ' + esc(t.currency)
-                        + (t.conflict ? '<br><em>Cette fiche commence le ' + frDate(t.from) + ' : l\'arrêter au ' + dayBefore + ' (la veille du début de cette OC) est impossible, car elle finirait avant de commencer. X3 peut refuser ; dans ce cas l\'ancien prix resterait actif en même temps que le nouveau. Pour l\'éviter, démarrez l\'OC au moins un jour après le ' + frDate(t.from) + '.</em>' : '') + '</li>';
+                        + ', prix ' + Number(t.price).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 5 }) + ' ' + esc(t.currency) + '</li>';
                 }).join('');
                 return '<div class="p-3 mb-3 rounded" style="background:#f8d7da;color:#842029;border:1px solid #f1aeb5">'
-                    + '<strong>Attention : pour ce client, ' + tariffs.length + ' tarif(s) spécial(aux) existe(nt) déjà sur ces articles</strong> (OC du ' + frDate(start) + ').'
+                    + '<strong>Une OC existe déjà pour ce client sur ces articles</strong> (' + tariffs.length + ' tarif(s) spécial(aux) en place). Le prix de cette OC (début le ' + frDate(start) + ') remplacera l\'ancien.'
                     + '<ul class="small mt-2 mb-0" style="max-height:240px;overflow:auto">' + rows + '</ul></div>'
                     + 'Soumettre quand même ? Elle ne sera plus modifiable.';
             }
